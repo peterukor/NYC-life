@@ -11,6 +11,16 @@ Branch: `feat/prototype-foundation`. Build with `npm run build`, preview with `n
 - **Registry pattern:** `src/core/registry.ts`. Use it for every new content type.
 - **City look upgrade (written, NOT wired yet):** `src/render/surfaces.ts` has detailed facades, shopfronts, sidewalk, asphalt, roof, grass and plaza textures, plus `surfaceMaterial()` (PBR on medium/high quality). The old facade code was removed from textures.ts, which now re-exports from surfaces.
 
+## ART DIRECTION CHANGE (user, 2026-10-10) — overrides the steps below where they conflict
+The user wants a bright, cartoonish look, like The Sims and Township, and not a look-alike of Lagos Life. The current mannequin bodies with painted-on clothes and dot eyes look wrong to them. The direction:
+- **Characters:** Quaternius "Ultimate Modular Men" and "Ultimate Modular Women" (CC0, cartoon style, with real separate clothing and hair meshes). The user downloads them from quaternius.com and attaches them. Retarget the UAL animations (same Unreal-style skeleton names), or use the clips the packs ship with.
+- **City:** Kenney City Kit Commercial, Suburban and Roads (CC0), from kenney.nl, also downloaded by the user. Use instancing, pastel saturated colours and chunky rounded shapes. The procedural surfaces in `surfaces.ts` are only a fallback.
+- **Rendering:**
+  - Toon shading (MeshToonMaterial with a 3-step gradient map) and soft outlines (inverted-hull, on medium/high quality only).
+  - A warm, bright palette and a soft sky gradient.
+  - A higher 3/4 camera, like Township/Sims.
+- **UI:** a rounded, bouncy, colourful Sims/Township feel, distinct from Lagos Life: a mood indicator above the head, big round buttons, playful sounds.
+
 ## Next steps, in order
 1. **Wire `surfaces.ts` into `world/city.ts`:**
    - Call `setSurfaceDetail(tier)` before `buildCity`.
