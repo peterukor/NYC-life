@@ -118,6 +118,18 @@ export class Game {
         const ground = this.engine.pick(x, y, [...c.walkSurfaces, ...c.solids]);
         return { door: door?.object.userData.placeId ?? null, ground: ground ? ground.object.name || ground.object.type : null };
       },
+      /** Move the street camera to `d` metres from the player (for close-up screenshots). */
+      zoom: (d: number, front = false) => {
+        const { camera, controls } = this.engine;
+        const offset = camera.position.clone().sub(controls.target).setLength(d);
+        if (front) {
+          // Swing round to face the player (the avatar looks down its +Z axis).
+          const yaw = this.player.root.rotation.y;
+          offset.set(Math.sin(yaw) * d * 0.85, d * 0.45, Math.cos(yaw) * d * 0.85);
+        }
+        camera.position.copy(controls.target).add(offset);
+        controls.update();
+      },
       fps: () => Math.round(this.engine.fps),
       drawCalls: () => this.engine.renderer.info.render.calls,
       triangles: () => this.engine.renderer.info.render.triangles,
@@ -322,6 +334,7 @@ export class Game {
       this.state.location.z = p.z;
     }
     this.player.animate(speed, dt);
+    this.player.setDetail(this.engine.camera.position.distanceTo(this.engine.controls.target));
     // Camera follows the player, keeping whatever angle and zoom you chose.
     const target = this.engine.controls.target;
     const before = target.clone();

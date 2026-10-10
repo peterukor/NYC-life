@@ -123,6 +123,10 @@ await wait(2500);
 const after = (await state()).location;
 check('tapping the street walks the player', Math.hypot(after.x - before.x, after.z - before.z) > 1, `moved ${Math.hypot(after.x - before.x, after.z - before.z).toFixed(1)} m`);
 await shot('07-street');
+// Close-up of the player character, to eyeball the avatar's look.
+await nyc(() => window.__nyc.zoom(9));
+await wait(1200);
+await shot('07b-avatar-closeup');
 
 // ---- Zoom out with the mouse wheel to see the neighbourhood.
 await page.mouse.move(width / 2, height / 2);
@@ -131,6 +135,10 @@ await wait(1500);
 await shot('08-zoomed-out');
 const perf = await nyc(() => ({ fps: window.__nyc.fps(), calls: window.__nyc.drawCalls(), tris: window.__nyc.triangles() }));
 check('draw calls stay low when zoomed out', perf.calls < 250, `${perf.calls} calls, ${perf.tris} triangles, ~${perf.fps} fps (software GPU)`);
+// Front view of the character (done after the perf check, because it swings the camera round).
+await nyc(() => window.__nyc.zoom(6, true));
+await wait(1200);
+await shot('07c-avatar-front');
 
 // ---- A scam event teaches the red flags.
 await nyc(() => window.__nyc.event('monkBracelet', 'plaza'));
