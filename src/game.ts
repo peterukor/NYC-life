@@ -41,6 +41,7 @@ import { qualitySettings } from './render/quality.ts';
 import { skyAt } from './render/sky.ts';
 import { AdManager } from './world/ads.ts';
 import { makeAvatar, type Avatar } from './world/avatar.ts';
+import type { AnimName } from './world/people.ts';
 import { buildCity, setNightGlow, type BuiltCity } from './world/city.ts';
 import { Crowd } from './world/crowd.ts';
 import { buildInterior, type Interior } from './world/interior.ts';
@@ -121,6 +122,7 @@ export class Game {
       /** Move the street camera to `d` metres from the player (for close-up screenshots). */
       zoom: (d: number, front = false) => {
         const { camera, controls } = this.engine;
+        controls.minDistance = Math.min(CAMERA.minDistance, d);
         const offset = camera.position.clone().sub(controls.target).setLength(d);
         if (front) {
           // Swing round to face the player (the avatar looks down its +Z axis).
@@ -130,6 +132,10 @@ export class Game {
         camera.position.copy(controls.target).add(offset);
         controls.update();
       },
+      /** Try on clothes without saving (for screenshots). */
+      /** Force an activity animation on the player (null = back to normal). */
+      anim: (name: AnimName | null) => this.player.setAction(name),
+      tryLook: (patch: Partial<Look>) => this.player.setLook({ ...this.state.profile.look, ...patch }),
       fps: () => Math.round(this.engine.fps),
       drawCalls: () => this.engine.renderer.info.render.calls,
       triangles: () => this.engine.renderer.info.render.triangles,

@@ -127,8 +127,12 @@ export const CROWD_RADIUS = 170;
 /** Camera zoom limits (metres from the player). Zoom out far to see the whole area. */
 export const CAMERA = { minDistance: 9, maxDistance: 520, startDistance: 38 } as const;
 
-/** Walking speed of the player, metres per second (a brisk New York walk). */
-export const WALK_SPEED = 9;
+/**
+ * Player travel speed on foot, metres per second. Faster than a real walk
+ * so short trips don't drag; the character plays a light jog at this
+ * speed (see world/people.ts → Person.move). Long trips: take the subway.
+ */
+export const WALK_SPEED = 5;
 
 /** Billboards: how long each ad shows before the next one rotates in (seconds). */
 export const AD_ROTATE_SECONDS = 15;

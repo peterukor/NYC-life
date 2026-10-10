@@ -16,18 +16,85 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { Look } from '../sim/types.ts';
+import { loadPeople, Person, type AnimName, type PeopleAssets } from './people.ts';
 
 /** Soft, slightly glossy material: nicer than flat shading, still cheap for one character. */
 const soft = (color: string, roughness = 0.75) => new THREE.MeshStandardMaterial({ color, roughness, metalness: 0 });
 
 export interface Avatar {
   root: THREE.Group;
-  /** Call every frame with walking speed (0 = standing) and time step. */
+  /** Call every frame with walking speed in m/s (0 = standing) and time step. */
   animate: (speed: number, dt: number) => void;
   setLook: (look: Look) => void;
   /** Show or hide face details (pass the camera's distance in metres). */
   setDetail: (cameraDistance: number) => void;
+  /**
+   * Play an activity animation (sitting, eating, phone…) while standing
+   * still, or null to go back to normal. Walking always overrides it.
+   */
+  setAction: (name: AnimName | null) => void;
   dispose: () => void;
+}
+
+/**
+ * The player's character.
+ *
+ * It shows the simple built-in figure straight away (so the game never
+ * waits), loads the real 3D body in the background, and swaps it in as
+ * soon as it's ready. If the download fails (offline, blocked), the
+ * simple figure just stays — the game still works.
+ */
+export function makeAvatar(look: Look): Avatar {
+  const root = new THREE.Group();
+  const simple = makeSimpleAvatar(look);
+  root.add(simple.root);
+  let person: Person | null = null;
+  let current = look;
+  let action: AnimName | null = null;
+  let assets: PeopleAssets | null = null;
+
+  const build = () => {
+    if (!assets) return;
+    person?.dispose();
+    person = new Person(assets, current);
+    root.add(person.root);
+    simple.root.visible = false;
+  };
+  loadPeople()
+    .then((a) => {
+      assets = a;
+      build();
+    })
+    .catch((err) => console.info('[people] using the simple figure:', err?.message ?? err));
+
+  return {
+    root,
+    animate(speed, dt) {
+      if (!person) return simple.animate(speed, dt);
+      if (speed > 0.15 || !action) person.move(speed);
+      else person.play(action, 0.3);
+      person.update(dt);
+    },
+    setLook(l) {
+      const bodyChanged = l.body !== current.body;
+      current = l;
+      simple.setLook(l);
+      if (!person) return;
+      if (bodyChanged) build();
+      else person.setLook(l);
+    },
+    setDetail(d) {
+      simple.setDetail(d);
+      person?.setDetail(d < 45);
+    },
+    setAction(name) {
+      action = name;
+    },
+    dispose() {
+      simple.dispose();
+      person?.dispose();
+    },
+  };
 }
 
 /** A capsule hanging down from its top end (handy for limbs that rotate at the joint). */
@@ -37,8 +104,8 @@ function hangingCapsule(radius: number, length: number, mat: THREE.Material, rad
   return new THREE.Mesh(g, mat);
 }
 
-/** Build the player's character (about 1.75 m tall). */
-export function makeAvatar(look: Look): Avatar {
+/** The simple built-in figure (about 1.75 m tall), used until the 3D body loads. */
+function makeSimpleAvatar(look: Look): Omit<Avatar, 'setAction'> {
   const root = new THREE.Group();
   const mats = {
     skin: soft(look.skin, 0.6),

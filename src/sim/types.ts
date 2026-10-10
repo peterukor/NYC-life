@@ -19,12 +19,32 @@ export type Origin = 'trustFund' | 'hustler';
 /** City areas that are built right now. More boroughs slot in later. */
 export type AreaId = 'manhattan' | 'brooklyn';
 
+/**
+ * How a character looks. The colours are always set; the clothing ids
+ * are optional so older saves still load (missing = the starter outfit,
+ * see data/wardrobe.ts → outfitDefaults).
+ */
 export interface Look {
   body: 'm' | 'f';
   skin: string;
+  /** Colour of the top (shirt, jacket, dress). */
   top: string;
+  /** Colour of the trousers/shorts/skirt. */
   bottom: string;
+  /** Hair colour. */
   hair: string;
+  /** Clothing ids from data/wardrobe.ts. */
+  hairStyle?: string;
+  topId?: string;
+  /** Second top colour: the shirt you see under an open jacket. */
+  topInner?: string;
+  bottomId?: string;
+  shoesId?: string;
+  shoes?: string;
+  hatId?: string;
+  hat?: string;
+  extraId?: string;
+  extra?: string;
 }
 
 /** A temporary mood effect, like "Showtime!" (+15) or "Phone snatched" (-30). */
