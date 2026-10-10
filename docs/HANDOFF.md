@@ -69,6 +69,23 @@ The user wants a bright, cartoonish look, like The Sims and Township, and not a 
   - **Suggested method:** rank players by net worth and map each rank to a target band on a log scale, so order is preserved.
   - This also needs the server; build the seams now.
 
+## More user requests (2026-10-10, 18:20)
+- **Game day = 3 h 23 min real time** (already listed above, confirmed again). Put it in one constant.
+- **Clothing tiers:** every item gets `tier: 'plain' | 'premium' | 'exclusive'`. Starting wardrobe depends on spawn class:
+  - poor: 5 plain
+  - middle: 6 plain + 2 premium
+  - upper: 10 plain + 5 premium + 1 exclusive
+  - wealthy: 15 premium + 5 exclusive
+- **Spawn classes:** poor, middle, upper, wealthy (plus the rare billionaire tier, capped at 15 citywide). These replace or extend the current Origin (trustFund/hustler).
+- **Architecture: plug-in "systems."** Each feature is its own module that registers with a central list and talks only through the event bus and shared state. Examples:
+  - weather (future snow and heat waves that change needs, NPC routines, prices and events)
+  - auto mode
+  - economy
+  - mini-games
+  - businesses
+  
+  Adding or removing a system must not break the others. Build a `SystemRegistry` with `init`, `update(dt)`, `onDayRollover` and `modifiers` hooks (for example, weather exposes need-decay multipliers that needs.ts reads).
+
 ## Conventions
 - Conventional Commits with detailed bodies and attribution trailers.
 - Branches named `feat/...`.
