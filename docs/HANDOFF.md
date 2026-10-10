@@ -23,6 +23,8 @@ The user wants a bright, cartoonish look, like The Sims and Township, and not a 
 
 **Asset packs location (user's computer, unzipped):** `/Users/peterukor/Documents/NYC-life Assets`. Request folder access, then copy only the glTF/GLB files (the packs are 3.1 GB and 500 MB in total).
 
+**Gameplay spec:** see `docs/DESIGN-SPEC.md` (careers, crime, CEO and celebrity ladders, cars, money, jobs, events, security).
+
 ## Next steps, in order
 1. **Wire `surfaces.ts` into `world/city.ts`:**
    - Call `setSurfaceDetail(tier)` before `buildCity`.
