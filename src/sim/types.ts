@@ -1,0 +1,114 @@
+// =====================================================================
+// types.ts — the shapes of all the game's data.
+//
+// `GameState` is the single source of truth for one player's life.
+// Everything the player owns or has done lives inside it, and it's what
+// gets saved. When multiplayer arrives, the SERVER will own the parts
+// that matter (money, bank, job), and the browser will only hold a copy.
+// =====================================================================
+
+export type NeedKey = 'hunger' | 'energy' | 'fun' | 'social' | 'hygiene' | 'bladder';
+export const NEED_KEYS: readonly NeedKey[] = ['hunger', 'energy', 'fun', 'social', 'hygiene', 'bladder'];
+
+export type SkillKey = 'charisma' | 'hustle' | 'fitness' | 'cooking' | 'coding' | 'music' | 'streetSmarts';
+export const SKILL_KEYS: readonly SkillKey[] = ['charisma', 'hustle', 'fitness', 'cooking', 'coding', 'music', 'streetSmarts'];
+
+/** The two ways to start a life (NYC take on Lagos Life's Nepo / LAPO). */
+export type Origin = 'trustFund' | 'hustler';
+
+/** City areas that are built right now. More boroughs slot in later. */
+export type AreaId = 'manhattan' | 'brooklyn';
+
+export interface Look {
+  body: 'm' | 'f';
+  skin: string;
+  top: string;
+  bottom: string;
+  hair: string;
+}
+
+/** A temporary mood effect, like "Showtime!" (+15) or "Phone snatched" (-30). */
+export interface Moodlet {
+  id: string;
+  label: string;
+  emoji: string;
+  value: number;
+  /** Real time (ms) when it wears off. */
+  expiresAt: number;
+}
+
+/** One line in the money history. Every money change creates one. */
+export interface LedgerEntry {
+  at: number;
+  delta: number;
+  balance: number;
+  reason: string;
+}
+
+export interface JobState {
+  careerId: string;
+  /** 0-based index into the career's ladder. */
+  level: number;
+  /** 0-100; rises with good shifts, falls with bad ones. */
+  performance: number;
+  shiftsAtLevel: number;
+  shiftsTotal: number;
+  /** Shifts done today, reset at New York midnight. */
+  shiftsToday: number;
+  dayKey: string;
+}
+
+export interface NewsItem {
+  id: string;
+  at: number;
+  scope: 'city' | AreaId;
+  headline: string;
+  body?: string;
+  emoji: string;
+  /** True for stories created by things the player did. */
+  personal?: boolean;
+}
+
+export interface GameState {
+  version: number;
+  createdAt: number;
+  /** Real time (ms) the simulation last advanced to. */
+  lastTick: number;
+
+  profile: { name: string; origin: Origin; traits: string[]; look: Look; birthYear: number };
+
+  /** Cash on hand, in cents. Change ONLY through sim/economy.ts. */
+  money: number;
+  /** Money in the bank (safe from robbery and scams), in cents. */
+  bank: number;
+  ledger: LedgerEntry[];
+  loan: { owed: number; weekly: number; lastPaidDay: string } | null;
+
+  needs: Record<NeedKey, number>;
+  moodlets: Moodlet[];
+  skills: Record<SkillKey, number>;
+
+  job: JobState | null;
+  home: { area: AreaId; placeId: string; weeklyRent: number; rentDueDay: string };
+
+  /** Where the player is: which area, which building (null = outside), and street position. */
+  location: { area: AreaId; placeId: string | null; x: number; z: number };
+
+  /** Has a working phone? Losing it (scams, snatching) disables some apps until replaced. */
+  phone: { ok: boolean; lostReason?: string };
+
+  stats: {
+    actionsDone: Record<string, number>;
+    placesVisited: string[];
+    eventsSeen: Record<string, number>;
+    scamsFallenFor: number;
+    scamsSpotted: number;
+    earnedToday: number;
+    dayKey: string;
+  };
+
+  events: { lastFiredAt: number; cooldowns: Record<string, number> };
+  news: NewsItem[];
+  tutorialStep: number;
+  settings: { quality: 'auto' | 'low' | 'medium' | 'high'; sound: boolean };
+}
