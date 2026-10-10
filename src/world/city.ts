@@ -60,6 +60,8 @@ export interface BuiltCity {
   doors: DoorMarker[];
   /** Meshes you can tap to walk to (ground, sidewalks, plazas). */
   walkSurfaces: THREE.Object3D[];
+  /** Building walls: a tap that hits one walks you to the sidewalk in front of it. */
+  solids: THREE.Object3D[];
   /** Show/hide detail by distance from the camera's focus point. */
   updateLod: (focus: THREE.Vector3, radius: number) => void;
   dispose: () => void;
@@ -120,6 +122,7 @@ export function buildCity(area: AreaId, opts: { trees: boolean }): BuiltCity {
   };
   const bounds = districtBounds(d, 60);
   const walkSurfaces: THREE.Object3D[] = [];
+  const solidMeshes: THREE.Object3D[] = [];
   const adSlots: AdSlot[] = [];
   const doors: DoorMarker[] = [];
 
@@ -364,6 +367,7 @@ export function buildCity(area: AreaId, opts: { trees: boolean }): BuiltCity {
     m.receiveShadow = true;
     m.name = `walls-${key}`;
     group.add(m);
+    solidMeshes.push(m);
   }
 
   // --------------------------------------------------------- instanced props
@@ -443,8 +447,8 @@ export function buildCity(area: AreaId, opts: { trees: boolean }): BuiltCity {
     ring.position.set(door.x, 0.24, door.z);
     ring.userData.pulse = true;
     detail.add(ring);
-    const hit = new THREE.Mesh(track(new THREE.CylinderGeometry(3, 3, 5, 8)), hitMat);
-    hit.position.set(door.x, 2.5, door.z);
+    const hit = new THREE.Mesh(track(new THREE.CylinderGeometry(2.4, 2.4, 4.4, 8)), hitMat);
+    hit.position.set(door.x, 2.2, door.z);
     hit.userData.placeId = p.id;
     group.add(hit);
     doors.push({ placeId: p.id, position: new THREE.Vector3(door.x, 0, door.z), hit });
@@ -471,6 +475,7 @@ export function buildCity(area: AreaId, opts: { trees: boolean }): BuiltCity {
     adSlots,
     doors,
     walkSurfaces,
+    solids: solidMeshes,
     updateLod,
     dispose() {
       group.removeFromParent();

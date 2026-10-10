@@ -92,14 +92,15 @@ export class Engine {
         this.down.moved = true; // second finger = pinch, not a tap
         return;
       }
-      this.down = { x: e.clientX, y: e.clientY, t: performance.now(), id: e.pointerId, moved: false };
+      this.down = { x: e.clientX, y: e.clientY, t: e.timeStamp, id: e.pointerId, moved: false };
     });
     el.addEventListener('pointermove', (e) => {
       if (e.pointerId === this.down.id && Math.hypot(e.clientX - this.down.x, e.clientY - this.down.y) > 8) this.down.moved = true;
     });
     el.addEventListener('pointerup', (e) => {
       if (e.pointerId !== this.down.id || this.down.moved) return;
-      if (performance.now() - this.down.t > 450) return; // a long press isn't a tap
+      // No time limit on purpose: on a busy, slow phone a quick tap can be
+      // delivered late, and a press that didn't move is still a tap.
       this.onTapCb?.(e.clientX, e.clientY);
     });
     // Stop the page itself from scrolling or zooming when you pinch the 3D view.
