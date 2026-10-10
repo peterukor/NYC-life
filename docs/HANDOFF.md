@@ -21,6 +21,8 @@ The user wants a bright, cartoonish look, like The Sims and Township, and not a 
   - A higher 3/4 camera, like Township/Sims.
 - **UI:** a rounded, bouncy, colourful Sims/Township feel, distinct from Lagos Life: a mood indicator above the head, big round buttons, playful sounds.
 
+**Asset packs location (user's computer, unzipped):** `/Users/peterukor/Documents/NYC-life Assets`. Request folder access, then copy only the glTF/GLB files (the packs are 3.1 GB and 500 MB in total).
+
 ## Next steps, in order
 1. **Wire `surfaces.ts` into `world/city.ts`:**
    - Call `setSurfaceDetail(tier)` before `buildCity`.
