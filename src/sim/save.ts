@@ -77,6 +77,7 @@ function migrate(data: GameState): GameState | null {
   data.garage ??= newGarageState();
   data.gang ??= newGangState();
   data.people ??= {};
+  data.joinedEvents ??= [];
   // Balance pass (2026-10-11): rents were rescaled. Paying tenants follow the
   // listing's current rent; homes paid by family (0) stay free.
   const listing = data.home ? PLACE_BY_ID[data.home.placeId] : undefined;

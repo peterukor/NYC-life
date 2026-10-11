@@ -39,6 +39,10 @@ fails the test).
 | Add a place (shop, bar, gym) | `src/data/places.ts` | Its block, side, slot, type, hours and actions. |
 | Add a building style | `src/world/nycgen/buildings.ts` | Add the style to `Style`, `STYLE_RULES`, `PAL` and `ZONE_MIX`, then add any special details in `emitDetailed()`. |
 | Add a street prop (bench, kiosk…) | `src/world/nycgen/props.ts` | A small function that draws it, called from `emitBlockProps()`. |
+| Add a daily city event (block party, open mic, street race…) | `src/data/city-events.ts` | A `CITY_EVENTS` entry: which places host it, start hours, length, weight by weather/month, the join button label, an optional `blocker`, and `join()`. Events are seeded per area and game day, so everyone sees the same ones. They show as pins and in HAPPENING NOW. |
+| Add something you can do to a person (chat, flirt, rob…) | `src/sim/social.ts` | A `SOCIAL_ACTIONS` entry: `show(ctx)` and `run(ctx)` returning the text, what they say, and whether they fight or say yes to a date. Use `gain()` so repeating it gets weaker. |
+| Add personality quirks or date spots | `QUIRKS` in `src/sim/people.ts`, `DATE_SPOTS` in `src/sim/dates.ts` | A new entry. |
+| Change a borough's shape | `OUTLINES` in `src/world/coast.ts` | Move the control points. The 3D coast and the flat map both follow them. |
 | Add a phone app | `src/ui/phone-apps.ts` | `PHONE_APPS.add({ id, label, icon, bg, render, act })`. Buttons use `data-act="<id>.<what>"`. |
 | Add or change a crew (gang) | `src/sim/gangs.ts` | A `CREWS` entry: name, colour, emoji, area, turf block rectangles, muscle and temper. The street events in `src/sim/gang-events.ts` and the map's gang view pick it up. |
 | Tune jail, debt, cars or tickets | `JAIL` in `src/sim/jail.ts`, `DEBT` in `src/sim/debt.ts`, `GARAGE` in `src/sim/garage.ts` | Change the number. |

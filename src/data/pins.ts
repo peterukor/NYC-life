@@ -20,6 +20,8 @@ import type { NycTime } from '../core/clock.ts';
 import type { AreaId, GameState } from '../sim/types.ts';
 import { CAREERS } from './careers.ts';
 import { doorOf, isOpen, placesIn, PLACE_BY_ID } from './places.ts';
+import { eventDoor, isLive, todaysEvents } from './city-events.ts';
+import { weatherFor } from '../sim/weather.ts';
 
 /** Most pins ever on screen at once. */
 export const MAX_PINS = 4;
@@ -116,6 +118,18 @@ PIN_SOURCES.add(
       }
       return out;
     },
+  },
+  {
+    // Today's city events (data/city-events.ts) while they're running.
+    id: 'city-events',
+    pins: ({ area, time, state }) =>
+      todaysEvents(area, time.dateKey, weatherFor(time.dateKey, time.hour))
+        .filter((e) => isLive(e, time.hour) && !state.joinedEvents.includes(e.key))
+        .map((e) => {
+          const d = eventDoor(e);
+          const end = e.end % 24;
+          return { id: `ev-${e.key}`, kind: 'event', x: d.x, z: d.z, icon: e.def.emoji, label: `${e.def.title} at ${e.place.name} until ${end % 12 === 0 ? 12 : end % 12} ${end >= 12 ? 'PM' : 'AM'}`, placeId: e.place.id };
+        }),
   },
   {
     id: 'landmarks',

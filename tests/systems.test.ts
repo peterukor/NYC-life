@@ -146,3 +146,19 @@ test('speech: rude words are masked and flagged', () => {
   assert.ok(!r.text.includes('shit'));
   assert.equal(cleanSpeech('hello   new york').text, 'hello new york');
 });
+
+import { todaysEvents, joinEvent, CITY_EVENTS } from '../src/data/city-events.ts';
+
+test('city events: same for everyone, joinable once, weather-gated', () => {
+  const a = todaysEvents('manhattan', '2026-07-04', 'heatwave').map((e) => e.key);
+  const b = todaysEvents('manhattan', '2026-07-04', 'heatwave').map((e) => e.key);
+  assert.deepEqual(a, b);
+  assert.ok(a.length >= 2);
+  for (const e of todaysEvents('manhattan', '2026-01-10', 'snow')) assert.notEqual(e.def.id, 'hydrantParty');
+  const s = fresh();
+  s.money = 1_000_000;
+  const ev = todaysEvents('manhattan', '2026-07-04', 'heatwave').find((e) => !e.def.blocker || !e.def.blocker(s))!;
+  joinEvent(s, ev);
+  assert.equal(joinEvent(s, ev).text, 'You already did this one today.');
+  assert.ok(CITY_EVENTS.all().length >= 8);
+});

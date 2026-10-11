@@ -67,6 +67,7 @@ import { SystemRunner, type SystemContext } from './core/systems.ts';
 import './systems/index.ts';
 import './sim/gang-events.ts';
 import { syncJail } from './ui/jail.ts';
+import { eventAt, joinEvent } from './data/city-events.ts';
 import { openMap3D, type Map3D } from './ui/map3d.ts';
 import { bindPeople, confront, openPerson, openSpeak, type PeopleHost } from './ui/people-ui.ts';
 import { clearBubbles, updateBubbles } from './ui/bubbles.ts';
@@ -677,6 +678,7 @@ export class Game {
     const rentable = place.type === 'home' && !isHome
       ? `<div class="card"><h3>${place.rent ? `For rent: ${money(place.rent)} / week` : 'Free bed'}</h3><p>${place.rent ? 'Moving here makes it your home. Rent is charged weekly from your cash, then your bank.' : 'No rent. No privacy either. Somewhere to land while you get back up.'}</p><button class="btn primary block" style="margin-top:10px" data-act="move">Move in</button></div>`
       : '';
+    const cityEvt = eventAt(place.area, place.id, t.dateKey, t.hour, weatherFor(t.dateKey, t.hour));
     const station = place.type === 'station' ? `<div class="stack" style="margin-bottom:12px">${(['manhattan', 'brooklyn'] as AreaId[]).filter((a) => a !== place.area).map((a) => `<button class="btn primary block" data-act="train:${a}">🚇 Take the train to ${DISTRICTS[a].name} · ${money(SUBWAY_FARE)}</button>`).join('')}</div>` : '';
     const sheet = openSheet({
       emoji: place.emoji,
@@ -685,12 +687,22 @@ export class Game {
       body: `
         <div class="row"><span class="tag ${open ? 'open' : 'closed'}">${open ? '● Open' : '● Closed'}</span><span class="tag">${hours}</span>${isHome ? '<span class="tag">🏠 Your home</span>' : ''}</div>
         <p class="blurb">${esc(place.blurb)}</p>
+        ${cityEvt ? `<div class="card" style="border:2px solid #fb5607"><h3>${cityEvt.def.emoji} ${esc(cityEvt.def.title)} · now</h3><p>${esc(cityEvt.def.blurb)}</p>${s.joinedEvents.includes(cityEvt.key) ? '<p class="sub" style="margin-top:6px">You were here for this one. ✅</p>' : `<button class="btn primary block" style="margin-top:10px" data-act="cityevt">${esc(cityEvt.def.joinLabel)}</button>`}</div>` : ''}
         ${landmark}${station}${rentable}
         ${place.sells ? `<button class="btn primary block" style="margin-bottom:10px" data-act="shop" ${open ? '' : 'disabled'}>🛍️ Browse clothes</button>` : ''}
         ${canGoIn && (place.type !== 'home' || isHome) ? `<button class="btn primary block" data-act="enter" ${open ? '' : 'disabled'}>${open ? (isHome ? 'Go inside' : 'Go in') : `Closed — opens ${fmtH(place.hours![0])}`}</button>` : ''}
         ${actions}`,
     });
     onAct(sheet.body, (act, el) => {
+      if (act === 'cityevt' && cityEvt) {
+        const r = joinEvent(s, cityEvt);
+        toast(r.text, { icon: cityEvt.def.emoji, tone: r.tone, ms: 4500 });
+        if (r.tone === 'good') sfx.notify();
+        this.save();
+        this.refreshHud(true);
+        sheet.close();
+        return;
+      }
       if (act === 'enter') {
         sheet.close();
         return this.enterInterior(place, true);
