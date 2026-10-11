@@ -20,9 +20,9 @@ export interface QualitySettings {
 }
 
 const PRESETS: Record<QualityTier, Omit<QualitySettings, 'tier' | 'pixelRatio'> & { maxPixelRatio: number }> = {
-  low: { maxPixelRatio: 1, antialias: false, shadows: false, crowd: 45, cars: 14, viewDistance: 420, trees: true },
-  medium: { maxPixelRatio: 1.5, antialias: true, shadows: false, crowd: 110, cars: 30, viewDistance: 650, trees: true },
-  high: { maxPixelRatio: 2, antialias: true, shadows: true, crowd: 220, cars: 55, viewDistance: 900, trees: true },
+  low: { maxPixelRatio: 1, antialias: false, shadows: false, crowd: 45, cars: 26, viewDistance: 420, trees: true },
+  medium: { maxPixelRatio: 1.5, antialias: true, shadows: false, crowd: 110, cars: 50, viewDistance: 650, trees: true },
+  high: { maxPixelRatio: 2, antialias: true, shadows: true, crowd: 220, cars: 85, viewDistance: 900, trees: true },
 };
 
 /** Guess a tier from what the browser tells us about the device. */

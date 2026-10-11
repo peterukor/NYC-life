@@ -186,14 +186,31 @@ export function buildCity(area: AreaId, opts: { trees: boolean; shadows?: boolea
       }
     }
   }
-  // Lane dashes down each avenue.
+  // Two-lane roads: a double yellow line down the middle of every
+  // avenue and street, broken at the crossings.
+  const yellow = new GeoBuilder();
   for (let i = 0; i <= d.cols; i++) {
     const ax = avenueX(d, i);
-    for (let z = streetZ(d, 0); z < streetZ(d, d.rows); z += 9) for (const off of [-3.4, 3.4]) marks.flat(ax + off - 0.15, ax + off + 0.15, z, z + 4, 0.04);
+    for (let j = 0; j < d.rows; j++) {
+      const z0 = streetZ(d, j) + d.streetW / 2 + 3.6;
+      const z1 = streetZ(d, j + 1) - d.streetW / 2 - 3.6;
+      for (const off of [-0.22, 0.22]) yellow.flat(ax + off - 0.09, ax + off + 0.09, z0, z1, 0.045);
+    }
   }
-  const markMesh = new THREE.Mesh(track(marks.build()), track(new THREE.MeshLambertMaterial({ color: '#e8e6df' })));
+  for (let j = 0; j <= d.rows; j++) {
+    const sz = streetZ(d, j);
+    for (let i = 0; i < d.cols; i++) {
+      const x0 = avenueX(d, i) + d.avenueW / 2 + 3.6;
+      const x1 = avenueX(d, i + 1) - d.avenueW / 2 - 3.6;
+      for (const off of [-0.22, 0.22]) yellow.flat(x0, x1, sz + off - 0.09, sz + off + 0.09, 0.045);
+    }
+  }
+  const markMesh = new THREE.Mesh(track(marks.build()), track(new THREE.MeshLambertMaterial({ color: '#f4f2ea' })));
   markMesh.receiveShadow = true;
   group.add(markMesh);
+  const yellowMesh = new THREE.Mesh(track(yellow.build()), track(new THREE.MeshLambertMaterial({ color: '#ffcc33' })));
+  yellowMesh.receiveShadow = true;
+  group.add(yellowMesh);
 
   // --------------------------------------------------------- blocks
   const sidewalkGeo = new GeoBuilder();

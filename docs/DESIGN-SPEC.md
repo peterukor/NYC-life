@@ -105,3 +105,34 @@ Each job has a temptation or downside. These are opt-in choices with consequence
   - The `colyseus-multiplayer` skill, for a server-authoritative real-time server with anti-cheat validation.
   - The "sharp-edges" API review.
 - Run them before launch.
+
+## Added 2026-10-11 (from Peter)
+
+### Map pins (teardrop style, NOT the 📍 emoji)
+- Classic teardrop map pins floating over the 3D city and on the 2D map.
+- Used for: mini events (store sale, breaking news spot), landmarks, friends in game,
+  quick news, "where something is".
+- MUST NOT BE OVERWHELMING: hard cap on pins on screen at once (e.g. 3–5 nearest/most
+  important), fade by distance, merge nearby pins into one with a count, small and quiet
+  by default, and only one "loud" (animated) pin at a time.
+- Later: a button to see the full list of events.
+
+### Hamburger menu + side panel (later)
+- Hamburger button opens a side panel. HAPPENING NOW! / BREAKING NEWS! lives there,
+  plus other buttons (Claude proposes the set, Peter reviews).
+
+### Homes without a house for everyone
+- Map stays big but not annoying to navigate; not every player needs a modelled house.
+- A player/NPC going home walks to a block and disappears there (their home is "on" that
+  block).
+- Visiting: ask to follow them home / ask them to follow you home / they SHARE their
+  address (you can go anytime, but they must be home to enter) / they give you a SPARE
+  KEY (you can enter even when they're offline).
+- NPCs can follow you home, have relationships or one-night stands (21+, fade-to-black,
+  nothing explicit). Some NPCs steal while you sleep (a furniture item or cash) — show it
+  as a morning message; tie to the event rarity system.
+
+### Roads and traffic
+- Roads are two lanes (one each way) with parking lanes: done 2026-10-11.
+- More cars on the road: car count raised; the full car overhaul (models, rarity,
+  per-model speed) comes with the plug-in vehicle system.

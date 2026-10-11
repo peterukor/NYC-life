@@ -68,15 +68,16 @@ export class Traffic {
     const zB = streetZ(d, d.rows) + 40;
     for (let i = 0; i <= d.cols; i++) {
       const x = avenueX(d, i);
-      const south = i % 2 === 0;
-      for (const off of [-5, 0, 5]) this.lanes.push(makeLane(x + off, south ? zA : zB, x + off, south ? zB : zA));
+      // Two lanes, one each way (drive on the right).
+      this.lanes.push(makeLane(x - 2.3, zA, x - 2.3, zB));
+      this.lanes.push(makeLane(x + 2.3, zB, x + 2.3, zA));
     }
     const xA = avenueX(d, 0) - 40;
     const xB = avenueX(d, d.cols) + 40;
-    for (let j = 1; j < d.rows; j += 2) {
+    for (let j = 1; j < d.rows; j++) {
       const z = streetZ(d, j);
-      const east = j % 4 === 1;
-      this.lanes.push(makeLane(east ? xA : xB, z + 2, east ? xB : xA, z + 2));
+      this.lanes.push(makeLane(xA, z + 2.2, xB, z + 2.2));
+      this.lanes.push(makeLane(xB, z - 2.2, xA, z - 2.2));
     }
 
     const mix = cars ? STREET_MIX.filter((m) => cars.has(m.model)) : [];

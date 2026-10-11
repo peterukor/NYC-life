@@ -66,7 +66,8 @@ const MANHATTAN: DistrictDef = {
   rows: 12,
   blockW: 92,
   blockD: 38,
-  avenueW: 20,
+  // Two-lane roads (one lane each way) plus a parking lane on each kerb.
+  avenueW: 14,
   streetW: 13,
   avenueNames: ['12th Ave', '10th Ave', '9th Ave', '8th Ave', '7th Ave', '6th Ave', '5th Ave'],
   streetNames: ['W 72nd St', 'W 65th St', 'Central Park S', 'W 50th St', 'W 48th St', 'W 46th St', 'W 44th St', 'W 42nd St', 'W 40th St', 'W 38th St', 'W 36th St', 'W 34th St', 'W 32nd St'],
@@ -99,7 +100,7 @@ const BROOKLYN: DistrictDef = {
   rows: 7,
   blockW: 78,
   blockD: 42,
-  avenueW: 18,
+  avenueW: 14,
   streetW: 13,
   avenueNames: ['Court St', 'Smith St', 'Hoyt St', 'Flatbush Ave', 'Fort Greene Pl', 'Clermont Ave'],
   streetNames: ['Water St', 'Front St', 'Tillary St', 'Fulton St', 'Atlantic Ave', 'Pacific St', 'Dean St', 'Bergen St'],
