@@ -36,13 +36,15 @@ fails the test).
 | Change how a café, bar, bodega, pizzeria, office or comedy club looks inside | `src/data/venues.ts` | Edit its floor plan (same format as homes). The `serviceCounter` / `barCounter` piece sells whatever that place offers. |
 | Add a landmark | New file in `src/world/landmarks/`, then one import line in `src/world/landmarks/index.ts` | `LANDMARKS.add({ id, build(ctx) })`, plus a place in `src/data/places.ts`. |
 | Add clothes | `src/data/wardrobe.ts` | An entry in `CLOTHES`. |
-| Add a place (shop, bar, gym) | `src/data/places.ts` | Its block, side, slot, type, hours and actions. |
+| Add a place (shop, bar, gym) | `src/data/places.ts` | Its real location `at: [lat, lon]`, plus its type, hours and actions. The game snaps it to the nearest free door on a street block (`resolvePlaces`). For something standing off the street, such as the Statue of Liberty, add `model: [lat, lon]`. |
 | Add a building style | `src/world/nycgen/buildings.ts` | Add the style to `Style`, `STYLE_RULES`, `PAL` and `ZONE_MIX`, then add any special details in `emitDetailed()`. |
 | Add a street prop (bench, kiosk…) | `src/world/nycgen/props.ts` | A small function that draws it, called from `emitBlockProps()`. |
 | Add a daily city event (block party, open mic, street race…) | `src/data/city-events.ts` | A `CITY_EVENTS` entry: which places host it, start hours, length, weight by weather/month, the join button label, an optional `blocker`, and `join()`. Events are seeded per area and game day, so everyone sees the same ones. They show as pins and in HAPPENING NOW. |
 | Add something you can do to a person (chat, flirt, rob…) | `src/sim/social.ts` | A `SOCIAL_ACTIONS` entry: `show(ctx)` and `run(ctx)` returning the text, what they say, and whether they fight or say yes to a date. Use `gain()` so repeating it gets weaker. |
 | Add personality quirks or date spots | `QUIRKS` in `src/sim/people.ts`, `DATE_SPOTS` in `src/sim/dates.ts` | A new entry. |
-| Change a borough's shape | `OUTLINES` in `src/world/coast.ts` | Move the control points. The 3D coast and the flat map both follow them. |
+| Change a borough's shape, or the projection | `scripts/build-geo.mjs` (real NYC boundaries in `scripts/geo-src/`) and `src/world/geo-proj.ts` | Re-run `node scripts/build-geo.mjs`. The 3D coast, the lots and both maps all follow it. |
+| Grow the playable streets | `src/world/layout.ts` | Change a district's `origin`, `cols` and `rows`. River blocks become `'water'` by themselves, and the borough beyond the grid stays as land for sale. |
+| Add a neighbourhood name to the maps | `src/data/neighborhoods.ts` | A name and a lat/lon. Keep it to 6–9 per borough. |
 | Add a phone app | `src/ui/phone-apps.ts` | `PHONE_APPS.add({ id, label, icon, bg, render, act })`. Buttons use `data-act="<id>.<what>"`. |
 | Add or change a crew (gang) | `src/sim/gangs.ts` | A `CREWS` entry: name, colour, emoji, area, turf block rectangles, muscle and temper. The street events in `src/sim/gang-events.ts` and the map's gang view pick it up. |
 | Tune jail, debt, cars or tickets | `JAIL` in `src/sim/jail.ts`, `DEBT` in `src/sim/debt.ts`, `GARAGE` in `src/sim/garage.ts` | Change the number. |

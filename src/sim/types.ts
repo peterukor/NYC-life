@@ -121,6 +121,8 @@ export interface GameState {
   jail: import('./jail.ts').JailState | null;
   /** Cars you own, your licence and your Cool rating (sim/garage.ts). */
   garage: import('./garage.ts').GarageState;
+  /** Which city layout the saved positions belong to (2 = real borough shapes). */
+  layoutVersion?: number;
   /** City events you've already joined (data/city-events.ts keys). */
   joinedEvents: string[];
   /** People you've met and what they remember about you (sim/people.ts). */

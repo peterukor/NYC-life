@@ -7,7 +7,7 @@
 // format changes, so players never lose progress after an update.
 // =====================================================================
 
-import { PLACE_BY_ID } from '../data/places.ts';
+import { doorOf, PLACE_BY_ID } from '../data/places.ts';
 import { newGarageState } from './garage.ts';
 import { newGangState } from './gangs.ts';
 import { SAVE_KEY, SAVE_VERSION } from '../core/constants.ts';
@@ -76,6 +76,14 @@ function migrate(data: GameState): GameState | null {
   data.jail ??= null;
   data.garage ??= newGarageState();
   data.gang ??= newGangState();
+  // 2026-10-11: the city moved onto the real borough shapes. Old street
+  // positions mean nothing now, so old saves wake up at home.
+  if ((data.layoutVersion ?? 1) < 2) {
+    const home = PLACE_BY_ID[data.home?.placeId] ?? PLACE_BY_ID.hkStudio;
+    const door = doorOf(home);
+    data.location = { area: home.area, placeId: home.id, x: door.x, z: door.z };
+    data.layoutVersion = 2;
+  }
   data.people ??= {};
   data.joinedEvents ??= [];
   // Balance pass (2026-10-11): rents were rescaled. Paying tenants follow the

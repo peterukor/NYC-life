@@ -100,6 +100,27 @@ How to add or change content: **`docs/ADDING-CONTENT.md`**.
   - Cheap filler buildings stand in for the rest of each borough.
   - The flat map uses the same outline.
 
+## Done 2026-10-11 (late morning): the real New York
+- **Real shapes.** All five boroughs are drawn from real city boundaries (`world/geo-proj.ts`, `data/geo/`).
+  - Projection: Times Square is the origin, the map is turned 29°, and distances are compressed 5×.
+- **Playable grids sit on the real streets.**
+  - Manhattan covers 110th St down to 14th St, with Central Park running 59th → 110th.
+  - Brooklyn covers DUMBO, Downtown and Fort Greene.
+  - The rest of each borough is expandable land for sale.
+- **Places use real lat/lon** and are snapped to doors automatically.
+- **Maps:**
+  - The flat map shows the whole city, then one borough at a time.
+  - The 3D sky map shows neighbourhood names and has a gang view.
+- **Crews:**
+  - Manhattan is a safe zone; the five crews are in Brooklyn.
+  - Players can take blocks, but a crew's base can never be taken.
+  - NPC bosses demote idle members.
+  - Street-rep perks: getaway, weapons, missions.
+- **Next:**
+  - Lot buying (a land registry on the server).
+  - Open Queens, the Bronx and Staten Island the same way: add a district over their outline in `layout.ts`.
+  - Grow Manhattan downtown below 14th St.
+
 ## Balance notes (2026-10-11)
 - **Rent cycle.** One game day is 3 h 23 min, so "weekly" rent (7 game days) comes due about once per REAL day. Rents were therefore set as "what one day of play should cover": shared $180, studio $350, loft $900. Old saves are migrated to the new rents.
 - **Pay.** Shifts are capped at 4 per GAME day, so a player who checks in 2–3 times a day can work about 8–12 shifts.
