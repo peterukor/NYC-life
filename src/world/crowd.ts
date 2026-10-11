@@ -20,56 +20,20 @@
 import * as THREE from 'three';
 import { CROWD_RADIUS } from '../core/constants.ts';
 import { weightedIndex } from '../core/rng.ts';
-import { doorOf, placesIn, type PlaceType } from '../data/places.ts';
+import { doorOf, placesIn } from '../data/places.ts';
+import { CROWD_DENSITY, NEXT_STOP, PERSONALITIES, timeBias, type PersonalityDef, type Stop } from '../data/crowd-brain.ts';
 import type { AreaId } from '../sim/types.ts';
 import { crowdGeometries, OUTFIT_COLORS, SKIN_TONES } from './avatar.ts';
 import { findPath, nearestWalkable, isWalkable, type NavGrid } from './nav.ts';
 import { blobShadowTexture } from '../render/textures.ts';
 import { Actor, FOLK_ROLES, type FolkKit } from './folk.ts';
 
-type Stop = PlaceType | 'wander';
-type Personality = 'commuter' | 'partier' | 'tourist' | 'local';
-
-/** After visiting X, how likely is each next stop (before time/personality nudges)? */
-const NEXT_STOP: Record<Stop, Partial<Record<Stop, number>>> = {
-  home: { work: 3, cafe: 2, food: 2, wander: 2, station: 2 },
-  work: { food: 3, cafe: 2, nightlife: 2, station: 3, wander: 1 },
-  cafe: { work: 3, wander: 2, park: 2, plaza: 1 },
-  food: { wander: 3, park: 2, home: 2, work: 1, plaza: 1 },
-  nightlife: { nightlife: 1, food: 3, station: 2, home: 3 },
-  fitness: { cafe: 2, home: 2, food: 2 },
-  park: { wander: 2, cafe: 2, food: 2, plaza: 1 },
-  plaza: { plaza: 2, food: 2, landmark: 2, station: 2, wander: 2 },
-  landmark: { plaza: 2, food: 2, station: 2, park: 1 },
-  station: { wander: 3, work: 2, plaza: 2, home: 2 },
-  wander: { wander: 2, food: 2, cafe: 1, plaza: 2, park: 1, station: 1, nightlife: 1 },
-};
-
-const PERSONALITY_BIAS: Record<Personality, Partial<Record<Stop, number>>> = {
-  commuter: { work: 2, station: 1.8, cafe: 1.4 },
-  partier: { nightlife: 2.5, food: 1.3 },
-  tourist: { plaza: 3, landmark: 3, station: 1.2, work: 0.1 },
-  local: { food: 1.5, park: 1.5, cafe: 1.3 },
-};
-
-function timeBias(stop: Stop, hour: number): number {
-  const night = hour >= 21 || hour < 4;
-  const morning = hour >= 6 && hour < 10;
-  switch (stop) {
-    case 'nightlife': return night ? 3 : hour >= 17 ? 1.5 : 0.15;
-    case 'work': return morning ? 2.5 : hour >= 10 && hour < 17 ? 1 : 0.1;
-    case 'cafe': return morning ? 2.2 : hour < 18 ? 1 : 0.2;
-    case 'park': return hour >= 7 && hour < 20 ? 1 : 0.1;
-    case 'station': return morning || (hour >= 16 && hour < 19) ? 2 : 1;
-    case 'home': return night ? 2 : 0.6;
-    default: return 1;
-  }
-}
+// The decision tables (where people go, when, and who loves what) live
+// in data/crowd-brain.ts so behaviour can be tuned without touching this file.
 
 /** How busy the streets are by hour (1 = rush hour peak). */
 export function crowdDensity(hour: number): number {
-  const curve = [0.25, 0.18, 0.12, 0.1, 0.1, 0.18, 0.45, 0.8, 1, 0.85, 0.7, 0.75, 0.9, 0.85, 0.75, 0.8, 0.9, 1, 0.95, 0.85, 0.75, 0.65, 0.55, 0.4];
-  return curve[Math.max(0, Math.min(23, hour))];
+  return CROWD_DENSITY[Math.max(0, Math.min(23, hour))];
 }
 
 interface Agent {
@@ -79,7 +43,7 @@ interface Agent {
   speed: number;
   path: { x: number; z: number }[];
   last: Stop;
-  personality: Personality;
+  personality: PersonalityDef;
   waitUntil: number;
   phase: number;
   active: boolean;
@@ -163,9 +127,11 @@ export class Crowd {
       const z = nav.minZ + Math.random() * nav.rows * 3;
       if (isWalkable(nav, x, z)) this.targets.wander.push({ x, z });
     }
-    const personalities: Personality[] = ['commuter', 'commuter', 'local', 'local', 'partier', 'tourist'];
+    const types = PERSONALITIES.all();
+    const shares = types.map((t) => t.share);
     for (let i = 0; i < max; i++) {
-      this.agents.push({ x: 0, z: 0, heading: 0, speed: 1.2 + Math.random() * 0.6, path: [], last: 'wander', personality: personalities[i % personalities.length], waitUntil: 0, phase: Math.random() * 10, active: false, look: i, actor: null, moving: false });
+      const p = types[Math.max(0, weightedIndex(shares))];
+      this.agents.push({ x: 0, z: 0, heading: 0, speed: p.speed[0] + Math.random() * (p.speed[1] - p.speed[0]), path: [], last: 'wander', personality: p, waitUntil: 0, phase: Math.random() * 10, active: false, look: i, actor: null, moving: false });
     }
   }
 
@@ -173,7 +139,7 @@ export class Crowd {
   private nextStop(a: Agent, hour: number): Stop {
     const base = NEXT_STOP[a.last];
     const stops = Object.keys(base) as Stop[];
-    const weights = stops.map((s) => (base[s] ?? 0) * timeBias(s, hour) * (PERSONALITY_BIAS[a.personality][s] ?? 1) * (this.targets[s].length ? 1 : 0));
+    const weights = stops.map((s) => (base[s] ?? 0) * timeBias(s, hour) * (a.personality.bias[s] ?? 1) * (this.targets[s].length ? 1 : 0));
     const i = weightedIndex(weights);
     return i < 0 ? 'wander' : stops[i];
   }
@@ -237,7 +203,7 @@ export class Crowd {
         if (dist < 0.6) {
           a.path.shift();
           // Arrived: hang around a bit (look at screens, wait for a friend).
-          if (a.path.length === 0) a.waitUntil = this.time + 2 + Math.random() * (a.last === 'plaza' ? 14 : 6);
+          if (a.path.length === 0) a.waitUntil = this.time + a.personality.linger[0] + Math.random() * (a.personality.linger[1] - a.personality.linger[0]) * (a.last === 'plaza' ? 2 : 1);
         } else {
           const step = Math.min(dist, a.speed * dt * 1.4);
           a.x += (dx / dist) * step;

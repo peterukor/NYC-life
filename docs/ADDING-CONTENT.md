@@ -21,6 +21,8 @@ fails the test).
 | Add a weather (fog, hail…) | `src/sim/weather.ts` | An entry with the odds by month/hour, sky greyness, sun, particles (`rain`/`snow`), ground effects (`wet`, `snow`, `flood`), the needs it speeds up, the rideshare surge and a news tip. The sky, effects, needs and news all pick it up automatically. |
 | Add something that runs every frame (a parade, fireworks, a street mini-game) | New file in `src/systems/`, then one import line in `src/systems/index.ts` | `SYSTEMS.add({ id, areaLoaded, update, tick, areaUnloaded })`. See `src/systems/weather-fx.ts` for a full example. If a system crashes, it's switched off and the rest of the game keeps going. |
 | Switch a system off | `src/systems/index.ts` | Delete its import line. |
+| Change how NPCs behave (where they go, when, how fast) | `src/data/crowd-brain.ts` | Edit `NEXT_STOP` (where people go after each kind of place), `timeBias` (time of day), `CROWD_DENSITY` (how busy each hour is). |
+| Add a type of NPC (jogger, shopper…) | `src/data/crowd-brain.ts` | An entry in `PERSONALITIES`: its share of the crowd, which stops it loves or avoids, its walking speed and how long it lingers. |
 | Add a landmark | New file in `src/world/landmarks/`, then one import line in `src/world/landmarks/index.ts` | `LANDMARKS.add({ id, build(ctx) })`, plus a place in `src/data/places.ts`. |
 | Add clothes | `src/data/wardrobe.ts` | An entry in `CLOTHES`. |
 | Add a place (shop, bar, gym) | `src/data/places.ts` | Its block, side, slot, type, hours and actions. |
