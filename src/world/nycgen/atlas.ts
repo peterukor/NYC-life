@@ -28,6 +28,7 @@
 //     without rebuilding any geometry (used for level of detail).
 // =====================================================================
 
+import { GROUND } from '../../render/palette.ts';
 import * as THREE from 'three';
 import { kitNight } from '../../assets/kit.ts';
 import { worldUniforms } from '../../render/world-uniforms.ts';
@@ -399,9 +400,9 @@ void main() {
 // Ground textures (painted once): soft cartoon asphalt and sidewalk pavers.
 // ---------------------------------------------------------------------
 
-let ground: { asphalt: THREE.CanvasTexture; paver: THREE.CanvasTexture } | null = null;
+let ground: { asphalt: THREE.CanvasTexture; paver: THREE.CanvasTexture; grass: THREE.CanvasTexture } | null = null;
 
-export function groundTextures(): { asphalt: THREE.CanvasTexture; paver: THREE.CanvasTexture } {
+export function groundTextures(): { asphalt: THREE.CanvasTexture; paver: THREE.CanvasTexture; grass: THREE.CanvasTexture } {
   if (ground) return ground;
   const make = (paint: (ctx: CanvasRenderingContext2D, n: number) => void, n = 128) => {
     const c = document.createElement('canvas');
@@ -415,7 +416,7 @@ export function groundTextures(): { asphalt: THREE.CanvasTexture; paver: THREE.C
   };
   // Blue-grey asphalt with soft blotches (painted, not photographic).
   const asphalt = make((ctx, n) => {
-    ctx.fillStyle = '#6d7586';
+    ctx.fillStyle = GROUND.asphalt;
     ctx.fillRect(0, 0, n, n);
     let s = 11;
     for (let i = 0; i < 70; i++) {
@@ -429,13 +430,14 @@ export function groundTextures(): { asphalt: THREE.CanvasTexture; paver: THREE.C
       ctx.fill();
     }
   });
-  // Warm sidewalk squares with soft grout lines and a highlight edge.
+  // Warm sandstone sidewalk squares (the models' paving colour) with soft
+  // grout lines and a highlight edge.
   const paver = make((ctx, n) => {
-    ctx.fillStyle = '#e9e2d6';
+    ctx.fillStyle = GROUND.pave;
     ctx.fillRect(0, 0, n, n);
-    ctx.fillStyle = '#f5f0e7';
+    ctx.fillStyle = GROUND.paveLight;
     ctx.fillRect(4, 4, n - 8, 10);
-    ctx.fillStyle = 'rgba(120,105,90,0.35)';
+    ctx.fillStyle = GROUND.paveGrout;
     ctx.fillRect(0, 0, n, 3);
     ctx.fillRect(0, 0, 3, n);
     let s = 5;
@@ -445,6 +447,27 @@ export function groundTextures(): { asphalt: THREE.CanvasTexture; paver: THREE.C
       ctx.fillRect(s % n, (s >> 8) % n, 3, 3);
     }
   });
-  ground = { asphalt, paver };
+  // Lawn: the models' green, mottled light and dark like their painted grass.
+  const grass = make((ctx, n) => {
+    ctx.fillStyle = GROUND.grass;
+    ctx.fillRect(0, 0, n, n);
+    let s = 7;
+    for (let i = 0; i < 260; i++) {
+      s = (s * 16807) % 2147483647;
+      const x = s % n;
+      const y = (s >> 8) % n;
+      const r = 2 + (s % 7);
+      ctx.fillStyle = s % 3 ? GROUND.grassLight : GROUND.grassDark;
+      ctx.globalAlpha = 0.28;
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fill();
+      // Wrap the blob so the tile repeats seamlessly.
+      if (x + r > n) { ctx.beginPath(); ctx.arc(x - n, y, r, 0, Math.PI * 2); ctx.fill(); }
+      if (y + r > n) { ctx.beginPath(); ctx.arc(x, y - n, r, 0, Math.PI * 2); ctx.fill(); }
+    }
+    ctx.globalAlpha = 1;
+  });
+  ground = { asphalt, paver, grass };
   return ground;
 }

@@ -378,7 +378,9 @@ export function buildCity(area: AreaId, opts: { trees: boolean; shadows?: boolea
   walkSurfaces.push(sidewalkMesh);
 
   if (!grassGeo.empty) {
-    const grass = new THREE.Mesh(track(grassGeo.build()), track(new THREE.MeshLambertMaterial({ color: '#7ed37a' })));
+    const grassTex = track(gt.grass.clone());
+    grassTex.repeat.set(1 / 3, 1 / 3); // one tile ≈ 12 m
+    const grass = new THREE.Mesh(track(grassGeo.build()), track(new THREE.MeshLambertMaterial({ map: grassTex })));
     grass.receiveShadow = true;
     group.add(grass);
     walkSurfaces.push(grass);

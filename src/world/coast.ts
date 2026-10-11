@@ -13,6 +13,7 @@
 // the signs.
 // =====================================================================
 
+import { GROUND } from '../render/palette.ts';
 import * as THREE from 'three';
 import { Rng } from '../core/rng.ts';
 import { BOROUGHS, onLand, outline, unproject, type XZ } from './geo-proj.ts';
@@ -71,7 +72,7 @@ export function shoreKinds(ring: XZ[], seed: number): ShoreKind[] {
   });
 }
 const SHORE_WIDTH: Record<ShoreKind, number> = { beach: 16, bush: 15, rocks: 5, promenade: 6 };
-const SHORE_COLOR: Record<ShoreKind, string> = { beach: '#f1dfae', bush: '#4f8a3c', rocks: '#a8a49c', promenade: '#d9cfbd' };
+const SHORE_COLOR: Record<ShoreKind, string> = { beach: '#f1dfae', bush: GROUND.grassDark, rocks: '#a8a49c', promenade: GROUND.pave };
 
 /** Where piers stick out into the water: box, spacing and length (game m). */
 const PIERS: { box: LL; every: number; length: number; ferries?: boolean }[] = [
@@ -128,11 +129,11 @@ export function buildCoast(d: DistrictDef, track: Track): Coast {
 
   // This borough's land is green (parks, lawns, empty lots); the streets
   // are laid on top by city.ts. The other four boroughs: plain land.
-  const ground = new THREE.Mesh(shapeGeo(outline(d.borough), track), track(new THREE.MeshLambertMaterial({ color: '#9fcf7c' })));
+  const ground = new THREE.Mesh(shapeGeo(outline(d.borough), track), track(new THREE.MeshLambertMaterial({ color: GROUND.land })));
   ground.receiveShadow = true;
   ground.name = 'ground';
   g.add(ground);
-  const others = new THREE.Mesh(shapeGeo(BOROUGHS.filter((b) => b.id !== d.borough).flatMap((b) => outline(b.id)), track), track(new THREE.MeshLambertMaterial({ color: '#b9cf9c' })));
+  const others = new THREE.Mesh(shapeGeo(BOROUGHS.filter((b) => b.id !== d.borough).flatMap((b) => outline(b.id)), track), track(new THREE.MeshLambertMaterial({ color: GROUND.landFar })));
   others.position.y = -0.05;
   others.name = 'land-other-boroughs';
   g.add(others);
@@ -329,7 +330,7 @@ function buildShore(d: DistrictDef, track: Track): THREE.Group {
   return out;
 }
 
-const LOT_COLORS = ['#b9cf8f', '#c8d69a', '#d6c9a2', '#c2c79a', '#cfd8a4'];
+const LOT_COLORS = [GROUND.land, GROUND.grass, GROUND.grassLight, '#6f9020', '#7a9a2a'];
 
 type Lot = { x0: number; z0: number; x1: number; z1: number; grid?: boolean };
 const lotCache = new Map<string, Lot[]>();
@@ -380,7 +381,7 @@ function buildLots(d: DistrictDef, track: Track): THREE.Group {
   const c = new THREE.Color();
   for (const { x0, z0, x1, z1, grid } of lotsFor(d)) {
     // Home-block plots are lawn (houses sit on them, world/ai-city.ts); outer lots keep the muted colours.
-    c.set(grid ? rng.pick(['#8ccf6b', '#93d473', '#86c965']) : rng.pick(LOT_COLORS));
+    c.set(grid ? rng.pick([GROUND.grass, GROUND.grassLight, '#6c9618']) : rng.pick(LOT_COLORS));
     const y = grid ? 0.2 : 0.08; // grid lots sit on their sidewalk slab
     pos.push(x0, y, z0, x0, y, z1, x1, y, z1, x0, y, z0, x1, y, z1, x1, y, z0);
     for (let k = 0; k < 6; k++) col.push(c.r, c.g, c.b);
