@@ -16,6 +16,8 @@
 //     event. `busy` guards that.
 // =====================================================================
 
+import { PLOT_BY_ID, PLOTS } from './data/plots.ts';
+import { openPlotPanel } from './ui/plot-panel.ts';
 import * as THREE from 'three';
 import { VEHICLES } from './data/vehicles.ts';
 import { vehicleGeometry, vehicleMaterial } from './world/vehicle-models.ts';
@@ -201,8 +203,11 @@ export class Game {
         camera.position.set(p.x + dist * 0.15, dist * 0.8, p.z + dist * 0.6);
         controls.update();
       },
-      /** The giant billboards' centres (scripts/qa-*.mjs). */
-      bigBoards: () => (this.city ? this.city.adSlots.filter((a) => a.id.includes('-XL-')).map((a) => ({ id: a.id, x: a.center.x, y: a.center.y, z: a.center.z })) : []),
+      /** The rentable billboards' centres (scripts/qa-*.mjs). */
+      bigBoards: () => (this.city ? this.city.adBoards.boards : []),
+      /** Open the rent sheet of a plot (scripts/qa-plots.mjs). */
+      plot: (id: string) => PLOT_BY_ID[id] && openPlotPanel(PLOT_BY_ID[id]),
+      plots: () => PLOTS.map((p) => ({ id: p.id, kind: p.kind, x: p.center.x, z: p.center.z })),
       /** Sky camera at a game x/z instead of lat/lon. */
       skyAt: (x: number, z: number, dist = 120) => {
         const { camera, controls } = this.engine;
@@ -639,6 +644,10 @@ export class Game {
       this.crowd!.hold(who.personId, 12, p.x, p.z);
       return this.walkTo(who.x, who.z);
     }
+    // A rentable billboard (ad block or island board)?
+    const boardHit = this.engine.pick(x, y, [this.city.adBoards.faces]);
+    const board = boardHit?.faceIndex != null ? this.city.adBoards.boardAt(boardHit.faceIndex) : null;
+    if (board && PLOT_BY_ID[board.plotId]) return openPlotPanel(PLOT_BY_ID[board.plotId], board.unit);
     const adHit = this.engine.pick(x, y, this.city.adSlots.map((s) => s.mesh));
     // Ground and walls together: whichever is hit first wins, so tapping a
     // building doesn't walk you to the hidden ground behind it.
@@ -1193,6 +1202,8 @@ export class Game {
         this.closeCityMap();
         this.openAdCard(id);
       },
+      // Plots for rent open on top of the map, so you can keep browsing.
+      onPlot: (id) => PLOT_BY_ID[id] && openPlotPanel(PLOT_BY_ID[id]),
       onWholeCity: () => {
         this.closeCityMap();
         this.openMapOverlay(true);
@@ -1259,6 +1270,7 @@ export class Game {
         this.overlayClose?.();
         this.openAdCard(id);
       },
+      onPlot: (id) => PLOT_BY_ID[id] && openPlotPanel(PLOT_BY_ID[id]),
       onFlyover: () => window.setTimeout(() => this.openCityMap(), 0),
       onClose: () => (this.overlayClose = null),
     });

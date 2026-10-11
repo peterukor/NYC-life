@@ -396,7 +396,7 @@ function buildLots(d: DistrictDef, track: Track): THREE.Group {
     out.add(mesh);
   }
   if (signs.length && typeof document !== 'undefined') {
-    // A little "LAND FOR SALE" board on a post (instanced).
+    // A little "FOR RENT" board on a post (instanced): rent the lot, pick a house (data/plots.ts).
     const canvas = document.createElement('canvas');
     canvas.width = 128;
     canvas.height = 64;
@@ -407,12 +407,12 @@ function buildLots(d: DistrictDef, track: Track): THREE.Group {
       g2.fillStyle = '#e63946';
       g2.fillRect(0, 0, 128, 18);
       g2.fillStyle = '#ffffff';
-      g2.font = 'bold 13px sans-serif';
+      g2.font = 'bold 10px sans-serif';
       g2.textAlign = 'center';
-      g2.fillText('LAND', 64, 14);
+      g2.fillText('LOT · BUILD A HOME', 64, 14);
       g2.fillStyle = '#1c2340';
       g2.font = 'bold 22px sans-serif';
-      g2.fillText('FOR SALE', 64, 46);
+      g2.fillText('FOR RENT', 64, 46);
     }
     const tex = track(new THREE.CanvasTexture(canvas));
     tex.colorSpace = THREE.SRGBColorSpace;

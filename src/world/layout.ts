@@ -22,13 +22,18 @@
 // =====================================================================
 
 import type { AreaId } from '../sim/types.ts';
-import { boroughBounds, onLand, project, type BoroughId } from './geo-proj.ts';
+import { boroughBounds, onLand as onAnyLand, outline, pointInRing, project, type BoroughId, type XZ } from './geo-proj.ts';
 import { Rng } from '../core/rng.ts';
 
 export type Zone = 'tall' | 'midrise' | 'brownstone' | 'waterfront';
 
-/** What occupies a block, if it isn't ordinary buildings. 'water' = the block is in the river. */
-export type BlockKind = 'buildings' | 'plaza' | 'park' | 'vacant' | 'water';
+/**
+ * What occupies a block, if it isn't ordinary buildings. 'water' = the
+ * block is in the river. 'vacant' = fenced "coming soon" site (Hudson
+ * Yards). 'lot' = empty land players rent to put a house on. 'ads' = an
+ * ad block: four billboard units players rent (data/plots.ts).
+ */
+export type BlockKind = 'buildings' | 'plaza' | 'park' | 'vacant' | 'lot' | 'ads' | 'water';
 
 export interface DistrictDef {
   id: AreaId;
@@ -63,6 +68,11 @@ export interface DistrictDef {
   water: { side: 'west' | 'north'; label: string };
   zone: (c: number, r: number) => Zone;
   kind: (c: number, r: number) => BlockKind;
+  /**
+   * Change a block's kind. Only data/plots.ts calls this, once, at start-up
+   * (it turns some building blocks into home lots and ad blocks).
+   */
+  setKind: (c: number, r: number, kind: BlockKind) => void;
   /** A block cut down by the river (see trimToLand): its smaller rect, else null. */
   trimmed: (c: number, r: number) => Rect | null;
   /** The bright "Times Square" of this area: where the giant screens cluster. */
@@ -72,6 +82,22 @@ export interface DistrictDef {
 }
 
 export const SIDEWALK = 4;
+
+/**
+ * Street blocks only go on a borough's MAIN land (its biggest outline
+ * ring): the small islands (Randall's, Roosevelt, Governors) stay open
+ * land, rented whole (data/plots.ts).
+ */
+const mainRing = new Map<BoroughId, XZ[]>();
+function onLand(borough: BoroughId, x: number, z: number): boolean {
+  let ring = mainRing.get(borough);
+  if (!ring) {
+    const area = (r: XZ[]) => Math.abs(r.reduce((s, p, i) => s + p.x * r[(i + 1) % r.length].z - r[(i + 1) % r.length].x * p.z, 0));
+    ring = outline(borough).reduce((a, b) => (area(b) > area(a) ? b : a));
+    mainRing.set(borough, ring);
+  }
+  return onAnyLand(borough, x, z) && pointInRing(x, z, ring);
+}
 
 // ---------------------------------------------------------------------
 // The playable street grids are laid over the REAL borough shapes
@@ -219,7 +245,10 @@ const M_DOWNTOWN_STREETS: [string, number][] = [
   ['Battery Pl', 1265], ['State St', 1310],
 ];
 const nearestName = (list: [string, number][], v: number) => list.reduce((b, a) => (Math.abs(a[1] - v) < Math.abs(b[1] - v) ? a : b))[0];
+/** Above 110th St the avenues take their Harlem names. */
+const M_AVES_HARLEM: [string, number][] = [['Riverside Dr', -287], ['Broadway', -230], ['Amsterdam Ave', -172], ['St Nicholas Ave', -114], ['Frederick Douglass Blvd', -56], ['Adam Clayton Powell Jr Blvd', -4], ['Malcolm X Blvd', 56], ['5th Ave', 116], ['Madison Ave', 146], ['Park Ave', 176], ['Lexington Ave', 206], ['3rd Ave', 246], ['2nd Ave', 290], ['1st Ave', 335], ['Pleasant Ave', 380]];
 function manhattanAvenue(x: number, z = 0): string {
+  if (z < -1060) return nearestName(M_AVES_HARLEM, x);
   if (z > 860) return nearestName(M_AVES_DOWNTOWN, x);
   if (z > 500) return nearestName(M_AVES_VILLAGE, x);
   return nearestName(M_AVES, x);
@@ -247,7 +276,7 @@ export function manhattanForSale(x: number, z: number): boolean {
 }
 
 /** Build a district from its grid spec and its own rules. */
-function district(base: Omit<DistrictDef, 'origin' | 'trimmed' | 'xs' | 'zs' | 'allXs' | 'allZs' | 'cols' | 'rows' | 'joinS' | 'joinE' | 'kind' | 'hub' | 'avenueNames' | 'streetNames'> & {
+function district(base: Omit<DistrictDef, 'origin' | 'trimmed' | 'setKind' | 'xs' | 'zs' | 'allXs' | 'allZs' | 'cols' | 'rows' | 'joinS' | 'joinE' | 'kind' | 'hub' | 'avenueNames' | 'streetNames'> & {
   grid: GridSpec;
   /** Kind of a land block (water is handled for you), from its centre. */
   kindAt: (x: number, z: number, c: number, r: number) => BlockKind;
@@ -289,6 +318,9 @@ function district(base: Omit<DistrictDef, 'origin' | 'trimmed' | 'xs' | 'zs' | '
     joinS: joins.joinS,
     joinE: joins.joinE,
     kind: (c, r) => kinds[c]?.[r] ?? 'water',
+    setKind: (c, r, k) => {
+      if (kinds[c]?.[r] !== undefined) kinds[c][r] = k;
+    },
     trimmed: (c, r) => trims[c]?.[r] ?? null,
     hub,
     avenueNames: xs.map((x) => base.names(x, (zs[0] + zs[rows]) / 2)[0]),
@@ -318,12 +350,13 @@ const M_BATTERY = project(40.7033, -74.017); // The Battery
 const MANHATTAN = district({
   id: 'manhattan',
   name: 'Manhattan',
-  tagline: 'Central Park · Midtown · Downtown',
+  tagline: 'Harlem · Central Park · Midtown · Downtown',
   borough: 'manhattan',
   // Anchored on Central Park West (x −56) and Central Park South (z −226);
-  // playable from 110th St all the way down to the Battery (the lines are
-  // the same seeded lines as before, the grid just reaches further south).
-  grid: playable(gridFor('manhattan', { x: -56, z: -226 }, { minX: -470, maxX: 480, minZ: -1042, maxZ: 1340 }, 'manhattan-grid-v3'), MANHATTAN_GRID),
+  // playable from Harlem (about 155th St) all the way down to the Battery
+  // (the lines are the same seeded lines as before, the grid just reaches
+  // further north and south).
+  grid: playable(gridFor('manhattan', { x: -56, z: -226 }, { minX: -470, maxX: 480, minZ: -1750, maxZ: 1340 }, 'manhattan-grid-v3'), MANHATTAN_GRID),
   blockW: 150,
   blockD: 70,
   avenueW: AVE_W,
@@ -335,6 +368,8 @@ const MANHATTAN = district({
     const x = (d.xs[c] + d.xs[c + 1]) / 2;
     const z = (d.zs[r] + d.zs[r + 1]) / 2;
     const n = manhattanStreetAt(z);
+    // Harlem, above 110th St: brownstones, East Harlem mid-rise.
+    if (n > 110) return x > 150 ? 'midrise' : 'brownstone';
     // Downtown, below 14th St.
     if (z > 1000) return 'tall'; // Financial District
     if (z > 840) return x < 240 ? 'midrise' : 'brownstone'; // Tribeca / Chinatown
@@ -353,7 +388,7 @@ const MANHATTAN = district({
     if (inBlock(M_FUNLAND)) return 'plaza';
     if (inBlock(M_HY)) return 'vacant';
     if (inBlock(M_WSP) || inBlock(M_CITYHALL) || inBlock(M_BATTERY)) return 'park';
-    if (manhattanForSale(x, z)) return 'vacant';
+    if (manhattanForSale(x, z)) return 'lot';
     return 'buildings';
   },
   hubAt: { x: TIMES_SQ.x, z: TIMES_SQ.z, name: 'Times Square' },
@@ -508,15 +543,9 @@ export function onRoad(d: DistrictDef, x: number, z: number): boolean {
   return ring;
 }
 
-/**
- * Is block (c, r) empty land FOR SALE inside the playable streets (below
- * 14th St on the east side, for now)? It's drawn like the expandable lots
- * around the borough: a grass lot with a "LAND FOR SALE" board.
- */
+/** Is block (c, r) empty land players can rent for a house (data/plots.ts)? */
 export function forSaleBlock(d: DistrictDef, c: number, r: number): boolean {
-  if (d.kind(c, r) !== 'vacant' || d.id !== 'manhattan') return false;
-  const b = blockRect(d, c, r);
-  return manhattanForSale((b.minX + b.maxX) / 2, (b.minZ + b.maxZ) / 2);
+  return d.kind(c, r) === 'lot';
 }
 
 /** Is block (c, r) a park? (false off the grid) */

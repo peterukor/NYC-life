@@ -19,9 +19,10 @@ import { doorOf, isOpen, placesIn, PLACE_BY_ID } from '../data/places.ts';
 import { HOODS } from '../data/neighborhoods.ts';
 import type { AreaId, GameState } from '../sim/types.ts';
 import { SAFE_AREAS, turfMap } from '../sim/gangs.ts';
-import { BOROUGHS, boroughAt, boroughBounds, outline, project, type BoroughId } from '../world/geo-proj.ts';
+import { BOROUGHS, boroughAt, boroughBounds, outline, pointInRing, project, type BoroughId } from '../world/geo-proj.ts';
 import { blockRect, districtBounds, DISTRICTS, isPark, type DistrictDef } from '../world/layout.ts';
 import { corridorsIn } from '../world/corridors.ts';
+import { plotsIn } from '../data/plots.ts';
 import { lotsFor, shoreFeatures, shoreKinds, type ShoreKind } from '../world/coast.ts';
 import { pondsFor } from '../data/parks.ts';
 import { html, onAct, root } from './dom.ts';
@@ -38,6 +39,8 @@ export interface MapOptions {
   billboards?: { id: string; x: number; z: number; tier: string }[];
   onPick: (placeId: string) => void;
   onBillboard?: (slotId: string) => void;
+  /** Tap an ad block, a home lot or an island for rent (data/plots.ts). */
+  onPlot?: (plotId: string) => void;
   /** Open the 3D fly-over of the borough you're in. */
   onFlyover?: () => void;
   onClose: () => void;
@@ -209,6 +212,27 @@ export function openMap(opts: MapOptions): () => void {
           g.fillStyle = '#fbe3a0';
           rr(x + 2 * scale, y + 2 * scale, w - 4 * scale, h - 4 * scale, 3 * scale);
           g.fill();
+        } else if (kind === 'lot') {
+          // Empty land to rent for a house.
+          g.fillStyle = '#cfe3a6';
+          rr(x + 2 * scale, y + 2 * scale, w - 4 * scale, h - 4 * scale, 3 * scale);
+          g.fill();
+          g.setLineDash([4, 3]);
+          g.strokeStyle = '#7aa04e';
+          g.lineWidth = 1.2;
+          g.stroke();
+          g.setLineDash([]);
+        } else if (kind === 'ads') {
+          // Ad block: four bright units.
+          const cols = ['#ff4f8b', '#3b82f6', '#a855f7', '#f59e0b'];
+          const pad = 3 * scale;
+          for (let k = 0; k < 4; k++) {
+            const ux = x + pad + ((w - pad * 3) / 2 + pad) * (k % 2);
+            const uy = y + pad + ((h - pad * 3) / 2 + pad) * Math.floor(k / 2);
+            g.fillStyle = cols[k];
+            rr(ux, uy, (w - pad * 3) / 2, (h - pad * 3) / 2, 2 * scale);
+            g.fill();
+          }
         } else if (kind === 'vacant') {
           g.save();
           rr(x, y, w, h, 3 * scale);
@@ -452,7 +476,17 @@ export function openMap(opts: MapOptions): () => void {
         const label = spaced(hd.name);
         if (!free(sx(p.x), sy(p.z) + (inside ? 0 : size * 0.4), g.measureText(label).width + 4, inside ? size + 2 : size * 1.9)) continue;
         halo(label, sx(p.x), sy(p.z), `900 ${size}px ${FONT}`, 'rgba(70,64,90,0.75)', 4);
-        if (!inside) halo('LAND FOR SALE', sx(p.x), sy(p.z) + size, `800 ${Math.max(8, size * 0.6)}px ${FONT}`, '#b04a2f', 3);
+        if (!inside) halo('LOTS FOR RENT', sx(p.x), sy(p.z) + size, `800 ${Math.max(8, size * 0.6)}px ${FONT}`, '#b04a2f', 3);
+      }
+      // Plots for rent: ad blocks and islands (data/plots.ts).
+      g.textAlign = 'center';
+      for (const pl of area ? plotsIn(area) : []) {
+        if (pl.kind === 'island') {
+          halo(`🏝️ ${pl.name}`, sx(pl.center.x), sy(pl.center.z) - 4, `900 ${Math.max(9, Math.min(13, 8 * scale + 5))}px ${FONT}`, '#0e7490', 4);
+          halo(`FOR RENT · $${pl.islandPrice?.toFixed(2)}`, sx(pl.center.x), sy(pl.center.z) + 10, `800 9px ${FONT}`, '#b04a2f', 3);
+        } else if (pl.kind === 'ad' && scale > 0.32) {
+          halo('📢 AD SPACE', sx(pl.center.x), sy(pl.center.z) + 4, `900 ${Math.max(8, Math.min(12, 6 * scale + 5))}px ${FONT}`, '#be185d', 3);
+        }
       }
       // Landmarks: their names where they stand.
       for (const { p, at } of marks) {
@@ -575,7 +609,14 @@ export function openMap(opts: MapOptions): () => void {
       }
       return;
     }
-    // Billboards first, then places.
+    // Plots for rent first (islands, ad blocks), then billboards, then places.
+    if (opts.onPlot && AREA_OF[focus]) {
+      const wx2 = (px - ox) / scale, wz2 = (py - oy) / scale;
+      const hitPlot = plotsIn(AREA_OF[focus]!).find((pl) =>
+        pl.kind === 'island' ? !!pl.ring && pointInRing(wx2, wz2, pl.ring) : pl.kind === 'ad' && !!pl.rect && wx2 > pl.rect.minX && wx2 < pl.rect.maxX && wz2 > pl.rect.minZ && wz2 < pl.rect.maxZ,
+      );
+      if (hitPlot) return opts.onPlot(hitPlot.id);
+    }
     if (opts.billboards && opts.onBillboard && AREA_OF[focus] === opts.area) {
       const hit = opts.billboards.find((bb) => Math.hypot(sx(bb.x) - px, sy(bb.z) - py) < 14);
       if (hit) return opts.onBillboard(hit.id);

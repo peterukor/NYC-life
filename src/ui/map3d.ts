@@ -16,6 +16,7 @@ import { doorOf, isOpen, placesIn, type PlaceDef } from '../data/places.ts';
 import type { AreaId } from '../sim/types.ts';
 import { html, onAct, root } from './dom.ts';
 import { HOODS } from '../data/neighborhoods.ts';
+import { AD_PRICES, plotsIn } from '../data/plots.ts';
 import { project, type BoroughId } from '../world/geo-proj.ts';
 
 export interface Map3DOptions {
@@ -28,6 +29,8 @@ export interface Map3DOptions {
   player: () => { x: number; z: number };
   onPlace: (place: PlaceDef) => void;
   onBillboard: (slotId: string) => void;
+  /** Tap an ad block, home lot or island for rent (data/plots.ts). */
+  onPlot: (plotId: string) => void;
   onWholeCity: () => void;
   /** Gang view on/off (game.ts tints turf blocks). */
   onGang: (on: boolean) => void;
@@ -86,6 +89,21 @@ export function openMap3D(o: Map3DOptions): Map3D {
     layer.appendChild(chip);
     items.push({ el: chip, x: b.center.x, y: b.center.y + 2, z: b.center.z, minZoom: big(b) ? 1100 : b.tier === 'avenue' ? 420 : 230 });
   }
+  // Plots for rent: every ad block and island has a bright card you can
+  // see from high up; empty home lots get a small 🏠 tag up close.
+  const cards: HTMLElement[] = [];
+  for (const pl of plotsIn(o.area)) {
+    const label =
+      pl.kind === 'island'
+        ? `🏝️ ${esc(pl.name)}<small>FOR RENT · $${pl.islandPrice?.toFixed(2)} / 6 mo</small>`
+        : pl.kind === 'ad'
+          ? `📢 AD SPACE<small>4 billboards · from $${AD_PRICES[pl.tier].unit}/wk</small>`
+          : '🏠 Lot for rent';
+    const card = html(`<button class="m3-plot ${pl.kind === 'island' ? 'island' : pl.kind === 'home' ? 'lot' : ''}" data-act="plot:${esc(pl.id)}"><span>${label}</span></button>`);
+    layer.appendChild(card);
+    if (pl.kind !== 'home') cards.push(card);
+    items.push({ el: card, x: pl.center.x, y: pl.kind === 'home' ? 4 : 30, z: pl.center.z, minZoom: pl.kind === 'home' ? 420 : 99999 });
+  }
   const me = html('<div class="m3-me" aria-label="You are here"></div>');
   layer.appendChild(me);
 
@@ -110,12 +128,15 @@ export function openMap3D(o: Map3DOptions): Map3D {
       if (p) o.onPlace(p);
     }
     if (act.startsWith('ad:')) o.onBillboard(act.slice(3));
+    if (act.startsWith('plot:')) o.onPlot(act.slice(5));
   });
 
   return {
     update(camera, w, h, camDist) {
       // Zoomed all the way out: show the whole city (flat map).
       if (camDist > 1420) return o.onWholeCity();
+      // Far out, plot cards shrink to one line.
+      for (const c of cards) c.classList.toggle('compact', camDist > 750);
       for (const it of items) {
         if (camDist > it.minZoom || (it.maxZoom && camDist < it.maxZoom)) it.el.style.display = 'none';
         else place(it.el, it.x, it.y, it.z, camera, w, h);

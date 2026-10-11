@@ -427,3 +427,34 @@ a { color: var(--info); }
 .m3-me { position: absolute; left: 0; top: 0; width: 20px; height: 20px; margin-top: 10px; border: 4px solid #fff; border-radius: 50%; background: #007aff; box-shadow: 0 0 0 10px rgba(0, 122, 255, 0.22); }
 .m3-hood { position: absolute; left: 0; top: 0; font: 900 15px/1 Nunito, system-ui, sans-serif; letter-spacing: 0.22em; color: rgba(40, 36, 60, 0.82); text-shadow: 0 0 4px #fff, 0 0 8px #fff, 0 0 2px #fff; white-space: nowrap; pointer-events: none; will-change: transform; }
 .map-title { flex: 1; min-width: 0; padding: 8px 14px; border: var(--line); border-radius: 18px; background: var(--paper); box-shadow: var(--drop-sm); font-family: var(--display); font-size: 20px; }
+
+/* ---- Plots for rent (ui/plot-panel.ts) ---- */
+.plot-units { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 4px 0 10px; padding: 8px; border: var(--line-thin); border-radius: 14px; background: #e9f5dd; }
+.plot-unit { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 12px 6px; border: var(--line-thin); border-radius: 10px; background: linear-gradient(135deg, #ff4f8b, #ff9a3c); color: #fff; font: inherit; cursor: pointer; }
+.plot-unit b { font-size: 20px; }
+.plot-unit small { font-size: 11px; opacity: 0.9; }
+.plot-unit[aria-pressed="true"] { outline: 4px solid #ffd23f; outline-offset: -2px; background: linear-gradient(135deg, #16a34a, #a3e635); }
+.plot-hint { color: var(--ink-soft); font-size: 13px; }
+.plot-field { display: flex; flex-direction: column; gap: 6px; margin: 0 0 12px; font-size: 14px; }
+.plot-field input[type="range"] { width: 100%; }
+.plot-field textarea { font: inherit; font-weight: 600; padding: 10px; border: var(--line-thin); border-radius: 12px; resize: vertical; }
+.plot-preview { display: block; max-width: 100%; max-height: 140px; margin: 0 0 12px; border: var(--line-thin); border-radius: 10px; }
+.plot-note { margin: 0 0 12px; color: var(--ink-soft); font-size: 13px; }
+.plot-note.auction { color: #b45309; font-weight: 800; }
+.plot-go { width: 100%; padding: 14px; font-size: 16px; }
+.plot-id { margin: 10px 0 0; color: var(--ink-faint); font-size: 11px; text-align: center; }
+.plot-houses { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 0 0 12px; }
+.plot-house { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 10px; border: var(--line-thin); border-radius: 12px; background: #fff; font: inherit; text-align: left; cursor: pointer; }
+.plot-house span { font-size: 26px; }
+.plot-house small { color: var(--ink-soft); font-size: 11px; font-weight: 600; }
+.plot-house em { font-style: normal; font-size: 12px; color: #15803d; }
+.plot-house[aria-pressed="true"] { background: #fff4c2; box-shadow: var(--drop-sm); }
+.m3-plot { position: absolute; left: 0; top: 0; display: flex; align-items: center; gap: 4px; padding: 4px 10px 4px 6px; border: 2px solid #1c2340; border-radius: 12px; background: linear-gradient(135deg, #ff4f8b, #ff9a3c); box-shadow: 0 3px 0 rgba(28, 35, 64, 0.85); font: 900 11px/1.1 Nunito, system-ui, sans-serif; color: #fff; white-space: nowrap; pointer-events: auto; will-change: transform; }
+.m3-plot small { display: block; font-weight: 800; font-size: 10px; opacity: 0.95; }
+.m3-plot.island { background: linear-gradient(135deg, #0ea5a4, #2563eb); font-size: 12px; }
+.m3-plot.lot { background: #7cb342; padding: 3px 8px; }
+.m3-plot.compact small { display: none; }
+/* Sheets open on top of the maps too (plot rent sheets over the sky map). */
+.backdrop { z-index: 36; }
+.sheet { z-index: 37; }
+.toasts { z-index: 38; }

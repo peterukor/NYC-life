@@ -19,6 +19,8 @@ export type ViewMode = 'city' | 'interior' | 'transit';
 export interface TapHit {
   point: THREE.Vector3;
   object: THREE.Object3D;
+  /** Which triangle was hit (merged meshes use it to tell parts apart). */
+  faceIndex?: number;
 }
 
 export class Engine {
@@ -121,7 +123,7 @@ export class Engine {
     this.pointer.set(((x - r.left) / r.width) * 2 - 1, -((y - r.top) / r.height) * 2 + 1);
     this.raycaster.setFromCamera(this.pointer, camera);
     const hits = this.raycaster.intersectObjects(objects, true);
-    return hits.length ? { point: hits[0].point, object: hits[0].object } : null;
+    return hits.length ? { point: hits[0].point, object: hits[0].object, faceIndex: hits[0].faceIndex ?? undefined } : null;
   }
 
   activeCamera(): THREE.PerspectiveCamera {

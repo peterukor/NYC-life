@@ -145,7 +145,7 @@ export interface PropOptions {
   doors: { x: number; z: number }[];
   buildings: BuildingPlan[];
   yard: Rect | null;
-  kind: 'buildings' | 'park' | 'plaza' | 'vacant';
+  kind: 'buildings' | 'park' | 'plaza' | 'vacant' | 'lot' | 'ads';
   /** Draw street trees (quality setting). */
   trees: boolean;
   /** Avenue sides get fewer trees and more stalls. */
