@@ -10,6 +10,7 @@
 
 import { blockRect, districtBounds, SIDEWALK, type DistrictDef, type Rect } from './layout.ts';
 import { onLand } from './geo-proj.ts';
+import { onCorridor } from './corridors.ts';
 
 export const CELL = 3;
 
@@ -45,6 +46,13 @@ export function buildNavGrid(d: DistrictDef, solids: Rect[] = []): NavGrid {
       const br = blockRect(d, c, r);
       // Keep the sidewalk ring walkable; block what's inside it.
       block({ minX: br.minX + SIDEWALK, maxX: br.maxX - SIDEWALK, minZ: br.minZ + SIDEWALK, maxZ: br.maxZ - SIDEWALK });
+    }
+  }
+
+  // Broadway and the ring road cut through blocks: walkable again there.
+  for (let rr = 0; rr < rows; rr++) {
+    for (let cc = 0; cc < cols; cc++) {
+      if (!walk[rr * cols + cc] && onCorridor(d.id, b.minX + (cc + 0.5) * CELL, b.minZ + (rr + 0.5) * CELL)) walk[rr * cols + cc] = 1;
     }
   }
 

@@ -188,7 +188,7 @@ const RAW: RawPlace[] = [
   {
     id: 'statueOfLiberty', area: 'manhattan', name: 'Statue of Liberty', emoji: '🗽', type: 'landmark',
     blurb: 'Lady Liberty, out in the harbor. Wave from the pier, or squint at her torch at night.',
-    at: [40.7623, -74.001], model: [40.6892, -74.0445], interior: 'none', color: '#7fcdb4',
+    at: [40.7033, -74.017], model: [40.6892, -74.0445], interior: 'none', color: '#7fcdb4',
     actions: ['photoSelfie'],
     landmark: { description: 'The 1886 copper statue on Liberty Island in New York Harbor, a gift from France.', officialSite: 'https://www.nps.gov/stli/', siteLabel: 'nps.gov/stli' },
   },

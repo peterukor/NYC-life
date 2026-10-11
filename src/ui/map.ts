@@ -21,6 +21,7 @@ import type { AreaId, GameState } from '../sim/types.ts';
 import { SAFE_AREAS, turfMap } from '../sim/gangs.ts';
 import { BOROUGHS, boroughAt, boroughBounds, outline, project, type BoroughId } from '../world/geo-proj.ts';
 import { blockRect, districtBounds, DISTRICTS, isPark, type DistrictDef } from '../world/layout.ts';
+import { corridorsIn } from '../world/corridors.ts';
 import { lotsFor, shoreFeatures, shoreKinds, type ShoreKind } from '../world/coast.ts';
 import { pondsFor } from '../data/parks.ts';
 import { html, onAct, root } from './dom.ts';
@@ -258,6 +259,24 @@ export function openMap(opts: MapOptions): () => void {
           }
         }
       }
+    }
+    // 2b. Off-grid roads on top (world/corridors.ts): Broadway as a street,
+    // the ring highway in highway yellow with a dark edge.
+    g.lineCap = 'round';
+    g.lineJoin = 'round';
+    for (const c of corridorsIn(d.id)) {
+      const path = () => {
+        g.beginPath();
+        c.pts.forEach((p, i) => (i ? g.lineTo(sx(p.x), sy(p.z)) : g.moveTo(sx(p.x), sy(p.z))));
+        if (c.loop) g.closePath();
+      };
+      path();
+      g.strokeStyle = c.highway ? '#c99a3c' : '#ddd3c0';
+      g.lineWidth = Math.max(2.5, (c.width + (c.highway ? 3 : 9)) * scale);
+      g.stroke();
+      g.strokeStyle = c.highway ? '#ffd37a' : '#f3efe6';
+      g.lineWidth = Math.max(1.5, (c.width - (c.highway ? 1 : -4)) * scale);
+      g.stroke();
     }
     // 3. Lakes.
     for (const p of ponds) {

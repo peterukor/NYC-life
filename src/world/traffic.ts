@@ -12,9 +12,9 @@
 // =====================================================================
 
 import * as THREE from 'three';
-import { onLand } from './geo-proj.ts';
+import { corridorsIn } from './corridors.ts';
 import { pickVehicle, type VehicleDef } from '../data/vehicles.ts';
-import { avenueX, streetZ, type DistrictDef } from './layout.ts';
+import { avenueX, inParkGap, onRoad, streetZ, type DistrictDef } from './layout.ts';
 import { PAINT_MARKER, vehicleGeometry, vehicleMaterial } from './vehicle-models.ts';
 
 interface Car {
@@ -26,13 +26,16 @@ interface Car {
   slot: number;
 }
 
+/**
+ * A lane is a polyline (two points for a grid street; many for Broadway
+ * or the ring highway). `cum` = distance from the start to each point.
+ * A `loop` lane joins its last point back to its first (the ring road).
+ */
 interface Lane {
-  x0: number;
-  z0: number;
-  x1: number;
-  z1: number;
+  pts: { x: number; z: number }[];
+  cum: number[];
   length: number;
-  heading: number;
+  loop: boolean;
 }
 
 export class Traffic {
@@ -64,6 +67,15 @@ export class Traffic {
       const z = streetZ(d, j);
       add(xA, z + 2.2, xB, z + 2.2);
       add(xB, z - 2.2, xA, z - 2.2);
+    }
+    // Roads off the grid (world/corridors.ts): Broadway gets one lane each
+    // way, highways two each way. Lanes are the centre line pushed sideways.
+    for (const c of corridorsIn(d.id)) {
+      const offs = c.highway ? [2.4, 6.4] : [2.3];
+      for (const o of offs) {
+        this.lanes.push(polyLane(offsetLine(c.pts, o, !!c.loop), !!c.loop));
+        this.lanes.push(polyLane(offsetLine(c.pts, -o, !!c.loop).reverse(), !!c.loop));
+      }
     }
 
     // Roll every car: which vehicle (by trafficWeight), which paint, how fast.
@@ -122,17 +134,17 @@ export class Traffic {
       car.t += (car.speed * slow * dt) / lane.length;
       if (car.t > 1) car.t -= 1;
       if (focus && this.nearLanes.length) {
-        const px = lane.x0 + (lane.x1 - lane.x0) * car.t;
-        const pz = lane.z0 + (lane.z1 - lane.z0) * car.t;
-        if (Math.abs(px - focus.x) > 260 || Math.abs(pz - focus.z) > 260) {
+        const at = laneAt(lane, car.t);
+        if (Math.abs(at.x - focus.x) > 260 || Math.abs(at.z - focus.z) > 260) {
           car.lane = this.nearLanes[Math.floor(Math.random() * this.nearLanes.length)];
           lane = this.lanes[car.lane];
           const c = closestT(lane, focus);
           car.t = Math.min(1, Math.max(0, c.t + (Math.random() - 0.5) * (300 / lane.length)));
         }
       }
-      this.dummy.position.set(lane.x0 + (lane.x1 - lane.x0) * car.t, 0, lane.z0 + (lane.z1 - lane.z0) * car.t);
-      this.dummy.rotation.set(0, lane.heading, 0);
+      const at = laneAt(lane, car.t);
+      this.dummy.position.set(at.x, 0, at.z);
+      this.dummy.rotation.set(0, at.heading, 0);
       this.dummy.updateMatrix();
       this.meshes[car.mesh].setMatrixAt(car.slot, this.dummy.matrix);
     });
@@ -146,11 +158,57 @@ export class Traffic {
   }
 }
 
+/** The point on a lane nearest p: its t (0…1) and how far away it is. */
 function closestT(l: Lane, p: { x: number; z: number }): { t: number; d: number } {
-  const dx = l.x1 - l.x0;
-  const dz = l.z1 - l.z0;
-  const t = Math.max(0, Math.min(1, ((p.x - l.x0) * dx + (p.z - l.z0) * dz) / (dx * dx + dz * dz || 1)));
-  return { t, d: Math.hypot(p.x - (l.x0 + dx * t), p.z - (l.z0 + dz * t)) };
+  let best = { t: 0, d: Infinity };
+  const n = l.pts.length;
+  for (let i = 0; i < (l.loop ? n : n - 1); i++) {
+    const a = l.pts[i], b = l.pts[(i + 1) % n];
+    const dx = b.x - a.x, dz = b.z - a.z;
+    const seg = Math.hypot(dx, dz) || 1;
+    const u = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.z - a.z) * dz) / (seg * seg)));
+    const dd = Math.hypot(p.x - (a.x + dx * u), p.z - (a.z + dz * u));
+    if (dd < best.d) best = { t: (l.cum[i] + u * seg) / l.length, d: dd };
+  }
+  return best;
+}
+
+/** Where along a lane t (0…1) is, and which way the car faces there. */
+function laneAt(l: Lane, t: number): { x: number; z: number; heading: number } {
+  const s = t * l.length;
+  const n = l.pts.length;
+  const segs = l.loop ? n : n - 1;
+  // Binary search for the segment holding distance s.
+  let lo = 0, hi = segs - 1;
+  while (lo < hi) {
+    const mid = (lo + hi + 1) >> 1;
+    if (l.cum[mid] <= s) lo = mid;
+    else hi = mid - 1;
+  }
+  const a = l.pts[lo], b = l.pts[(lo + 1) % n];
+  const seg = (l.cum[lo + 1] ?? l.length) - l.cum[lo] || 1;
+  const u = Math.max(0, Math.min(1, (s - l.cum[lo]) / seg));
+  return { x: a.x + (b.x - a.x) * u, z: a.z + (b.z - a.z) * u, heading: Math.atan2(b.x - a.x, b.z - a.z) };
+}
+
+function polyLane(pts: { x: number; z: number }[], loop: boolean): Lane {
+  const cum = [0];
+  const n = pts.length;
+  for (let i = 0; i < (loop ? n : n - 1); i++) cum.push(cum[i] + Math.hypot(pts[(i + 1) % n].x - pts[i].x, pts[(i + 1) % n].z - pts[i].z));
+  return { pts, cum, length: cum[cum.length - 1] || 1, loop };
+}
+
+/** A polyline pushed `off` metres to its right (negative = left). */
+function offsetLine(pts: { x: number; z: number }[], off: number, loop: boolean): { x: number; z: number }[] {
+  const n = pts.length;
+  return pts.map((p, i) => {
+    const a = pts[loop ? (i - 1 + n) % n : Math.max(0, i - 1)];
+    const b = pts[loop ? (i + 1) % n : Math.min(n - 1, i + 1)];
+    const dx = b.x - a.x, dz = b.z - a.z;
+    const l = Math.hypot(dx, dz) || 1;
+    // Facing +z (heading 0), "right" is −x.
+    return { x: p.x - (dz / l) * off, z: p.z + (dx / l) * off };
+  });
 }
 
 /** The longest stretch of a straight road that stays on land (null if under 60 m). */
@@ -161,7 +219,8 @@ function landRun(d: DistrictDef, x0: number, z0: number, x1: number, z1: number)
   let start = -1;
   for (let i = 0; i <= steps + 1; i++) {
     const t = i / steps;
-    const on = i <= steps && onLand(d.borough, x0 + (x1 - x0) * t, z0 + (z1 - z0) * t);
+    const px = x0 + (x1 - x0) * t, pz = z0 + (z1 - z0) * t;
+    const on = i <= steps && onRoad(d, px, pz) && !inParkGap(d, px, pz);
     if (on && start < 0) start = i;
     if (!on && start >= 0) {
       if (!best || i - 1 - start > best[1] - best[0]) best = [start, i - 1];
@@ -175,5 +234,5 @@ function landRun(d: DistrictDef, x0: number, z0: number, x1: number, z1: number)
 }
 
 function makeLane(x0: number, z0: number, x1: number, z1: number): Lane {
-  return { x0, z0, x1, z1, length: Math.hypot(x1 - x0, z1 - z0), heading: Math.atan2(x1 - x0, z1 - z0) };
+  return polyLane([{ x: x0, z: z0 }, { x: x1, z: z1 }], false);
 }

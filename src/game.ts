@@ -201,6 +201,15 @@ export class Game {
         camera.position.set(p.x + dist * 0.15, dist * 0.8, p.z + dist * 0.6);
         controls.update();
       },
+      /** The giant billboards' centres (scripts/qa-*.mjs). */
+      bigBoards: () => (this.city ? this.city.adSlots.filter((a) => a.id.includes('-XL-')).map((a) => ({ id: a.id, x: a.center.x, y: a.center.y, z: a.center.z })) : []),
+      /** Sky camera at a game x/z instead of lat/lon. */
+      skyAt: (x: number, z: number, dist = 120) => {
+        const { camera, controls } = this.engine;
+        controls.target.set(x, 0, z);
+        camera.position.set(x + dist * 0.15, dist * 0.8, z + dist * 0.6);
+        controls.update();
+      },
       /** Lock the player up for `hours` game hours (tests the jail screen). */
       jail: (hours = 6) => arrest(this.state, 'caught in the act', hours, 40_000),
       /** Line up every vehicle on a white floor for a screenshot (scripts/qa-cars.mjs). */

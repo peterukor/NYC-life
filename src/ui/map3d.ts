@@ -75,13 +75,16 @@ export function openMap3D(o: Map3DOptions): Map3D {
   // Billboards: one chip per cluster (Times Square has dozens of screens),
   // and smaller ones only appear as you zoom in — never a wall of icons.
   const shown: THREE.Vector3[] = [];
+  // The giant standalone boards (ids '…-XL-…') rank with the hub screens:
+  // you see them from high up.
+  const big = (b: { id: string; tier: string }) => b.tier === 'hub' || b.id.includes('-XL-');
   const order = { hub: 0, avenue: 1, street: 2 } as Record<string, number>;
-  for (const b of [...o.billboards].sort((a, c) => (order[a.tier] ?? 3) - (order[c.tier] ?? 3))) {
-    if (shown.some((s) => s.distanceTo(b.center) < (b.tier === 'hub' ? 60 : 30))) continue;
+  for (const b of [...o.billboards].sort((a, c) => (big(a) ? 0 : 1) - (big(c) ? 0 : 1) || (order[a.tier] ?? 3) - (order[c.tier] ?? 3))) {
+    if (shown.some((s) => s.distanceTo(b.center) < (big(b) ? 60 : 30))) continue;
     shown.push(b.center);
-    const chip = html(`<button class="m3-ad${b.tier === 'hub' ? ' hub' : ''}" data-act="ad:${b.id}" aria-label="Billboard">📢</button>`);
+    const chip = html(`<button class="m3-ad${big(b) ? ' hub' : ''}" data-act="ad:${b.id}" aria-label="Billboard">📢</button>`);
     layer.appendChild(chip);
-    items.push({ el: chip, x: b.center.x, y: b.center.y + 2, z: b.center.z, minZoom: b.tier === 'hub' ? 1100 : b.tier === 'avenue' ? 420 : 230 });
+    items.push({ el: chip, x: b.center.x, y: b.center.y + 2, z: b.center.z, minZoom: big(b) ? 1100 : b.tier === 'avenue' ? 420 : 230 });
   }
   const me = html('<div class="m3-me" aria-label="You are here"></div>');
   layer.appendChild(me);

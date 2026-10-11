@@ -20,13 +20,14 @@ import { doorOf, placesIn } from '../data/places.ts';
 import type { AreaId } from '../sim/types.ts';
 import { comingSoonTexture, facadeTextures, signTexture, type FacadeStyle } from '../render/textures.ts';
 import { GeoBuilder } from './geo.ts';
-import { avenueX, blockRect, districtBounds, DISTRICTS, inParkGap, isPark, SIDEWALK, streetZ, type DistrictDef, type Rect } from './layout.ts';
+import { avenueX, blockRect, districtBounds, DISTRICTS, forSaleBlock, inParkGap, isPark, onRoad, SIDEWALK, streetZ, type DistrictDef, type Rect } from './layout.ts';
 import { buildNavGrid, type NavGrid } from './nav.ts';
 import { kitMaterial, type Kits } from '../assets/kit.ts';
 import { CityBlocks } from './nycgen/city-blocks.ts';
 import { groundTextures } from './nycgen/atlas.ts';
 import { buildCoast, onLand } from './coast.ts';
 import { pondsFor } from '../data/parks.ts';
+import { corridorsIn, onCorridor } from './corridors.ts';
 import { LANDMARKS } from './landmarks/index.ts';
 import { FULL_BLOCK_LANDMARKS } from '../data/places.ts';
 import { Toy } from './landmarks/toy.ts';
@@ -172,13 +173,44 @@ export function buildCity(area: AreaId, opts: { trees: boolean; shadows?: boolea
   group.add(roads);
   walkSurfaces.push(roads);
 
+  // --------------------------------------------------------- off-grid roads
+  // Broadway's diagonal and the highway round the island (world/corridors.ts)
+  // are ribbons laid on top of whatever they cross: a sidewalk ribbon
+  // (not on highways), the asphalt, a double yellow line, and dashed white
+  // lane lines on the highway.
+  {
+    const walkGeo = new GeoBuilder();
+    const roadGeo2 = new GeoBuilder();
+    const yellowGeo = new GeoBuilder();
+    const whiteGeo = new GeoBuilder();
+    for (const c of corridorsIn(area)) {
+      if (!c.highway) ribbon(walkGeo, c.pts, -(c.width / 2 + 4), c.width / 2 + 4, 0.21, !!c.loop);
+      ribbon(roadGeo2, c.pts, -c.width / 2, c.width / 2, 0.24, !!c.loop, 7);
+      ribbon(yellowGeo, c.pts, -0.31, -0.13, 0.27, !!c.loop);
+      ribbon(yellowGeo, c.pts, 0.13, 0.31, 0.27, !!c.loop);
+      if (c.highway) for (const o of [-4.4, 4.4]) ribbon(whiteGeo, c.pts, o - 0.1, o + 0.1, 0.27, !!c.loop, 1, 2);
+    }
+    const add = (g: GeoBuilder, mat: THREE.Material, name: string, walk: boolean) => {
+      if (g.empty) return;
+      const m = new THREE.Mesh(track(g.build()), mat);
+      m.receiveShadow = true;
+      m.name = name;
+      group.add(m);
+      if (walk) walkSurfaces.push(m);
+    };
+    add(walkGeo, track(new THREE.MeshLambertMaterial({ map: (() => { const t = track(gt.paver.clone()); t.repeat.set(1 / 1.8, 1 / 1.8); return t; })() })), 'corridor-sidewalks', true);
+    add(roadGeo2, asphalt, 'roads', true);
+    add(yellowGeo, track(new THREE.MeshLambertMaterial({ color: '#ffcc33' })), 'corridor-yellow', false);
+    add(whiteGeo, track(new THREE.MeshLambertMaterial({ color: '#f4f2ea' })), 'corridor-lanes', false);
+  }
+
   // --------------------------------------------------------- road markings
   const marks = new GeoBuilder();
   for (let i = 0; i <= d.cols; i++) {
     for (let j = 0; j <= d.rows; j++) {
       const ax = avenueX(d, i);
       const sz = streetZ(d, j);
-      if (!onLand(d.borough, ax, sz) || inParkGap(d, ax, sz)) continue; // in the river / inside a park
+      if (!onRoad(d, ax, sz) || inParkGap(d, ax, sz)) continue; // in the river / inside a park
       // Zebra crosswalks on all four sides of every intersection.
       for (let k = -4; k <= 4; k++) {
         const ox = ax + k * (d.avenueW / 9);
@@ -198,7 +230,7 @@ export function buildCity(area: AreaId, opts: { trees: boolean; shadows?: boolea
     for (let j = 0; j < d.rows; j++) {
       const z0 = streetZ(d, j) + d.streetW / 2 + 3.6;
       const z1 = streetZ(d, j + 1) - d.streetW / 2 - 3.6;
-      if (!onLand(d.borough, ax, z0) || !onLand(d.borough, ax, z1) || inParkGap(d, ax, (z0 + z1) / 2)) continue;
+      if (!onRoad(d, ax, z0) || !onRoad(d, ax, z1) || inParkGap(d, ax, (z0 + z1) / 2)) continue;
       for (const off of [-0.22, 0.22]) yellow.flat(ax + off - 0.09, ax + off + 0.09, z0, z1, 0.045);
     }
   }
@@ -207,7 +239,7 @@ export function buildCity(area: AreaId, opts: { trees: boolean; shadows?: boolea
     for (let i = 0; i < d.cols; i++) {
       const x0 = avenueX(d, i) + d.avenueW / 2 + 3.6;
       const x1 = avenueX(d, i + 1) - d.avenueW / 2 - 3.6;
-      if (!onLand(d.borough, x0, sz) || !onLand(d.borough, x1, sz) || inParkGap(d, (x0 + x1) / 2, sz)) continue;
+      if (!onRoad(d, x0, sz) || !onRoad(d, x1, sz) || inParkGap(d, (x0 + x1) / 2, sz)) continue;
       for (const off of [-0.22, 0.22]) yellow.flat(x0, x1, sz + off - 0.09, sz + off + 0.09, 0.045);
     }
   }
@@ -278,6 +310,7 @@ export function buildCity(area: AreaId, opts: { trees: boolean; shadows?: boolea
         continue; // the hub's screens and steps are added below
       }
 
+      if (kind === 'vacant' && forSaleBlock(d, c, r)) continue; // grass lot + FOR SALE board (world/coast.ts lots)
       if (kind === 'vacant') {
         dirtGeo.flat(inner.minX, inner.maxX, inner.minZ, inner.maxZ, 0.19, 6);
         // Fence posts all round.
@@ -369,6 +402,13 @@ export function buildCity(area: AreaId, opts: { trees: boolean; shadows?: boolea
     addAdSlot(adSlots, chunks[chunkFor(p.rect.minX, p.rect.minZ)].detail, area, 'L', 'avenue', w, w * 0.42, new THREE.Vector3(facingEast ? p.rect.maxX - 1.5 : p.rect.minX + 1.5, roofY + 1.4 + (w * 0.42) / 2, (p.rect.minZ + p.rect.maxZ) / 2), new THREE.Vector3(facingEast ? 1 : -1, 0, 0), chunkFor(p.rect.minX, p.rect.minZ), track, true);
   }
 
+  // --------------------------------------------------------- big billboards
+  // Giant boards you can see from the sky map (they live on the main group,
+  // not in the near-only chunks): some on poles beside the ring highway,
+  // the rest on top of mid-rise roofs. Steel for all of them is ONE mesh;
+  // each face is a rentable ad slot.
+  addBigBillboards(d, group, adSlots, track, chunkFor, nyc.plans, new Rng(`${d.seed}-big-boards`));
+
   // --------------------------------------------------------- instanced props
   const dummy = new THREE.Object3D();
   const instanced = (geo: THREE.BufferGeometry, mat: THREE.Material, items: { p: THREE.Vector3; rotY?: number; s?: number }[], shadow = false) => {
@@ -403,7 +443,7 @@ export function buildCity(area: AreaId, opts: { trees: boolean; shadows?: boolea
   if (kitProps) {
     // Traffic lights on one corner of every intersection.
     const lights: { p: THREE.Vector3; rotY: number }[] = [];
-    for (let i = 0; i <= d.cols; i++) for (let j = 0; j <= d.rows; j++) if (onLand(d.borough, avenueX(d, i), streetZ(d, j)) && !isPark(d, i - 1, j - 1) && !isPark(d, i, j - 1) && !isPark(d, i - 1, j) && !isPark(d, i, j)) lights.push({ p: new THREE.Vector3(avenueX(d, i) + d.avenueW / 2 + 1, 0.18, streetZ(d, j) + d.streetW / 2 + 1), rotY: Math.PI });
+    for (let i = 0; i <= d.cols; i++) for (let j = 0; j <= d.rows; j++) if (onRoad(d, avenueX(d, i), streetZ(d, j)) && !isPark(d, i - 1, j - 1) && !isPark(d, i, j - 1) && !isPark(d, i - 1, j) && !isPark(d, i, j)) lights.push({ p: new THREE.Vector3(avenueX(d, i) + d.avenueW / 2 + 1, 0.18, streetZ(d, j) + d.streetW / 2 + 1), rotY: Math.PI });
     kitInstanced('traffic-light', 9, lights);
   }
 
@@ -532,7 +572,7 @@ function addAdSlot(slots: AdSlot[], parent: THREE.Object3D, area: AreaId, size: 
   mesh.lookAt(mesh.position.clone().add(normal));
   // Lean ads back toward the sky so the slanted top-down camera sees
   // them nearly face-on: rooftop boards a lot, building screens a bit.
-  const lean = withFrame ? 0.5 : tier === 'hub' ? 0.18 : 0;
+  const lean = withFrame ? 0.5 : tier === 'hub' ? 0.18 : size === 'XL' ? BIG_LEAN : 0;
   mesh.rotateX(-lean);
   parent.add(mesh);
   if (withFrame) {
@@ -731,4 +771,113 @@ function addSubwayEntrance(parent: THREE.Group, track: Track, x: number, z: numb
   g.position.set(x, 0.18, z);
   g.rotation.y = facing;
   parent.add(g);
+}
+
+/**
+ * A flat strip along a polyline, from `a` to `b` metres sideways of the
+ * centre line (negative = left), at height y. `dash` > 1 leaves gaps
+ * (draws one segment in every `dash`). UVs are world metres / `tile`.
+ */
+function ribbon(g: GeoBuilder, pts: { x: number; z: number }[], a: number, b: number, y: number, loop: boolean, tile = 1, dash = 1): void {
+  const n = pts.length;
+  const side = (i: number) => {
+    const p = pts[loop ? (i - 1 + n) % n : Math.max(0, i - 1)];
+    const q = pts[loop ? (i + 1) % n : Math.min(n - 1, i + 1)];
+    const dx = q.x - p.x, dz = q.z - p.z;
+    const l = Math.hypot(dx, dz) || 1;
+    return { x: dz / l, z: -dx / l }; // unit vector to the side
+  };
+  for (let i = 0; i < (loop ? n : n - 1); i++) {
+    if (dash > 1 && i % dash) continue;
+    const j = (i + 1) % n;
+    const si = side(i), sj = side(j);
+    const A = { x: pts[i].x + si.x * a, y, z: pts[i].z + si.z * a };
+    const B = { x: pts[i].x + si.x * b, y, z: pts[i].z + si.z * b };
+    const C = { x: pts[j].x + sj.x * b, y, z: pts[j].z + sj.z * b };
+    const D = { x: pts[j].x + sj.x * a, y, z: pts[j].z + sj.z * a };
+    // Keep the face pointing up whichever way the road runs.
+    const up = (B.x - A.x) * (D.z - A.z) - (B.z - A.z) * (D.x - A.x) < 0;
+    if (up) g.quad(A, B, C, D, A.x / tile, B.x / tile, A.z / tile, C.z / tile);
+    else g.quad(A, D, C, B, A.x / tile, D.x / tile, A.z / tile, C.z / tile);
+  }
+}
+
+/** How far the giant boards lean back (radians). */
+const BIG_LEAN = 0.25;
+
+/** Giant billboards: highway poles + rooftops (see the call above). */
+function addBigBillboards(d: DistrictDef, group: THREE.Group, slots: AdSlot[], track: Track, chunkFor: (x: number, z: number) => number, plans: { rect: Rect; height: number; style: string; tiers: { floors: number }[]; floorH: number }[], rng: Rng): void {
+  // All the steel is one InstancedMesh of a unit box: each part is a
+  // scaled, turned copy (so boards can face any way at no extra cost).
+  const parts: THREE.Matrix4[] = [];
+  const q = new THREE.Quaternion();
+  const part = (cx: number, cy: number, cz: number, sx: number, sy: number, sz: number, rotY: number, rotX = 0) => {
+    q.setFromEuler(new THREE.Euler(rotX, rotY, 0, 'YXZ'));
+    parts.push(new THREE.Matrix4().compose(new THREE.Vector3(cx, cy, cz), q.clone(), new THREE.Vector3(sx, sy, sz)));
+  };
+  const placed: { x: number; z: number }[] = [];
+  const free = (x: number, z: number, gap: number) => placed.every((p) => Math.hypot(p.x - x, p.z - z) > gap);
+  const W = 18, H = 7.5;
+  const board = (center: THREE.Vector3, normal: THREE.Vector3, legH: number) => {
+    const rotY = Math.atan2(normal.x, normal.z); // local +z = the way the face looks
+    const right = new THREE.Vector3(normal.z, 0, -normal.x);
+    const back = center.clone().addScaledVector(normal, -0.45);
+    // Frame behind the face (leaning back with it, so the sky camera sees the ad).
+    part(back.x, center.y, back.z, W + 0.8, H + 0.8, 0.5, rotY, -BIG_LEAN);
+    // Two legs down to the roof / the ground.
+    for (const side of [-1, 1]) part(back.x + right.x * side * W * 0.3, center.y - H / 2 - legH / 2, back.z + right.z * side * W * 0.3, 0.7, legH, 0.7, rotY);
+    // A catwalk under the face (reads as "billboard" from above).
+    part(center.x + normal.x * 0.4, center.y - H / 2 - 0.35, center.z + normal.z * 0.4, W, 0.3, 1.8, rotY);
+    addAdSlot(slots, group, d.id, 'XL', 'avenue', W, H, center, normal, chunkFor(center.x, center.z), track);
+    placed.push({ x: center.x, z: center.z });
+  };
+
+  // 1. Beside the ring highway, facing the traffic (on land, off the road).
+  const ring = corridorsIn(d.id).find((c) => c.loop);
+  if (ring) {
+    const n = ring.pts.length;
+    const start = rng.int(0, n - 1);
+    for (let k = 0; k < n && placed.length < 8; k += 7) {
+      const i = (start + k) % n;
+      const a = ring.pts[(i - 1 + n) % n], b = ring.pts[(i + 1) % n], p = ring.pts[i];
+      const l = Math.hypot(b.x - a.x, b.z - a.z) || 1;
+      // Try both sides: the board stands on the land side, 16 m off the centre line.
+      for (const s of [1, -1]) {
+        const nx = (s * (b.z - a.z)) / l, nz = (-s * (b.x - a.x)) / l;
+        const x = p.x + nx * 16, z = p.z + nz * 16;
+        if (!onLand(d.borough, x, z) || !onLand(d.borough, x + nx * 10, z + nz * 10) || onCorridor(d.id, x, z) || !free(x, z, 260)) continue;
+        if (!rng.chance(0.6)) break;
+        // Turned 45° so drivers both ways see it, and nudged to face the sky camera a bit.
+        const tx = (b.x - a.x) / l, tz = (b.z - a.z) / l;
+        // Face the road, turned toward +z (the way the map camera looks).
+        void tx;
+        void tz;
+        const normal = new THREE.Vector3(-nx, 0, -nz + 1.1).normalize();
+        board(new THREE.Vector3(x, 15, z), normal, 15 - H / 2 + 0.2);
+        break;
+      }
+    }
+  }
+
+  // 2. On roofs, spread through the area.
+  const roofs = plans.filter((p) => p.height > 16 && p.height < 60 && p.style !== 'glass' && p.style !== 'deco' && p.rect.maxX - p.rect.minX > 12 && p.rect.maxZ - p.rect.minZ > 12);
+  for (let tries = 0; tries < 400 && placed.length < 20 && roofs.length; tries++) {
+    const p = roofs[rng.int(0, roofs.length - 1)];
+    const x = (p.rect.minX + p.rect.maxX) / 2, z = (p.rect.minZ + p.rect.maxZ) / 2;
+    if (!free(x, z, 230)) continue;
+    const roofY = p.tiers.reduce((h, t) => h + t.floors * p.floorH, 0);
+    // Face downtown-ish (+z), turned a little east or west: that's the way
+    // the map camera looks, and the long view down the avenues.
+    const turn = rng.range(-0.6, 0.6);
+    board(new THREE.Vector3(x, roofY + 3.2 + H / 2, z), new THREE.Vector3(Math.sin(turn), 0, Math.cos(turn)), 3.2);
+  }
+
+  if (parts.length) {
+    const m = new THREE.InstancedMesh(track(new THREE.BoxGeometry(1, 1, 1)), track(new THREE.MeshLambertMaterial({ color: '#3a3f47' })), parts.length);
+    parts.forEach((mx, i) => m.setMatrixAt(i, mx));
+    m.computeBoundingSphere();
+    m.name = 'big-billboards';
+    m.castShadow = true;
+    group.add(m);
+  }
 }

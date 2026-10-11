@@ -63,6 +63,8 @@ export interface DistrictDef {
   water: { side: 'west' | 'north'; label: string };
   zone: (c: number, r: number) => Zone;
   kind: (c: number, r: number) => BlockKind;
+  /** A block cut down by the river (see trimToLand): its smaller rect, else null. */
+  trimmed: (c: number, r: number) => Rect | null;
   /** The bright "Times Square" of this area: where the giant screens cluster. */
   hub: { c: number; r: number; name: string };
   /** Small seed so each area gets its own repeatable building heights. */
@@ -128,6 +130,47 @@ function cellOnLand(borough: BoroughId, xs: number[], zs: number[], c: number, r
   return [[x0, z0], [x1, z0], [x0, z1], [x1, z1], [(x0 + x1) / 2, (z0 + z1) / 2]].every(([x, z]) => onLand(borough, x, z));
 }
 
+/**
+ * A block that is only PARTLY on land (the river cuts a corner off it) is
+ * trimmed instead of dropped: its sides move in, a few metres at a time,
+ * off the water until the whole block (plus a little shore) is on land.
+ * Lower Manhattan is narrow and slanted, so without this most of downtown
+ * would be lost. Returns null when too little is left to build on.
+ */
+function trimToLand(borough: BoroughId, full: { minX: number; maxX: number; minZ: number; maxZ: number }): { minX: number; maxX: number; minZ: number; maxZ: number } | null {
+  const r = { ...full };
+  const STEP = 6, MIN_W = 46, MIN_D = 34, PAD = 4;
+  const N = 5;
+  for (let guard = 0; guard < 80; guard++) {
+    // Count the water samples near each side of the rect (+ a small shore pad).
+    const miss = { w: 0, e: 0, n: 0, s: 0 };
+    let total = 0;
+    for (let i = 0; i < N; i++) {
+      for (let j = 0; j < N; j++) {
+        const x = r.minX - PAD + ((r.maxX - r.minX + PAD * 2) * i) / (N - 1);
+        const z = r.minZ - PAD + ((r.maxZ - r.minZ + PAD * 2) * j) / (N - 1);
+        if (onLand(borough, x, z)) continue;
+        total++;
+        if (i === 0) miss.w++;
+        if (i === N - 1) miss.e++;
+        if (j === 0) miss.n++;
+        if (j === N - 1) miss.s++;
+      }
+    }
+    if (!total) return r;
+    // Move in the side with the most water (sides are weighted by length so
+    // a long block loses depth rather than width when it's a tie).
+    const side = (Object.keys(miss) as (keyof typeof miss)[]).reduce((a, b) => (miss[b] > miss[a] ? b : a));
+    if (miss[side] === 0) return null; // water only in the middle: give up
+    if (side === 'w') r.minX += STEP;
+    if (side === 'e') r.maxX -= STEP;
+    if (side === 'n') r.minZ += STEP;
+    if (side === 's') r.maxZ -= STEP;
+    if (r.maxX - r.minX < MIN_W || r.maxZ - r.minZ < MIN_D) return null;
+  }
+  return null;
+}
+
 /** Index of the gap containing v (−1 / n if outside). */
 function cellOf(arr: number[], v: number): number {
   if (v < arr[0]) return -1;
@@ -166,12 +209,27 @@ export const manhattanStreetAt = (z: number) => 14 + (488 - z) / 15.87;
 /** Real avenues by x (measured at the projected intersections). West → east. */
 const M_AVES: [string, number][] = [['12th Ave', -287], ['11th Ave', -230], ['10th Ave', -172], ['9th Ave', -114], ['8th Ave', -56], ['7th Ave', -4], ['6th Ave', 56], ['5th Ave', 116], ['Madison Ave', 146], ['Park Ave', 176], ['Lexington Ave', 206], ['3rd Ave', 246], ['2nd Ave', 290], ['1st Ave', 335], ['York Ave', 380]];
 const ordinal = (n: number) => `${n}${n % 100 >= 11 && n % 100 <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] ?? 'th'}`;
-function manhattanAvenue(x: number): string {
-  let best = M_AVES[0];
-  for (const a of M_AVES) if (Math.abs(a[1] - x) < Math.abs(best[1] - x)) best = a;
-  return best[0];
+/** Downtown (below 14th St) the grid stops being numbered: real names, west → east. */
+const M_AVES_VILLAGE: [string, number][] = [['West St', -170], ['Washington St', -120], ['Hudson St', -60], ['7th Ave S', 0], ['6th Ave', 56], ['5th Ave', 116], ['Broadway', 172], ['Lafayette St', 212], ['Bowery', 268], ['1st Ave', 335], ['Ave A', 375], ['Ave B', 430], ['Ave C', 495]];
+const M_AVES_DOWNTOWN: [string, number][] = [['West St', 15], ['Greenwich St', 70], ['W Broadway', 115], ['Broadway', 172], ['Lafayette St', 212], ['Bowery', 284], ['Allen St', 347], ['Essex St', 394], ['Pitt St', 480]];
+/** Downtown cross streets by z (measured where each meets Broadway). */
+const M_DOWNTOWN_STREETS: [string, number][] = [
+  ['14th St', 488], ['12th St', 523], ['10th St', 558], ['8th St', 593], ['4th St', 650], ['Bleecker St', 694], ['Houston St', 724], ['Spring St', 781], ['Broome St', 815],
+  ['Grand St', 852], ['Canal St', 879], ['Franklin St', 930], ['Worth St', 977], ['Chambers St', 1032], ['Vesey St', 1085], ['Fulton St', 1113], ['Liberty St', 1165], ['Wall St', 1208],
+  ['Battery Pl', 1265], ['State St', 1310],
+];
+const nearestName = (list: [string, number][], v: number) => list.reduce((b, a) => (Math.abs(a[1] - v) < Math.abs(b[1] - v) ? a : b))[0];
+function manhattanAvenue(x: number, z = 0): string {
+  if (z > 860) return nearestName(M_AVES_DOWNTOWN, x);
+  if (z > 500) return nearestName(M_AVES_VILLAGE, x);
+  return nearestName(M_AVES, x);
 }
 function manhattanStreet(x: number, z: number): string {
+  if (z > 500) {
+    const s = nearestName(M_DOWNTOWN_STREETS, z);
+    // Numbered streets keep their East / West (5th Ave splits them).
+    return /^\d/.test(s) ? `${x < 116 ? 'W' : 'E'} ${s}` : s;
+  }
   const n = Math.round(manhattanStreetAt(z));
   const inPark = x > -56 && x < 116;
   if (n === 59 && inPark) return 'Central Park S';
@@ -179,8 +237,17 @@ function manhattanStreet(x: number, z: number): string {
   return `${x < 116 ? 'W' : 'E'} ${ordinal(n)} St`;
 }
 
+/**
+ * Below 14th St the EAST side (East Village, Lower East Side: east of the
+ * Bowery / 3rd Ave) is left empty for players to buy (Peter, 2026-10-11).
+ * The line follows the real Bowery, which leans east as it goes south.
+ */
+export function manhattanForSale(x: number, z: number): boolean {
+  return z > 500 && z < 960 && x > 262 + (z - 656) * 0.12;
+}
+
 /** Build a district from its grid spec and its own rules. */
-function district(base: Omit<DistrictDef, 'origin' | 'xs' | 'zs' | 'allXs' | 'allZs' | 'cols' | 'rows' | 'joinS' | 'joinE' | 'kind' | 'hub' | 'avenueNames' | 'streetNames'> & {
+function district(base: Omit<DistrictDef, 'origin' | 'trimmed' | 'xs' | 'zs' | 'allXs' | 'allZs' | 'cols' | 'rows' | 'joinS' | 'joinE' | 'kind' | 'hub' | 'avenueNames' | 'streetNames'> & {
   grid: GridSpec;
   /** Kind of a land block (water is handled for you), from its centre. */
   kindAt: (x: number, z: number, c: number, r: number) => BlockKind;
@@ -193,13 +260,23 @@ function district(base: Omit<DistrictDef, 'origin' | 'xs' | 'zs' | 'allXs' | 'al
   const cols = xs.length - 1;
   const rows = zs.length - 1;
   const land = Array.from({ length: cols }, (_, c) => Array.from({ length: rows }, (_, r) => cellOnLand(g.borough, xs, zs, c, r)));
+  // Blocks on the shore that are only partly land get trimmed, not dropped.
+  const trims = Array.from({ length: cols }, (_, c) =>
+    Array.from({ length: rows }, (_, r) =>
+      land[c][r] ? null : trimToLand(g.borough, { minX: xs[c] + AVE_W / 2, maxX: xs[c + 1] - AVE_W / 2, minZ: zs[r] + ST_W / 2, maxZ: zs[r + 1] - ST_W / 2 }),
+    ),
+  );
   const hub = { c: cellOf(xs, base.hubAt.x), r: cellOf(zs, base.hubAt.z), name: base.hubAt.name };
   const kinds: BlockKind[][] = Array.from({ length: cols }, (_, c) =>
-    Array.from({ length: rows }, (_, r) => (land[c][r] ? base.kindAt((xs[c] + xs[c + 1]) / 2, (zs[r] + zs[r + 1]) / 2, c, r) : 'water')),
+    Array.from({ length: rows }, (_, r) => {
+      const t = trims[c][r];
+      if (land[c][r]) return base.kindAt((xs[c] + xs[c + 1]) / 2, (zs[r] + zs[r + 1]) / 2, c, r);
+      return t ? base.kindAt((t.minX + t.maxX) / 2, (t.minZ + t.maxZ) / 2, c, r) : 'water';
+    }),
   );
   // The hub and the block north of it are the bright plaza.
   if (kinds[hub.c]?.[hub.r] && kinds[hub.c][hub.r] !== 'water') kinds[hub.c][hub.r] = 'plaza';
-  const joins = makeJoins(cols, rows, `${base.seed}-joins`, (c, r) => kinds[c][r] === 'buildings' && !(c === hub.c && Math.abs(r - hub.r) <= 1));
+  const joins = makeJoins(cols, rows, `${base.seed}-joins`, (c, r) => kinds[c][r] === 'buildings' && !trims[c][r] && !(c === hub.c && Math.abs(r - hub.r) <= 1));
   return {
     ...base,
     origin: { x: xs[0], z: zs[0] },
@@ -212,6 +289,7 @@ function district(base: Omit<DistrictDef, 'origin' | 'xs' | 'zs' | 'allXs' | 'al
     joinS: joins.joinS,
     joinE: joins.joinE,
     kind: (c, r) => kinds[c]?.[r] ?? 'water',
+    trimmed: (c, r) => trims[c]?.[r] ?? null,
     hub,
     avenueNames: xs.map((x) => base.names(x, (zs[0] + zs[rows]) / 2)[0]),
     streetNames: zs.map((z) => base.names((xs[0] + xs[cols]) / 2, z)[1]),
@@ -232,25 +310,35 @@ const TIMES_SQ = project(40.758, -73.9855);
 const M_FUNLAND = project(40.7795, -73.9845);
 const M_BRYANT = project(40.7536, -73.9832);
 const M_HY = project(40.7535, -74.001);
+// Downtown parks (each fills its grid block).
+const M_WSP = project(40.7308, -73.9973); // Washington Square Park
+const M_CITYHALL = project(40.7128, -74.006); // City Hall Park
+const M_BATTERY = project(40.7033, -74.017); // The Battery
 
 const MANHATTAN = district({
   id: 'manhattan',
   name: 'Manhattan',
-  tagline: 'Central Park · Midtown · Hell’s Kitchen',
+  tagline: 'Central Park · Midtown · Downtown',
   borough: 'manhattan',
   // Anchored on Central Park West (x −56) and Central Park South (z −226);
-  // playable from 110th St down to 14th St.
-  grid: playable(gridFor('manhattan', { x: -56, z: -226 }, { minX: -470, maxX: 480, minZ: -1042, maxZ: 492 }, 'manhattan-grid-v3'), MANHATTAN_GRID),
+  // playable from 110th St all the way down to the Battery (the lines are
+  // the same seeded lines as before, the grid just reaches further south).
+  grid: playable(gridFor('manhattan', { x: -56, z: -226 }, { minX: -470, maxX: 480, minZ: -1042, maxZ: 1340 }, 'manhattan-grid-v3'), MANHATTAN_GRID),
   blockW: 150,
   blockD: 70,
   avenueW: AVE_W,
   streetW: ST_W,
-  names: (x, z) => [manhattanAvenue(x), manhattanStreet(x, z)],
+  names: (x, z) => [manhattanAvenue(x, z), manhattanStreet(x, z)],
   water: { side: 'west', label: 'Hudson River' },
   zone: (c, r) => {
     const d = MANHATTAN;
     const x = (d.xs[c] + d.xs[c + 1]) / 2;
-    const n = manhattanStreetAt((d.zs[r] + d.zs[r + 1]) / 2);
+    const z = (d.zs[r] + d.zs[r + 1]) / 2;
+    const n = manhattanStreetAt(z);
+    // Downtown, below 14th St.
+    if (z > 1000) return 'tall'; // Financial District
+    if (z > 840) return x < 240 ? 'midrise' : 'brownstone'; // Tribeca / Chinatown
+    if (z > 500) return x < 60 ? 'brownstone' : 'midrise'; // West Village / SoHo & NoHo
     if (x < -240) return 'waterfront';
     if (n >= 30 && n <= 59 && x > -60) return 'tall'; // Midtown
     if (n > 59) return x > 150 ? 'midrise' : 'brownstone'; // Upper West / Upper East Side
@@ -264,6 +352,8 @@ const MANHATTAN = district({
     if (inBlock(M_BRYANT)) return 'park';
     if (inBlock(M_FUNLAND)) return 'plaza';
     if (inBlock(M_HY)) return 'vacant';
+    if (inBlock(M_WSP) || inBlock(M_CITYHALL) || inBlock(M_BATTERY)) return 'park';
+    if (manhattanForSale(x, z)) return 'vacant';
     return 'buildings';
   },
   hubAt: { x: TIMES_SQ.x, z: TIMES_SQ.z, name: 'Times Square' },
@@ -351,6 +441,8 @@ export interface Rect {
  * joined pair reads as one long or wide block).
  */
 export function blockRect(d: DistrictDef, c: number, r: number): Rect {
+  const t = d.trimmed(c, r);
+  if (t) return { ...t };
   const rect = {
     minX: avenueX(d, c) + d.avenueW / 2,
     maxX: avenueX(d, c + 1) - d.avenueW / 2,
@@ -395,6 +487,36 @@ export function blockAt(d: DistrictDef, x: number, z: number): { c: number; r: n
 export function crossStreets(d: DistrictDef, x: number, z: number): string {
   const [a, b] = d.names(x, z);
   return `${a} & ${b}`;
+}
+
+/**
+ * Is (x, z) on real asphalt: inside the road ring around some block (and
+ * not on the block itself)? Use this rather than onLand for road markings,
+ * traffic lanes and lights — a trimmed shore block pulls its road in with it.
+ */
+export function onRoad(d: DistrictDef, x: number, z: number): boolean {
+  const c0 = colAt(d, x), r0 = rowAt(d, z);
+  let ring = false;
+  for (let c = c0 - 1; c <= c0 + 1; c++) {
+    for (let r = r0 - 1; r <= r0 + 1; r++) {
+      if (c < 0 || r < 0 || c >= d.cols || r >= d.rows || d.kind(c, r) === 'water') continue;
+      const b = blockRect(d, c, r);
+      if (x > b.minX && x < b.maxX && z > b.minZ && z < b.maxZ) return false; // on the block
+      if (x > b.minX - d.avenueW / 2 - 0.5 && x < b.maxX + d.avenueW / 2 + 0.5 && z > b.minZ - d.streetW / 2 - 0.5 && z < b.maxZ + d.streetW / 2 + 0.5) ring = true;
+    }
+  }
+  return ring;
+}
+
+/**
+ * Is block (c, r) empty land FOR SALE inside the playable streets (below
+ * 14th St on the east side, for now)? It's drawn like the expandable lots
+ * around the borough: a grass lot with a "LAND FOR SALE" board.
+ */
+export function forSaleBlock(d: DistrictDef, c: number, r: number): boolean {
+  if (d.kind(c, r) !== 'vacant' || d.id !== 'manhattan') return false;
+  const b = blockRect(d, c, r);
+  return manhattanForSale((b.minX + b.maxX) / 2, (b.minZ + b.maxZ) / 2);
 }
 
 /** Is block (c, r) a park? (false off the grid) */

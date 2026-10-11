@@ -1,0 +1,177 @@
+// =====================================================================
+// corridors.ts — roads that DON'T follow the grid: Broadway's diagonal,
+// the highway that rings Manhattan (West Side Highway, FDR Drive, Harlem
+// River Drive) and bridge approaches.
+//
+// A corridor is a polyline with a width. Everywhere that reads it:
+//   • nycgen/city-blocks.ts drops buildings that would stand on it, which
+//     cuts blocks into the triangles and wedges real Manhattan has
+//     (Times Square, Herald Square, the Flatiron);
+//   • city.ts paves it (sidewalks, asphalt, a double yellow line) on top
+//     of the blocks;
+//   • traffic drives along it; the nav grid lets you walk on it;
+//   • the shore trees and the for-sale lots keep off it;
+//   • the flat map draws it.
+//
+// TO ADD A ROAD: add a CorridorDef (real lat/lon points, or a function).
+// =====================================================================
+
+import type { AreaId } from '../sim/types.ts';
+import { outline, project, type XZ } from './geo-proj.ts';
+
+export interface Corridor {
+  id: string;
+  name: string;
+  area: AreaId;
+  /** Asphalt width (m); sidewalks add 4 m each side unless `highway`. */
+  width: number;
+  /** Highways have no sidewalks (and no walking). */
+  highway?: boolean;
+  /** A closed loop (the ring road). */
+  loop?: boolean;
+  pts: XZ[];
+}
+
+const ll = (pts: [number, number][]) => pts.map(([lat, lon]) => project(lat, lon));
+
+/** Broadway, from 110th St down to Bowling Green (real points). */
+const BROADWAY: [number, number][] = [
+  [40.8045, -73.9667], [40.7937, -73.9723], [40.7832, -73.98], [40.7781, -73.9818], [40.7735, -73.9822], [40.7681, -73.9819],
+  [40.7616, -73.9839], [40.758, -73.9855], [40.7559, -73.9866], [40.7497, -73.9877], [40.7411, -73.9897], [40.7355, -73.9908],
+  [40.73, -73.9925], [40.7253, -73.9967], [40.7193, -74.0015], [40.714, -74.006], [40.7105, -74.009], [40.7075, -74.012], [40.7046, -74.0136],
+];
+
+/** Average neighbouring points so a jagged line becomes a smooth road. */
+function chaikin(pts: XZ[], loop: boolean, passes: number): XZ[] {
+  let p = pts;
+  for (let k = 0; k < passes; k++) {
+    const out: XZ[] = loop ? [] : [p[0]];
+    const n = p.length;
+    for (let i = 0; i < (loop ? n : n - 1); i++) {
+      const a = p[i], b = p[(i + 1) % n];
+      out.push({ x: a.x * 0.75 + b.x * 0.25, z: a.z * 0.75 + b.z * 0.25 }, { x: a.x * 0.25 + b.x * 0.75, z: a.z * 0.25 + b.z * 0.75 });
+    }
+    if (!loop) out.push(p[n - 1]);
+    p = out;
+  }
+  return p;
+}
+
+/** Evenly spaced points every `step` m along a polyline. */
+function resample(pts: XZ[], step: number, loop: boolean): XZ[] {
+  const out: XZ[] = [pts[0]];
+  let carry = 0;
+  const n = pts.length;
+  for (let i = 0; i < (loop ? n : n - 1); i++) {
+    const a = pts[i], b = pts[(i + 1) % n];
+    const len = Math.hypot(b.x - a.x, b.z - a.z);
+    let s = step - carry;
+    while (s < len) {
+      out.push({ x: a.x + ((b.x - a.x) * s) / len, z: a.z + ((b.z - a.z) * s) / len });
+      s += step;
+    }
+    carry = (carry + len) % step;
+  }
+  if (!loop) out.push(pts[n - 1]);
+  return out;
+}
+
+/**
+ * The ring road: the island's coastline pulled `inset` metres inland and
+ * smoothed hard (the real coastline is full of piers).
+ */
+function ringRoad(inset: number): XZ[] {
+  const ring = outline('manhattan')[0];
+  // Coarse, smoothed copy of the shore first, so the offset doesn't follow every pier.
+  const coarse = chaikin(resample(ring, 60, true), true, 3);
+  let area = 0;
+  for (let i = 0; i < coarse.length; i++) {
+    const a = coarse[i], b = coarse[(i + 1) % coarse.length];
+    area += a.x * b.z - b.x * a.z;
+  }
+  const sgn = Math.sign(area) || 1;
+  const n = coarse.length;
+  const off = coarse.map((p, i) => {
+    const a = coarse[(i - 2 + n) % n], b = coarse[(i + 2) % n];
+    const dx = b.x - a.x, dz = b.z - a.z;
+    const l = Math.hypot(dx, dz) || 1;
+    return { x: p.x + (-dz / l) * sgn * inset, z: p.z + (dx / l) * sgn * inset };
+  });
+  return resample(chaikin(off, true, 2), 18, true);
+}
+
+let cache: Corridor[] | null = null;
+
+export function corridors(): Corridor[] {
+  if (cache) return cache;
+  cache = [
+    { id: 'broadway', name: 'Broadway', area: 'manhattan', width: 14, pts: resample(chaikin(ll(BROADWAY), false, 2), 14, false) },
+    { id: 'manhattanRing', name: 'West Side Hwy · FDR Drive', area: 'manhattan', width: 18, highway: true, loop: true, pts: ringRoad(30) },
+    // Brooklyn Bridge approach on the Manhattan side (City Hall).
+    { id: 'bbApproach', name: 'Brooklyn Bridge', area: 'manhattan', width: 16, highway: true, pts: ll([[40.7123, -74.0052], [40.7095, -74.001]]) },
+  ];
+  return cache;
+}
+
+export function corridorsIn(area: AreaId): Corridor[] {
+  return corridors().filter((c) => c.area === area);
+}
+
+// Segment buckets (40 m cells) so "is this point on a road?" stays cheap
+// even when thousands of buildings ask it.
+const CELL = 40;
+const buckets = new Map<Corridor, Map<string, number[]>>();
+function bucketsOf(c: Corridor): Map<string, number[]> {
+  let m = buckets.get(c);
+  if (m) return m;
+  m = new Map();
+  const n = c.pts.length;
+  for (let i = 0; i < (c.loop ? n : n - 1); i++) {
+    const a = c.pts[i], b = c.pts[(i + 1) % n];
+    const x0 = Math.floor((Math.min(a.x, b.x) - 30) / CELL), x1 = Math.floor((Math.max(a.x, b.x) + 30) / CELL);
+    const z0 = Math.floor((Math.min(a.z, b.z) - 30) / CELL), z1 = Math.floor((Math.max(a.z, b.z) + 30) / CELL);
+    for (let gx = x0; gx <= x1; gx++) for (let gz = z0; gz <= z1; gz++) {
+      const k = `${gx},${gz}`;
+      if (!m.has(k)) m.set(k, []);
+      m.get(k)!.push(i);
+    }
+  }
+  buckets.set(c, m);
+  return m;
+}
+
+/** Distance from (x, z) to a corridor's centre line (Infinity if more than ~30 m away). */
+export function distToCorridor(c: Corridor, x: number, z: number): number {
+  const segs = bucketsOf(c).get(`${Math.floor(x / CELL)},${Math.floor(z / CELL)}`);
+  if (!segs) return Infinity;
+  let best = Infinity;
+  const n = c.pts.length;
+  for (const i of segs) {
+    const a = c.pts[i], b = c.pts[(i + 1) % n];
+    const dx = b.x - a.x, dz = b.z - a.z;
+    const t = Math.max(0, Math.min(1, ((x - a.x) * dx + (z - a.z) * dz) / (dx * dx + dz * dz || 1)));
+    best = Math.min(best, Math.hypot(x - (a.x + t * dx), z - (a.z + t * dz)));
+  }
+  return best;
+}
+
+/** Is (x, z) on any corridor in the area (plus `pad` metres)? */
+export function onCorridor(area: AreaId, x: number, z: number, pad = 0): Corridor | null {
+  for (const c of corridorsIn(area)) {
+    const half = c.width / 2 + (c.highway ? 1 : 4) + pad;
+    if (distToCorridor(c, x, z) < half) return c;
+  }
+  return null;
+}
+
+/** Does a rectangle touch a corridor? (sampled every ~8 m over the rect) */
+export function rectOnCorridor(area: AreaId, r: { minX: number; maxX: number; minZ: number; maxZ: number }, pad = 0): boolean {
+  const nx = Math.max(2, Math.ceil((r.maxX - r.minX) / 8) + 1);
+  const nz = Math.max(2, Math.ceil((r.maxZ - r.minZ) / 8) + 1);
+  for (let i = 0; i < nx; i++) {
+    for (let j = 0; j < nz; j++) {
+      if (onCorridor(area, r.minX + ((r.maxX - r.minX) * i) / (nx - 1), r.minZ + ((r.maxZ - r.minZ) * j) / (nz - 1), pad)) return true;
+    }
+  }
+  return false;
+}

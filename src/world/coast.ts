@@ -16,7 +16,8 @@
 import * as THREE from 'three';
 import { Rng } from '../core/rng.ts';
 import { BOROUGHS, onLand, outline, unproject, type XZ } from './geo-proj.ts';
-import { colAt, districtBounds, rowAt, type DistrictDef } from './layout.ts';
+import { onCorridor, rectOnCorridor } from './corridors.ts';
+import { blockRect, colAt, districtBounds, forSaleBlock, rowAt, SIDEWALK, type DistrictDef } from './layout.ts';
 
 type Track = <T extends { dispose(): void }>(x: T) => T;
 
@@ -190,7 +191,7 @@ export function shoreFeatures(d: DistrictDef): ShoreFeatures {
           // Thick: shrubs at the water, trees behind them.
           for (const inset of [3 + rng.range(0, 3), 9 + rng.range(0, 4), 16 + rng.range(0, 6)]) {
             const tx = x + ix * inset, tz = z + iz * inset;
-            if (onGrid(tx, tz) || !onLand(d.borough, tx, tz)) continue;
+            if (onGrid(tx, tz) || !onLand(d.borough, tx, tz) || onCorridor(d.id, tx, tz, 2)) continue;
             (inset < 8 ? out.bushes : out.trees).push({ x: tx, z: tz, s: rng.range(0.8, 1.3), rot: rng.range(0, 6.28) });
           }
           continue;
@@ -198,7 +199,7 @@ export function shoreFeatures(d: DistrictDef): ShoreFeatures {
         if (kind === 'promenade' && rng.chance(0.55)) continue; // a few trees, lots of open walkway
         const inset = SHORE_WIDTH[kind] + 6 + rng.range(0, 10);
         const tx = x + ix * inset, tz = z + iz * inset;
-        if (onGrid(tx, tz) || !onLand(d.borough, tx, tz)) continue;
+        if (onGrid(tx, tz) || !onLand(d.borough, tx, tz) || onCorridor(d.id, tx, tz, 2)) continue;
         out.trees.push({ x: tx, z: tz, s: rng.range(0.85, 1.25), rot: rng.range(0, 6.28) });
       }
       carry = (carry + step - (len % step)) % step;
@@ -330,18 +331,27 @@ function buildShore(d: DistrictDef, track: Track): THREE.Group {
 
 const LOT_COLORS = ['#b9cf8f', '#c8d69a', '#d6c9a2', '#c2c79a', '#cfd8a4'];
 
-const lotCache = new Map<string, { x0: number; z0: number; x1: number; z1: number }[]>();
+type Lot = { x0: number; z0: number; x1: number; z1: number; grid?: boolean };
+const lotCache = new Map<string, Lot[]>();
 
 /**
  * The expandable lots: the playable grid's uneven street pattern carried
  * on across the rest of the borough (blocks fully on land, outside the
  * playable streets). Shared by the 3D city and the map.
  */
-export function lotsFor(d: DistrictDef): { x0: number; z0: number; x1: number; z1: number }[] {
+export function lotsFor(d: DistrictDef): Lot[] {
   const hit = lotCache.get(d.id);
   if (hit) return hit;
   const built = districtBounds(d, 8);
-  const out: { x0: number; z0: number; x1: number; z1: number }[] = [];
+  const out: Lot[] = [];
+  // Grid blocks left empty for sale (East Village / Lower East Side).
+  for (let c = 0; c < d.cols; c++) {
+    for (let r = 0; r < d.rows; r++) {
+      if (!forSaleBlock(d, c, r)) continue;
+      const b = blockRect(d, c, r);
+      out.push({ x0: b.minX + SIDEWALK, z0: b.minZ + SIDEWALK, x1: b.maxX - SIDEWALK, z1: b.maxZ - SIDEWALK, grid: true });
+    }
+  }
   const xs = d.allXs;
   const zs = d.allZs;
   for (let ci = 0; ci < xs.length - 1; ci++) {
@@ -352,6 +362,7 @@ export function lotsFor(d: DistrictDef): { x0: number; z0: number; x1: number; z
       const z1 = zs[ri + 1] - d.streetW / 2 - 2;
       if (x1 > built.minX && x0 < built.maxX && z1 > built.minZ && z0 < built.maxZ) continue; // the playable streets
       if (![[x0, z0], [x1, z0], [x0, z1], [x1, z1]].every(([x, z]) => onLand(d.borough, x, z))) continue;
+      if (rectOnCorridor(d.id, { minX: x0, maxX: x1, minZ: z0, maxZ: z1 })) continue; // the highway runs here
       out.push({ x0, z0, x1, z1 });
     }
   }
@@ -367,12 +378,12 @@ function buildLots(d: DistrictDef, track: Track): THREE.Group {
   const col: number[] = [];
   const signs: THREE.Matrix4[] = [];
   const c = new THREE.Color();
-  for (const { x0, z0, x1, z1 } of lotsFor(d)) {
+  for (const { x0, z0, x1, z1, grid } of lotsFor(d)) {
     c.set(rng.pick(LOT_COLORS));
-    const y = 0.08;
+    const y = grid ? 0.2 : 0.08; // grid lots sit on their sidewalk slab
     pos.push(x0, y, z0, x0, y, z1, x1, y, z1, x0, y, z0, x1, y, z1, x1, y, z0);
     for (let k = 0; k < 6; k++) col.push(c.r, c.g, c.b);
-    if (rng.chance(0.18)) signs.push(new THREE.Matrix4().makeTranslation(x0 + 6, 0, z1 - 4));
+    if (grid || rng.chance(0.18)) signs.push(new THREE.Matrix4().makeTranslation(x0 + 6, 0, z1 - 4));
   }
   if (pos.length) {
     const geo = track(new THREE.BufferGeometry());
