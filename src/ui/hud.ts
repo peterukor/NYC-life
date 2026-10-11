@@ -22,6 +22,7 @@ export interface HudHandlers {
   onNav: (which: 'here' | 'map' | 'phone' | 'leave') => void;
   onMoney: () => void;
   onWork: () => void;
+  onMenu: () => void;
 }
 
 export interface Where {
@@ -40,6 +41,7 @@ export class Hud {
     this.el = html(`
       <div class="hud">
         <div class="hud-top">
+          <button class="menu-btn" data-menu aria-label="Menu: happening now, news, settings"><i></i></button>
           <div class="clock" data-clock></div>
           <button class="metrocard" data-money aria-label="Money and bank"></button>
         </div>
@@ -60,6 +62,7 @@ export class Hud {
     root().appendChild(this.el);
     this.el.querySelectorAll<HTMLElement>('[data-nav]').forEach((b) => b.addEventListener('click', () => this.h.onNav(b.dataset.nav as 'here' | 'map' | 'phone' | 'leave')));
     this.el.querySelector('[data-money]')!.addEventListener('click', () => this.h.onMoney());
+    this.el.querySelector('[data-menu]')!.addEventListener('click', () => this.h.onMenu());
     this.el.querySelector('[data-work]')!.addEventListener('click', () => this.h.onWork());
     // The HUD wrapper must not block taps on the 3D city; only its controls take touches.
     this.el.style.pointerEvents = 'none';

@@ -26,6 +26,8 @@ fails the test).
 | Add a kind of map pin (party, breaking news, friend…) | `src/data/pins.ts` | A `PIN_KINDS` entry (colour, priority, whether it may bounce, zoom rules) and a `PIN_SOURCES` entry (a function returning today's pins). The pin system only ever shows `MAX_PINS` (4) at once, merges overlapping pins and lets only one bounce. Never raise MAX_PINS without a good reason: pins must not overwhelm the screen. |
 | Add a piece of home furniture | `scripts/build-furniture-assets.mjs` (add the model's file name to `MODELS` and re-run it), then `src/data/furniture.ts` | An entry with its parts (models plus offsets), the actions it offers (sleep, cook…) and a price. |
 | Add or change a home floor plan | `src/data/homes.ts` | A layout: size, room floors, inner walls with door gaps, and the starting furniture. Point a home place at it in `HOME_LAYOUT_FOR`. |
+| Add a button to the ☰ menu | `src/ui/side-panel.ts` | An entry in `PANEL_BUTTONS` (label, emoji, and what it opens). |
+| Add something to "Happening now" | `src/data/pins.ts` | Any new pin source (sales, events, friends…) also appears in the menu's HAPPENING NOW list, which shows at most 5 lines. |
 | Add a landmark | New file in `src/world/landmarks/`, then one import line in `src/world/landmarks/index.ts` | `LANDMARKS.add({ id, build(ctx) })`, plus a place in `src/data/places.ts`. |
 | Add clothes | `src/data/wardrobe.ts` | An entry in `CLOTHES`. |
 | Add a place (shop, bar, gym) | `src/data/places.ts` | Its block, side, slot, type, hours and actions. |

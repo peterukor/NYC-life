@@ -51,6 +51,7 @@ import { loadFurnitureKit, type FurnitureKit } from './assets/furniture-kit.ts';
 import { layoutForPlace } from './data/homes.ts';
 import { FURNITURE } from './data/furniture.ts';
 import { openCloset } from './ui/closet.ts';
+import { openSidePanel } from './ui/side-panel.ts';
 import { DISTRICTS, crossStreets, blockRect } from './world/layout.ts';
 import { findPath, nearestWalkable } from './world/nav.ts';
 import { SystemRunner, type SystemContext } from './core/systems.ts';
@@ -268,6 +269,18 @@ export class Game {
       onNav: (w) => this.onNav(w),
       onMoney: () => this.openPhoneApp('bank'),
       onWork: () => void this.goToWork(),
+      onMenu: () => {
+        if (this.busy) return;
+        sfx.tap();
+        openSidePanel(this.state, (a) => {
+          if (a.kind === 'phone') this.openPhoneApp(a.app);
+          else if (a.kind === 'map') this.openMapOverlay();
+          else if (a.kind === 'place') {
+            const p = PLACE_BY_ID[a.placeId];
+            if (p) this.openPlace(p);
+          }
+        });
+      },
     });
     this.started = true;
     document.querySelector('.loading')?.classList.add('done');
