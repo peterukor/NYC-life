@@ -24,6 +24,7 @@
 import type { AreaId } from '../sim/types.ts';
 import { boroughBounds, onLand as onAnyLand, outline, pointInRing, project, unproject, type BoroughId, type XZ } from './geo-proj.ts';
 import { Rng } from '../core/rng.ts';
+import { corridorsIn, onCorridor, rectOnCorridor } from './corridors.ts';
 
 export type Zone = 'tall' | 'midrise' | 'brownstone' | 'waterfront';
 
@@ -110,20 +111,26 @@ function onLand(borough: BoroughId, x: number, z: number): boolean {
 // sale (world/coast.ts), ready for future neighbourhoods.
 // ---------------------------------------------------------------------
 
-// Blocks are BIG and UNEVEN (Peter, 2026-10-11): real New York blocks are
-// not all the same, so every avenue gap and street gap gets its own width
-// (seeded, so it's the same every time), and here and there a street or an
-// avenue is closed to make a long or wide block. Fewer, larger blocks fill
-// more of the map.
+// STANDARD BLOCK SIZES (Peter, 2026-10-11): the city is filled with
+// AI-made block models (world/ai-city.ts) that come in two shapes, square
+// and 1.5 : 1. So every block is BLOCK_D deep (inside its sidewalks) and
+// 2, 2.5 or 3 × BLOCK_D long: one, two or three models fit exactly, with
+// no gaps and no stretching. Blocks still vary (seeded mix of lengths,
+// and here and there a closed street or avenue makes a double block).
 const AVE_W = 14;
 const ST_W = 13;
-const COL_RANGE: [number, number] = [128, 196]; // avenue-to-avenue
-const ROW_RANGE: [number, number] = [62, 104]; // street-to-street
+/** Depth of every block inside its sidewalks (m): one square model. */
+export const BLOCK_D = 56;
+const ROAD_AND_WALKS = (w: number) => w + 2 * 4; // the road plus a 4 m sidewalk each side
+/** Avenue-to-avenue gaps: blocks 2, 2.5 or 3 × BLOCK_D long. */
+const COL_GAPS = [2, 2.5, 3].map((k) => k * BLOCK_D + ROAD_AND_WALKS(AVE_W));
+/** Street-to-street gap: blocks exactly BLOCK_D deep. */
+const ROW_GAPS = [BLOCK_D + ROAD_AND_WALKS(ST_W)];
 
-/** Street lines from an anchor outwards both ways, with seeded uneven gaps. */
-function lines(anchor: number, from: number, to: number, range: [number, number], seed: string): number[] {
+/** Street lines from an anchor outwards both ways, gaps picked (seeded) from a list. */
+function lines(anchor: number, from: number, to: number, gaps: number[], seed: string): number[] {
   const rng = new Rng(seed);
-  const gap = () => Math.round(rng.range(range[0], range[1]));
+  const gap = () => gaps[rng.int(0, gaps.length - 1)];
   const out = [anchor];
   for (let v = anchor; v > from; ) out.unshift((v -= gap()));
   for (let v = anchor; v < to; ) out.push((v += gap()));
@@ -141,7 +148,7 @@ interface GridSpec {
   r1: number;
 }
 
-function gridFor(borough: BoroughId, anchor: { x: number; z: number }, play: { minX: number; maxX: number; minZ: number; maxZ: number }, seed: string, colRange = COL_RANGE, rowRange = ROW_RANGE): GridSpec {
+function gridFor(borough: BoroughId, anchor: { x: number; z: number }, play: { minX: number; maxX: number; minZ: number; maxZ: number }, seed: string, colRange = COL_GAPS, rowRange = ROW_GAPS): GridSpec {
   const bb = boroughBounds(borough);
   const allXs = lines(anchor.x, bb.minX - 200, bb.maxX + 200, colRange, `${seed}-x`);
   const allZs = lines(anchor.z, bb.minZ - 200, bb.maxZ + 200, rowRange, `${seed}-z`);
@@ -163,9 +170,9 @@ function cellOnLand(borough: BoroughId, xs: number[], zs: number[], c: number, r
  * Lower Manhattan is narrow and slanted, so without this most of downtown
  * would be lost. Returns null when too little is left to build on.
  */
-function trimToLand(borough: BoroughId, full: { minX: number; maxX: number; minZ: number; maxZ: number }): { minX: number; maxX: number; minZ: number; maxZ: number } | null {
+function trimToLand(borough: BoroughId, full: { minX: number; maxX: number; minZ: number; maxZ: number }, ok: (x: number, z: number) => boolean = (x, z) => onLand(borough, x, z)): { minX: number; maxX: number; minZ: number; maxZ: number } | null {
   const r = { ...full };
-  const STEP = 6, MIN_W = 46, MIN_D = 34, PAD = 4;
+  const STEP = 4, MIN_W = 26, MIN_D = 26, PAD = 3;
   const N = 5;
   for (let guard = 0; guard < 80; guard++) {
     // Count the water samples near each side of the rect (+ a small shore pad).
@@ -175,12 +182,16 @@ function trimToLand(borough: BoroughId, full: { minX: number; maxX: number; minZ
       for (let j = 0; j < N; j++) {
         const x = r.minX - PAD + ((r.maxX - r.minX + PAD * 2) * i) / (N - 1);
         const z = r.minZ - PAD + ((r.maxZ - r.minZ + PAD * 2) * j) / (N - 1);
-        if (onLand(borough, x, z)) continue;
+        if (ok(x, z)) continue;
         total++;
-        if (i === 0) miss.w++;
-        if (i === N - 1) miss.e++;
-        if (j === 0) miss.n++;
-        if (j === N - 1) miss.s++;
+        // Blame the side this sample is closest to (a road through the
+        // middle still pulls the nearer side in).
+        const dW = i, dE = N - 1 - i, dN = j, dS = N - 1 - j;
+        const m = Math.min(dW, dE, dN, dS);
+        if (dW === m) miss.w++;
+        if (dE === m) miss.e++;
+        if (dN === m) miss.n++;
+        if (dS === m) miss.s++;
       }
     }
     if (!total) return r;
@@ -292,10 +303,18 @@ function district(base: Omit<DistrictDef, 'origin' | 'trimmed' | 'setKind' | 'xs
   const rows = zs.length - 1;
   const land = Array.from({ length: cols }, (_, c) => Array.from({ length: rows }, (_, r) => cellOnLand(g.borough, xs, zs, c, r)));
   // Blocks on the shore that are only partly land get trimmed, not dropped.
+  // So do blocks a highway clips (the ring road, the BQE…): the block steps
+  // back from the road instead of a building standing on it (Peter: nothing
+  // may cut across a road or the river). Broadway runs through the middle
+  // of blocks, so it is handled per building (world/ai-city.ts, nycgen).
+  const onHighway = (x: number, z: number) => !!onCorridor(base.id, x, z, 1)?.highway;
   const trims = Array.from({ length: cols }, (_, c) =>
-    Array.from({ length: rows }, (_, r) =>
-      land[c][r] ? null : trimToLand(g.borough, { minX: xs[c] + AVE_W / 2, maxX: xs[c + 1] - AVE_W / 2, minZ: zs[r] + ST_W / 2, maxZ: zs[r + 1] - ST_W / 2 }),
-    ),
+    Array.from({ length: rows }, (_, r) => {
+      const rect = { minX: xs[c] + AVE_W / 2, maxX: xs[c + 1] - AVE_W / 2, minZ: zs[r] + ST_W / 2, maxZ: zs[r + 1] - ST_W / 2 };
+      const hit = corridorsIn(base.id).some((k) => k.highway) && rectOnCorridor(base.id, rect, 1) && [0, 0.25, 0.5, 0.75, 1].some((u) => [0, 0.5, 1].some((v) => onHighway(rect.minX + (rect.maxX - rect.minX) * u, rect.minZ + (rect.maxZ - rect.minZ) * v)));
+      if (land[c][r] && !hit) return null;
+      return trimToLand(g.borough, rect, (x, z) => onLand(g.borough, x, z) && !onHighway(x, z));
+    }),
   );
   const hub = { c: cellOf(xs, base.hubAt.x), r: cellOf(zs, base.hubAt.z), name: base.hubAt.name };
   const kinds: BlockKind[][] = Array.from({ length: cols }, (_, c) =>
@@ -344,6 +363,12 @@ const TIMES_SQ = project(40.758, -73.9855);
 const M_FUNLAND = project(40.7795, -73.9845);
 const M_BRYANT = project(40.7536, -73.9832);
 const M_HY = project(40.7535, -74.001);
+/**
+ * Blocks kept for landmark models to come (fenced, "coming soon" until
+ * then): One World Trade, the Stock Exchange, Rockefeller Center, Madison
+ * Square Garden, Lincoln Center, the Apollo.
+ */
+const M_LANDMARK_SITES = [[40.7127, -74.0134], [40.7069, -74.0113], [40.7587, -73.9787], [40.7505, -73.9934], [40.7725, -73.9835], [40.81, -73.95]].map(([a, b]) => project(a, b));
 // Downtown parks (each fills its grid block).
 const M_WSP = project(40.7308, -73.9973); // Washington Square Park
 const M_CITYHALL = project(40.7128, -74.006); // City Hall Park
@@ -358,7 +383,7 @@ const MANHATTAN = district({
   // playable from Harlem (about 155th St) all the way down to the Battery
   // (the lines are the same seeded lines as before, the grid just reaches
   // further north and south).
-  grid: playable(gridFor('manhattan', { x: -56, z: -226 }, { minX: -470, maxX: 480, minZ: -1750, maxZ: 1340 }, 'manhattan-grid-v3'), MANHATTAN_GRID),
+  grid: playable(gridFor('manhattan', { x: -56, z: -226 }, { minX: -470, maxX: 480, minZ: -1750, maxZ: 1340 }, 'manhattan-grid-v4'), MANHATTAN_GRID),
   blockW: 150,
   blockD: 70,
   avenueW: AVE_W,
@@ -389,6 +414,8 @@ const MANHATTAN = district({
     if (inBlock(M_BRYANT)) return 'park';
     if (inBlock(M_FUNLAND)) return 'plaza';
     if (inBlock(M_HY)) return 'vacant';
+    // Kept empty ("coming soon") for landmark models still to come.
+    if (M_LANDMARK_SITES.some(inBlock)) return 'vacant';
     if (inBlock(M_WSP) || inBlock(M_CITYHALL) || inBlock(M_BATTERY)) return 'park';
     if (manhattanForSale(x, z)) return 'lot';
     return 'buildings';
@@ -454,7 +481,7 @@ const BROOKLYN = district({
   // web of diagonal avenues cuts across the grid (world/corridors.ts).
   // Playable from Greenpoint/Williamsburg down to Prospect Park, and east
   // to Bed-Stuy.
-  grid: playable(gridFor('brooklyn', { x: 480, z: 980 }, { minX: 470, maxX: 1520, minZ: 520, maxZ: 1880 }, 'brooklyn-grid-v4', [104, 214], [52, 124]), BROOKLYN_GRID),
+  grid: playable(gridFor('brooklyn', { x: 480, z: 980 }, { minX: 470, maxX: 1520, minZ: 520, maxZ: 1880 }, 'brooklyn-grid-v5'), BROOKLYN_GRID),
   joinRate: { s: 0.2, e: 0.12 },
   blockW: 150,
   blockD: 70,
@@ -522,7 +549,7 @@ const BRONX = district({
   // The Bronx grid is the least regular yet: wide spread of block sizes,
   // lots of closed streets, and the Concourse, Fordham Rd, Southern Blvd,
   // the Deegan and the Cross Bronx cutting across (world/corridors.ts).
-  grid: playable(gridFor('bronx', { x: 180, z: -1860 }, { minX: -10, maxX: 900, minZ: -2960, maxZ: -1440 }, 'bronx-grid-v1', [100, 220], [55, 130]), BRONX_GRID),
+  grid: playable(gridFor('bronx', { x: 180, z: -1860 }, { minX: -10, maxX: 900, minZ: -2960, maxZ: -1440 }, 'bronx-grid-v2'), BRONX_GRID),
   joinRate: { s: 0.22, e: 0.14 },
   blockW: 150,
   blockD: 70,
@@ -590,7 +617,7 @@ const QUEENS = district({
   // Queens: LIC towers by the river, Astoria and Sunnyside row houses,
   // Jackson Heights. Irregular blocks plus Queens Blvd, Northern Blvd and
   // friends cutting across (world/corridors.ts).
-  grid: playable(gridFor('queens', { x: 700, z: -100 }, { minX: 520, maxX: 1700, minZ: -1000, maxZ: 150 }, 'queens-grid-v1', [104, 210], [55, 125]), QUEENS_GRID),
+  grid: playable(gridFor('queens', { x: 700, z: -100 }, { minX: 520, maxX: 1700, minZ: -1000, maxZ: 150 }, 'queens-grid-v2'), QUEENS_GRID),
   joinRate: { s: 0.2, e: 0.12 },
   blockW: 150,
   blockD: 70,
