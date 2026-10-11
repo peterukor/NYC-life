@@ -2,10 +2,11 @@
 // plots.ts — land players can RENT with real money (Peter, 2026-10-11).
 //
 // Three kinds of plot:
-//   • AD BLOCK  — a street block split into 4 billboard units. Rent 1 to
-//                 4 units, 1 to 26 weeks. No limit per player.
-//   • HOME LOT  — empty land. Pick a house type from HOUSES and rent the
-//                 lot with it, up to 6 months. 3 per borough per player.
+//   • AD BLOCK  — a street block split into 2 halves (2 billboards each).
+//                 Rent one half or both, weekly. No limit per player.
+//   • HOME LOT  — empty land. Pick a house type from HOUSES and rent a
+//                 spot for it, weekly. 3 per borough per player. A block
+//                 holds 16 tiny homes, 8 townhouses, 4 villas or 2 mansions.
 //   • ISLAND    — a whole island. The renter writes to the admin team
 //                 saying what they want there (a house, a giant ad…).
 //
@@ -33,7 +34,7 @@ import { rectOnCorridor } from '../world/corridors.ts';
 
 export type PlotKind = 'ad' | 'home' | 'island';
 /** Location decides the price. */
-export type PriceTier = 'harlem' | 'uptown' | 'midtown' | 'downtown' | 'brooklyn';
+export type PriceTier = 'harlem' | 'uptown' | 'midtown' | 'downtown' | 'brooklyn' | 'bronx';
 
 export interface Plot {
   id: string;
@@ -56,58 +57,80 @@ export interface Plot {
 }
 
 // ---------------------------------------------------------------- prices (USD)
-/** Ad units: price per WEEK for one unit, and for the whole block (all 4). */
-export const AD_PRICES: Record<PriceTier, { unit: number; block: number }> = {
-  // Peter, 2026-10-11: one unit $59.99 a week, a whole block $219.99 a week,
-  // everywhere for now. Change a tier here to price an area differently.
-  harlem: { unit: 59.99, block: 219.99 },
-  uptown: { unit: 59.99, block: 219.99 },
-  downtown: { unit: 59.99, block: 219.99 },
-  brooklyn: { unit: 59.99, block: 219.99 },
-  midtown: { unit: 59.99, block: 219.99 },
-};
-export const AD_MAX_WEEKS = 26; // 6 months
-export const AD_UNITS = 4;
+// EVERYTHING IS A WEEKLY SUBSCRIPTION (Peter, 2026-10-11): billed every
+// week, cancel any time, and it stops by itself after 26 weeks (6 months),
+// so nobody can hold a plot forever. Re-rent to keep it.
+export const MAX_WEEKS = 26;
+/** @deprecated alias, use MAX_WEEKS */
+export const AD_MAX_WEEKS = MAX_WEEKS;
 
-/** House types you can put on a lot: the 6-month price in the cheapest area. */
+/**
+ * Ad blocks are split in TWO halves (north and south, two billboards
+ * each). Price per WEEK for one half and for both halves (the whole block).
+ * Peter set the top areas: $79.99 a half, $149.99 both. The cheaper areas
+ * are scaled down from that (to confirm).
+ */
+export const AD_PRICES: Record<PriceTier, { unit: number; block: number }> = {
+  midtown: { unit: 79.99, block: 149.99 },
+  downtown: { unit: 79.99, block: 149.99 },
+  uptown: { unit: 64.99, block: 119.99 },
+  brooklyn: { unit: 64.99, block: 119.99 },
+  harlem: { unit: 49.99, block: 89.99 },
+  bronx: { unit: 49.99, block: 89.99 },
+};
+/** Halves per ad block. */
+export const AD_UNITS = 2;
+export const AD_UNIT_NAMES = ['North half', 'South half'];
+/** Which half a billboard (0 NW, 1 NE, 2 SW, 3 SE) belongs to. */
+export const halfOfBoard = (board: number) => (board < 2 ? 0 : 1);
+
+/**
+ * House types you can put on a lot, with the weekly price in the
+ * cheapest area. A home block has room for 16 spaces: a tiny home takes 1
+ * (16 per block), a townhouse 2 (8), a villa 4 (4), a mansion 8 (2). Mix
+ * and match until the block is full.
+ */
 export const HOUSES = [
-  { id: 'tiny', name: 'Tiny home', emoji: '🛖', blurb: 'One room, big windows, a porch.', price6mo: 199.99 },
-  { id: 'townhouse', name: 'Townhouse', emoji: '🏘️', blurb: 'Classic stoop, three floors.', price6mo: 249.99 },
-  { id: 'modern', name: 'Modern villa', emoji: '🏡', blurb: 'Glass, a roof deck and a garden.', price6mo: 329.99 },
-  { id: 'mansion', name: 'Mansion', emoji: '🏰', blurb: 'Pool, gates, the works.', price6mo: 499.99 },
+  { id: 'tiny', name: 'Tiny home', emoji: '🛖', blurb: 'One room, big windows, a porch.', perWeek: 7.99, spaces: 1 },
+  { id: 'townhouse', name: 'Townhouse', emoji: '🏘️', blurb: 'Classic stoop, three floors.', perWeek: 9.99, spaces: 2 },
+  { id: 'modern', name: 'Modern villa', emoji: '🏡', blurb: 'Glass, a roof deck and a garden.', perWeek: 12.99, spaces: 4 },
+  { id: 'mansion', name: 'Mansion', emoji: '🏰', blurb: 'Pool, gates, the works.', perWeek: 19.99, spaces: 8 },
 ] as const;
 export type HouseId = (typeof HOUSES)[number]['id'];
-/** Rental lengths (months) and the share of the 6-month price each costs. */
-export const HOME_TERMS: { months: number; share: number }[] = [
-  { months: 1, share: 0.22 },
-  { months: 3, share: 0.58 },
-  { months: 6, share: 1 },
-];
+/** Spaces on one home block (see HOUSES.spaces). */
+export const BLOCK_SPACES = 16;
 /** Location multiplier for houses. */
-export const TIER_MULT: Record<PriceTier, number> = { harlem: 1, brooklyn: 1.1, uptown: 1.15, downtown: 1.3, midtown: 1.4 };
+export const TIER_MULT: Record<PriceTier, number> = { harlem: 1, bronx: 0.95, brooklyn: 1.1, uptown: 1.15, downtown: 1.3, midtown: 1.4 };
 /** Most homes one player can rent in one borough. */
 export const HOMES_PER_BOROUGH = 3;
 
-/** Whole islands, 6 months (rings of the Manhattan outline, found by a point on them). */
+/** Whole islands: `price` is for the full 6 months, billed weekly (price / 26). */
 export const ISLANDS: { id: string; name: string; at: [number, number]; price: number }[] = [
   { id: 'randalls', name: 'Randall’s Island', at: [40.7932, -73.9213], price: 274.99 },
   { id: 'governors', name: 'Governors Island', at: [40.6894, -74.0168], price: 299.99 },
   { id: 'roosevelt', name: 'Roosevelt Island', at: [40.7614, -73.9502], price: 249.99 },
 ];
 
+const cents = (v: number) => Math.round(v * 100) / 100;
 /** Round to a price ending in .99 */
 const p99 = (v: number) => Math.max(0.99, Math.round(v) - 0.01);
-export function homePrice(tier: PriceTier, house: HouseId, months: number): number {
+/** A house's weekly price in an area. */
+export function homeWeekly(tier: PriceTier, house: HouseId): number {
   const h = HOUSES.find((x) => x.id === house)!;
-  const t = HOME_TERMS.find((x) => x.months === months) ?? HOME_TERMS[HOME_TERMS.length - 1];
-  return p99(h.price6mo * TIER_MULT[tier] * t.share);
+  return p99(h.perWeek * TIER_MULT[tier]);
 }
-/** Ad price: whole block rate for 4 units, otherwise per unit. */
+/** Total for `weeks` weeks of a house. */
+export function homePrice(tier: PriceTier, house: HouseId, weeks: number): number {
+  return cents(homeWeekly(tier, house) * weeks);
+}
+/** Ad price for `units` halves (both halves = the whole-block rate) over `weeks` weeks. */
 export function adPrice(tier: PriceTier, units: number, weeks: number): number {
   const p = AD_PRICES[tier];
   const perWeek = units >= AD_UNITS ? p.block : p.unit * units;
-  return Math.round(perWeek * weeks * 100) / 100;
+  return cents(perWeek * weeks);
 }
+/** An island's weekly bill. */
+export const islandWeekly = (price: number) => cents(price / MAX_WEEKS);
 
 // ---------------------------------------------------------------- admin overrides
 /**
@@ -123,12 +146,14 @@ export const PLOT_OVERRIDES: Record<string, { kind?: 'ad' | 'home' | 'buildings'
 const PICKS: Record<AreaId, { ads: number; harlemLots: number; lots: number }> = {
   manhattan: { ads: 20, harlemLots: 0.3, lots: 6 },
   brooklyn: { ads: 12, harlemLots: 0, lots: 10 },
+  bronx: { ads: 10, harlemLots: 0, lots: 10 },
 };
 
 // ---------------------------------------------------------------- building the list
 export const blockId = (d: DistrictDef, c: number, r: number) => `${d.id}:${d.xs[c]},${d.zs[r]}`;
 
 function tierAt(d: DistrictDef, z: number): PriceTier {
+  if (d.id === 'bronx') return 'bronx';
   if (d.id !== 'manhattan') return 'brooklyn';
   const n = manhattanStreetAt(z);
   if (z > 500) return 'downtown';
@@ -252,7 +277,7 @@ export function neighbourPlots(p: Plot): Plot[] {
   return PLOTS.filter((q) => q !== p && q.kind === p.kind && q.area === p.area && q.block && Math.abs(q.block[0] - c) + Math.abs(q.block[1] - r) === 1);
 }
 
-/** Which ad unit (0 NW, 1 NE, 2 SW, 3 SE) a point on an ad block is in. */
+/** The four billboard spots of an ad block (0 NW, 1 NE, 2 SW, 3 SE); halves are 0+1 and 2+3. */
 export function adUnitRects(p: Plot): { minX: number; maxX: number; minZ: number; maxZ: number }[] {
   const r = p.rect!;
   const mx = (r.minX + r.maxX) / 2, mz = (r.minZ + r.maxZ) / 2;

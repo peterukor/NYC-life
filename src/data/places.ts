@@ -206,6 +206,39 @@ const RAW: RawPlace[] = [
     actions: ['ferrisWheel', 'rollerCoaster', 'carnivalGames', 'funnelCake', 'photoSelfie'],
   },
 
+  // ======================= THE BRONX =======================
+  {
+    id: 'yankeeStation', area: 'bronx', name: '161 St–Yankee Stadium Station', emoji: '🚇', type: 'station',
+    blurb: 'The 4, the B and the D. Game nights, it’s a sea of pinstripes.',
+    at: [40.8277, -73.9255], interior: 'none', color: '#0039a6',
+    actions: ['subwayShowtime', 'tipPerformer'],
+  },
+  {
+    id: 'yankeeStadium', area: 'bronx', name: 'Yankee Stadium', emoji: '⚾', type: 'landmark',
+    blurb: 'The House That Ruth Built, rebuilt across the street. Bleacher creatures welcome.',
+    at: [40.8296, -73.9262], interior: 'none', color: '#1c2b5a',
+    actions: ['photoSelfie', 'peopleWatch'],
+    landmark: { description: 'Home of the New York Yankees since 2009, on East 161st Street in the Bronx.', officialSite: 'https://www.mlb.com/yankees/ballpark', siteLabel: 'mlb.com/yankees' },
+  },
+  {
+    id: 'bronxZoo', area: 'bronx', name: 'Bronx Zoo', emoji: '🦁', type: 'park',
+    blurb: 'Tigers, gorillas and a monorail through “Wild Asia”. Bring snacks.',
+    at: [40.8506, -73.8769], hours: [10, 17], interior: 'none', color: '#2e8b57',
+    actions: ['picnic', 'peopleWatch', 'jog', 'photoSelfie'],
+  },
+  {
+    id: 'arthurAve', area: 'bronx', name: 'Arthur Ave Pizzeria', emoji: '🍕', type: 'food',
+    blurb: 'The real Little Italy. Fresh mozz, old-timers arguing, the best slice north of 110th.',
+    at: [40.855, -73.888], hours: [10, 23], interior: 'pizza', color: '#c0392b',
+    actions: ['dollarSlice', 'fullPie', 'foldDebate'],
+  },
+  {
+    id: 'hubThrift', area: 'bronx', name: 'The Hub Thrift', emoji: '👕', type: 'shop',
+    blurb: 'Under the lights at 149th and 3rd: racks, sneakers and bargains.',
+    at: [40.8165, -73.9165], hours: [9, 21], interior: 'none', color: '#e76f51',
+    actions: ['windowShop'], sells: ['plain'],
+  },
+
   // ======================= BROOKLYN =======================
   {
     id: 'wburgLoft', area: 'brooklyn', name: 'Fulton St loft (for rent)', emoji: '🏠', type: 'home',
@@ -286,8 +319,10 @@ const RAW: RawPlace[] = [
   },
 ];
 
+// The Bronx places are appended to RAW below (see BRONX_PLACES).
+
 /** Landmarks that fill their whole block (no ordinary buildings there). */
-export const FULL_BLOCK_LANDMARKS = new Set(['empireState', 'atlanticArena', 'parkMall', 'chrysler', 'flatiron']);
+export const FULL_BLOCK_LANDMARKS = new Set(['empireState', 'atlanticArena', 'parkMall', 'chrysler', 'flatiron', 'yankeeStadium']);
 
 /**
  * Snap every place to a door spot: the free (block, side, slot) whose door

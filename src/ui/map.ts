@@ -22,7 +22,7 @@ import { SAFE_AREAS, turfMap } from '../sim/gangs.ts';
 import { BOROUGHS, boroughAt, boroughBounds, outline, pointInRing, project, type BoroughId } from '../world/geo-proj.ts';
 import { blockRect, districtBounds, DISTRICTS, isPark, type DistrictDef } from '../world/layout.ts';
 import { corridorsIn } from '../world/corridors.ts';
-import { plotsIn } from '../data/plots.ts';
+import { islandWeekly, plotsIn } from '../data/plots.ts';
 import { lotsFor, shoreFeatures, shoreKinds, type ShoreKind } from '../world/coast.ts';
 import { pondsFor } from '../data/parks.ts';
 import { html, onAct, root } from './dom.ts';
@@ -46,7 +46,7 @@ export interface MapOptions {
   onClose: () => void;
 }
 
-const AREA_OF: Partial<Record<BoroughId, AreaId>> = { manhattan: 'manhattan', brooklyn: 'brooklyn' };
+const AREA_OF: Partial<Record<BoroughId, AreaId>> = { manhattan: 'manhattan', brooklyn: 'brooklyn', bronx: 'bronx' };
 const FONT = 'Nunito, system-ui, sans-serif';
 
 export function openMap(opts: MapOptions): () => void {
@@ -483,7 +483,7 @@ export function openMap(opts: MapOptions): () => void {
       for (const pl of area ? plotsIn(area) : []) {
         if (pl.kind === 'island') {
           halo(`🏝️ ${pl.name}`, sx(pl.center.x), sy(pl.center.z) - 4, `900 ${Math.max(9, Math.min(13, 8 * scale + 5))}px ${FONT}`, '#0e7490', 4);
-          halo(`FOR RENT · $${pl.islandPrice?.toFixed(2)}`, sx(pl.center.x), sy(pl.center.z) + 10, `800 9px ${FONT}`, '#b04a2f', 3);
+          halo(`FOR RENT · $${islandWeekly(pl.islandPrice ?? 0).toFixed(2)}/wk`, sx(pl.center.x), sy(pl.center.z) + 10, `800 9px ${FONT}`, '#b04a2f', 3);
         } else if (pl.kind === 'ad' && scale > 0.32) {
           halo('📢 AD SPACE', sx(pl.center.x), sy(pl.center.z) + 4, `900 ${Math.max(8, Math.min(12, 6 * scale + 5))}px ${FONT}`, '#be185d', 3);
         }

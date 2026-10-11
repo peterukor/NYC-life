@@ -13,7 +13,7 @@
 import { bus } from '../core/bus.ts';
 import { nowMs } from '../core/clock.ts';
 import { Rng } from '../core/rng.ts';
-import type { AreaId, GameState, NewsItem } from './types.ts';
+import { AREA_IDS, type AreaId, type GameState, type NewsItem } from './types.ts';
 import { weatherDef, weatherFor } from './weather.ts';
 
 const KEEP = 40;
@@ -36,6 +36,12 @@ const CITY_POOL: [string, string][] = [
 ];
 
 const AREA_POOL: Record<AreaId, [string, string][]> = {
+  bronx: [
+    ['⚾', 'Yankees walk-off sends the whole Concourse into the street'],
+    ['🍕', 'Arthur Ave bakery line stretches past the market: fresh bread at 7'],
+    ['🦁', 'Bronx Zoo welcomes twin tiger cubs; crowds expected all weekend'],
+    ['🎤', 'Block party on 161st: DJs, dominoes and a hydrant cooling everyone off'],
+  ],
   manhattan: [
     ['🌆', 'Times Square screens go dark for 90 seconds; tourists stare at the sky'],
     ['🥯', 'Hell’s Kitchen bagel shop opens; line already around the block'],
@@ -71,7 +77,7 @@ export function postDailyNews(s: GameState, dateKey: string): void {
   postNews(s, { id: `w-${dateKey}`, scope: 'city', emoji: wi.emoji, headline: `Today in NYC: ${wi.label}${wi.tip ? ` — ${wi.tip}` : ''}` });
   const [ce, ch] = rng.pick(CITY_POOL);
   postNews(s, { id: `c-${dateKey}`, scope: 'city', emoji: ce, headline: ch });
-  for (const area of ['manhattan', 'brooklyn'] as AreaId[]) {
+  for (const area of AREA_IDS) {
     const [e, h] = rng.pick(AREA_POOL[area]);
     postNews(s, { id: `${area}-${dateKey}`, scope: area, emoji: e, headline: h });
   }

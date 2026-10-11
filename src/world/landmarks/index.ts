@@ -26,3 +26,4 @@ import './funland.ts';
 import './chrysler.ts';
 import './flatiron.ts';
 import './liberty.ts';
+import './yankee-stadium.ts';

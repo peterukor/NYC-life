@@ -14,7 +14,8 @@ import { deposit, withdraw } from '../sim/economy.ts';
 import { computeMood, NEED_INFO } from '../sim/needs.ts';
 import { PREPAID_PHONE_PRICE, reportToPolice, trackWithFindMy } from '../sim/phone.ts';
 import { CLASSES, ORIGINS, TRAITS } from '../sim/state.ts';
-import { NEED_KEYS, SKILL_KEYS, type AreaId, type GameState, type SkillKey } from '../sim/types.ts';
+import { AREA_IDS, NEED_KEYS, SKILL_KEYS, type AreaId, type GameState, type SkillKey } from '../sim/types.ts';
+import { DISTRICTS } from '../world/layout.ts';
 import { WEATHER_INFO, weatherFor } from '../sim/weather.ts';
 import { applyForJob, hireBlocker, jobTitle, quitJob, shiftPay } from '../sim/work.ts';
 import { HOUSE_ADS } from '../render/textures.ts';
@@ -92,7 +93,7 @@ export function openPhone(host: PhoneHost, startApp?: string): () => void {
           const block = hireBlocker(s, c);
           const mine = s.job?.careerId === c.id;
           const where = PLACE_BY_ID[c.placeId];
-          return `<div class="list-item"><div class="grow"><div class="title">${c.emoji} ${c.name} — ${c.ladder[0].title}</div><div class="sub">${esc(c.blurb)}<br>${money(c.ladder[0].pay)}/shift → ${c.ladder[c.ladder.length - 1].title} ${money(c.ladder[c.ladder.length - 1].pay)} · ${where.area === 'brooklyn' ? 'Brooklyn' : 'Manhattan'}</div>${block ? `<div class="sub" style="color:var(--bad);font-weight:700">🔒 ${esc(block)}</div>` : ''}</div>${mine ? '<span class="tag open">Your job</span>' : `<button class="btn ${block ? '' : 'primary'}" data-act="hire:${c.id}" ${block ? 'disabled' : ''}>Apply</button>`}</div>`;
+          return `<div class="list-item"><div class="grow"><div class="title">${c.emoji} ${c.name} — ${c.ladder[0].title}</div><div class="sub">${esc(c.blurb)}<br>${money(c.ladder[0].pay)}/shift → ${c.ladder[c.ladder.length - 1].title} ${money(c.ladder[c.ladder.length - 1].pay)} · ${DISTRICTS[where.area].name}</div>${block ? `<div class="sub" style="color:var(--bad);font-weight:700">🔒 ${esc(block)}</div>` : ''}</div>${mine ? '<span class="tag open">Your job</span>' : `<button class="btn ${block ? '' : 'primary'}" data-act="hire:${c.id}" ${block ? 'disabled' : ''}>Apply</button>`}</div>`;
         }).join('')}`);
     },
     ride() {
@@ -103,7 +104,7 @@ export function openPhone(host: PhoneHost, startApp?: string): () => void {
           .map((p) => {
             const q = host.rideQuote(p.id, false);
             const here = s.location.placeId === p.id;
-            return `<div class="list-item"><div class="grow"><div class="title">${p.emoji} ${esc(p.name)}</div><div class="sub">${p.area === 'brooklyn' ? 'Brooklyn' : 'Manhattan'} · ${q.minutes} min${q.surge > 1 ? ` · ⚡ surge ×${q.surge.toFixed(1)}` : ''}${isOpen(p, t.hour) ? '' : ' · closed now'}</div></div>${here ? '<span class="tag">You’re here</span>' : `<button class="btn primary" data-act="ride:${p.id}">${money(q.cost)}</button>`}</div>`;
+            return `<div class="list-item"><div class="grow"><div class="title">${p.emoji} ${esc(p.name)}</div><div class="sub">${DISTRICTS[p.area].name} · ${q.minutes} min${q.surge > 1 ? ` · ⚡ surge ×${q.surge.toFixed(1)}` : ''}${isOpen(p, t.hour) ? '' : ' · closed now'}</div></div>${here ? '<span class="tag">You’re here</span>' : `<button class="btn primary" data-act="ride:${p.id}">${money(q.cost)}</button>`}</div>`;
           })
           .join('')}`);
     },
@@ -188,13 +189,13 @@ export function openPhone(host: PhoneHost, startApp?: string): () => void {
         }).join('')}`);
     },
     news() {
-      const tabs: ('all' | 'city' | AreaId)[] = ['all', 'city', 'manhattan', 'brooklyn'];
+      const tabs: ('all' | 'city' | AreaId)[] = ['all', 'city', ...AREA_IDS];
       let tab: (typeof tabs)[number] = 'all';
       const render = () => {
         const items = s.news.filter((n) => tab === 'all' || n.scope === tab);
         page('City News', `
-          <div class="seg">${tabs.map((t) => `<button data-act="ntab:${t}" class="${t === tab ? 'on' : ''}">${t === 'all' ? 'All' : t === 'city' ? 'Citywide' : t === 'manhattan' ? 'Manhattan' : 'Brooklyn'}</button>`).join('')}</div>
-          ${items.length ? items.map((n) => `<div class="list-item"><div style="font-size:24px">${n.emoji}</div><div class="grow"><div class="title">${esc(n.headline)}</div><div class="sub">${n.scope === 'city' ? 'Citywide' : n.scope === 'manhattan' ? 'Manhattan' : 'Brooklyn'} · ${new Date(n.at).toLocaleString('en-US', { timeZone: 'America/New_York', weekday: 'short', hour: 'numeric', minute: '2-digit' })}${n.personal ? ' · 📍 you' : ''}</div></div></div>`).join('') : '<p class="blurb">Quiet day in the city.</p>'}`);
+          <div class="seg">${tabs.map((t) => `<button data-act="ntab:${t}" class="${t === tab ? 'on' : ''}">${t === 'all' ? 'All' : t === 'city' ? 'Citywide' : DISTRICTS[t as AreaId].name}</button>`).join('')}</div>
+          ${items.length ? items.map((n) => `<div class="list-item"><div style="font-size:24px">${n.emoji}</div><div class="grow"><div class="title">${esc(n.headline)}</div><div class="sub">${n.scope === 'city' ? 'Citywide' : DISTRICTS[n.scope as AreaId].name} · ${new Date(n.at).toLocaleString('en-US', { timeZone: 'America/New_York', weekday: 'short', hour: 'numeric', minute: '2-digit' })}${n.personal ? ' · 📍 you' : ''}</div></div></div>`).join('') : '<p class="blurb">Quiet day in the city.</p>'}`);
       };
       render();
       newsTab = (t) => {

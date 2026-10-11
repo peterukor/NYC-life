@@ -25,7 +25,8 @@ import { chargeBill } from '../sim/economy.ts';
 import { addDebt } from '../sim/debt.ts';
 import { arrest } from '../sim/jail.ts';
 import { nowMs } from '../core/clock.ts';
-import type { GameState } from '../sim/types.ts';
+import type { AreaId, GameState } from '../sim/types.ts';
+import { DISTRICTS } from '../world/layout.ts';
 import type { PhoneHost } from './phone.ts';
 import { toast } from './dom.ts';
 import { personOf, RELATION, vibe } from '../sim/people.ts';
@@ -188,7 +189,7 @@ PHONE_APPS.add({
               const p = personOf(id);
               const v = vibe(m);
               const reply = lastReply?.id === id ? `<div class="sms">${esc(lastReply.text)}</div>` : '';
-              return `<div class="list-item" style="flex-wrap:wrap"><div style="font-size:24px">${v.emoji}</div><div class="grow"><div class="title">${esc(p.name)}${m.key ? ' 🔑' : ''}</div><div class="sub">${RELATION[m.level]} · ${esc(p.job)} · ${m.area === 'brooklyn' ? 'Brooklyn' : 'Manhattan'}</div>${reply}</div>
+              return `<div class="list-item" style="flex-wrap:wrap"><div style="font-size:24px">${v.emoji}</div><div class="grow"><div class="title">${esc(p.name)}${m.key ? ' 🔑' : ''}</div><div class="sub">${RELATION[m.level]} · ${esc(p.job)} · ${DISTRICTS[m.area as AreaId].name}</div>${reply}</div>
                 <button class="btn" data-act="contacts.hey:${id}">👋 Text</button>${p.dates && m.level >= 2 ? `<button class="btn primary" data-act="contacts.date:${id}">💘 Date?</button>` : ''}</div>`;
             })
             .join('')
@@ -249,7 +250,7 @@ PHONE_APPS.add({
             const st = standing(s, c.id);
             const [lab, col] = STANDING_LABEL[st];
             const block = joinBlocker(s, c.id);
-            return `<div class="list-item" style="border-left:6px solid ${c.color}"><div style="font-size:24px">${c.emoji}</div><div class="grow"><div class="title">${esc(c.name)} ${chip(lab, col)}</div><div class="sub">${c.area === 'brooklyn' ? 'Brooklyn' : 'Manhattan'} · ${c.temper === 'hot' ? '🔥 hot-headed' : '🧊 cool-headed'} · muscle ${c.muscle}/10<br>${esc(c.blurb)}</div>${bar(respectOf(s, c.id) + 100, 200, c.color)}</div>
+            return `<div class="list-item" style="border-left:6px solid ${c.color}"><div style="font-size:24px">${c.emoji}</div><div class="grow"><div class="title">${esc(c.name)} ${chip(lab, col)}</div><div class="sub">${DISTRICTS[c.area].name} · ${c.temper === 'hot' ? '🔥 hot-headed' : '🧊 cool-headed'} · muscle ${c.muscle}/10<br>${esc(c.blurb)}</div>${bar(respectOf(s, c.id) + 100, 200, c.color)}</div>
               ${s.gang.crew === c.id ? '' : `<button class="btn ${block ? '' : 'primary'}" data-act="crew.join:${c.id}" ${block ? `title="${esc(block)}"` : ''}>Join</button>`}</div>`;
           })
           .join('')}`,

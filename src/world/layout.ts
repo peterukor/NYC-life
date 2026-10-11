@@ -482,7 +482,75 @@ const BROOKLYN = district({
   seed: 'brooklyn-real-v3',
 });
 
-export const DISTRICTS: Record<AreaId, DistrictDef> = { manhattan: MANHATTAN, brooklyn: BROOKLYN };
+// ---- The Bronx: Mott Haven, Yankee Stadium, the Grand Concourse, Fordham, the Zoo ----
+const BX_STREETS: [string, [number, number], [number, number]][] = [
+  ['Grand Concourse', [40.8135, -73.93], [40.873, -73.89]],
+  ['E 149th St', [40.818, -73.93], [40.813, -73.903]],
+  ['E 161st St', [40.8285, -73.932], [40.824, -73.905]],
+  ['Fordham Rd', [40.861, -73.912], [40.858, -73.875]],
+  ['3rd Ave', [40.807, -73.927], [40.855, -73.892]],
+  ['Webster Ave', [40.82, -73.913], [40.866, -73.885]],
+  ['Southern Blvd', [40.807, -73.915], [40.854, -73.878]],
+  ['Jerome Ave', [40.828, -73.928], [40.875, -73.895]],
+  ['E Tremont Ave', [40.848, -73.91], [40.843, -73.875]],
+  ['Bruckner Blvd', [40.806, -73.928], [40.818, -73.89]],
+  ['E 138th St', [40.811, -73.931], [40.806, -73.912]],
+  ['Arthur Ave', [40.861, -73.889], [40.85, -73.887]],
+  ['Crotona Ave', [40.847, -73.893], [40.836, -73.898]],
+];
+const BX_LINES = BX_STREETS.map(([n, a, b]) => ({ n, a: project(a[0], a[1]), b: project(b[0], b[1]) }));
+function bxNames(x: number, z: number): [string, string] {
+  const dist = (l: (typeof BX_LINES)[number]) => {
+    const dx = l.b.x - l.a.x, dz = l.b.z - l.a.z;
+    const t = Math.max(0, Math.min(1, ((x - l.a.x) * dx + (z - l.a.z) * dz) / (dx * dx + dz * dz)));
+    return Math.hypot(x - (l.a.x + t * dx), z - (l.a.z + t * dz));
+  };
+  const sorted = [...BX_LINES].sort((p, q) => dist(p) - dist(q));
+  return [sorted[0].n, sorted[1].n];
+}
+const BRONX_GRID = { xs: [] as number[], zs: [] as number[] };
+const X_CROTONA = project(40.8396, -73.8975);
+const X_HUB = project(40.816, -73.917);
+/** The Bronx Zoo and the Botanical Garden: blocks whose centre is in these lat/lon boxes are park. */
+const inBxGreen = (lat: number, lon: number) => (lat > 40.842 && lat < 40.858 && lon > -73.884 && lon < -73.869) || (lat > 40.858 && lat < 40.869 && lon > -73.882 && lon < -73.869);
+
+const BRONX = district({
+  id: 'bronx',
+  name: 'The Bronx',
+  tagline: 'Yankee Stadium · Grand Concourse · Fordham · the Zoo',
+  borough: 'bronx',
+  // The Bronx grid is the least regular yet: wide spread of block sizes,
+  // lots of closed streets, and the Concourse, Fordham Rd, Southern Blvd,
+  // the Deegan and the Cross Bronx cutting across (world/corridors.ts).
+  grid: playable(gridFor('bronx', { x: 180, z: -1860 }, { minX: -10, maxX: 900, minZ: -2960, maxZ: -1440 }, 'bronx-grid-v1', [100, 220], [55, 130]), BRONX_GRID),
+  joinRate: { s: 0.22, e: 0.14 },
+  blockW: 150,
+  blockD: 70,
+  avenueW: AVE_W,
+  streetW: ST_W,
+  names: bxNames,
+  water: { side: 'west', label: 'Harlem River' },
+  zone: (c, r) => {
+    const d = BRONX;
+    const x = (d.xs[c] + d.xs[c + 1]) / 2;
+    const z = (d.zs[r] + d.zs[r + 1]) / 2;
+    if (z > -1640) return x > 500 ? 'waterfront' : 'midrise'; // Mott Haven & Port Morris
+    if (x < 300 && z > -2300) return 'midrise'; // Grand Concourse art-deco apartment houses
+    if (Math.hypot(x - X_HUB.x, z - X_HUB.z) < 220) return 'tall'; // The Hub, 149th & 3rd
+    return 'brownstone'; // walk-ups and row houses
+  },
+  kindAt: (x, z, c, r) => {
+    const inBlock = (p: { x: number; z: number }) => cellOf(BRONX_GRID.xs, p.x) === c && cellOf(BRONX_GRID.zs, p.z) === r;
+    if (inBlock(X_CROTONA)) return 'park';
+    const ll = unproject(x, z);
+    if (inBxGreen(ll.lat, ll.lon)) return 'park';
+    return 'buildings';
+  },
+  hubAt: { x: X_HUB.x, z: X_HUB.z, name: 'The Hub' },
+  seed: 'bronx-real-v1',
+});
+
+export const DISTRICTS: Record<AreaId, DistrictDef> = { manhattan: MANHATTAN, brooklyn: BROOKLYN, bronx: BRONX };
 
 export function avenueX(d: DistrictDef, i: number): number {
   return d.xs[Math.max(0, Math.min(d.cols, i))];

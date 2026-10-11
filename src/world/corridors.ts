@@ -112,6 +112,17 @@ const BK: { id: string; name: string; width: number; highway?: boolean; pts: [nu
   { id: 'bqe', name: 'BQE', width: 18, highway: true, pts: [[40.7035, -73.993], [40.699, -73.984], [40.6985, -73.97], [40.701, -73.956], [40.708, -73.951], [40.717, -73.948], [40.725, -73.945]] },
 ];
 
+/** The Bronx: the Concourse, its big avenues and two expressways (real points). */
+const BX: typeof BK = [
+  { id: 'concourse', name: 'Grand Concourse', width: 18, pts: [[40.8135, -73.93], [40.8277, -73.9228], [40.8443, -73.9137], [40.862, -73.901], [40.873, -73.89]] },
+  { id: 'fordhamRd', name: 'Fordham Rd', width: 15, pts: [[40.861, -73.912], [40.862, -73.898], [40.861, -73.888], [40.858, -73.875]] },
+  { id: 'southernBlvd', name: 'Southern Blvd', width: 14, pts: [[40.807, -73.915], [40.82, -73.9], [40.838, -73.888], [40.854, -73.878]] },
+  { id: 'bxThirdAve', name: '3rd Ave', width: 13, pts: [[40.807, -73.927], [40.817, -73.918], [40.836, -73.904], [40.855, -73.892]] },
+  { id: 'e149', name: 'E 149th St', width: 13, pts: [[40.818, -73.93], [40.816, -73.917], [40.813, -73.903]] },
+  { id: 'deegan', name: 'Major Deegan Expwy', width: 18, highway: true, pts: [[40.805, -73.93], [40.829, -73.933], [40.845, -73.928], [40.865, -73.92]] },
+  { id: 'crossBronx', name: 'Cross Bronx Expwy', width: 18, highway: true, pts: [[40.844, -73.925], [40.842, -73.905], [40.838, -73.885], [40.835, -73.865]] },
+];
+
 let cache: Corridor[] | null = null;
 
 export function corridors(): Corridor[] {
@@ -122,6 +133,7 @@ export function corridors(): Corridor[] {
     // Brooklyn Bridge approach on the Manhattan side (City Hall).
     { id: 'bbApproach', name: 'Brooklyn Bridge', area: 'manhattan', width: 16, highway: true, pts: ll([[40.7123, -74.0052], [40.7095, -74.001]]) },
     ...BK.map((c) => ({ id: c.id, name: c.name, area: 'brooklyn' as AreaId, width: c.width, highway: c.highway, pts: resample(chaikin(ll(c.pts), false, 2), 14, false) })),
+    ...BX.map((c) => ({ id: c.id, name: c.name, area: 'bronx' as AreaId, width: c.width, highway: c.highway, pts: resample(chaikin(ll(c.pts), false, 2), 14, false) })),
   ];
   return cache;
 }

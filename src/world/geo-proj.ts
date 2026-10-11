@@ -52,7 +52,7 @@ export const BOROUGHS: BoroughInfo[] = [
   { id: 'manhattan', name: 'Manhattan', playable: true, color: '#e9a6c9', label: [40.781, -73.966] },
   { id: 'brooklyn', name: 'Brooklyn', playable: true, color: '#8fb6ea', label: [40.645, -73.945] },
   { id: 'queens', name: 'Queens', playable: false, color: '#f2d27a', label: [40.715, -73.82] },
-  { id: 'bronx', name: 'The Bronx', playable: false, color: '#a8d8a0', label: [40.845, -73.865] },
+  { id: 'bronx', name: 'The Bronx', playable: true, color: '#a8d8a0', label: [40.845, -73.865] },
   { id: 'statenIsland', name: 'Staten Island', playable: false, color: '#f3b27f', label: [40.58, -74.15] },
 ];
 

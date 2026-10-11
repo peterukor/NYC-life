@@ -1,22 +1,24 @@
 // =====================================================================
-// plot-panel.ts — the "rent this" sheet for plots (data/plots.ts):
-//   • AD BLOCK: pick units (1–4) on a little map of the block, pick
-//     weeks (1–26), add your picture, see the total.
-//   • HOME LOT: pick a house type and a term (1, 3 or 6 months).
-//   • ISLAND:  6 months at a fixed price, plus a message to the admin
-//     team about what you want built there.
-// Prices are real US dollars. Payments aren't live yet: "Rent" saves a
-// request (sim/plot-requests.ts) and says so.
+// plot-panel.ts — the "rent this" sheet for plots (data/plots.ts).
+// Every rent is a WEEKLY SUBSCRIPTION: billed each week, cancel any
+// time, ends by itself after 26 weeks (then re-rent to keep it).
+//   • AD BLOCK: pick a half (north / south) or both, how many weeks,
+//     add your picture. Can merge with the ad block next door.
+//   • HOME LOT: pick a house; a block holds 16 tiny homes, 8 townhouses,
+//     4 villas or 2 mansions. Can merge with the lot next door.
+//   • ISLAND:  weekly, plus a message to the admin team about what to
+//     build there.
+// Prices are real US dollars. Payments aren't live yet: "Subscribe"
+// saves a request (sim/plot-requests.ts) and says so.
 // =====================================================================
 
 import { esc } from '../core/format.ts';
-import { AD_MAX_WEEKS, AD_PRICES, AD_UNITS, adPrice, HOME_TERMS, homePrice, HOMES_PER_BOROUGH, HOUSES, neighbourPlots, type HouseId, type Plot } from '../data/plots.ts';
+import { AD_PRICES, AD_UNIT_NAMES, AD_UNITS, adPrice, BLOCK_SPACES, homePrice, homeWeekly, HOMES_PER_BOROUGH, HOUSES, islandWeekly, MAX_WEEKS, neighbourPlots, type HouseId, type Plot } from '../data/plots.ts';
 import { homeRequestsIn, saveRequest } from '../sim/plot-requests.ts';
 import { openSheet, toast } from './dom.ts';
 
 const usd = (v: number) => `$${v.toFixed(2)}`;
-const TIER_LABEL: Record<Plot['tier'], string> = { harlem: 'Harlem', uptown: 'Uptown', midtown: 'Midtown', downtown: 'Downtown', brooklyn: 'Brooklyn' };
-const UNIT_NAMES = ['North-west', 'North-east', 'South-west', 'South-east'];
+const TIER_LABEL: Record<Plot['tier'], string> = { harlem: 'Harlem', uptown: 'Uptown', midtown: 'Midtown', downtown: 'Downtown', brooklyn: 'Brooklyn', bronx: 'The Bronx' };
 
 export function openPlotPanel(plot: Plot, focusUnit = -1): void {
   if (plot.kind === 'ad') return adPanel(plot, focusUnit);
@@ -26,49 +28,72 @@ export function openPlotPanel(plot: Plot, focusUnit = -1): void {
 
 const soon = () => toast('Payments open soon. Your request is saved, and you’ll be first in line.', { icon: '💳', tone: 'info', ms: 4200 });
 const auctionNote = (p: Plot) => (p.auction ? '<p class="plot-note auction">🔨 This plot is going to auction. Bidding opens soon.</p>' : '');
+const subNote = '<p class="plot-note">🔁 Weekly subscription: cancel any time. It ends by itself after 26 weeks (6 months); re-rent to keep it.</p>';
+/** The "how many weeks" slider. */
+const weeksField = (weeks: number) => `<label class="plot-field">Subscribe for <b data-weeks>${weeks} weeks</b><input type="range" min="1" max="${MAX_WEEKS}" value="${weeks}" data-range></label>`;
+const mergeButton = (m: Plot, what: string) => `<button class="plot-merge" data-merge="${esc(m.id)}" aria-pressed="false">🔗 <b>Merge with the ${what} next door</b><small>${esc(m.name)} · ${what === 'block' ? 'rent both whole blocks and they become ONE giant billboard' : 'rent both and build one big estate across them'}</small></button>`;
+
+/** Wires the weeks slider and merge buttons shared by the ad and home sheets. */
+function common(b: HTMLElement, mates: Plot[], st: { weeks: number; merge: Plot | null }, refresh: () => void, onMerge?: () => void): void {
+  b.querySelector<HTMLInputElement>('[data-range]')!.addEventListener('input', (e) => {
+    st.weeks = Number((e.target as HTMLInputElement).value);
+    refresh();
+  });
+  b.querySelectorAll<HTMLElement>('[data-merge]').forEach((el) =>
+    el.addEventListener('click', () => {
+      st.merge = st.merge?.id === el.dataset.merge ? null : (mates.find((m) => m.id === el.dataset.merge) ?? null);
+      if (st.merge) onMerge?.();
+      refresh();
+    }),
+  );
+}
+const showWeeks = (b: HTMLElement, st: { weeks: number; merge: Plot | null }) => {
+  b.querySelector('[data-weeks]')!.textContent = `${st.weeks} week${st.weeks > 1 ? 's' : ''}`;
+  b.querySelectorAll<HTMLElement>('[data-merge]').forEach((el) => el.setAttribute('aria-pressed', String(st.merge?.id === el.dataset.merge)));
+};
 
 function adPanel(p: Plot, focusUnit: number): void {
   const price = AD_PRICES[p.tier];
   const picked = new Set<number>(focusUnit >= 0 ? [focusUnit] : []);
-  let weeks = 4;
+  const st = { weeks: 4, merge: null as Plot | null };
   let hasImage = false;
   const mates = neighbourPlots(p);
-  let merge: Plot | null = null;
   const sheet = openSheet({
     emoji: '📢',
     title: 'Ad space',
     sub: `${esc(p.name)} · ${TIER_LABEL[p.tier]}`,
     body: `
-      <p class="blurb">Four giant billboards on this block. Rent one, or all four. ${usd(price.unit)} a unit, or ${usd(price.block)} for the whole block, per week.</p>
+      <p class="blurb">This block is split in two halves, each with two giant billboards. ${usd(price.unit)} a week for a half, ${usd(price.block)} a week for the whole block.</p>
       ${auctionNote(p)}
-      <div class="plot-units" role="group" aria-label="Billboard units">
-        ${Array.from({ length: AD_UNITS }, (_, i) => `<button class="plot-unit" data-u="${i}" aria-pressed="false"><b>${i + 1}</b><small>${UNIT_NAMES[i]}</small></button>`).join('')}
+      <div class="plot-units halves" role="group" aria-label="Halves of the block">
+        ${AD_UNIT_NAMES.map((n, i) => `<button class="plot-unit" data-u="${i}" aria-pressed="false"><b>${n}</b><small>2 billboards · ${usd(price.unit)}/wk</small></button>`).join('')}
       </div>
-      <div class="row"><button class="btn" data-all>Whole block</button><span class="plot-hint">Tap the units you want</span></div>
-      ${mates.map((m) => `<button class="plot-merge" data-merge="${esc(m.id)}" aria-pressed="false">🔗 <b>Merge with the block next door</b><small>${esc(m.name)} · rent both whole blocks and they become ONE giant billboard</small></button>`).join('')}
-      <label class="plot-field">For <b data-weeks>${weeks} weeks</b><input type="range" min="1" max="${AD_MAX_WEEKS}" value="${weeks}" data-range></label>
+      <div class="row"><button class="btn" data-all>Whole block · ${usd(price.block)}/wk</button></div>
+      ${mates.map((m) => mergeButton(m, 'block')).join('')}
+      ${weeksField(st.weeks)}
       <label class="plot-field">Your ad picture<input type="file" accept="image/*" data-file></label>
       <img class="plot-preview" alt="" hidden>
-      <p class="plot-note">Every ad is checked by our team before it goes live. Longest rental: 6 months.</p>
-      <button class="btn primary plot-go" data-go disabled>Pick a unit</button>
+      ${subNote}
+      <p class="plot-note">Every ad is checked by our team before it goes live.</p>
+      <button class="btn primary plot-go" data-go disabled>Pick a half</button>
       <p class="plot-id">Plot ${esc(p.id)}</p>`,
   });
   const b = sheet.body;
   const go = b.querySelector<HTMLButtonElement>('[data-go]')!;
+  const weekly = () => adPrice(p.tier, picked.size, 1) + (st.merge ? adPrice(st.merge.tier, AD_UNITS, 1) : 0);
   const refresh = () => {
+    if (picked.size < AD_UNITS) st.merge = null; // merging needs both whole blocks
     b.querySelectorAll<HTMLElement>('.plot-unit').forEach((el) => el.setAttribute('aria-pressed', String(picked.has(Number(el.dataset.u)))));
-    b.querySelector('[data-weeks]')!.textContent = `${weeks} week${weeks > 1 ? 's' : ''}`;
-    b.querySelectorAll<HTMLElement>('[data-merge]').forEach((el) => el.setAttribute('aria-pressed', String(merge?.id === el.dataset.merge)));
-    const total = adPrice(p.tier, picked.size, weeks) + (merge ? adPrice(merge.tier, AD_UNITS, weeks) : 0);
-    go.disabled = !picked.size || !!p.auction || !!merge?.auction;
-    go.textContent = p.auction ? 'Auction opens soon' : merge ? `Rent both blocks, merged · ${usd(total)}` : picked.size ? `Rent ${picked.size === AD_UNITS ? 'whole block' : `${picked.size} unit${picked.size > 1 ? 's' : ''}`} · ${usd(total)}` : 'Pick a unit';
+    showWeeks(b, st);
+    go.disabled = !picked.size || !!p.auction || !!st.merge?.auction;
+    const what = st.merge ? 'both blocks, merged' : picked.size === AD_UNITS ? 'the whole block' : picked.size ? AD_UNIT_NAMES[[...picked][0]].toLowerCase() : '';
+    go.textContent = p.auction ? 'Auction opens soon' : picked.size ? `Subscribe to ${what} · ${usd(weekly())}/week` : 'Pick a half';
   };
   b.querySelectorAll<HTMLElement>('.plot-unit').forEach((el) =>
     el.addEventListener('click', () => {
       const u = Number(el.dataset.u);
       if (picked.has(u)) picked.delete(u);
       else picked.add(u);
-      if (picked.size < AD_UNITS) merge = null; // merging needs both whole blocks
       refresh();
     }),
   );
@@ -76,16 +101,8 @@ function adPanel(p: Plot, focusUnit: number): void {
     for (let i = 0; i < AD_UNITS; i++) picked.add(i);
     refresh();
   });
-  b.querySelectorAll<HTMLElement>('[data-merge]').forEach((el) =>
-    el.addEventListener('click', () => {
-      merge = merge?.id === el.dataset.merge ? null : (mates.find((m) => m.id === el.dataset.merge) ?? null);
-      if (merge) for (let i = 0; i < AD_UNITS; i++) picked.add(i);
-      refresh();
-    }),
-  );
-  b.querySelector<HTMLInputElement>('[data-range]')!.addEventListener('input', (e) => {
-    weeks = Number((e.target as HTMLInputElement).value);
-    refresh();
+  common(b, mates, st, refresh, () => {
+    for (let i = 0; i < AD_UNITS; i++) picked.add(i);
   });
   b.querySelector<HTMLInputElement>('[data-file]')!.addEventListener('change', (e) => {
     const f = (e.target as HTMLInputElement).files?.[0];
@@ -96,7 +113,7 @@ function adPanel(p: Plot, focusUnit: number): void {
     img.hidden = false;
   });
   go.addEventListener('click', () => {
-    saveRequest({ plotId: p.id, kind: 'ad', borough: p.borough, units: [...picked].sort(), weeks, hasImage, mergeWith: merge?.id, totalUsd: adPrice(p.tier, picked.size, weeks) + (merge ? adPrice(merge.tier, AD_UNITS, weeks) : 0), at: Date.now() });
+    saveRequest({ plotId: p.id, kind: 'ad', borough: p.borough, units: [...picked].sort(), weeks: st.weeks, hasImage, mergeWith: st.merge?.id, totalUsd: weekly() * st.weeks, at: Date.now() });
     sheet.close();
     soon();
   });
@@ -105,43 +122,36 @@ function adPanel(p: Plot, focusUnit: number): void {
 
 function homePanel(p: Plot): void {
   let house: HouseId = 'townhouse';
-  let months = 6;
+  const st = { weeks: 4, merge: null as Plot | null };
   const used = homeRequestsIn(p.borough);
   const full = used >= HOMES_PER_BOROUGH;
   const mates = neighbourPlots(p);
-  let merge: Plot | null = null;
-  const total = () => homePrice(p.tier, house, months) * (merge ? 2 : 1);
+  const count = (h: (typeof HOUSES)[number]) => Math.floor(BLOCK_SPACES / h.spaces);
   const sheet = openSheet({
     emoji: '🏡',
     title: 'Empty lot for rent',
     sub: `${esc(p.name)} · ${TIER_LABEL[p.tier]}`,
     body: `
-      <p class="blurb">Pick a house and we’ll build it here. It’s yours to live in for as long as you rent, up to 6 months, then you can renew.</p>
+      <p class="blurb">Pick a house and we’ll build it here. This block has room for ${HOUSES.map((h) => `${count(h)} ${h.name.toLowerCase()}s`).join(', ').replace(/, ([^,]*)$/, ' or $1')}. Mix and match until it’s full.</p>
       ${auctionNote(p)}
       <div class="plot-houses">
-        ${HOUSES.map((h) => `<button class="plot-house" data-h="${h.id}" aria-pressed="false"><span>${h.emoji}</span><b>${esc(h.name)}</b><small>${esc(h.blurb)}</small><em data-hp="${h.id}"></em></button>`).join('')}
+        ${HOUSES.map((h) => `<button class="plot-house" data-h="${h.id}" aria-pressed="false"><span>${h.emoji}</span><b>${esc(h.name)}</b><small>${esc(h.blurb)} Up to ${count(h)} per block.</small><em>${usd(homeWeekly(p.tier, h.id))} / week</em></button>`).join('')}
       </div>
-      ${mates.map((m) => `<button class="plot-merge" data-merge="${esc(m.id)}" aria-pressed="false">🔗 <b>Merge with the lot next door</b><small>${esc(m.name)} · rent both and build one big estate across them (2× the price)</small></button>`).join('')}
-      <div class="row plot-terms">${HOME_TERMS.map((t) => `<button class="btn" data-m="${t.months}">${t.months} month${t.months > 1 ? 's' : ''}</button>`).join('')}</div>
+      ${mates.map((m) => mergeButton(m, 'lot')).join('')}
+      ${weeksField(st.weeks)}
+      ${subNote}
       <p class="plot-note">${full ? `You already have ${HOMES_PER_BOROUGH} homes in this borough (the most allowed).` : `You can rent up to ${HOMES_PER_BOROUGH} homes per borough (${used} so far).`}</p>
       <button class="btn primary plot-go" data-go></button>
       <p class="plot-id">Plot ${esc(p.id)}</p>`,
   });
   const b = sheet.body;
   const go = b.querySelector<HTMLButtonElement>('[data-go]')!;
+  const weekly = () => homeWeekly(p.tier, house) * (st.merge ? 2 : 1);
   const refresh = () => {
     b.querySelectorAll<HTMLElement>('.plot-house').forEach((el) => el.setAttribute('aria-pressed', String(el.dataset.h === house)));
-    b.querySelectorAll<HTMLElement>('[data-merge]').forEach((el) =>
-    el.addEventListener('click', () => {
-      merge = merge?.id === el.dataset.merge ? null : (mates.find((m) => m.id === el.dataset.merge) ?? null);
-      refresh();
-    }),
-  );
-  b.querySelectorAll<HTMLElement>('[data-m]').forEach((el) => el.classList.toggle('primary', Number(el.dataset.m) === months));
-    for (const h of HOUSES) b.querySelector(`[data-hp="${h.id}"]`)!.textContent = `${usd(homePrice(p.tier, h.id, months))} / ${months} mo`;
-    b.querySelectorAll<HTMLElement>('[data-merge]').forEach((el) => el.setAttribute('aria-pressed', String(merge?.id === el.dataset.merge)));
-    go.disabled = full || !!p.auction || !!merge?.auction;
-    go.textContent = p.auction ? 'Auction opens soon' : `Rent ${merge ? 'both lots, merged, ' : ''}for ${months} month${months > 1 ? 's' : ''} · ${usd(total())}`;
+    showWeeks(b, st);
+    go.disabled = full || !!p.auction || !!st.merge?.auction;
+    go.textContent = p.auction ? 'Auction opens soon' : `Subscribe${st.merge ? ' to both lots' : ''} · ${usd(weekly())}/week`;
   };
   b.querySelectorAll<HTMLElement>('.plot-house').forEach((el) =>
     el.addEventListener('click', () => {
@@ -149,20 +159,9 @@ function homePanel(p: Plot): void {
       refresh();
     }),
   );
-  b.querySelectorAll<HTMLElement>('[data-merge]').forEach((el) =>
-    el.addEventListener('click', () => {
-      merge = merge?.id === el.dataset.merge ? null : (mates.find((m) => m.id === el.dataset.merge) ?? null);
-      refresh();
-    }),
-  );
-  b.querySelectorAll<HTMLElement>('[data-m]').forEach((el) =>
-    el.addEventListener('click', () => {
-      months = Number(el.dataset.m);
-      refresh();
-    }),
-  );
+  common(b, mates, st, refresh);
   go.addEventListener('click', () => {
-    saveRequest({ plotId: p.id, kind: 'home', borough: p.borough, house, months, mergeWith: merge?.id, totalUsd: total(), at: Date.now() });
+    saveRequest({ plotId: p.id, kind: 'home', borough: p.borough, house, weeks: st.weeks, mergeWith: st.merge?.id, totalUsd: homePrice(p.tier, house, st.weeks) * (st.merge ? 2 : 1), at: Date.now() });
     sheet.close();
     soon();
   });
@@ -171,23 +170,25 @@ function homePanel(p: Plot): void {
 
 function islandPanel(p: Plot): void {
   const price = p.islandPrice ?? 0;
+  const weekly = islandWeekly(price);
   const sheet = openSheet({
     emoji: '🏝️',
     title: p.name,
     sub: 'A whole private island · for rent',
     body: `
-      <p class="blurb">Rent the entire island for 6 months. Tell us what you want on it (a mansion, a giant ad, a festival ground) and our team will build it for you.</p>
+      <p class="blurb">Rent the entire island. Tell us what you want on it (a mansion, a giant ad, a festival ground) and our team will build it for you.</p>
       ${auctionNote(p)}
       <label class="plot-field">What should we build?<textarea rows="4" maxlength="600" placeholder="e.g. A beach house with a pier, and my brand on a big sign facing Manhattan" data-msg></textarea></label>
-      <p class="plot-note">6 months · ${usd(price)}. Our team reads every message and will get back to you.</p>
-      <button class="btn primary plot-go" data-go ${p.auction ? 'disabled' : ''}>${p.auction ? 'Auction opens soon' : `Rent island · ${usd(price)}`}</button>
+      ${subNote}
+      <p class="plot-note">${usd(weekly)} a week (${usd(price)} for the full 6 months). Our team reads every message and will get back to you.</p>
+      <button class="btn primary plot-go" data-go ${p.auction ? 'disabled' : ''}>${p.auction ? 'Auction opens soon' : `Subscribe · ${usd(weekly)}/week`}</button>
       <p class="plot-id">Plot ${esc(p.id)}</p>`,
   });
   const b = sheet.body;
   b.querySelector('[data-go]')!.addEventListener('click', () => {
     const msg = b.querySelector<HTMLTextAreaElement>('[data-msg]')!.value.trim();
     if (!msg) return toast('Tell us what you’d like on the island first.', { icon: '✏️', tone: 'info' });
-    saveRequest({ plotId: p.id, kind: 'island', borough: p.borough, months: 6, message: msg.slice(0, 600), totalUsd: price, at: Date.now() });
+    saveRequest({ plotId: p.id, kind: 'island', borough: p.borough, weeks: MAX_WEEKS, message: msg.slice(0, 600), totalUsd: price, at: Date.now() });
     sheet.close();
     soon();
   });

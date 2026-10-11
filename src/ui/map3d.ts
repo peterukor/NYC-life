@@ -16,7 +16,7 @@ import { doorOf, isOpen, placesIn, type PlaceDef } from '../data/places.ts';
 import type { AreaId } from '../sim/types.ts';
 import { html, onAct, root } from './dom.ts';
 import { HOODS } from '../data/neighborhoods.ts';
-import { AD_PRICES, plotsIn } from '../data/plots.ts';
+import { AD_PRICES, islandWeekly, plotsIn } from '../data/plots.ts';
 import { project, type BoroughId } from '../world/geo-proj.ts';
 
 export interface Map3DOptions {
@@ -95,9 +95,9 @@ export function openMap3D(o: Map3DOptions): Map3D {
   for (const pl of plotsIn(o.area)) {
     const label =
       pl.kind === 'island'
-        ? `🏝️ ${esc(pl.name)}<small>FOR RENT · $${pl.islandPrice?.toFixed(2)} / 6 mo</small>`
+        ? `🏝️ ${esc(pl.name)}<small>FOR RENT · $${islandWeekly(pl.islandPrice ?? 0).toFixed(2)}/wk</small>`
         : pl.kind === 'ad'
-          ? `📢 AD SPACE<small>4 billboards · from $${AD_PRICES[pl.tier].unit}/wk</small>`
+          ? `📢 AD SPACE<small>2 halves · from $${AD_PRICES[pl.tier].unit}/wk</small>`
           : '🏠 Lot for rent';
     const card = html(`<button class="m3-plot ${pl.kind === 'island' ? 'island' : pl.kind === 'home' ? 'lot' : ''}" data-act="plot:${esc(pl.id)}"><span>${label}</span></button>`);
     layer.appendChild(card);

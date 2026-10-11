@@ -17,7 +17,6 @@ export interface PlotRequest {
   units?: number[];
   weeks?: number;
   house?: string;
-  months?: number;
   message?: string;
   /** Rent this plot together with the one next door and merge them (data/plots.ts neighbourPlots). */
   mergeWith?: string;

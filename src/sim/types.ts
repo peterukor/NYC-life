@@ -17,7 +17,9 @@ export const SKILL_KEYS: readonly SkillKey[] = ['charisma', 'hustle', 'fitness',
 export type Origin = 'trustFund' | 'hustler';
 
 /** City areas that are built right now. More boroughs slot in later. */
-export type AreaId = 'manhattan' | 'brooklyn';
+export type AreaId = 'manhattan' | 'brooklyn' | 'bronx';
+/** Every playable area, in map order (add new boroughs here). */
+export const AREA_IDS: AreaId[] = ['manhattan', 'brooklyn', 'bronx'];
 
 /**
  * How a character looks. The colours are always set; the clothing ids

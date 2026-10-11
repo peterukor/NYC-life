@@ -37,7 +37,7 @@ import { postDailyNews } from './sim/news.ts';
 import { buyPrepaidPhone, checkPoliceReturn, PREPAID_PHONE_PRICE } from './sim/phone.ts';
 import { loadGame, saveGame, deleteGame } from './sim/save.ts';
 import { newLife } from './sim/state.ts';
-import type { AreaId, GameState, Look } from './sim/types.ts';
+import { AREA_IDS, type AreaId, type GameState, type Look } from './sim/types.ts';
 import { weatherDef, weatherFor } from './sim/weather.ts';
 import { completeShift, jobTitle, shiftBlocker, WORK_STYLES, type WorkStyle } from './sim/work.ts';
 import { Engine } from './render/engine.ts';
@@ -726,7 +726,7 @@ export class Game {
       ? `<div class="card"><h3>${place.rent ? `For rent: ${money(place.rent)} / week` : 'Free bed'}</h3><p>${place.rent ? 'Moving here makes it your home. Rent is charged weekly from your cash, then your bank.' : 'No rent. No privacy either. Somewhere to land while you get back up.'}</p><button class="btn primary block" style="margin-top:10px" data-act="move">Move in</button></div>`
       : '';
     const cityEvt = eventAt(place.area, place.id, t.dateKey, t.hour, weatherFor(t.dateKey, t.hour));
-    const station = place.type === 'station' ? `<div class="stack" style="margin-bottom:12px">${(['manhattan', 'brooklyn'] as AreaId[]).filter((a) => a !== place.area).map((a) => `<button class="btn primary block" data-act="train:${a}">🚇 Take the train to ${DISTRICTS[a].name} · ${money(SUBWAY_FARE)}</button>`).join('')}</div>` : '';
+    const station = place.type === 'station' ? `<div class="stack" style="margin-bottom:12px">${AREA_IDS.filter((a) => a !== place.area).map((a) => `<button class="btn primary block" data-act="train:${a}">🚇 Take the train to ${DISTRICTS[a].name} · ${money(SUBWAY_FARE)}</button>`).join('')}</div>` : '';
     const sheet = openSheet({
       emoji: place.emoji,
       title: place.name,

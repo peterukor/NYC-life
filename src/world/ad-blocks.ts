@@ -17,7 +17,7 @@
 // =====================================================================
 
 import * as THREE from 'three';
-import { AD_PRICES, adUnitRects, type Plot } from '../data/plots.ts';
+import { AD_PRICES, AD_UNIT_NAMES, adUnitRects, halfOfBoard, islandWeekly, type Plot } from '../data/plots.ts';
 import { SIDEWALK } from './layout.ts';
 
 type Track = <T extends { dispose(): void }>(x: T) => T;
@@ -38,7 +38,7 @@ const EMPTY_COLORS = [
 
 export interface AdBoardHit {
   plotId: string;
-  /** 0..3 for an ad unit, -1 for an island board. */
+  /** Half of the block (0 north, 1 south) for an ad board, -1 for an island board. */
   unit: number;
 }
 
@@ -111,7 +111,7 @@ export function buildAdBoards(plots: Plot[], track: Track): AdBoards {
       g.font = '900 26px sans-serif';
       g.fillText('FOR RENT', CELL_W / 2, 56);
       g.font = '800 14px sans-serif';
-      g.fillText(`$${b.plot.islandPrice?.toFixed(2)} · 6 months`, CELL_W / 2, 80);
+      g.fillText(`$${islandWeekly(b.plot.islandPrice ?? 0).toFixed(2)} a week`, CELL_W / 2, 80);
     } else {
       const [c0, c1] = EMPTY_COLORS[i % EMPTY_COLORS.length];
       const grad = g.createLinearGradient(0, 0, CELL_W, CELL_H);
@@ -131,7 +131,7 @@ export function buildAdBoards(plots: Plot[], track: Track): AdBoards {
       g.fillStyle = '#ffffff';
       g.textAlign = 'center';
       g.font = '900 13px sans-serif';
-      g.fillText('📢 AD SPACE', CELL_W / 2, 22);
+      g.fillText(`📢 ${AD_UNIT_NAMES[halfOfBoard(b.unit)].toUpperCase()}`, CELL_W / 2, 22);
       g.font = '900 25px sans-serif';
       g.fillText('YOUR AD HERE', CELL_W / 2, 54);
       g.font = '800 14px sans-serif';
@@ -210,7 +210,8 @@ export function buildAdBoards(plots: Plot[], track: Track): AdBoards {
     faces,
     boardAt: (faceIndex) => {
       const b = list[Math.floor(faceIndex / 4)];
-      return b ? { plotId: b.plot.id, unit: b.unit } : null;
+      // Boards 0+1 are the north half, 2+3 the south half.
+      return b ? { plotId: b.plot.id, unit: b.unit < 0 ? -1 : halfOfBoard(b.unit) } : null;
     },
     boards: list.map((b) => ({ plotId: b.plot.id, unit: b.unit, x: b.x, y: b.y, z: b.z })),
     paintCell: (plotId, unit, draw) => {
