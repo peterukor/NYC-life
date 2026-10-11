@@ -104,7 +104,8 @@ const FULL_BLOCK_LANDMARKS = new Set(['empireState', 'atlanticArena', 'parkMall'
 
 // ---------------------------------------------------------------------
 
-export function buildCity(area: AreaId, opts: { trees: boolean; shadows?: boolean; kits?: Kits }): BuiltCity {
+export function buildCity(area: AreaId, opts: { trees: boolean; shadows?: boolean; kits?: Kits; /** Shrinks the detailed area on weak phones (1 = normal). */ detailScale?: number }): BuiltCity {
+  const detailScale = opts.detailScale ?? 1;
   const kitProps = opts.kits?.props;
   const d = DISTRICTS[area];
   const rng = new Rng(d.seed);
@@ -319,6 +320,7 @@ export function buildCity(area: AreaId, opts: { trees: boolean; shadows?: boolea
     skip: (c, r) => places.some((p) => FULL_BLOCK_LANDMARKS.has(p.id) && p.block[0] === c && p.block[1] === r),
     nearHub,
     doors: doorSpots.map((x) => ({ x: x.door.x, z: x.door.z })),
+    parkTrees: trees.map((t) => ({ x: t.x, z: t.z, y: t.y })),
     cache: opts.shadows ? 40 : 30,
   });
   group.add(nyc.group);
@@ -337,6 +339,7 @@ export function buildCity(area: AreaId, opts: { trees: boolean; shadows?: boolea
   const instanced = (geo: THREE.BufferGeometry, mat: THREE.Material, items: { p: THREE.Vector3; rotY?: number; s?: number }[], shadow = false) => {
     if (!items.length) return;
     const mesh = new THREE.InstancedMesh(track(geo), mat, items.length);
+    mesh.name = 'props-instanced';
     items.forEach((it, i) => {
       dummy.position.copy(it.p);
       dummy.rotation.set(0, it.rotY ?? 0, 0);
@@ -358,7 +361,9 @@ export function buildCity(area: AreaId, opts: { trees: boolean; shadows?: boolea
     return true;
   };
   const treeItems = trees.map((p) => ({ p, rotY: rng.range(0, 6.28), s: rng.range(0.8, 1.25) }));
-  const kitTrees = opts.trees && kitInstanced('tree-large', 10, treeItems, true);
+  // Park trees are drawn by the generator (puffy near, simple far: see nycgen).
+  const kitTrees = true;
+  void treeItems;
   const kitLamps = lamps.length > 0 && kitInstanced('light-curved', 9, lamps.map((p) => ({ p, rotY: Math.atan2(p.x - Math.round(p.x / 10) * 10, 1) })));
   if (kitProps) {
     // Traffic lights on one corner of every intersection.
@@ -450,7 +455,7 @@ export function buildCity(area: AreaId, opts: { trees: boolean; shadows?: boolea
     // Detailed blocks around the camera's focus; far stand-ins elsewhere.
     // Zoomed far out everything is small on screen, so the detailed
     // circle shrinks (cheap phones stay smooth).
-    nyc.update(focus, cameraDistance > 220 ? 110 : cameraDistance > 120 ? 150 : 175);
+    nyc.update(focus, (cameraDistance > 220 ? 110 : cameraDistance > 120 ? 140 : cameraDistance > 50 ? 115 : 90) * detailScale);
   };
 
   return {

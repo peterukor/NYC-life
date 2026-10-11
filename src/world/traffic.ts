@@ -1,39 +1,20 @@
 // =====================================================================
-// traffic.ts — yellow cabs, cars and buses flowing down the avenues.
+// traffic.ts — cars, cabs, buses and the odd fire engine on the roads.
 //
-// Pure ambience: cars drive along fixed lanes and loop at the ends of
-// the area. Most Manhattan avenues are one-way, so each avenue gets one
-// direction, alternating. Cars are cartoon models from the kit; every
-// copy of one model shares one instanced mesh, so 50 cars cost about a
-// dozen draw calls. If the pack can't load, simple boxes stand in.
+// Pure ambience: vehicles drive along fixed lanes (two-lane roads, one
+// lane each way) and loop at the ends of the area.
+//
+// WHAT DRIVES IS DATA: every vehicle comes from data/vehicles.ts — its
+// rarity, how often it shows up (trafficWeight), its speed range and its
+// paints. Add, edit or remove vehicles there; this file just runs them.
+// Each (vehicle, paint) pair is one InstancedMesh, so 80 cars cost about
+// 20 draw calls.
 // =====================================================================
 
 import * as THREE from 'three';
-import { kitMaterial, type KitModel } from '../assets/kit.ts';
+import { pickVehicle } from '../data/vehicles.ts';
 import { avenueX, streetZ, type DistrictDef } from './layout.ts';
-
-/**
- * Which cartoon vehicles drive around, and how common each is. New York
- * traffic is mostly yellow cabs. Add a vehicle by adding its kit name.
- */
-export const STREET_MIX: { model: string; weight: number }[] = [
-  { model: 'taxi', weight: 9 },
-  { model: 'sedan', weight: 4 },
-  { model: 'suv', weight: 3 },
-  { model: 'van', weight: 2 },
-  { model: 'delivery', weight: 2 },
-  { model: 'hatchback-sports', weight: 1.5 },
-  { model: 'suv-luxury', weight: 1.2 },
-  { model: 'sedan-sports', weight: 1 },
-  { model: 'police', weight: 1 },
-  { model: 'truck', weight: 1 },
-  { model: 'garbage-truck', weight: 0.6 },
-  { model: 'ambulance', weight: 0.4 },
-  { model: 'firetruck', weight: 0.25 },
-];
-
-/** Cartoon cars are drawn a bit bigger than life so they read from far away. */
-const CAR_SCALE = 1.35;
+import { vehicleGeometry, vehicleMaterial } from './vehicle-models.ts';
 
 interface Car {
   lane: number;
@@ -53,17 +34,15 @@ interface Lane {
   heading: number;
 }
 
-const CAR_COLORS = ['#f6c90e', '#f6c90e', '#f6c90e', '#1f1f1f', '#ececec', '#8a1c1c', '#22577a', '#9ca3af'];
-
 export class Traffic {
   readonly group = new THREE.Group();
   private lanes: Lane[] = [];
   private cars: Car[] = [];
-  /** One InstancedMesh per vehicle model (or two simple boxes as a fallback). */
+  /** One InstancedMesh per (vehicle, paint) in use. */
   private meshes: THREE.InstancedMesh[] = [];
   private dummy = new THREE.Object3D();
 
-  constructor(d: DistrictDef, count: number, cars?: Map<string, KitModel>) {
+  constructor(d: DistrictDef, count: number) {
     const zA = streetZ(d, 0) - 40;
     const zB = streetZ(d, d.rows) + 40;
     for (let i = 0; i <= d.cols; i++) {
@@ -80,43 +59,21 @@ export class Traffic {
       this.lanes.push(makeLane(xB, z - 2.2, xA, z - 2.2));
     }
 
-    const mix = cars ? STREET_MIX.filter((m) => cars.has(m.model)) : [];
-    if (cars && mix.length) {
-      // Roll each car's model by weight, then build one mesh per model.
-      const total = mix.reduce((a, m) => a + m.weight, 0);
-      const counts = new Map<string, number>();
-      const picks: string[] = [];
-      for (let i = 0; i < count; i++) {
-        let r = Math.random() * total;
-        const pick = mix.find((m) => (r -= m.weight) <= 0)?.model ?? mix[0].model;
-        picks.push(pick);
-        counts.set(pick, (counts.get(pick) ?? 0) + 1);
-      }
-      const meshIndex = new Map<string, number>();
-      for (const [name, n] of counts) {
-        const km = cars.get(name)!;
-        const geo = km.geometry.clone().scale(CAR_SCALE, CAR_SCALE, CAR_SCALE).translate(0, -km.min.y * CAR_SCALE, 0);
-        meshIndex.set(name, this.meshes.length);
-        this.meshes.push(new THREE.InstancedMesh(geo, kitMaterial(km.map), n));
-      }
-      const used = new Map<string, number>();
-      picks.forEach((name, i) => {
-        const slot = used.get(name) ?? 0;
-        used.set(name, slot + 1);
-        this.cars.push({ lane: i % this.lanes.length, t: Math.random(), speed: 7 + Math.random() * 6, mesh: meshIndex.get(name)!, slot });
-      });
-    } else {
-      // Fallback: simple boxes (used if the car pack couldn't load).
-      const body = new THREE.BoxGeometry(1.9, 1.0, 4.6).translate(0, 0.75, 0);
-      const cabin = new THREE.BoxGeometry(1.7, 0.7, 2.4).translate(0, 1.55, -0.2);
-      const bodies = new THREE.InstancedMesh(body, new THREE.MeshLambertMaterial(), count);
-      const cabins = new THREE.InstancedMesh(cabin, new THREE.MeshLambertMaterial({ color: '#25303a' }), count);
-      const c = new THREE.Color();
-      for (let i = 0; i < count; i++) {
-        this.cars.push({ lane: i % this.lanes.length, t: Math.random(), speed: 7 + Math.random() * 6, mesh: -1, slot: i });
-        bodies.setColorAt(i, c.set(CAR_COLORS[i % CAR_COLORS.length]));
-      }
-      this.meshes.push(bodies, cabins);
+    // Roll every car: which vehicle (by trafficWeight), which paint, how fast.
+    const picks = new Map<string, { geo: THREE.BufferGeometry; cars: { speed: number }[] }>();
+    for (let i = 0; i < count; i++) {
+      const v = pickVehicle(Math.random, 'trafficWeight');
+      const paint = v.paints[Math.floor(Math.random() * v.paints.length)];
+      const key = `${v.id}|${paint}`;
+      if (!picks.has(key)) picks.set(key, { geo: vehicleGeometry(v, paint), cars: [] });
+      picks.get(key)!.cars.push({ speed: v.speed[0] + Math.random() * (v.speed[1] - v.speed[0]) });
+    }
+    let n = 0;
+    for (const [key, p] of picks) {
+      const mesh = new THREE.InstancedMesh(p.geo, vehicleMaterial(), p.cars.length);
+      mesh.name = `car-${key.split('|')[0]}`;
+      p.cars.forEach((c, slot) => this.cars.push({ lane: n++ % this.lanes.length, t: Math.random(), speed: c.speed, mesh: this.meshes.length, slot }));
+      this.meshes.push(mesh);
     }
     for (const m of this.meshes) {
       m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
@@ -129,26 +86,21 @@ export class Traffic {
   update(dt: number, rush: boolean): void {
     // Rush hour: everything crawls.
     const slow = rush ? 0.45 : 1;
-    this.cars.forEach((car, i) => {
+    this.cars.forEach((car) => {
       const lane = this.lanes[car.lane];
       car.t += (car.speed * slow * dt) / lane.length;
       if (car.t > 1) car.t -= 1;
       this.dummy.position.set(lane.x0 + (lane.x1 - lane.x0) * car.t, 0, lane.z0 + (lane.z1 - lane.z0) * car.t);
       this.dummy.rotation.set(0, lane.heading, 0);
       this.dummy.updateMatrix();
-      if (car.mesh < 0) {
-        this.meshes[0].setMatrixAt(i, this.dummy.matrix);
-        this.meshes[1].setMatrixAt(i, this.dummy.matrix);
-      } else this.meshes[car.mesh].setMatrixAt(car.slot, this.dummy.matrix);
+      this.meshes[car.mesh].setMatrixAt(car.slot, this.dummy.matrix);
     });
     for (const m of this.meshes) m.instanceMatrix.needsUpdate = true;
   }
 
   dispose(): void {
-    for (const m of this.meshes) {
-      m.geometry.dispose();
-      m.dispose();
-    }
+    // Geometries are shared and cached (vehicle-models.ts): only drop the meshes.
+    for (const m of this.meshes) m.dispose();
     this.group.removeFromParent();
   }
 }

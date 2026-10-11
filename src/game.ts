@@ -172,6 +172,24 @@ export class Game {
         });
         return rows.sort((a, b) => b[1] - a[1]).slice(0, 15);
       },
+      /** Triangles on screen grouped by kind (frustum-culled), for performance checks. */
+      triBreakdown: () => {
+        const cam = this.engine.camera;
+        const fr = new THREE.Frustum().setFromProjectionMatrix(new THREE.Matrix4().multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse));
+        const out: Record<string, number> = {};
+        this.engine.cityScene.traverseVisible((o) => {
+          const m = o as THREE.Mesh;
+          if (!m.isMesh || !m.geometry) return;
+          if (!m.geometry.boundingSphere) m.geometry.computeBoundingSphere();
+          const sph = m.geometry.boundingSphere!.clone().applyMatrix4(m.matrixWorld);
+          if (m.frustumCulled && !fr.intersectsSphere(sph)) return;
+          const g = m.geometry;
+          const tris = ((g.index ? g.index.count : g.getAttribute('position')?.count ?? 0) / 3) * ((m as THREE.InstancedMesh).isInstancedMesh ? (m as THREE.InstancedMesh).count : 1);
+          const k = (m.name || m.type).replace(/[-_].*$/, '');
+          out[k] = Math.round((out[k] ?? 0) + tris);
+        });
+        return { shadows: this.engine.renderer.shadowMap.enabled, ...out };
+      },
       fps: () => Math.round(this.engine.fps),
       drawCalls: () => this.engine.renderer.info.render.calls,
       triangles: () => this.engine.renderer.info.render.triangles,
@@ -259,11 +277,11 @@ export class Game {
     this.traffic?.dispose();
     this.city?.dispose();
     const q = this.engine.quality;
-    this.city = buildCity(area, { trees: q.trees, shadows: q.shadows, kits: this.kits });
+    this.city = buildCity(area, { trees: q.trees, shadows: q.shadows, kits: this.kits, detailScale: q.tier === 'low' ? 0.75 : 1 });
     this.engine.cityScene.add(this.city.group);
     this.crowd = new Crowd(this.city.nav, area, q.crowd, this.folk ?? undefined, q.tier === 'low' ? 6 : q.tier === 'medium' ? 12 : 20);
     this.engine.cityScene.add(this.crowd.group);
-    this.traffic = new Traffic(DISTRICTS[area], q.cars, this.kits.cars);
+    this.traffic = new Traffic(DISTRICTS[area], q.cars);
     this.engine.cityScene.add(this.traffic.group);
     this.ads = new AdManager(this.city.adSlots, q.tier);
     bus.emit('area:changed', { area });

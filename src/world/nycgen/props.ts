@@ -14,12 +14,12 @@ import type { Rect } from '../layout.ts';
 import { TILE } from './atlas.ts';
 import type { CityMeshBuilder } from './builder.ts';
 import type { BuildingPlan } from './buildings.ts';
+import { pickVehicle } from '../../data/vehicles.ts';
+import { vehicleGeometry } from '../vehicle-models.ts';
 
 const GREENS = ['#5cb85c', '#6cc66a', '#4fa857', '#7fd36d', '#3f9d52'];
 // It's autumn in New York for part of the year: a few trees turn.
 const AUTUMN = ['#f2a541', '#e8743b', '#f6c453'];
-const CAR_COLORS = ['#e63946', '#3a86ff', '#ffffff', '#2a9d8f', '#8338ec', '#f4a261', '#1d3557', '#c0c7d1', '#ff6b9a', '#06a77d', '#343a40'];
-const TAXI = '#ffc629';
 const METAL = '#3a3f47';
 
 /** A puffy cartoon tree: trunk + a cluster of soft balls, lighter on top. */
@@ -28,9 +28,8 @@ export function tree(b: CityMeshBuilder, x: number, z: number, y: number, s: num
   const light = lighten(leaf, 1.18);
   b.cyl(x, z, y, y + 2.4 * s, 0.22 * s, 0.16 * s, '#7a5236', 6, false);
   b.blob(x, y + 3.3 * s, z, 1.55 * s, 1.25 * s, 1.55 * s, leaf);
-  b.blob(x + 0.8 * s, y + 3.0 * s, z + 0.3 * s, 1.0 * s, 0.9 * s, 1.0 * s, leaf);
-  b.blob(x - 0.7 * s, y + 3.1 * s, z - 0.4 * s, 1.05 * s, 0.9 * s, 1.05 * s, leaf);
-  b.blob(x + 0.1 * s, y + 4.15 * s, z - 0.1 * s, 1.0 * s, 0.8 * s, 1.0 * s, light);
+  b.blob(x + 0.75 * s, y + 3.0 * s, z + 0.35 * s, 1.0 * s, 0.9 * s, 1.0 * s, leaf);
+  b.blob(x - 0.2 * s, y + 4.1 * s, z - 0.2 * s, 1.05 * s, 0.85 * s, 1.05 * s, light);
 }
 
 /** A cheap one-ball tree for far away. */
@@ -45,33 +44,14 @@ function lighten(hex: string, k: number): string {
 }
 
 /**
- * A rounded toy car parked along the kerb. `along` = 'x' means the car
- * points east–west. Taxis get the yellow paint and roof light.
+ * A parked car at the kerb, picked from the vehicle list (data/vehicles.ts)
+ * by its parkWeight. `along` = 'x' means the car points east–west.
  */
 export function parkedCar(b: CityMeshBuilder, x: number, z: number, along: 'x' | 'z', rng: Rng): void {
-  const taxi = rng.chance(0.22);
-  const color = taxi ? TAXI : rng.pick(CAR_COLORS);
-  const rot = along === 'x' ? 0 : Math.PI / 2;
-  const L = rng.range(3.9, 4.5);
-  const van = !taxi && rng.chance(0.12);
-  // Body, cabin (glass), and roof in the body colour.
-  b.rounded(x, z, 0.32, along === 'x' ? L : 1.9, 0.8, along === 'x' ? 1.9 : L, color);
-  const cabL = van ? L * 0.85 : L * 0.55;
-  const cabOff = van ? -0.1 : -0.15;
-  const cx = along === 'x' ? x + cabOff : x;
-  const cz = along === 'x' ? z : z + cabOff;
-  b.rounded(cx, cz, 1.02, along === 'x' ? cabL : 1.62, van ? 0.95 : 0.62, along === 'x' ? 1.62 : cabL, '#9fd4f2');
-  b.rounded(cx, cz, van ? 1.9 : 1.58, along === 'x' ? cabL * 0.92 : 1.66, 0.16, along === 'x' ? 1.66 : cabL * 0.92, color);
-  if (taxi) b.rounded(cx, cz, 1.74, along === 'x' ? 0.7 : 0.35, 0.28, along === 'x' ? 0.35 : 0.7, '#fff6d6');
-  // Four chunky wheels peeking out.
-  for (const a of [-0.32, 0.32]) {
-    for (const sd of [-1, 1]) {
-      const wx = along === 'x' ? x + a * L : x + sd * 0.92;
-      const wz = along === 'x' ? z + sd * 0.92 : z + a * L;
-      b.rounded(wx, wz, 0.02, along === 'x' ? 0.75 : 0.32, 0.62, along === 'x' ? 0.32 : 0.75, '#2a2d33');
-    }
-  }
-  void rot;
+  const v = pickVehicle(() => rng.next(), 'parkWeight');
+  const geo = vehicleGeometry(v, rng.pick(v.paints));
+  const facing = rng.chance(0.5) ? 0 : Math.PI;
+  b.addBuilt(geo, x, 0, z, (along === 'x' ? Math.PI / 2 : 0) + facing);
 }
 
 /** NYC "cobra head" street light leaning over the road. */

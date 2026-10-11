@@ -37,6 +37,9 @@ export function detectTier(): QualityTier {
 }
 
 export function qualitySettings(choice: 'auto' | QualityTier): QualitySettings {
+  // Testing aid: ?quality=low|medium|high in the address bar overrides the setting.
+  const forced = new URLSearchParams(location.search).get('quality');
+  if (forced === 'low' || forced === 'medium' || forced === 'high') choice = forced;
   const tier = choice === 'auto' ? detectTier() : choice;
   const p = PRESETS[tier];
   return {

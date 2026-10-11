@@ -24,7 +24,7 @@ import { blockRect, SIDEWALK } from '../layout.ts';
 import { BuildingFades, cityMaterial } from './atlas.ts';
 import { CityMeshBuilder } from './builder.ts';
 import { emitDetailed, emitSimple, planNycBlock, type BuildingPlan } from './buildings.ts';
-import { emitBlockProps } from './props.ts';
+import { emitBlockProps, tree, treeSimple } from './props.ts';
 
 interface BlockEntry {
   c: number;
@@ -38,6 +38,7 @@ interface BlockEntry {
   /** Id that switches this block's far stand-in on/off. */
   farId: number;
   near: THREE.Mesh | null;
+  parkTrees: { x: number; z: number; y: number }[];
   lastUsed: number;
   seed: string;
 }
@@ -49,6 +50,8 @@ export interface CityBlocksOptions {
   skip: (c: number, r: number) => boolean;
   nearHub: (c: number, r: number) => boolean;
   doors: { x: number; z: number }[];
+  /** Trees inside parks (positions decided by city.ts). */
+  parkTrees?: { x: number; z: number; y: number }[];
   /** How many detailed blocks to keep built (memory cap). */
   cache?: number;
 }
@@ -80,7 +83,7 @@ export class CityBlocks {
         const kind = d.kind(c, r);
         const seed = `${d.seed}-nyc-${c}-${r}`;
         const plan = kind === 'buildings' && !opts.skip(c, r) ? planNycBlock(inner, d.zone(c, r), new Rng(seed), opts.nearHub(c, r), () => this.fades.allocate()) : { buildings: [], yard: null };
-        this.blocks.push({ c, r, key: `${c},${r}`, rect, inner, kind, buildings: plan.buildings, yard: plan.yard, farId: this.fades.allocate(), near: null, lastUsed: 0, seed });
+        this.blocks.push({ c, r, key: `${c},${r}`, rect, inner, kind, buildings: plan.buildings, yard: plan.yard, farId: this.fades.allocate(), near: null, parkTrees: (opts.parkTrees ?? []).filter((t) => t.x >= rect.minX && t.x <= rect.maxX && t.z >= rect.minZ && t.z <= rect.maxZ), lastUsed: 0, seed });
       }
     }
     // 2. Far stand-ins, grouped 3×3 blocks per mesh so off-screen groups are skipped.
@@ -96,6 +99,7 @@ export class CityBlocks {
         const rng = new Rng(`${b.seed}-far`);
         bld.lockBid = b.farId;
         for (const p of b.buildings) emitSimple(bld, p, rng);
+        for (const t of b.parkTrees) treeSimple(bld, t.x, t.z, t.y, 1.3, rng);
         emitBlockProps(bld, this.propOptions(b, true), rng);
       }
       const geo = bld.build();
@@ -122,6 +126,7 @@ export class CityBlocks {
     const bld = new CityMeshBuilder();
     const rng = new Rng(`${b.seed}-near`);
     for (const p of b.buildings) emitDetailed(bld, p, rng);
+    for (const t of b.parkTrees) tree(bld, t.x, t.z, t.y, rng.range(1.1, 1.5), rng);
     emitBlockProps(bld, this.propOptions(b, false), rng);
     const geo = bld.build();
     const mesh = new THREE.Mesh(geo ?? new THREE.BufferGeometry(), this.material);

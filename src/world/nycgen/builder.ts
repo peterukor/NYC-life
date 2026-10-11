@@ -14,7 +14,6 @@
 // =====================================================================
 
 import * as THREE from 'three';
-import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
 export class CityMeshBuilder {
@@ -145,8 +144,42 @@ export class CityMeshBuilder {
    * cartoon toy instead of a hard block. Sits on y0, centred on x/z.
    */
   rounded(x: number, z: number, y0: number, w: number, h: number, d: number, color: THREE.ColorRepresentation, rotY = 0): void {
-    this.add(ROUNDED, color, x, y0 + h / 2, z, w, h, d, rotY);
+    // A chamfered box: 44 triangles (a RoundedBoxGeometry is 108). The
+    // bevelled edges catch the light, which reads as "soft" on screen.
+    void rotY;
+    const r = Math.min(w, h, d) * 0.22;
+    const x0 = x - w / 2, x1 = x + w / 2, y1 = y0 + h, z0 = z - d / 2, z1 = z + d / 2;
+    const V = (px: number, py: number, pz: number) => ({ x: px, y: py, z: pz });
+    // Main faces, inset by r on every side.
+    this.quad(V(x0 + r, y0 + r, z1), V(x1 - r, y0 + r, z1), V(x1 - r, y1 - r, z1), V(x0 + r, y1 - r, z1), color); // +z
+    this.quad(V(x1 - r, y0 + r, z0), V(x0 + r, y0 + r, z0), V(x0 + r, y1 - r, z0), V(x1 - r, y1 - r, z0), color); // -z
+    this.quad(V(x1, y0 + r, z1 - r), V(x1, y0 + r, z0 + r), V(x1, y1 - r, z0 + r), V(x1, y1 - r, z1 - r), color); // +x
+    this.quad(V(x0, y0 + r, z0 + r), V(x0, y0 + r, z1 - r), V(x0, y1 - r, z1 - r), V(x0, y1 - r, z0 + r), color); // -x
+    this.quad(V(x0 + r, y1, z1 - r), V(x1 - r, y1, z1 - r), V(x1 - r, y1, z0 + r), V(x0 + r, y1, z0 + r), color); // top
+    this.quad(V(x0 + r, y0, z0 + r), V(x1 - r, y0, z0 + r), V(x1 - r, y0, z1 - r), V(x0 + r, y0, z1 - r), color); // bottom
+    // Top edge bevels.
+    this.quad(V(x0 + r, y1 - r, z1), V(x1 - r, y1 - r, z1), V(x1 - r, y1, z1 - r), V(x0 + r, y1, z1 - r), color);
+    this.quad(V(x1 - r, y1 - r, z0), V(x0 + r, y1 - r, z0), V(x0 + r, y1, z0 + r), V(x1 - r, y1, z0 + r), color);
+    this.quad(V(x1, y1 - r, z1 - r), V(x1, y1 - r, z0 + r), V(x1 - r, y1, z0 + r), V(x1 - r, y1, z1 - r), color);
+    this.quad(V(x0, y1 - r, z0 + r), V(x0, y1 - r, z1 - r), V(x0 + r, y1, z1 - r), V(x0 + r, y1, z0 + r), color);
+    // Bottom edge bevels.
+    this.quad(V(x0 + r, y0, z1 - r), V(x1 - r, y0, z1 - r), V(x1 - r, y0 + r, z1), V(x0 + r, y0 + r, z1), color);
+    this.quad(V(x1 - r, y0, z0 + r), V(x0 + r, y0, z0 + r), V(x0 + r, y0 + r, z0), V(x1 - r, y0 + r, z0), color);
+    this.quad(V(x1 - r, y0, z1 - r), V(x1 - r, y0, z0 + r), V(x1, y0 + r, z0 + r), V(x1, y0 + r, z1 - r), color);
+    this.quad(V(x0 + r, y0, z0 + r), V(x0 + r, y0, z1 - r), V(x0, y0 + r, z1 - r), V(x0, y0 + r, z0 + r), color);
+    // Vertical edge bevels.
+    this.quad(V(x1 - r, y0 + r, z1), V(x1, y0 + r, z1 - r), V(x1, y1 - r, z1 - r), V(x1 - r, y1 - r, z1), color);
+    this.quad(V(x1, y0 + r, z0 + r), V(x1 - r, y0 + r, z0), V(x1 - r, y1 - r, z0), V(x1, y1 - r, z0 + r), color);
+    this.quad(V(x0 + r, y0 + r, z0), V(x0, y0 + r, z0 + r), V(x0, y1 - r, z0 + r), V(x0 + r, y1 - r, z0), color);
+    this.quad(V(x0, y0 + r, z1 - r), V(x0 + r, y0 + r, z1), V(x0 + r, y1 - r, z1), V(x0, y1 - r, z1 - r), color);
+    // Corner triangles (top four; the bottom ones are never seen).
+    const tri = (a: THREE.Vector3Like, b: THREE.Vector3Like, c: THREE.Vector3Like) => this.quad(a, b, c, c, color);
+    tri(V(x1 - r, y1 - r, z1), V(x1, y1 - r, z1 - r), V(x1 - r, y1, z1 - r));
+    tri(V(x1, y1 - r, z0 + r), V(x1 - r, y1 - r, z0), V(x1 - r, y1, z0 + r));
+    tri(V(x0 + r, y1 - r, z0), V(x0, y1 - r, z0 + r), V(x0 + r, y1, z0 + r));
+    tri(V(x0, y1 - r, z1 - r), V(x0 + r, y1 - r, z1), V(x0 + r, y1, z1 - r));
   }
+
 
   /** Copy any small geometry in (scaled, rotated about Y, moved). Non-indexed or indexed. */
   add(src: THREE.BufferGeometry, color: THREE.ColorRepresentation, x: number, y: number, z: number, sx = 1, sy = 1, sz = 1, rotY = 0): void {
@@ -165,6 +198,28 @@ export class CityMeshBuilder {
     const index = src.getIndex();
     if (index) for (let i = 0; i < index.count; i++) this.idx.push(base + index.getX(i));
     else for (let i = 0; i < p.count; i++) this.idx.push(base + i);
+  }
+
+  /**
+   * Copy a geometry made by another CityMeshBuilder (keeps its colours,
+   * tiles and cells), moved to (x, y, z) and turned by rotY around Y.
+   */
+  addBuilt(src: THREE.BufferGeometry, x: number, y: number, z: number, rotY = 0): void {
+    const p = src.getAttribute('position');
+    const n = src.getAttribute('normal');
+    const col = src.getAttribute('color');
+    const cell = src.getAttribute('aCell');
+    const info = src.getAttribute('aInfo');
+    const cs = Math.cos(rotY), sn = Math.sin(rotY);
+    const base = this.vertexCount;
+    for (let i = 0; i < p.count; i++) {
+      const px = p.getX(i), pz = p.getZ(i);
+      const nx = n.getX(i), nz = n.getZ(i);
+      this.c.setRGB(col.getX(i), col.getY(i), col.getZ(i));
+      this.vert(x + px * cs + pz * sn, y + p.getY(i), z - px * sn + pz * cs, nx * cs + nz * sn, n.getY(i), -nx * sn + nz * cs, cell.getX(i), cell.getY(i), info.getX(i));
+    }
+    const index = src.getIndex()!;
+    for (let i = 0; i < index.count; i++) this.idx.push(base + index.getX(i));
   }
 
   /** A thin box from point a to point b (railings, ladders, legs). */
@@ -196,7 +251,7 @@ export class CityMeshBuilder {
 
 /** Unit sphere-ish blob with smooth normals (shared vertices): puffy, not faceted. */
 const BLOB = (() => {
-  const g = new THREE.IcosahedronGeometry(1, 1);
+  const g = new THREE.SphereGeometry(1, 7, 5); // 56 triangles, smooth
   g.deleteAttribute('uv');
   g.deleteAttribute('normal');
   const m = mergeVertices(g, 1e-4);
@@ -204,11 +259,6 @@ const BLOB = (() => {
   return m;
 })();
 const BLOB_LOW = new THREE.IcosahedronGeometry(1, 0);
-/** Unit box with soft rounded edges. */
-const ROUNDED = (() => {
-  const g = new RoundedBoxGeometry(1, 1, 1, 1, 0.22);
-  g.deleteAttribute('uv');
-  return g;
-})();
+
 /** Unit box centred on the origin, long along z (for beam()). */
 const BEAM = new THREE.BoxGeometry(1, 1, 1);

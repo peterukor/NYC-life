@@ -118,7 +118,9 @@ export async function loadKit(name: KitName): Promise<Map<string, KitModel>> {
 }
 
 /** Load every pack in parallel. Missing packs are simply left out. */
-export async function loadKits(names: KitName[] = ['buildings', 'props', 'cars']): Promise<Kits> {
+// Buildings and cars are generated from code now (world/nycgen, data/vehicles.ts):
+// only the small props pack (traffic lights) is still downloaded.
+export async function loadKits(names: KitName[] = ['props']): Promise<Kits> {
   const kits: Kits = {};
   await Promise.all(
     names.map(async (n) => {
