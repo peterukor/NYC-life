@@ -13,7 +13,7 @@ import { PLACES, PLACE_BY_ID, isOpen } from '../data/places.ts';
 import { deposit, withdraw } from '../sim/economy.ts';
 import { computeMood, NEED_INFO } from '../sim/needs.ts';
 import { PREPAID_PHONE_PRICE, reportToPolice, trackWithFindMy } from '../sim/phone.ts';
-import { ORIGINS, TRAITS } from '../sim/state.ts';
+import { CLASSES, ORIGINS, TRAITS } from '../sim/state.ts';
 import { NEED_KEYS, SKILL_KEYS, type AreaId, type GameState, type SkillKey } from '../sim/types.ts';
 import { WEATHER_INFO, weatherFor } from '../sim/weather.ts';
 import { applyForJob, hireBlocker, jobTitle, quitJob, shiftPay } from '../sim/work.ts';
@@ -151,7 +151,7 @@ export function openPhone(host: PhoneHost, startApp?: string): () => void {
     me() {
       const mood = computeMood(s);
       page('Me', `
-        <div class="card"><h3>${esc(s.profile.name)} · ${ORIGINS[s.profile.origin].emoji} ${ORIGINS[s.profile.origin].title}</h3><p>${mood.emoji} ${mood.label} · ${esc(jobTitle(s))}<br>${s.profile.traits.map((t) => `${TRAITS[t]?.emoji ?? ''} ${TRAITS[t]?.label ?? t}`).join(' · ')}</p></div>
+        <div class="card"><h3>${esc(s.profile.name)} · ${s.profile.spawnClass ? `${CLASSES[s.profile.spawnClass].emoji} ${CLASSES[s.profile.spawnClass].title}` : `${ORIGINS[s.profile.origin].emoji} ${ORIGINS[s.profile.origin].title}`}</h3><p>${mood.emoji} ${mood.label} · ${esc(jobTitle(s))}<br>${s.profile.traits.map((t) => `${TRAITS[t]?.emoji ?? ''} ${TRAITS[t]?.label ?? t}`).join(' · ')}</p></div>
         <h3 style="margin:14px 0 8px;font-size:15px">Needs</h3>
         ${NEED_KEYS.map((k) => `<div class="skill-row"><span>${NEED_INFO[k].emoji} ${NEED_INFO[k].label}</span><div class="bar"><i style="width:${Math.round(s.needs[k])}%;background:${NEED_INFO[k].color}"></i></div><span>${Math.round(s.needs[k])}</span></div>`).join('')}
         <h3 style="margin:14px 0 8px;font-size:15px">Skills</h3>

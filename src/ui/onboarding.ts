@@ -8,8 +8,9 @@
 
 import { MIN_AGE } from '../core/constants.ts';
 import { esc } from '../core/format.ts';
-import { ORIGINS, TRAITS, type NewLifeOptions } from '../sim/state.ts';
-import type { Look, Origin } from '../sim/types.ts';
+import { CLASSES, TRAITS, type NewLifeOptions } from '../sim/state.ts';
+import type { SpawnClass } from '../data/wardrobe.ts';
+import type { Look } from '../sim/types.ts';
 import { HAIR_COLORS, OUTFIT_COLORS, SKIN_TONES } from '../world/avatar.ts';
 import { html, root } from './dom.ts';
 
@@ -18,7 +19,7 @@ export function runOnboarding(onLook: (look: Look) => void): Promise<NewLifeOpti
     const thisYear = new Date().getFullYear();
     const years = Array.from({ length: 80 }, (_, i) => thisYear - 16 - i);
     const look: Look = { body: 'f', skin: SKIN_TONES[3], top: OUTFIT_COLORS[1], bottom: OUTFIT_COLORS[5], hair: HAIR_COLORS[0] };
-    let origin: Origin = 'hustler';
+    let spawnClass: SpawnClass = 'middle';
     const traits = new Set<string>(['streetwise', 'foodie']);
 
     const swatches = (key: keyof Look, list: string[]) =>
@@ -48,11 +49,11 @@ export function runOnboarding(onLook: (look: Look) => void): Promise<NewLifeOpti
           <div class="field"><span class="label">Bottoms</span>${swatches('bottom', OUTFIT_COLORS)}</div>
           <div class="field"><span class="label">Hair</span>${swatches('hair', HAIR_COLORS)}</div>
 
-          <div class="field"><span class="label">Your story</span>
-            <div class="origins">${(Object.keys(ORIGINS) as Origin[])
+          <div class="field"><span class="label">Born into…</span>
+            <div class="origins">${(Object.keys(CLASSES) as SpawnClass[])
               .map((o) => {
-                const d = ORIGINS[o];
-                return `<button class="origin${o === origin ? ' on' : ''}" data-origin="${o}"><h3>${d.emoji} ${d.title}</h3><div class="sub">${esc(d.tagline)}</div><ul>${d.perks.map((p) => `<li>${esc(p)}</li>`).join('')}</ul></button>`;
+                const d = CLASSES[o];
+                return `<button class="origin${o === spawnClass ? ' on' : ''}" data-origin="${o}"><h3>${d.emoji} ${d.title}</h3><div class="sub">${esc(d.tagline)}</div><ul>${d.perks.map((p) => `<li>${esc(p)}</li>`).join('')}</ul></button>`;
               })
               .join('')}</div>
           </div>
@@ -95,7 +96,7 @@ export function runOnboarding(onLook: (look: Look) => void): Promise<NewLifeOpti
       }
       const o = t.closest<HTMLElement>('[data-origin]');
       if (o) {
-        origin = o.dataset.origin as Origin;
+        spawnClass = o.dataset.origin as SpawnClass;
         el.querySelectorAll('.origin').forEach((x) => x.classList.toggle('on', x === o));
         return;
       }
@@ -122,7 +123,7 @@ export function runOnboarding(onLook: (look: Look) => void): Promise<NewLifeOpti
       if (name.length < 2) return void (err.textContent = 'Pick a name with at least 2 letters.');
       if (traits.size !== 2) return void (err.textContent = 'Pick two traits.');
       el.remove();
-      resolve({ name, origin, look: { ...look }, birthYear: year, traits: [...traits] });
+      resolve({ name, origin: CLASSES[spawnClass].origin, spawnClass, look: { ...look }, birthYear: year, traits: [...traits] });
     });
   });
 }

@@ -151,3 +151,18 @@ test('the market is the same for everyone and trading keeps the books straight',
   assert.equal(s.portfolio.nyx, undefined);
   assert.notEqual(buyStock(s, 'nyx', 999_999_999), null, 'cannot buy without cash');
 });
+
+import { CLASSES } from '../src/sim/state.ts';
+
+test('each spawn class starts with its own money, home and wardrobe', () => {
+  for (const cls of Object.keys(CLASSES) as (keyof typeof CLASSES)[]) {
+    const c = CLASSES[cls];
+    const s = newLife({ name: 'T', origin: c.origin, spawnClass: cls, look: { body: 'f', skin: '#000', top: '#000', bottom: '#000', hair: '#000' }, birthYear: 1990, traits: [] });
+    assert.equal(s.money, c.cash);
+    assert.equal(s.bank, c.bank);
+    assert.equal(s.home.placeId, c.homeId);
+    assert.equal(!!s.loan, c.loan);
+    assert.equal(s.home.weeklyRent === 0, c.rentPaid);
+    assert.equal(s.profile.spawnClass, cls);
+  }
+});
