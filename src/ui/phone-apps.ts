@@ -25,6 +25,9 @@ import { nowMs } from '../core/clock.ts';
 import type { GameState } from '../sim/types.ts';
 import type { PhoneHost } from './phone.ts';
 import { toast } from './dom.ts';
+import { personOf, RELATION, vibe } from '../sim/people.ts';
+import { textPerson } from '../sim/social.ts';
+import { peopleHost, planDate } from './people-ui.ts';
 
 export interface PhoneAppCtx {
   s: GameState;
@@ -154,6 +157,52 @@ PHONE_APPS.add({
     if (what === 'sell') {
       const got = sellCar(s, a);
       toast(`Sold for ${money(got)} (paid into your bank).`, { icon: '🚗' });
+    }
+  },
+});
+
+// ---------------------------------------------------------------------
+// Contacts: people whose number you have. Text them, ask them out.
+// ---------------------------------------------------------------------
+let lastReply: { id: string; text: string } | null = null;
+
+PHONE_APPS.add({
+  id: 'contacts',
+  label: 'Contacts',
+  icon: '💬',
+  bg: '#06a77d',
+  needsPhone: true,
+  order: 9,
+  render: ({ s }) => {
+    const list = Object.entries(s.people)
+      .filter(([, m]) => m.hasNumber)
+      .sort((a, b) => b[1].likes - a[1].likes);
+    return {
+      title: 'Contacts',
+      body: list.length
+        ? list
+            .map(([id, m]) => {
+              const p = personOf(id);
+              const v = vibe(m);
+              const reply = lastReply?.id === id ? `<div class="sms">${esc(lastReply.text)}</div>` : '';
+              return `<div class="list-item" style="flex-wrap:wrap"><div style="font-size:24px">${v.emoji}</div><div class="grow"><div class="title">${esc(p.name)}${m.key ? ' 🔑' : ''}</div><div class="sub">${RELATION[m.level]} · ${esc(p.job)} · ${m.area === 'brooklyn' ? 'Brooklyn' : 'Manhattan'}</div>${reply}</div>
+                <button class="btn" data-act="contacts.hey:${id}">👋 Text</button>${p.dates && m.level >= 2 ? `<button class="btn primary" data-act="contacts.date:${id}">💘 Date?</button>` : ''}</div>`;
+            })
+            .join('')
+        : '<p class="blurb">No numbers yet. Get to know people on the street (tap someone), then ask for their number.</p>',
+    };
+  },
+  act: (act, { s, close }) => {
+    const [what, id] = act.split(':');
+    const r = textPerson(s, id, what === 'date' ? 'date' : 'hey');
+    lastReply = { id, text: r.reply };
+    if (r.date) {
+      const h = peopleHost();
+      if (h) {
+        close();
+        planDate(h, id);
+        return 'close';
+      }
     }
   },
 });

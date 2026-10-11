@@ -389,3 +389,21 @@ a { color: var(--info); }
 .mg-item span { font-size: 34px; line-height: 1; }
 .mg-item.ok { background: #c9f7d8; }
 .mg-item.no { background: #ffd1d6; }
+
+/* ------------------------------------------------------------- people, speech bubbles */
+.speak-btn { position: absolute; left: 10px; bottom: calc(var(--safe-bottom) + 156px); width: 50px; height: 50px; display: grid; place-items: center; border: var(--line); border-radius: 50%; background: var(--paper); box-shadow: var(--drop); font-size: 24px; padding: 0; }
+.bubbles { position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 5; }
+.bubble { position: absolute; left: 0; top: 0; max-width: 200px; padding: 7px 11px; border: var(--line-thin, 2px solid #1c2340); border-radius: 16px; background: #fff; box-shadow: 0 3px 0 rgba(28, 35, 64, 0.85); font: 800 13px/1.25 Nunito, system-ui, sans-serif; color: #1c2340; text-align: center; will-change: transform; animation: pop 0.3s var(--spring, ease-out); }
+.bubble::after { content: ''; position: absolute; left: 50%; bottom: -9px; width: 14px; height: 14px; background: inherit; border-right: inherit; border-bottom: inherit; transform: translateX(-50%) rotate(45deg); }
+.bubble b { display: block; font-size: 10.5px; color: #6b7088; }
+.bubble.loud { max-width: 240px; background: var(--cab, #ffd23f); font-size: 15px; }
+.bubble.rude { background: #ffe1e1; }
+.bubble.nice { background: #e6fff1; }
+.person-head { display: flex; gap: 12px; align-items: center; }
+.person-av { width: 52px; height: 52px; display: grid; place-items: center; border: var(--line); border-radius: 50%; background: var(--paper-2); font-size: 28px; }
+.likes-bar { height: 10px; margin-top: 10px; border-radius: 6px; background: linear-gradient(90deg, #ff6b6b, #e3e5ec 50%, #06d6a0); position: relative; }
+.likes-bar i { position: absolute; top: -3px; width: 4px; height: 16px; margin-left: -2px; border-radius: 2px; background: #1c2340; display: block; left: 0; }
+.social-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+.social-grid .btn { font-size: 14px; padding: 10px 8px; }
+.btn.risky { color: var(--bad); }
+.sms { display: inline-block; margin-top: 6px; padding: 6px 10px; border-radius: 14px 14px 14px 4px; background: #e9ecf5; font-size: 13px; }

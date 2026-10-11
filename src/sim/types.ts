@@ -121,6 +121,8 @@ export interface GameState {
   jail: import('./jail.ts').JailState | null;
   /** Cars you own, your licence and your Cool rating (sim/garage.ts). */
   garage: import('./garage.ts').GarageState;
+  /** People you've met and what they remember about you (sim/people.ts). */
+  people: Record<string, import('./people.ts').Memory>;
   /** Your crew and standing with every crew in the city (sim/gangs.ts). */
   gang: import('./gangs.ts').GangState;
 

@@ -67,6 +67,9 @@ import { SystemRunner, type SystemContext } from './core/systems.ts';
 import './systems/index.ts';
 import './sim/gang-events.ts';
 import { syncJail } from './ui/jail.ts';
+import { bindPeople, confront, openPerson, openSpeak, type PeopleHost } from './ui/people-ui.ts';
+import { clearBubbles, updateBubbles } from './ui/bubbles.ts';
+import { familiarFace, personOf } from './sim/people.ts';
 import { arrest } from './sim/jail.ts';
 import { driveTrip, drivingCar, GARAGE, licenceSuspended } from './sim/garage.ts';
 import './ui/phone-apps.ts';
@@ -105,6 +108,8 @@ export class Game {
   private path: { x: number; z: number }[] = [];
   /** Place to open when the player reaches its door. */
   private headingTo: string | null = null;
+  /** Walking over to talk to this person (sim/people.ts). */
+  private talkingTo: string | null = null;
   private busy = false;
   private overlayClose: (() => void) | null = null;
   private directorTimer = 0;
@@ -181,6 +186,9 @@ export class Game {
         this.followCamera = false;
         return true;
       },
+      /** People near the player, and talking to one (scripts/qa-people.mjs). */
+      people: () => (this.crowd ? this.crowd.nearby(this.player.root.position.x, this.player.root.position.z, 150) : []),
+      talk: (id: string) => id && this.talkTo(id),
       /** Lock the player up for `hours` game hours (tests the jail screen). */
       jail: (hours = 6) => arrest(this.state, 'caught in the act', hours, 40_000),
       /** Line up every vehicle on a white floor for a screenshot (scripts/qa-cars.mjs). */
@@ -310,10 +318,16 @@ export class Game {
 
   private finishBoot(): void {
     this.player.setLook(this.state.profile.look);
+    bindPeople(this.peopleHost());
     this.hud = new Hud({
       onNav: (w) => this.onNav(w),
       onMoney: () => this.openPhoneApp('bank'),
       onWork: () => void this.goToWork(),
+      onSpeak: () => {
+        if (this.busy || this.engine.mode !== 'city') return;
+        sfx.tap();
+        openSpeak(this.peopleHost());
+      },
       onMenu: () => {
         if (this.busy) return;
         sfx.tap();
@@ -364,6 +378,8 @@ export class Game {
     this.engine.cityScene.add(this.city.group);
     this.crowd = new Crowd(this.city.nav, area, q.crowd, this.folk ?? undefined, q.tier === 'low' ? 6 : q.tier === 'medium' ? 12 : 20);
     this.engine.cityScene.add(this.crowd.group);
+    this.crowd.familiar = (taken) => (this.state ? familiarFace(this.state, area, taken) : null);
+    clearBubbles();
     this.systems.areaLoaded(this.systemContext());
     this.ads = new AdManager(this.city.adSlots, q.tier);
     bus.emit('area:changed', { area });
@@ -430,6 +446,7 @@ export class Game {
       if (this.directorTimer >= DIRECTOR_TICK_SECONDS) {
         this.directorTimer = 0;
         this.maybeRandomEvent();
+        this.maybeConfrontation();
       }
     }
 
@@ -473,6 +490,10 @@ export class Game {
     }
 
     if (this.started) this.syncCar();
+    if (this.started) {
+      const el = this.engine.renderer.domElement;
+      updateBubbles(this.engine.camera, el.clientWidth, el.clientHeight, this.engine.mode === 'city');
+    }
     if (this.started) {
       this.hudTimer += dt;
       if (this.hudTimer > 0.25) {
@@ -519,6 +540,12 @@ export class Game {
   }
 
   private arrived(): void {
+    if (this.talkingTo) {
+      const id = this.talkingTo;
+      this.talkingTo = null;
+      if (this.crowd?.where(id)) this.talkTo(id);
+      return;
+    }
     if (!this.headingTo) return;
     const place = PLACE_BY_ID[this.headingTo];
     this.headingTo = null;
@@ -556,6 +583,17 @@ export class Game {
     if (doorHit) {
       const placeId = doorHit.object.userData.placeId as string;
       return this.walkToPlace(placeId);
+    }
+    // A person? Talk to them (walk over first if they're far).
+    const el = this.engine.renderer.domElement;
+    const who = this.crowd?.pick(x, y, this.engine.camera, el.clientWidth, el.clientHeight);
+    if (who) {
+      const p = this.player.root.position;
+      if (Math.hypot(who.x - p.x, who.z - p.z) < 5) return this.talkTo(who.personId);
+      this.headingTo = null;
+      this.talkingTo = who.personId;
+      this.crowd!.hold(who.personId, 12, p.x, p.z);
+      return this.walkTo(who.x, who.z);
     }
     const adHit = this.engine.pick(x, y, this.city.adSlots.map((s) => s.mesh));
     // Ground and walls together: whichever is hit first wins, so tapping a
@@ -1348,6 +1386,81 @@ export class Game {
       this.save();
       this.refreshHud();
     });
+  }
+
+  /** Turn to face someone and open their sheet. */
+  private talkTo(personId: string): void {
+    const at = this.crowd?.where(personId);
+    if (at) this.player.root.rotation.y = Math.atan2(at.x - this.player.root.position.x, at.z - this.player.root.position.z);
+    openPerson(this.peopleHost(), personId);
+  }
+
+  private _peopleHost: PeopleHost | null = null;
+  /** What the people screens (ui/people-ui.ts) need from the game. */
+  private peopleHost(): PeopleHost {
+    if (this._peopleHost) return this._peopleHost;
+    this._peopleHost = {
+      state: this.state,
+      area: () => this.state.location.area,
+      where: (id) => this.crowd?.where(id) ?? null,
+      player: () => ({ x: this.player.root.position.x, z: this.player.root.position.z }),
+      nearby: (x, z, r) => this.crowd?.nearby(x, z, r) ?? [],
+      hold: (id, sec) => this.crowd?.hold(id, sec, this.player.root.position.x, this.player.root.position.z),
+      approach: (id) => this.crowd?.approach(id, this.player.root.position.x, this.player.root.position.z),
+      goTo: (placeId, label, then) => this.teleport(placeId, label, then),
+      goHome: (then) => this.teleport(this.state.home.placeId, '🌙 Heading home together…', then),
+      save: () => this.save(),
+      refresh: () => this.refreshHud(true),
+      sfx: (k) => (k === 'good' ? sfx.notify() : k === 'bad' ? sfx.bad() : sfx.tap()),
+    };
+    Object.defineProperty(this._peopleHost, 'state', { get: () => this.state });
+    return this._peopleHost;
+  }
+
+  /** Fade over to a place's door (free), then run `then`. Used for dates. */
+  private teleport(placeId: string, label: string, then: () => void): void {
+    const place = PLACE_BY_ID[placeId];
+    if (!place || this.busy) return;
+    this.busy = true;
+    closeSheet();
+    fade(true, label, place.name);
+    window.setTimeout(() => {
+      if (this.engine.mode === 'interior') {
+        this.interior?.dispose();
+        this.interior = null;
+        this.engine.cityScene.add(this.player.root);
+        this.setMode('city');
+        this.engine.altScene = null;
+      }
+      if (!this.city || this.city.area !== place.area) this.loadArea(place.area);
+      const d = doorOf(place);
+      this.state.location = { area: place.area, placeId: null, x: d.x, z: d.z };
+      this.placePlayerAtLocation();
+      fade(false);
+      this.busy = false;
+      this.save();
+      then();
+    }, 1600);
+  }
+
+  /** Someone with a grudge spots you and comes over. */
+  private confrontCooldown = 0;
+  private maybeConfrontation(): void {
+    if (!this.crowd || this.busy || this.overlayClose || isSheetOpen() || this.engine.mode !== 'city' || this.state.jail) return;
+    if (performance.now() < this.confrontCooldown) return;
+    const p = this.player.root.position;
+    for (const n of this.crowd.nearby(p.x, p.z, 14)) {
+      const m = this.state.people[n.personId];
+      if (!m || m.grudge < 45) continue;
+      if (m.lastConfront && nowMs() - m.lastConfront < 10 * 60_000) continue;
+      const who = personOf(n.personId);
+      if (who.temper === 'cool' && who.warmth !== 'mean') continue;
+      if (Math.random() > 0.45) continue;
+      this.confrontCooldown = performance.now() + 90_000;
+      this.crowd.approach(n.personId, p.x, p.z);
+      window.setTimeout(() => confront(this.peopleHost(), n.personId), 1500);
+      return;
+    }
   }
 
   /** Your own car, drawn where you are while you drive (sim/garage.ts). */

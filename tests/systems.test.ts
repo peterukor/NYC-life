@@ -88,3 +88,61 @@ test('crews: five crews, turf lookups, joining needs street rep', () => {
   assert.equal(standing(s, 'kings'), 'family');
   assert.equal(standing(s, 'dragons'), 'rival');
 });
+
+import { personOf, remember, MAX_MEMORIES, familiarFace } from '../src/sim/people.ts';
+import { doSocial } from '../src/sim/social.ts';
+import { finishDate, DATE_SPOTS, stayOver } from '../src/sim/dates.ts';
+import { cleanSpeech } from '../src/sim/speech.ts';
+
+test('people: same id = same person, always 21+', () => {
+  for (let i = 0; i < 300; i++) {
+    const a = personOf(`t-${i}`);
+    assert.ok(a.age >= 21, `${a.name} is ${a.age}`);
+    assert.equal(JSON.stringify(personOf(`t-${i}`)), JSON.stringify(a));
+  }
+});
+
+test('people: repeating the same thing stops working, then annoys', () => {
+  const s = fresh();
+  const id = 'manhattan-test-chat';
+  const likes: number[] = [];
+  for (let i = 0; i < 5; i++) {
+    doSocial(s, id, 'manhattan', 'compliment', 12);
+    likes.push(s.people[id].likes);
+  }
+  const gains = likes.map((v, i) => v - (likes[i - 1] ?? 0));
+  assert.ok(gains[4] <= 0, `5th compliment should not help (gains ${gains})`);
+});
+
+test('people: insults are remembered; memories are capped', () => {
+  const s = fresh();
+  const rnd = Math.random;
+  Math.random = () => 0.99; // never swing
+  doSocial(s, 'p-insult', 'manhattan', 'insult', 12);
+  Math.random = rnd;
+  assert.ok(s.people['p-insult'].grudge > 0 && s.people['p-insult'].likes < 0);
+  for (let i = 0; i < MAX_MEMORIES + 20; i++) remember(s, `p-many-${i}`, 'manhattan', i);
+  assert.ok(Object.keys(s.people).length <= MAX_MEMORIES);
+  assert.ok(familiarFace(s, 'manhattan', new Set()));
+});
+
+test('dates: great dates lead to dating, then partner with a key', () => {
+  const s = fresh();
+  const id = 'p-date';
+  remember(s, id, 'manhattan', 1).likes = 40;
+  const spot = DATE_SPOTS[0];
+  finishDate(s, id, 'manhattan', 6, spot);
+  assert.equal(s.people[id].level, 4);
+  finishDate(s, id, 'manhattan', 6, spot);
+  finishDate(s, id, 'manhattan', 6, spot);
+  assert.equal(s.people[id].level, 5);
+  assert.ok(s.people[id].key);
+  assert.ok(stayOver(s, id, 'manhattan').length > 10);
+});
+
+test('speech: rude words are masked and flagged', () => {
+  const r = cleanSpeech('shut up you shit');
+  assert.ok(r.rude);
+  assert.ok(!r.text.includes('shit'));
+  assert.equal(cleanSpeech('hello   new york').text, 'hello new york');
+});

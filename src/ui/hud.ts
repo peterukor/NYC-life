@@ -23,6 +23,8 @@ export interface HudHandlers {
   onMoney: () => void;
   onWork: () => void;
   onMenu: () => void;
+  /** Speak loud (ui/people-ui.ts). */
+  onSpeak?: () => void;
 }
 
 export interface Where {
@@ -51,6 +53,7 @@ export class Hud {
         </div>
         <div class="goal" data-goal hidden></div>
         <div class="bullets" data-needs aria-label="Needs"></div>
+        <button class="speak-btn" data-speak aria-label="Speak loud">💬</button>
         <button class="work-btn" data-work hidden><span class="work-ico" aria-hidden="true">💼</span><span data-work-label>Go to work</span></button>
         <nav class="dock" aria-label="Main">
           <button data-nav="here"><span class="dock-ico" aria-hidden="true">📍</span><span>Here</span></button>
@@ -64,9 +67,10 @@ export class Hud {
     this.el.querySelector('[data-money]')!.addEventListener('click', () => this.h.onMoney());
     this.el.querySelector('[data-menu]')!.addEventListener('click', () => this.h.onMenu());
     this.el.querySelector('[data-work]')!.addEventListener('click', () => this.h.onWork());
+    this.el.querySelector('[data-speak]')!.addEventListener('click', () => this.h.onSpeak?.());
     // The HUD wrapper must not block taps on the 3D city; only its controls take touches.
     this.el.style.pointerEvents = 'none';
-    this.el.querySelectorAll<HTMLElement>('.metrocard, .bullets, .dock, .work-btn').forEach((x) => (x.style.pointerEvents = 'auto'));
+    this.el.querySelectorAll<HTMLElement>('.metrocard, .bullets, .dock, .work-btn, .speak-btn').forEach((x) => (x.style.pointerEvents = 'auto'));
   }
 
   update(s: GameState, where: Where, opts: { inside: boolean; canWork: boolean; workLabel: string; goal: { title: string; hint: string } | null }): void {
@@ -101,6 +105,7 @@ export class Hud {
     work.querySelector('[data-work-label]')!.textContent = opts.workLabel;
     (this.el.querySelector('[data-nav="leave"]') as HTMLElement).hidden = !opts.inside;
     (this.el.querySelector('[data-nav="here"]') as HTMLElement).hidden = opts.inside;
+    (this.el.querySelector('[data-speak]') as HTMLElement).hidden = opts.inside;
     const goal = this.el.querySelector<HTMLElement>('[data-goal]')!;
     goal.hidden = !opts.goal;
     if (opts.goal) goal.innerHTML = `<span class="goal-pin" aria-hidden="true">★</span><span><b>${esc(opts.goal.title)}</b><small>${esc(opts.goal.hint)}</small></span>`;

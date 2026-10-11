@@ -17,6 +17,7 @@
 //   instancing: two draw calls for the whole crowd.
 // =====================================================================
 
+import { hashString } from '../core/rng.ts';
 import * as THREE from 'three';
 import { CROWD_RADIUS } from '../core/constants.ts';
 import { weightedIndex } from '../core/rng.ts';
@@ -55,6 +56,8 @@ interface Agent {
   moving: boolean;
   /** Gone indoors (went home) until this time; then they come back out somewhere near. */
   insideUntil: number;
+  /** Who this is (sim/people.ts). A new person each time they respawn, sometimes someone you know. */
+  personId: string;
 }
 
 export class Crowd {
@@ -71,8 +74,12 @@ export class Crowd {
   private standing: THREE.InstancedMesh[] = [];
   private pool: Actor[] = [];
   private poolTimer = 0;
+  private serial = 0;
+  /** Picks someone you already know to bump into again (set by game.ts). */
+  familiar: ((taken: Set<string>) => string | null) | null = null;
+  private v = new THREE.Vector3();
 
-  constructor(private nav: NavGrid, area: AreaId, private max: number, folk?: FolkKit, animated = 12) {
+  constructor(private nav: NavGrid, private area: AreaId, private max: number, folk?: FolkKit, animated = 12) {
     const { clothes, skin } = crowdGeometries();
     const clothesMat = new THREE.MeshLambertMaterial({ vertexColors: true });
     const skinMat = new THREE.MeshLambertMaterial();
@@ -146,7 +153,7 @@ export class Crowd {
     const shares = types.map((t) => t.share);
     for (let i = 0; i < max; i++) {
       const p = types[Math.max(0, weightedIndex(shares))];
-      this.agents.push({ x: 0, z: 0, heading: 0, speed: p.speed[0] + Math.random() * (p.speed[1] - p.speed[0]), path: [], last: 'wander', personality: p, waitUntil: 0, phase: Math.random() * 10, active: false, look: i, actor: null, moving: false, insideUntil: 0 });
+      this.agents.push({ x: 0, z: 0, heading: 0, speed: p.speed[0] + Math.random() * (p.speed[1] - p.speed[0]), path: [], last: 'wander', personality: p, waitUntil: 0, phase: Math.random() * 10, active: false, look: i, actor: null, moving: false, insideUntil: 0, personId: '' });
     }
   }
 
@@ -159,7 +166,16 @@ export class Crowd {
     return i < 0 ? 'wander' : stops[i];
   }
 
+  /** Give a (re)spawned agent an identity: usually a new face, sometimes one you know. */
+  private newIdentity(a: Agent): void {
+    let id: string | null = null;
+    if (this.familiar && Math.random() < 0.18) id = this.familiar(new Set(this.agents.map((x) => x.personId)));
+    a.personId = id ?? `${this.area}-${Date.now().toString(36)}-${(this.serial++).toString(36)}`;
+    a.look = hashString(a.personId);
+  }
+
   private spawnNear(a: Agent, focus: THREE.Vector3): void {
+    this.newIdentity(a);
     for (let tries = 0; tries < 12; tries++) {
       const ang = Math.random() * Math.PI * 2;
       const r = CROWD_RADIUS * (0.3 + Math.random() * 0.65);
@@ -315,6 +331,62 @@ export class Crowd {
       m.count = counts[k];
       m.instanceMatrix.needsUpdate = true;
     });
+  }
+
+  /** The person under a screen tap (pixels), if any: nearest to the tap within ~30 px. */
+  pick(px: number, py: number, camera: THREE.Camera, width: number, height: number): { personId: string; x: number; z: number } | null {
+    let best: Agent | null = null;
+    let bestD = 34 * 34;
+    for (const a of this.agents) {
+      if (!a.active || a.insideUntil > this.time) continue;
+      for (const y of [0.9, 1.6]) {
+        this.v.set(a.x, y, a.z).project(camera);
+        if (this.v.z > 1) continue;
+        const sx = (this.v.x * 0.5 + 0.5) * width;
+        const sy = (-this.v.y * 0.5 + 0.5) * height;
+        const d = (sx - px) ** 2 + (sy - py) ** 2;
+        if (d < bestD) {
+          bestD = d;
+          best = a;
+        }
+      }
+    }
+    return best ? { personId: best.personId, x: best.x, z: best.z } : null;
+  }
+
+  /** Stop someone for a chat: they stand still facing (fx, fz) for `seconds`. */
+  hold(personId: string, seconds: number, fx: number, fz: number): void {
+    const a = this.agents.find((x) => x.personId === personId);
+    if (!a) return;
+    a.path = [];
+    a.waitUntil = this.time + seconds;
+    a.heading = Math.atan2(fx - a.x, fz - a.z);
+  }
+
+  /** Where a person is right now (null if gone). */
+  where(personId: string): { x: number; z: number } | null {
+    const a = this.agents.find((x) => x.personId === personId && x.active && x.insideUntil <= this.time);
+    return a ? { x: a.x, z: a.z } : null;
+  }
+
+  /** People within r metres of (x, z), nearest first. */
+  nearby(x: number, z: number, r: number): { personId: string; x: number; z: number; d: number }[] {
+    const out: { personId: string; x: number; z: number; d: number }[] = [];
+    for (const a of this.agents) {
+      if (!a.active || a.insideUntil > this.time) continue;
+      const d = Math.hypot(a.x - x, a.z - z);
+      if (d < r) out.push({ personId: a.personId, x: a.x, z: a.z, d });
+    }
+    return out.sort((p, q) => p.d - q.d);
+  }
+
+  /** Walk someone over to (x, z) (a grudge-holder coming for you). */
+  approach(personId: string, x: number, z: number): void {
+    const a = this.agents.find((p) => p.personId === personId);
+    if (a) {
+      a.path = findPath(this.nav, a.x, a.z, x, z);
+      a.waitUntil = this.time + 6;
+    }
   }
 
   dispose(): void {
