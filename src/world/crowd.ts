@@ -21,6 +21,7 @@ import * as THREE from 'three';
 import { CROWD_RADIUS } from '../core/constants.ts';
 import { weightedIndex } from '../core/rng.ts';
 import { doorOf, placesIn } from '../data/places.ts';
+import { blockRect, DISTRICTS, SIDEWALK } from './layout.ts';
 import { CROWD_DENSITY, NEXT_STOP, PERSONALITIES, timeBias, type PersonalityDef, type Stop } from '../data/crowd-brain.ts';
 import type { AreaId } from '../sim/types.ts';
 import { crowdGeometries, OUTFIT_COLORS, SKIN_TONES } from './avatar.ts';
@@ -52,6 +53,8 @@ interface Agent {
   /** The animated actor drawing this person right now, if close to the camera. */
   actor: Actor | null;
   moving: boolean;
+  /** Gone indoors (went home) until this time; then they come back out somewhere near. */
+  insideUntil: number;
 }
 
 export class Crowd {
@@ -122,6 +125,18 @@ export class Crowd {
       const d = doorOf(p);
       this.targets[p.type].push({ x: d.x, z: d.z });
     }
+    // NPC homes: front doors along residential blocks. People heading
+    // "home" walk to one and disappear inside (their home is on that block).
+    const dist = DISTRICTS[area];
+    for (let c = 0; c < dist.cols; c++) {
+      for (let r = 0; r < dist.rows; r++) {
+        if (dist.kind(c, r) !== 'buildings' || dist.zone(c, r) === 'tall') continue;
+        const b = blockRect(dist, c, r);
+        for (let x = b.minX + 8; x < b.maxX - 8; x += 16) {
+          this.targets.home.push({ x, z: b.minZ + SIDEWALK - 0.8 }, { x: x + 6, z: b.maxZ - SIDEWALK + 0.8 });
+        }
+      }
+    }
     for (let i = 0; i < 60; i++) {
       const x = nav.minX + Math.random() * nav.cols * 3;
       const z = nav.minZ + Math.random() * nav.rows * 3;
@@ -131,7 +146,7 @@ export class Crowd {
     const shares = types.map((t) => t.share);
     for (let i = 0; i < max; i++) {
       const p = types[Math.max(0, weightedIndex(shares))];
-      this.agents.push({ x: 0, z: 0, heading: 0, speed: p.speed[0] + Math.random() * (p.speed[1] - p.speed[0]), path: [], last: 'wander', personality: p, waitUntil: 0, phase: Math.random() * 10, active: false, look: i, actor: null, moving: false });
+      this.agents.push({ x: 0, z: 0, heading: 0, speed: p.speed[0] + Math.random() * (p.speed[1] - p.speed[0]), path: [], last: 'wander', personality: p, waitUntil: 0, phase: Math.random() * 10, active: false, look: i, actor: null, moving: false, insideUntil: 0 });
     }
   }
 
@@ -175,6 +190,19 @@ export class Crowd {
       }
       a.active = shouldBeActive;
       if (!a.active) continue;
+      // Inside their home for now: drawn at zero size (keeps everyone's
+      // colours in step). Then they come back out somewhere nearby.
+      if (a.insideUntil > this.time) {
+        this.dummy.scale.setScalar(0);
+        this.dummy.updateMatrix();
+        for (const m of [this.clothes, this.skin, this.shadows]) m.setMatrixAt(shown, this.dummy.matrix);
+        shown++;
+        continue;
+      }
+      if (a.insideUntil > 0) {
+        a.insideUntil = 0;
+        this.spawnNear(a, focus);
+      }
 
       // Drifted out of the bubble? Re-spawn near the camera.
       const dx0 = a.x - focus.x;
@@ -204,6 +232,8 @@ export class Crowd {
           a.path.shift();
           // Arrived: hang around a bit (look at screens, wait for a friend).
           if (a.path.length === 0) a.waitUntil = this.time + a.personality.linger[0] + Math.random() * (a.personality.linger[1] - a.personality.linger[0]) * (a.last === 'plaza' ? 2 : 1);
+          // Got home: step inside and vanish for a while.
+          if (a.path.length === 0 && a.last === 'home') a.insideUntil = this.time + 25 + Math.random() * 50;
         } else {
           const step = Math.min(dist, a.speed * dt * 1.4);
           a.x += (dx / dist) * step;
@@ -248,7 +278,7 @@ export class Crowd {
     this.poolTimer -= dt;
     if (this.poolTimer <= 0) {
       this.poolTimer = 0.5;
-      const active = this.agents.slice(0, wanted).filter((a) => a.active);
+      const active = this.agents.slice(0, wanted).filter((a) => a.active && a.insideUntil <= this.time);
       active.sort((p, q) => (p.x - focus.x) ** 2 + (p.z - focus.z) ** 2 - ((q.x - focus.x) ** 2 + (q.z - focus.z) ** 2));
       const near = new Set(active.slice(0, this.pool.length));
       for (const a of this.agents) if (a.actor && !near.has(a)) a.actor = null;
@@ -260,7 +290,13 @@ export class Crowd {
     for (let i = 0; i < wanted && i < this.agents.length; i++) {
       const a = this.agents[i];
       if (!a.active) continue;
+      if (a.insideUntil > this.time) {
+        // Went home: hide their animated body too.
+        if (a.actor) a.actor.visible = false;
+        continue;
+      }
       if (a.actor) {
+        a.actor.visible = true;
         a.actor.root.position.set(a.x, 0.18, a.z);
         a.actor.root.rotation.y = a.heading;
         a.actor.move(a.moving ? a.speed * 1.4 : 0);
