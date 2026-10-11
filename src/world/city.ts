@@ -553,7 +553,9 @@ export function buildCity(area: AreaId, opts: { trees: boolean; shadows?: boolea
     const near = (cameraDistance > 220 ? 110 : cameraDistance > 120 ? 140 : cameraDistance > 50 ? 115 : 90) * detailScale;
     nyc.update(focus, near);
     // AI houses and blocks: full models in a slightly smaller circle (they're heavier).
-    aiCity.update(focus, near * 0.85);
+    // AI houses and blocks: full models over a wider circle than the generated
+    // buildings (the far copies are only for the edges of a zoomed-out view).
+    aiCity.update(focus, near * 1.6);
   };
 
   return {

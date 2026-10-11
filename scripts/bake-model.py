@@ -67,6 +67,8 @@ dec.ratio = min(1.0, target / max(1, tris_now))
 dec.use_collapse_triangulate = True
 bpy.ops.object.modifier_apply(modifier='dec')
 print(f"low: {sum(len(p.vertices) - 2 for p in low.data.polygons)} triangles")
+# Free the full-detail copy the decimate started from (memory: this box has ~7 GB).
+bpy.ops.outliner.orphans_purge(do_recursive=True)
 
 # Fresh, clean UV layout for the bake.
 while low.data.uv_layers:
@@ -74,7 +76,10 @@ while low.data.uv_layers:
 low.data.uv_layers.new(name='UVMap')
 bpy.ops.object.mode_set(mode='EDIT')
 bpy.ops.mesh.select_all(action='SELECT')
-bpy.ops.uv.smart_project(angle_limit=1.15, island_margin=0.004, area_weight=1.0)
+bpy.ops.uv.smart_project(angle_limit=1.15, island_margin=0.002, area_weight=1.0)
+# Pack the islands tightly (rotating them to fit) so more texture pixels
+# land on the model: sharper at the same texture size.
+bpy.ops.uv.pack_islands(rotate=True, margin=0.002)
 bpy.ops.object.mode_set(mode='OBJECT')
 
 # New material whose texture receives the bake.
@@ -96,13 +101,15 @@ nt.nodes.active = node
 scene = bpy.context.scene
 scene.render.engine = 'CYCLES'
 scene.cycles.device = 'CPU'
-scene.cycles.samples = 4
+scene.cycles.samples = 8
+scene.cycles.use_auto_tile = True
+scene.cycles.tile_size = 512
 bake = scene.render.bake
 bake.use_selected_to_active = True
 size = max(low.dimensions)
-bake.cage_extrusion = size * 0.01
-bake.max_ray_distance = size * 0.03
-bake.margin = 4
+bake.cage_extrusion = size * 0.015
+bake.max_ray_distance = size * 0.05
+bake.margin = 8
 bpy.ops.object.select_all(action='DESELECT')
 high.select_set(True)
 low.select_set(True)
@@ -114,5 +121,5 @@ bpy.data.objects.remove(high, do_unlink=True)
 img.pack()
 bpy.ops.object.select_all(action='DESELECT')
 low.select_set(True)
-bpy.ops.export_scene.gltf(filepath=out, export_format='GLB', use_selection=True, export_image_format='JPEG', export_jpeg_quality=92)
+bpy.ops.export_scene.gltf(filepath=out, export_format='GLB', use_selection=True, export_image_format='JPEG', export_jpeg_quality=95)
 print('done', out)

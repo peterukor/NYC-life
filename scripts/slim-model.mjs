@@ -46,7 +46,7 @@ for (const mesh of Number(target) > 0 ? root.listMeshes() : []) {
   }
 }
 await doc.transform(dedup(), prune(),
-  textureCompress({ encoder: sharp, targetFormat: 'webp', resize: [1024, 1024], quality: 82 }));
+  textureCompress({ encoder: sharp, targetFormat: 'webp', resize: [Number(process.env.TEX ?? 1024), Number(process.env.TEX ?? 1024)], quality: 90 }));
 console.log('after', Math.round(count()));
 // Pack the geometry small (quantized + meshopt), like the other game models.
 await MeshoptEncoder.ready;

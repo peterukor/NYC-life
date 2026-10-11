@@ -43,9 +43,13 @@ export const HOUSE_FOOTPRINT: Record<string, [number, number]> = {
  * "Greenwich Village" can go anywhere, Brooklyn included): each block
  * picks whichever model's footprint fits its shape best.
  */
-const TILE_MODELS: AiModelName[] = ['block-walkups-a', 'block-rowhouses-a'];
+const LOW_RISE: AiModelName[] = ['block-walkups-a', 'block-rowhouses-a', 'block-harlem-a', 'block-mixed-a', 'block-soho-a'];
+const TOWERS: AiModelName[] = ['block-midtown-a', 'block-fidi-a'];
+const TILE_MODELS: AiModelName[] = [...LOW_RISE, ...TOWERS];
+/** Which block models suit a zone: towers in tall zones, low-rise in brownstone areas, both in mid-rise ones. */
+const FOR_ZONE: Record<string, AiModelName[]> = { tall: TOWERS, midrise: [...LOW_RISE, ...TOWERS], brownstone: LOW_RISE, waterfront: LOW_RISE };
 /** Real-world length (m) of one copy of each block model, along its long side. */
-const TILE_LEN: Partial<Record<AiModelName, number>> = { 'block-walkups-a': 46, 'block-rowhouses-a': 72 };
+const TILE_LEN: Partial<Record<AiModelName, number>> = { 'block-walkups-a': 46, 'block-rowhouses-a': 72, 'block-harlem-a': 70, 'block-mixed-a': 60, 'block-soho-a': 65, 'block-midtown-a': 70, 'block-fidi-a': 60 };
 /** Share of eligible street blocks that get an AI block model. */
 const TILE_SHARE = 0.32;
 
@@ -68,12 +72,12 @@ export function planAiCity(d: DistrictDef, models: Models | undefined, busy: Set
     for (let r = 0; r < d.rows; r++) {
       if (d.kind(c, r) !== 'buildings' || d.trimmed(c, r) || busy.has(`${c},${r}`)) continue;
       const z = d.zone(c, r);
-      if (z !== 'brownstone' && z !== 'midrise') continue;
+      if (!FOR_ZONE[z]?.some((m) => models.has(m))) continue;
       if (Math.abs(c - d.hub.c) <= 1 && Math.abs(r - d.hub.r) <= 1) continue;
       const b = blockRect(d, c, r);
       const inner = { minX: b.minX + SIDEWALK, maxX: b.maxX - SIDEWALK, minZ: b.minZ + SIDEWALK, maxZ: b.maxZ - SIDEWALK };
       if (rectOnCorridor(d.id, inner, 1)) continue;
-      if (hash01(`${d.id}-ai-tile-${b.minX | 0},${b.minZ | 0}`) < TILE_SHARE) tileBlocks.add(`${c},${r}`);
+      if (hash01(`${d.id}-ai-tile-${b.minX | 0},${b.minZ | 0}`) < (z === 'tall' ? 0.5 : TILE_SHARE)) tileBlocks.add(`${c},${r}`);
     }
   }
   return { tileBlocks };
@@ -128,7 +132,7 @@ export function buildAiCity(d: DistrictDef, models: Models | undefined, plan: Ai
     // Pick a model (seeded) and repeat it along the block so it keeps a
     // believable size: each copy's long side is about TILE_LEN metres
     // (a row of ~7 brownstones is ~75 m; the walk-up corner block ~45 m).
-    const usable = TILE_MODELS.filter((t) => models.has(t));
+    const usable = (FOR_ZONE[d.zone(c, r)] ?? LOW_RISE).filter((t) => models.has(t));
     if (!usable.length) continue;
     const pickM = usable[rng.int(0, usable.length - 1)];
     const len = TILE_LEN[pickM] ?? 50;
