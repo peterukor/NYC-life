@@ -14,8 +14,9 @@
 
 import { doorOf, placesIn, isOpen } from '../data/places.ts';
 import type { AreaId } from '../sim/types.ts';
-import { avenueX, blockRect, districtBounds, DISTRICTS, streetZ } from '../world/layout.ts';
+import { avenueX, blockRect, DISTRICTS, streetZ } from '../world/layout.ts';
 import { html, onAct, root } from './dom.ts';
+import { landShape } from '../world/coast.ts';
 import { drawBase, drawCompass, drawHoods } from './map-art.ts';
 import { CREWS, crewOfBlock } from '../sim/gangs.ts';
 
@@ -58,10 +59,9 @@ export function openMap(opts: MapOptions): () => void {
 
   const fit = () => {
     const d = DISTRICTS[area];
-    const b = districtBounds(d, 30);
-    // Show a good strip of the river too.
-    if (d.water.side === 'west') b.minX -= 60;
-    else b.minZ -= 60;
+    // Fit the whole borough outline (world/coast.ts), not just the streets.
+    const poly = landShape(d);
+    const b = { minX: Math.min(...poly.map((p) => p.x)) - 40, maxX: Math.max(...poly.map((p) => p.x)) + 40, minZ: Math.min(...poly.map((p) => p.z)) - 40, maxZ: Math.max(...poly.map((p) => p.z)) + 40 };
     const w = canvas.clientWidth;
     const h = canvas.clientHeight;
     scale = Math.min(w / (b.maxX - b.minX), h / (b.maxZ - b.minZ));

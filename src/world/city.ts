@@ -25,6 +25,7 @@ import { buildNavGrid, type NavGrid } from './nav.ts';
 import { kitMaterial, type Kits } from '../assets/kit.ts';
 import { CityBlocks } from './nycgen/city-blocks.ts';
 import { groundTextures } from './nycgen/atlas.ts';
+import { buildCoast } from './coast.ts';
 import { LANDMARKS } from './landmarks/index.ts';
 import { Toy } from './landmarks/toy.ts';
 
@@ -144,32 +145,22 @@ export function buildCity(area: AreaId, opts: { trees: boolean; shadows?: boolea
 
   // --------------------------------------------------------- ground & water
   const gt = groundTextures();
-  const groundW = bounds.maxX - bounds.minX + 800;
-  const groundD = bounds.maxZ - bounds.minZ + 800;
+  // The asphalt only covers the playable street grid; around it is the
+  // borough's real-ish shape with water beyond (world/coast.ts).
+  const streets = districtBounds(d, 10);
+  const groundW = streets.maxX - streets.minX;
+  const groundD = streets.maxZ - streets.minZ;
   const asphaltTex = track(gt.asphalt.clone());
   asphaltTex.repeat.set(groundW / 7, groundD / 7);
   const asphalt = track(new THREE.MeshLambertMaterial({ map: asphaltTex }));
   const ground = new THREE.Mesh(track(new THREE.PlaneGeometry(groundW, groundD)), asphalt);
   ground.rotation.x = -Math.PI / 2;
-  ground.position.set((bounds.minX + bounds.maxX) / 2, 0, (bounds.minZ + bounds.maxZ) / 2);
+  ground.position.set((streets.minX + streets.maxX) / 2, 0, (streets.minZ + streets.maxZ) / 2);
   ground.receiveShadow = true;
   ground.name = 'ground';
   group.add(ground);
   walkSurfaces.push(ground);
-
-  const waterMat = track(new THREE.MeshPhongMaterial({ color: '#2f6e8f', shininess: 90, specular: new THREE.Color('#9fd3ff') }));
-  const water = new THREE.Mesh(track(new THREE.PlaneGeometry(1, 1)), waterMat);
-  water.rotation.x = -Math.PI / 2;
-  if (d.water.side === 'west') {
-    const edge = avenueX(d, 0) - d.avenueW / 2 - 6;
-    water.scale.set(900, bounds.maxZ - bounds.minZ + 900, 1);
-    water.position.set(edge - 450, 0.05, (bounds.minZ + bounds.maxZ) / 2);
-  } else {
-    const edge = streetZ(d, 0) - d.streetW / 2 - 6;
-    water.scale.set(bounds.maxX - bounds.minX + 900, 900, 1);
-    water.position.set((bounds.minX + bounds.maxX) / 2, 0.05, edge - 450);
-  }
-  group.add(water);
+  group.add(buildCoast(d, track));
 
   // --------------------------------------------------------- road markings
   const marks = new GeoBuilder();

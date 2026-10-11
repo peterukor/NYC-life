@@ -12,6 +12,7 @@
 import { Rng } from '../core/rng.ts';
 import { avenueX, blockRect, districtBounds, streetZ, type DistrictDef } from '../world/layout.ts';
 import type { AreaId } from '../sim/types.ts';
+import { landShape, pointInPoly } from '../world/coast.ts';
 
 export interface View {
   sx: (x: number) => number;
@@ -75,24 +76,11 @@ export function drawBase(g: CanvasRenderingContext2D, d: DistrictDef, v: View): 
   // ---- Water with an organic shoreline ----
   g.fillStyle = '#8fd0f0';
   g.fillRect(0, 0, w, h);
-  const shore: [number, number][] = [];
-  if (d.water.side === 'west') {
-    const x0 = avenueX(d, 0) - d.avenueW / 2 - 8;
-    for (let z = b0.minZ - 400; z <= b0.maxZ + 400; z += 6) shore.push([x0 + wobble(z), z]);
-  } else {
-    const z0 = streetZ(d, 0) - d.streetW / 2 - 8;
-    for (let x = b0.minX - 400; x <= b0.maxX + 400; x += 6) shore.push([x, z0 + wobble(x)]);
-  }
+  // The borough's real-ish outline (world/coast.ts), same as the 3D city.
+  const poly = landShape(d);
   const land = () => {
     g.beginPath();
-    shore.forEach(([x, z], i) => (i ? g.lineTo(sx(x), sy(z)) : g.moveTo(sx(x), sy(z))));
-    if (d.water.side === 'west') {
-      g.lineTo(w + 50, sy(shore[shore.length - 1][1]));
-      g.lineTo(w + 50, sy(shore[0][1]));
-    } else {
-      g.lineTo(sx(shore[shore.length - 1][0]), h + 50);
-      g.lineTo(sx(shore[0][0]), h + 50);
-    }
+    poly.forEach((p, i) => (i ? g.lineTo(sx(p.x), sy(p.z)) : g.moveTo(sx(p.x), sy(p.z))));
     g.closePath();
   };
   // Shallow-water glow, sand, then land.
@@ -104,8 +92,25 @@ export function drawBase(g: CanvasRenderingContext2D, d: DistrictDef, v: View): 
   g.strokeStyle = '#f3e3b5';
   g.lineWidth = Math.max(4, 7 * scale);
   g.stroke();
-  g.fillStyle = '#f6efe1';
+  g.fillStyle = '#f2ebdd';
   g.fill();
+  // Beyond the playable streets: a soft field of far-off blocks.
+  g.save();
+  land();
+  g.clip();
+  g.fillStyle = 'rgba(190,175,150,0.22)';
+  const fr = new Rng(`far-${d.id}`);
+  const xs = poly.map((p) => p.x);
+  const zs = poly.map((p) => p.z);
+  for (let x = Math.min(...xs); x < Math.max(...xs); x += 46) {
+    for (let z = Math.min(...zs); z < Math.max(...zs); z += 30) {
+      if (x > b0.minX - 30 && x < b0.maxX + 30 && z > b0.minZ - 30 && z < b0.maxZ + 30) continue;
+      if (fr.chance(0.1)) continue;
+      rr(g, sx(x), sy(z), 34 * scale, 20 * scale, 3 * scale);
+      g.fill();
+    }
+  }
+  g.restore();
 
   // Waves: little white "smiles" scattered on the water.
   g.strokeStyle = 'rgba(255,255,255,0.7)';
@@ -116,6 +121,7 @@ export function drawBase(g: CanvasRenderingContext2D, d: DistrictDef, v: View): 
     const along = wr.range(-300, 300) + (d.water.side === 'west' ? (b0.minZ + b0.maxZ) / 2 : (b0.minX + b0.maxX) / 2);
     const off = wr.range(25, 260);
     const [wx, wz] = d.water.side === 'west' ? [avenueX(d, 0) - off + wobble(along), along] : [along, streetZ(d, 0) - off + wobble(along)];
+    if (pointInPoly(wx, wz, poly)) continue;
     const r = 5 * scale;
     g.beginPath();
     g.arc(sx(wx), sy(wz), r, 0.2 * Math.PI, 0.8 * Math.PI);

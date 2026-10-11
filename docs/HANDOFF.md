@@ -79,6 +79,27 @@ How to add or change content: **`docs/ADDING-CONTENT.md`**.
 - **Map:** an illustrated look (`ui/map-art.ts`) with coast, waves, piers, boats, little shaded buildings, parks with trees and paths, neighbourhood names, a compass, and the gang view.
 - **Phone apps are plug-ins** (`ui/phone-apps.ts`).
 
+## Done 2026-10-11 (morning, part 2)
+- **People** (`sim/people.ts`, `sim/social.ts`, `ui/people-ui.ts`):
+  - Every NPC has an identity rolled from their id; all are 21+.
+  - Memories persist: likes, grudge, relationship, learned quirks, phone number, address and key.
+  - You can tap anyone to talk. Repeating yourself stops working, then annoys people.
+  - Mean or hot-headed NPCs fight back, and grudge-holders come looking for you.
+- **Dates** (`sim/dates.ts`): pick a spot, play 3 topic rounds, and it can lead to Dating, then Partner with a spare key.
+  - Invite home is fade-to-black only.
+  - Light-fingered partners may steal from you.
+- **Phone → Contacts:** text people, and ask them out by text.
+- **Speak loud (💬):** bubbles appear over your head, nearby NPCs react, and rude shouts can start trouble (`sim/speech.ts`, `ui/bubbles.ts`).
+- **Map is now the 3D city from the sky** (Lagos Life style, `ui/map3d.ts`):
+  - You see the real buildings, billboards and landmarks.
+  - Place labels show, with billboard chips that thin out as you zoom out.
+  - Tap a place to travel, or a billboard to rent it.
+  - "Whole city" opens the flat map.
+- **Borough shapes** (`world/coast.ts`):
+  - Manhattan is a tapering island between two rivers, and Brooklyn has its north and west shores.
+  - Cheap filler buildings stand in for the rest of each borough.
+  - The flat map uses the same outline.
+
 ## Balance notes (2026-10-11)
 - **Rent cycle.** One game day is 3 h 23 min, so "weekly" rent (7 game days) comes due about once per REAL day. Rents were therefore set as "what one day of play should cover": shared $180, studio $350, loft $900. Old saves are migrated to the new rents.
 - **Pay.** Shifts are capped at 4 per GAME day, so a player who checks in 2–3 times a day can work about 8–12 shifts.

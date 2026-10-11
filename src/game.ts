@@ -67,6 +67,7 @@ import { SystemRunner, type SystemContext } from './core/systems.ts';
 import './systems/index.ts';
 import './sim/gang-events.ts';
 import { syncJail } from './ui/jail.ts';
+import { openMap3D, type Map3D } from './ui/map3d.ts';
 import { bindPeople, confront, openPerson, openSpeak, type PeopleHost } from './ui/people-ui.ts';
 import { clearBubbles, updateBubbles } from './ui/bubbles.ts';
 import { familiarFace, personOf } from './sim/people.ts';
@@ -333,7 +334,7 @@ export class Game {
         sfx.tap();
         openSidePanel(this.state, (a) => {
           if (a.kind === 'phone') this.openPhoneApp(a.app);
-          else if (a.kind === 'map') this.openMapOverlay();
+          else if (a.kind === 'map') this.openCityMap();
           else if (a.kind === 'auto') openAutoMode(this.state, () => this.save());
           else if (a.kind === 'place') {
             const p = PLACE_BY_ID[a.placeId];
@@ -490,6 +491,10 @@ export class Game {
     }
 
     if (this.started) this.syncCar();
+    if (this.map3d) {
+      const el = this.engine.renderer.domElement;
+      this.map3d.update(this.engine.camera, el.clientWidth, el.clientHeight, this.engine.camera.position.distanceTo(this.engine.controls.target));
+    }
     if (this.started) {
       const el = this.engine.renderer.domElement;
       updateBubbles(this.engine.camera, el.clientWidth, el.clientHeight, this.engine.mode === 'city');
@@ -635,7 +640,7 @@ export class Game {
     sfx.tap();
     if (which === 'leave') return this.leaveInterior();
     if (which === 'phone') return this.openPhoneApp();
-    if (which === 'map') return this.openMapOverlay();
+    if (which === 'map') return this.openCityMap();
     // "Here": the nearest place within a short walk, else the cross streets.
     const p = this.player.root.position;
     let best: PlaceDef | null = null;
@@ -1072,6 +1077,86 @@ export class Game {
   // ===================================================================
   // Travel
   // ===================================================================
+
+  // ---- The map: the real 3D city from the sky (ui/map3d.ts) ----
+  private map3d: Map3D | null = null;
+  private map3dSaved: (() => void) | null = null;
+
+  private openCityMap(): void {
+    if (!this.city || this.busy || this.engine.mode === 'transit') return this.openMapOverlay();
+    sfx.tap();
+    const { camera, controls } = this.engine;
+    const fog = this.engine.cityScene.fog as THREE.Fog;
+    const saved = {
+      pos: camera.position.clone(), target: controls.target.clone(), follow: this.followCamera, min: controls.minDistance, max: controls.maxDistance,
+      minPolar: controls.minPolarAngle, maxPolar: controls.maxPolarAngle, pan: controls.enablePan, touches: { ...controls.touches }, mouse: { ...controls.mouseButtons },
+      near: fog.near, far: fog.far, camFar: camera.far, mode: this.engine.mode,
+    };
+    this.map3dSaved = () => {
+      camera.position.copy(saved.pos);
+      controls.target.copy(saved.target);
+      this.followCamera = saved.follow;
+      Object.assign(controls, { minDistance: saved.min, maxDistance: saved.max, minPolarAngle: saved.minPolar, maxPolarAngle: saved.maxPolar, enablePan: saved.pan });
+      controls.touches = saved.touches;
+      controls.mouseButtons = saved.mouse;
+      fog.near = saved.near;
+      fog.far = saved.far;
+      camera.far = saved.camFar;
+      camera.updateProjectionMatrix();
+      this.engine.mode = saved.mode;
+      controls.update();
+    };
+    // Lift the camera into the sky over where you are.
+    this.engine.mode = 'city';
+    this.followCamera = false;
+    Object.assign(controls, { minDistance: 70, maxDistance: 1500, minPolarAngle: 0.15, maxPolarAngle: 1.05, enablePan: true, screenSpacePanning: false });
+    controls.touches = { ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY_ROTATE };
+    controls.mouseButtons = { LEFT: THREE.MOUSE.PAN, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.ROTATE };
+    fog.near = 1400;
+    fog.far = 3600;
+    camera.far = Math.max(camera.far, 5000);
+    camera.updateProjectionMatrix();
+    const onStreet = saved.mode === 'city';
+    const px = onStreet ? this.player.root.position.x : this.state.location.x;
+    const pz = onStreet ? this.player.root.position.z : this.state.location.z;
+    controls.target.set(px, 0, pz);
+    camera.position.set(px + 40, 310, pz + 240);
+    controls.update();
+    this.hud?.setVisible(false);
+    const d = DISTRICTS[this.city.area];
+    this.map3d = openMap3D({
+      area: this.city.area,
+      areaName: d.name,
+      hour: nycTime().hour,
+      homeId: this.state.home.placeId,
+      billboards: this.city.adSlots.map((a) => ({ id: a.id, center: a.center, tier: a.tier })),
+      player: () => ({ x: px, z: pz }),
+      onPlace: (place) => {
+        this.closeCityMap();
+        this.travelSheet(place);
+      },
+      onBillboard: (id) => {
+        this.closeCityMap();
+        this.openAdCard(id);
+      },
+      onWholeCity: () => {
+        this.closeCityMap();
+        this.openMapOverlay();
+      },
+      onClose: () => this.closeCityMap(),
+    });
+    this.overlayClose = () => this.closeCityMap();
+  }
+
+  private closeCityMap(): void {
+    if (!this.map3d) return;
+    this.map3d.close();
+    this.map3d = null;
+    this.map3dSaved?.();
+    this.map3dSaved = null;
+    this.overlayClose = null;
+    this.hud?.setVisible(true);
+  }
 
   private openMapOverlay(): void {
     const s = this.state;
