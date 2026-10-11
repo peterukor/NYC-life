@@ -69,6 +69,7 @@ import './sim/gang-events.ts';
 import { syncJail } from './ui/jail.ts';
 import { eventAt, joinEvent } from './data/city-events.ts';
 import { openMap3D, type Map3D } from './ui/map3d.ts';
+import { project } from './world/geo-proj.ts';
 import { SAFE_AREAS, turfMap } from './sim/gangs.ts';
 import { bindPeople, confront, openPerson, openSpeak, type PeopleHost } from './ui/people-ui.ts';
 import { clearBubbles, updateBubbles } from './ui/bubbles.ts';
@@ -192,6 +193,14 @@ export class Game {
       /** People near the player, and talking to one (scripts/qa-people.mjs). */
       people: () => (this.crowd ? this.crowd.nearby(this.player.root.position.x, this.player.root.position.z, 150) : []),
       talk: (id: string) => id && this.talkTo(id),
+      /** Point the sky-map camera at a real lat/lon from `dist` metres (scripts/qa-*.mjs). */
+      skyLook: (lat: number, lon: number, dist = 400) => {
+        const p = project(lat, lon);
+        const { camera, controls } = this.engine;
+        controls.target.set(p.x, 0, p.z);
+        camera.position.set(p.x + dist * 0.15, dist * 0.8, p.z + dist * 0.6);
+        controls.update();
+      },
       /** Lock the player up for `hours` game hours (tests the jail screen). */
       jail: (hours = 6) => arrest(this.state, 'caught in the act', hours, 40_000),
       /** Line up every vehicle on a white floor for a screenshot (scripts/qa-cars.mjs). */
@@ -1122,7 +1131,7 @@ export class Game {
     const saved = {
       pos: camera.position.clone(), target: controls.target.clone(), follow: this.followCamera, min: controls.minDistance, max: controls.maxDistance,
       minPolar: controls.minPolarAngle, maxPolar: controls.maxPolarAngle, pan: controls.enablePan, touches: { ...controls.touches }, mouse: { ...controls.mouseButtons },
-      near: fog.near, far: fog.far, camFar: camera.far, mode: this.engine.mode,
+      near: fog.near, far: fog.far, camFar: camera.far, camNear: camera.near, mode: this.engine.mode,
     };
     this.map3dSaved = () => {
       camera.position.copy(saved.pos);
@@ -1134,6 +1143,7 @@ export class Game {
       fog.near = saved.near;
       fog.far = saved.far;
       camera.far = saved.camFar;
+      camera.near = saved.camNear;
       camera.updateProjectionMatrix();
       this.engine.mode = saved.mode;
       controls.update();
@@ -1147,6 +1157,7 @@ export class Game {
     fog.near = 1400;
     fog.far = 3600;
     camera.far = Math.max(camera.far, 5000);
+    camera.near = 4; // high in the sky: a bigger near plane keeps flat things from flickering
     camera.updateProjectionMatrix();
     const onStreet = saved.mode === 'city';
     const px = onStreet ? this.player.root.position.x : this.state.location.x;

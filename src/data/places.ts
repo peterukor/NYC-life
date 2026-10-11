@@ -202,7 +202,7 @@ const RAW: RawPlace[] = [
   {
     id: 'funland', area: 'manhattan', name: 'Funland', emoji: '🎡', type: 'landmark',
     blurb: 'Ferris wheel, a rickety coaster, carnival games and funnel cake. Screaming encouraged. Right by Central Park.',
-    at: [40.785, -73.981], hours: [11, 23], interior: 'none', color: '#ff3d7f',
+    at: [40.7795, -73.9845], hours: [11, 23], interior: 'none', color: '#ff3d7f',
     actions: ['ferrisWheel', 'rollerCoaster', 'carnivalGames', 'funnelCake', 'photoSelfie'],
   },
 

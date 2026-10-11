@@ -19,8 +19,10 @@ import { doorOf, isOpen, placesIn, PLACE_BY_ID } from '../data/places.ts';
 import { HOODS } from '../data/neighborhoods.ts';
 import type { AreaId, GameState } from '../sim/types.ts';
 import { SAFE_AREAS, turfMap } from '../sim/gangs.ts';
-import { BOROUGHS, boroughAt, boroughBounds, onLand, outline, project, type BoroughId } from '../world/geo-proj.ts';
-import { blockRect, districtBounds, DISTRICTS, type DistrictDef } from '../world/layout.ts';
+import { BOROUGHS, boroughAt, boroughBounds, outline, project, type BoroughId } from '../world/geo-proj.ts';
+import { blockRect, districtBounds, DISTRICTS, isPark, type DistrictDef } from '../world/layout.ts';
+import { lotsFor, shoreFeatures, shoreKinds, type ShoreKind } from '../world/coast.ts';
+import { pondsFor } from '../data/parks.ts';
 import { html, onAct, root } from './dom.ts';
 
 export interface MapOptions {
@@ -146,49 +148,63 @@ export function openMap(opts: MapOptions): () => void {
   };
   const spaced = (t: string) => t.toUpperCase().split('').join(' ');
 
-  // Expandable lots per borough (computed once).
-  const lotCache = new Map<AreaId, { x0: number; z0: number; x1: number; z1: number }[]>();
-  const lotsOf = (d: DistrictDef) => {
-    let lots = lotCache.get(d.id);
-    if (lots) return lots;
-    lots = [];
-    const bb = boroughBounds(d.borough);
-    const built = districtBounds(d, 8);
-    const px = d.blockW + d.avenueW;
-    const pz = d.blockD + d.streetW;
-    for (let c = Math.floor((bb.minX - d.origin.x) / px); c < Math.ceil((bb.maxX - d.origin.x) / px); c++) {
-      for (let r = Math.floor((bb.minZ - d.origin.z) / pz); r < Math.ceil((bb.maxZ - d.origin.z) / pz); r++) {
-        const x0 = d.origin.x + c * px + 9, x1 = d.origin.x + (c + 1) * px - 9;
-        const z0 = d.origin.z + r * pz + 8.5, z1 = d.origin.z + (r + 1) * pz - 8.5;
-        if (x1 > built.minX && x0 < built.maxX && z1 > built.minZ && z0 < built.maxZ) continue;
-        if (onLand(d.borough, (x0 + x1) / 2, (z0 + z1) / 2)) lots.push({ x0, z0, x1, z1 });
-      }
-    }
-    lotCache.set(d.id, lots);
-    return lots;
-  };
+  const lotsOf = (d: DistrictDef) => lotsFor(d);
 
   const ZONE_COLOR: Record<string, string> = { tall: '#a9c3e6', midrise: '#e3c6a0', brownstone: '#d9967a', waterfront: '#c8b398' };
   const ZONE_HEIGHT: Record<string, number> = { tall: 6, midrise: 3.5, brownstone: 2.5, waterfront: 2.5 };
 
+  /** Seeded 0..1 numbers per block, so the drawing never flickers. */
+  const seeded = (c: number, r: number, k: number) => {
+    const v = Math.sin(c * 127.1 + r * 311.7 + k * 74.7) * 43758.5453;
+    return v - Math.floor(v);
+  };
+  const shadeHex = (hex: string, f: number) => {
+    const n = parseInt(hex.slice(1), 16);
+    const ch = (v: number) => Math.max(0, Math.min(255, Math.round(v * f)));
+    return `rgb(${ch(n >> 16)},${ch((n >> 8) & 255)},${ch(n & 255)})`;
+  };
+
   function drawStreets(d: DistrictDef): void {
+    const ponds = pondsFor(d);
+    // 1. The street network: a light pavement under every real block.
+    g.fillStyle = '#f3efe6';
+    for (let c = 0; c < d.cols; c++) {
+      for (let r = 0; r < d.rows; r++) {
+        if (d.kind(c, r) === 'water') continue;
+        const b = blockRect(d, c, r);
+        g.fillRect(sx(b.minX - d.avenueW / 2), sy(b.minZ - d.streetW / 2), (b.maxX - b.minX + d.avenueW) * scale, (b.maxZ - b.minZ + d.streetW) * scale);
+      }
+    }
+    // 2. Blocks.
     for (let c = 0; c < d.cols; c++) {
       for (let r = 0; r < d.rows; r++) {
         const kind = d.kind(c, r);
         if (kind === 'water') continue;
         const b = blockRect(d, c, r);
-        const x = sx(b.minX), y = sy(b.minZ), w = (b.maxX - b.minX) * scale, h = (b.maxZ - b.minZ) * scale;
-        g.fillStyle = kind === 'park' ? '#bfe3a5' : '#efe6d6';
-        rr(x, y, w, h, 3 * scale);
-        g.fill();
         if (kind === 'park') {
-          g.fillStyle = '#7fbf63';
-          for (const [fx, fz] of [[0.25, 0.35], [0.6, 0.6], [0.8, 0.3]]) {
+          // One green patch: grow into neighbouring park blocks (no streets inside parks).
+          const W = isPark(d, c - 1, r) ? d.avenueW / 2 + 1 : 0;
+          const E = isPark(d, c + 1, r) ? d.avenueW / 2 + 1 : 0;
+          const N = isPark(d, c, r - 1) ? d.streetW / 2 + 1 : 0;
+          const S = isPark(d, c, r + 1) ? d.streetW / 2 + 1 : 0;
+          g.fillStyle = '#a9d98a';
+          g.fillRect(sx(b.minX - W), sy(b.minZ - N), (b.maxX - b.minX + W + E) * scale, (b.maxZ - b.minZ + N + S) * scale);
+          g.fillStyle = '#6fb257';
+          for (let k = 0; k < 7; k++) {
+            const tx = b.minX + seeded(c, r, k) * (b.maxX - b.minX);
+            const tz = b.minZ + seeded(c, r, k + 20) * (b.maxZ - b.minZ);
+            if (ponds.some((p) => ((tx - p.x) / (p.rx + 5)) ** 2 + ((tz - p.z) / (p.rz + 5)) ** 2 < 1)) continue;
             g.beginPath();
-            g.arc(x + w * fx, y + h * fz, Math.max(1.5, 5 * scale), 0, Math.PI * 2);
+            g.arc(sx(tx), sy(tz), Math.max(1.4, (3 + seeded(c, r, k + 40) * 3) * scale), 0, Math.PI * 2);
             g.fill();
           }
-        } else if (kind === 'plaza') {
+          continue;
+        }
+        const x = sx(b.minX), y = sy(b.minZ), w = (b.maxX - b.minX) * scale, h = (b.maxZ - b.minZ) * scale;
+        g.fillStyle = '#e8dfcf';
+        rr(x, y, w, h, 3 * scale);
+        g.fill();
+        if (kind === 'plaza') {
           g.fillStyle = '#fbe3a0';
           rr(x + 2 * scale, y + 2 * scale, w - 4 * scale, h - 4 * scale, 3 * scale);
           g.fill();
@@ -206,23 +222,114 @@ export function openMap(opts: MapOptions): () => void {
           }
           g.restore();
         } else {
-          // Two big buildings per block (roomy on purpose), with a little height.
+          // A few buildings of different sizes, set back by different
+          // amounts — never two identical rectangles.
           const zone = d.zone(c, r);
-          const col = ZONE_COLOR[zone];
+          const base = ZONE_COLOR[zone];
           const lift = ZONE_HEIGHT[zone] * scale;
-          const pad = 5 * scale;
-          const bw = (w - pad * 3) / 2;
-          for (let k = 0; k < 2; k++) {
-            const bx = x + pad + k * (bw + pad);
+          const pad = 4 * scale;
+          const count = zone === 'tall' ? 2 + Math.floor(seeded(c, r, 1) * 2) : 2 + Math.floor(seeded(c, r, 1) * 3);
+          // Random split points along the block.
+          const cuts = [0, ...Array.from({ length: count - 1 }, (_, k) => (k + 0.6 + seeded(c, r, k + 5) * 0.8) / count), 1];
+          for (let k = 0; k < count; k++) {
+            const f0 = cuts[k], f1 = cuts[k + 1];
+            const bx = x + pad + (w - pad * 2) * f0 + pad * 0.4;
+            const bw = (w - pad * 2) * (f1 - f0) - pad * 0.8;
+            const full = zone === 'tall' || seeded(c, r, k + 9) < 0.35;
+            const north = seeded(c, r, k + 13) < 0.5;
+            const dep = (h - pad * 2) * (full ? 0.8 + seeded(c, r, k + 17) * 0.2 : 0.4 + seeded(c, r, k + 17) * 0.15);
+            const set = (h - pad * 2) * seeded(c, r, k + 23) * 0.08;
+            const by = full ? y + pad + set : north ? y + pad + set : y + h - pad - dep - set;
+            const color = shadeHex(base, 0.88 + seeded(c, r, k + 29) * 0.24);
             g.fillStyle = 'rgba(60,50,40,0.16)';
-            rr(bx + lift * 0.6, y + pad + lift, bw, h - pad * 2, 2 * scale);
+            rr(bx + lift * 0.6, by + lift, bw, dep, 2 * scale);
             g.fill();
-            g.fillStyle = col;
-            rr(bx, y + pad, bw, h - pad * 2, 2 * scale);
+            g.fillStyle = color;
+            rr(bx, by, bw, dep, 2 * scale);
             g.fill();
+            // Some half-depth blocks get a second building on the other side.
+            if (!full && seeded(c, r, k + 33) < 0.7) {
+              const dep2 = (h - pad * 2) * (0.35 + seeded(c, r, k + 37) * 0.15);
+              const by2 = north ? y + h - pad - dep2 : y + pad;
+              g.fillStyle = shadeHex(base, 0.85 + seeded(c, r, k + 41) * 0.25);
+              rr(bx + bw * 0.08, by2, bw * (0.7 + seeded(c, r, k + 43) * 0.3), dep2, 2 * scale);
+              g.fill();
+            }
           }
         }
       }
+    }
+    // 3. Lakes.
+    for (const p of ponds) {
+      g.fillStyle = '#6cc0ea';
+      g.beginPath();
+      g.ellipse(sx(p.x), sy(p.z), p.rx * scale, p.rz * scale, 0, 0, Math.PI * 2);
+      g.fill();
+      g.lineWidth = 1.5;
+      g.strokeStyle = '#e8dfcc';
+      g.stroke();
+    }
+  }
+
+  /** Waterfront: promenade along the shore, trees, piers and ferries. */
+  function drawShore(d: DistrictDef): void {
+    // The shore varies: promenade, dense bush, rocks, beach (world/coast.ts).
+    const COLORS: Record<ShoreKind, string> = { beach: '#f1dfae', bush: '#5d9a49', rocks: '#b3aea5', promenade: '#ece3cf' };
+    let ringNo = 0;
+    for (const r of outline(d.borough)) {
+      const kinds = shoreKinds(r, ++ringNo * 1.7);
+      g.save();
+      ring(r);
+      g.clip();
+      g.lineCap = 'round';
+      g.lineWidth = Math.max(3, (kinds.length ? 14 : 12) * scale);
+      for (let i = 0; i < r.length; i++) {
+        const a = r[i], b = r[(i + 1) % r.length];
+        g.strokeStyle = COLORS[kinds[i]];
+        g.beginPath();
+        g.moveTo(sx(a.x), sy(a.z));
+        g.lineTo(sx(b.x), sy(b.z));
+        g.stroke();
+      }
+      g.restore();
+    }
+    const f = shoreFeatures(d);
+    if (scale > 0.3) {
+      g.fillStyle = '#3f7a34';
+      for (const t of f.bushes) {
+        const x = sx(t.x), y = sy(t.z);
+        if (x < -10 || y < -10 || x > W() + 10 || y > H() + 10) continue;
+        g.beginPath();
+        g.arc(x, y, Math.max(1.2, 2.6 * t.s * scale), 0, Math.PI * 2);
+        g.fill();
+      }
+      g.fillStyle = '#5fa84d';
+      for (const t of f.trees) {
+        const x = sx(t.x), y = sy(t.z);
+        if (x < -10 || y < -10 || x > W() + 10 || y > H() + 10) continue;
+        g.beginPath();
+        g.arc(x, y, Math.max(1.3, 3.2 * t.s * scale), 0, Math.PI * 2);
+        g.fill();
+      }
+    }
+    for (const p of f.piers) {
+      const ang = Math.atan2(p.oz, p.ox);
+      g.save();
+      g.translate(sx(p.x), sy(p.z));
+      g.rotate(ang);
+      g.fillStyle = '#d9d0c0';
+      g.fillRect(-2 * scale, -5.5 * scale, p.L * scale, 11 * scale);
+      g.strokeStyle = 'rgba(80,70,50,0.35)';
+      g.lineWidth = 1;
+      g.strokeRect(-2 * scale, -5.5 * scale, p.L * scale, 11 * scale);
+      if (p.ferry) {
+        g.fillStyle = '#ffffff';
+        rr(p.L * 0.43 * scale, 7 * scale, 24 * scale, 8 * scale, 3 * scale);
+        g.fill();
+        g.fillStyle = '#2f6fb3';
+        g.fillRect(p.L * 0.43 * scale + 6 * scale, 9 * scale, 12 * scale, 4 * scale);
+      }
+      g.restore();
     }
   }
 
@@ -258,7 +365,7 @@ export function openMap(opts: MapOptions): () => void {
       const dim = !whole && b.id !== focus;
       for (const r of outline(b.id)) {
         ring(r);
-        g.fillStyle = dim ? '#e6e2da' : whole ? b.color : '#f4ede0';
+        g.fillStyle = dim ? '#e6e2da' : whole ? b.color : '#d6e8c3';
         g.fill();
         g.lineWidth = whole ? 3 : 2.5;
         g.strokeStyle = '#ffffff';
@@ -274,8 +381,9 @@ export function openMap(opts: MapOptions): () => void {
         halo(b.playable ? 'TAP TO EXPLORE' : 'COMING SOON · LAND FOR SALE', sx(p.x), sy(p.z) + 15, `800 9px ${FONT}`, b.playable ? '#2a6f3a' : '#9a3c2a', 4);
       }
     } else if (d) {
+      drawShore(d);
       // Expandable land: faint lots.
-      g.strokeStyle = 'rgba(150,130,100,0.25)';
+      g.strokeStyle = 'rgba(120,140,90,0.3)';
       g.lineWidth = 1;
       if (scale > 0.25) for (const l of lotsOf(d)) g.strokeRect(sx(l.x0), sy(l.z0), (l.x1 - l.x0) * scale, (l.z1 - l.z0) * scale);
       drawStreets(d);

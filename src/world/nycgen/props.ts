@@ -155,6 +155,8 @@ export interface PropOptions {
 /** Everything on the sidewalks and kerbs around one block, plus back yards. */
 export function emitBlockProps(bld: CityMeshBuilder, o: PropOptions, rng: Rng): void {
   bld.bid = 0;
+  // Parks are one big green patch (city.ts): no kerbside clutter or parked cars inside them.
+  if (o.kind === 'park') return;
   const { b, sidewalk } = o;
   const near = (x: number, z: number, r: number) => o.doors.some((d) => Math.abs(d.x - x) < r && Math.abs(d.z - z) < r);
 

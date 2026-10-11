@@ -20,12 +20,13 @@ import { doorOf, placesIn } from '../data/places.ts';
 import type { AreaId } from '../sim/types.ts';
 import { comingSoonTexture, facadeTextures, signTexture, type FacadeStyle } from '../render/textures.ts';
 import { GeoBuilder } from './geo.ts';
-import { avenueX, blockRect, districtBounds, DISTRICTS, SIDEWALK, streetZ, type DistrictDef, type Rect } from './layout.ts';
+import { avenueX, blockRect, districtBounds, DISTRICTS, inParkGap, isPark, SIDEWALK, streetZ, type DistrictDef, type Rect } from './layout.ts';
 import { buildNavGrid, type NavGrid } from './nav.ts';
 import { kitMaterial, type Kits } from '../assets/kit.ts';
 import { CityBlocks } from './nycgen/city-blocks.ts';
 import { groundTextures } from './nycgen/atlas.ts';
 import { buildCoast, onLand } from './coast.ts';
+import { pondsFor } from '../data/parks.ts';
 import { LANDMARKS } from './landmarks/index.ts';
 import { FULL_BLOCK_LANDMARKS } from '../data/places.ts';
 import { Toy } from './landmarks/toy.ts';
@@ -148,12 +149,28 @@ export function buildCity(area: AreaId, opts: { trees: boolean; shadows?: boolea
   // The borough's real coastline, paved, with water all around and the
   // other boroughs across the rivers (world/coast.ts). Roads are the
   // paved land between the blocks.
-  const asphaltTex = track(gt.asphalt.clone());
-  asphaltTex.repeat.set(1 / 7, 1 / 7);
-  const asphalt = track(new THREE.MeshLambertMaterial({ map: asphaltTex }));
-  const coast = buildCoast(d, asphalt, track);
+  const coast = buildCoast(d, track);
   group.add(coast.group);
   walkSurfaces.push(coast.ground);
+  // Asphalt only where the streets are: around each real block (not in the
+  // river, not through the middle of a park). Everything else on land is
+  // green: waterfront parks, the shore promenade and empty lots.
+  const asphaltTex = track(gt.asphalt.clone());
+  asphaltTex.repeat.set(1, 1);
+  const asphalt = track(new THREE.MeshLambertMaterial({ map: asphaltTex }));
+  const roadGeo = new GeoBuilder();
+  for (let c = 0; c < d.cols; c++) {
+    for (let r = 0; r < d.rows; r++) {
+      if (d.kind(c, r) === 'water') continue;
+      const b = blockRect(d, c, r);
+      roadGeo.flat(b.minX - d.avenueW / 2 - 0.5, b.maxX + d.avenueW / 2 + 0.5, b.minZ - d.streetW / 2 - 0.5, b.maxZ + d.streetW / 2 + 0.5, 0.02, 7);
+    }
+  }
+  const roads = new THREE.Mesh(track(roadGeo.build()), asphalt);
+  roads.receiveShadow = true;
+  roads.name = 'roads';
+  group.add(roads);
+  walkSurfaces.push(roads);
 
   // --------------------------------------------------------- road markings
   const marks = new GeoBuilder();
@@ -161,7 +178,7 @@ export function buildCity(area: AreaId, opts: { trees: boolean; shadows?: boolea
     for (let j = 0; j <= d.rows; j++) {
       const ax = avenueX(d, i);
       const sz = streetZ(d, j);
-      if (!onLand(d.borough, ax, sz)) continue; // in the river
+      if (!onLand(d.borough, ax, sz) || inParkGap(d, ax, sz)) continue; // in the river / inside a park
       // Zebra crosswalks on all four sides of every intersection.
       for (let k = -4; k <= 4; k++) {
         const ox = ax + k * (d.avenueW / 9);
@@ -181,7 +198,7 @@ export function buildCity(area: AreaId, opts: { trees: boolean; shadows?: boolea
     for (let j = 0; j < d.rows; j++) {
       const z0 = streetZ(d, j) + d.streetW / 2 + 3.6;
       const z1 = streetZ(d, j + 1) - d.streetW / 2 - 3.6;
-      if (!onLand(d.borough, ax, z0) || !onLand(d.borough, ax, z1)) continue;
+      if (!onLand(d.borough, ax, z0) || !onLand(d.borough, ax, z1) || inParkGap(d, ax, (z0 + z1) / 2)) continue;
       for (const off of [-0.22, 0.22]) yellow.flat(ax + off - 0.09, ax + off + 0.09, z0, z1, 0.045);
     }
   }
@@ -190,7 +207,7 @@ export function buildCity(area: AreaId, opts: { trees: boolean; shadows?: boolea
     for (let i = 0; i < d.cols; i++) {
       const x0 = avenueX(d, i) + d.avenueW / 2 + 3.6;
       const x1 = avenueX(d, i + 1) - d.avenueW / 2 - 3.6;
-      if (!onLand(d.borough, x0, sz) || !onLand(d.borough, x1, sz)) continue;
+      if (!onLand(d.borough, x0, sz) || !onLand(d.borough, x1, sz) || inParkGap(d, (x0 + x1) / 2, sz)) continue;
       for (const off of [-0.22, 0.22]) yellow.flat(x0, x1, sz + off - 0.09, sz + off + 0.09, 0.045);
     }
   }
@@ -216,6 +233,9 @@ export function buildCity(area: AreaId, opts: { trees: boolean; shadows?: boolea
 
   const hubRect = blockRect(d, d.hub.c, d.hub.r);
 
+  // Ponds and lakes in the big parks (data/parks.ts).
+  const ponds = pondsFor(d);
+
   for (let c = 0; c < d.cols; c++) {
     for (let r = 0; r < d.rows; r++) {
       const b = blockRect(d, c, r);
@@ -224,25 +244,34 @@ export function buildCity(area: AreaId, opts: { trees: boolean; shadows?: boolea
       const zone = d.zone(c, r);
       const inner: Rect = { minX: b.minX + SIDEWALK, maxX: b.maxX - SIDEWALK, minZ: b.minZ + SIDEWALK, maxZ: b.maxZ - SIDEWALK };
 
+      if (kind === 'park') {
+        // Parks are ONE green patch: each park block grows across the road
+        // into its park neighbours, so Central Park has no streets in it.
+        const W = isPark(d, c - 1, r) ? d.avenueW / 2 + 0.5 : 0;
+        const E = isPark(d, c + 1, r) ? d.avenueW / 2 + 0.5 : 0;
+        const N = isPark(d, c, r - 1) ? d.streetW / 2 + 0.5 : 0;
+        const S = isPark(d, c, r + 1) ? d.streetW / 2 + 0.5 : 0;
+        const ext = { minX: b.minX - W, maxX: b.maxX + E, minZ: b.minZ - N, maxZ: b.maxZ + S };
+        sidewalkGeo.box(ext.minX, ext.maxX, 0, 0.18, ext.minZ, ext.maxZ);
+        const g0 = { minX: ext.minX + (W ? 0 : SIDEWALK), maxX: ext.maxX - (E ? 0 : SIDEWALK), minZ: ext.minZ + (N ? 0 : SIDEWALK), maxZ: ext.maxZ - (S ? 0 : SIDEWALK) };
+        grassGeo.flat(g0.minX, g0.maxX, g0.minZ, g0.maxZ, 0.26, 4);
+        const n = Math.round(((g0.maxX - g0.minX) * (g0.maxZ - g0.minZ)) / 260);
+        for (let i = 0; i < n; i++) {
+          const x = rng.range(g0.minX + 3, g0.maxX - 3);
+          const z = rng.range(g0.minZ + 3, g0.maxZ - 3);
+          if (ponds.some((p) => ((x - p.x) / (p.rx + 4)) ** 2 + ((z - p.z) / (p.rz + 4)) ** 2 < 1)) continue;
+          if (rng.chance(0.35)) continue; // open lawns between the trees
+          trees.push(new THREE.Vector3(x, 0.2, z));
+        }
+        for (let i = 0; i < 3; i++) benches.push({ p: new THREE.Vector3(rng.range(g0.minX + 6, g0.maxX - 6), 0.2, rng.range(g0.minZ + 6, g0.maxZ - 6)), rotY: rng.range(0, 6.28) });
+        continue;
+      }
+
       // Kerb + sidewalk slab under every block. (Street lamps, trees and
       // all the other street life come from the generator: nycgen/props.ts.)
       sidewalkGeo.box(b.minX, b.maxX, 0, 0.18, b.minZ, b.maxZ);
       void zone;
 
-      if (kind === 'park') {
-        grassGeo.flat(inner.minX, inner.maxX, inner.minZ, inner.maxZ, 0.2, 4);
-        // Paths in a cross.
-        plazaGeo.flat((inner.minX + inner.maxX) / 2 - 2.5, (inner.minX + inner.maxX) / 2 + 2.5, inner.minZ, inner.maxZ, 0.22);
-        plazaGeo.flat(inner.minX, inner.maxX, (inner.minZ + inner.maxZ) / 2 - 2, (inner.minZ + inner.maxZ) / 2 + 2, 0.22);
-        for (let i = 0; i < 26; i++) {
-          const x = rng.range(inner.minX + 3, inner.maxX - 3);
-          const z = rng.range(inner.minZ + 3, inner.maxZ - 3);
-          if (Math.abs(x - (inner.minX + inner.maxX) / 2) < 4 || Math.abs(z - (inner.minZ + inner.maxZ) / 2) < 4) continue;
-          trees.push(new THREE.Vector3(x, 0.2, z));
-        }
-        for (let i = 0; i < 6; i++) benches.push({ p: new THREE.Vector3((inner.minX + inner.maxX) / 2 + (i % 2 ? 4 : -4), 0.2, inner.minZ + 6 + i * ((inner.maxZ - inner.minZ - 12) / 6)), rotY: i % 2 ? -Math.PI / 2 : Math.PI / 2 });
-        continue;
-      }
 
       if (kind === 'plaza') {
         plazaGeo.flat(b.minX + 0.5, b.maxX - 0.5, b.minZ + 0.5, b.maxZ - 0.5, 0.2, 3);
@@ -269,9 +298,26 @@ export function buildCity(area: AreaId, opts: { trees: boolean; shadows?: boolea
     }
   }
 
+  // --------------------------------------------------------- ponds
+  if (ponds.length) {
+    const pondMat = track(new THREE.MeshPhongMaterial({ color: '#4aa8d8', shininess: 80, specular: new THREE.Color('#d8f1ff') }));
+    const rimMat = track(new THREE.MeshLambertMaterial({ color: '#d8cdb4' }));
+    for (const p of ponds) {
+      const rim = new THREE.Mesh(track(new THREE.CircleGeometry(1, 28).rotateX(-Math.PI / 2)), rimMat);
+      rim.scale.set(p.rx + 2.5, 1, p.rz + 2.5);
+      rim.position.set(p.x, 0.34, p.z);
+      const water = new THREE.Mesh(track(new THREE.CircleGeometry(1, 28).rotateX(-Math.PI / 2)), pondMat);
+      water.scale.set(p.rx, 1, p.rz);
+      water.position.set(p.x, 0.42, p.z);
+      water.name = 'pond';
+      group.add(rim, water);
+    }
+  }
+
   // --------------------------------------------------------- hub (Times Square / Atlantic Plaza)
   const solids: Rect[] = [];
   addHub(d, group, adSlots, track, chunkFor, rng, solids);
+  for (const p of ponds) solids.push({ minX: p.x - p.rx * 0.85, maxX: p.x + p.rx * 0.85, minZ: p.z - p.rz * 0.85, maxZ: p.z + p.rz * 0.85 }); // no walking on water
 
   // --------------------------------------------------------- merge static meshes
   const paverTex = track(gt.paver.clone());
@@ -357,7 +403,7 @@ export function buildCity(area: AreaId, opts: { trees: boolean; shadows?: boolea
   if (kitProps) {
     // Traffic lights on one corner of every intersection.
     const lights: { p: THREE.Vector3; rotY: number }[] = [];
-    for (let i = 0; i <= d.cols; i++) for (let j = 0; j <= d.rows; j++) if (onLand(d.borough, avenueX(d, i), streetZ(d, j))) lights.push({ p: new THREE.Vector3(avenueX(d, i) + d.avenueW / 2 + 1, 0.18, streetZ(d, j) + d.streetW / 2 + 1), rotY: Math.PI });
+    for (let i = 0; i <= d.cols; i++) for (let j = 0; j <= d.rows; j++) if (onLand(d.borough, avenueX(d, i), streetZ(d, j)) && !isPark(d, i - 1, j - 1) && !isPark(d, i, j - 1) && !isPark(d, i - 1, j) && !isPark(d, i, j)) lights.push({ p: new THREE.Vector3(avenueX(d, i) + d.avenueW / 2 + 1, 0.18, streetZ(d, j) + d.streetW / 2 + 1), rotY: Math.PI });
     kitInstanced('traffic-light', 9, lights);
   }
 

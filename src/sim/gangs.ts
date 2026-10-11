@@ -31,7 +31,7 @@
 
 import { nycTime } from '../core/clock.ts';
 import { Registry } from '../core/registry.ts';
-import { blockAt, blockRect, DISTRICTS, type DistrictDef } from '../world/layout.ts';
+import { blockAt, blockRect, colAt, DISTRICTS, rowAt, type DistrictDef } from '../world/layout.ts';
 import { project, unproject } from '../world/geo-proj.ts';
 import type { AreaId, GameState } from './types.ts';
 
@@ -59,7 +59,7 @@ CREWS.add(
   { id: 'dragons', name: 'Gowanus Dragons', emoji: '🐉', color: '#e63946', area: 'brooklyn', blurb: 'Counterfeit bags, card games, and a long memory.', base: [40.6830, -73.9875], turf: [40.6795, -73.9935, 40.6865, -73.9835], muscle: 7, temper: 'hot' },
   { id: 'suits', name: 'Atlantic Suits', emoji: '💼', color: '#457b9d', area: 'brooklyn', blurb: 'They don’t carry knives. They carry lawyers. Worse.', base: [40.6815, -73.9725], turf: [40.6790, -73.9790, 40.6855, -73.9680], muscle: 4, temper: 'cool' },
   { id: 'lions', name: 'Fulton Lions', emoji: '🦁', color: '#f4a261', area: 'brooklyn', blurb: 'Clinton Hill’s loudest crew. Sneaker deals and block parties.', base: [40.6885, -73.9660], turf: [40.6855, -73.9725, 40.6925, -73.9600], muscle: 6, temper: 'hot' },
-  { id: 'dockers', name: 'Navy Yard Dockers', emoji: '⚓', color: '#2a9d8f', area: 'brooklyn', blurb: 'Whatever comes off a ship, they had it first.', base: [40.6992, -73.9745], turf: [40.6965, -73.9790, 40.7030, -73.9660], muscle: 8, temper: 'cool' },
+  { id: 'dockers', name: 'Navy Yard Dockers', emoji: '⚓', color: '#2a9d8f', area: 'brooklyn', blurb: 'Whatever comes off a ship, they had it first.', base: [40.6972, -73.9745], turf: [40.6965, -73.9790, 40.7030, -73.9660], muscle: 8, temper: 'cool' },
 );
 
 /** Boroughs/areas with no crews at all. */
@@ -114,6 +114,13 @@ export function defaultOwner(area: AreaId, c: number, r: number): CrewDef | null
   if (SAFE_AREAS.includes(area)) return null;
   const d = DISTRICTS[area];
   if (d.kind(c, r) === 'water') return null;
+  // A crew always owns the block its headquarters is on.
+  const based = CREWS.all().find((cr) => {
+    if (cr.area !== area) return false;
+    const b = baseBlock(cr);
+    return !!b && b.c === c && b.r === r;
+  });
+  if (based) return based;
   const { lat, lon } = blockCenter(d, c, r);
   return CREWS.all().find((cr) => cr.area === area && inBox(lat, lon, cr.turf)) ?? null;
 }
@@ -122,8 +129,8 @@ export function defaultOwner(area: AreaId, c: number, r: number): CrewDef | null
 export function baseBlock(crew: CrewDef): { c: number; r: number } | null {
   const p = project(crew.base[0], crew.base[1]);
   const d = DISTRICTS[crew.area];
-  const c = Math.floor((p.x - d.origin.x) / (d.blockW + d.avenueW));
-  const r = Math.floor((p.z - d.origin.z) / (d.blockD + d.streetW));
+  const c = colAt(d, p.x);
+  const r = rowAt(d, p.z);
   return c >= 0 && r >= 0 && c < d.cols && r < d.rows ? { c, r } : null;
 }
 

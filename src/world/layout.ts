@@ -22,7 +22,8 @@
 // =====================================================================
 
 import type { AreaId } from '../sim/types.ts';
-import { onLand, project, type BoroughId } from './geo-proj.ts';
+import { boroughBounds, onLand, project, type BoroughId } from './geo-proj.ts';
+import { Rng } from '../core/rng.ts';
 
 export type Zone = 'tall' | 'midrise' | 'brownstone' | 'waterfront';
 
@@ -37,6 +38,16 @@ export interface DistrictDef {
   /** Which real borough this is (world/geo-proj.ts outlines). */
   borough: BoroughId;
   origin: { x: number; z: number };
+  /** Avenue centre lines (cols + 1 of them) and street centre lines (rows + 1): NOT evenly spaced. */
+  xs: number[];
+  zs: number[];
+  /** The same street pattern carried across the whole borough (for the lots beyond the grid). */
+  allXs: number[];
+  allZs: number[];
+  /** Is the street between block (c, r) and (c, r + 1) closed (one long block)? */
+  joinS: (c: number, r: number) => boolean;
+  /** Is the avenue between block (c, r) and (c + 1, r) closed (one wide block)? */
+  joinE: (c: number, r: number) => boolean;
   cols: number;
   rows: number;
   blockW: number;
@@ -71,22 +82,82 @@ export const SIDEWALK = 4;
 // sale (world/coast.ts), ready for future neighbourhoods.
 // ---------------------------------------------------------------------
 
-const PITCH_X = 92 + 14;
-const PITCH_Z = 38 + 13;
+// Blocks are BIG and UNEVEN (Peter, 2026-10-11): real New York blocks are
+// not all the same, so every avenue gap and street gap gets its own width
+// (seeded, so it's the same every time), and here and there a street or an
+// avenue is closed to make a long or wide block. Fewer, larger blocks fill
+// more of the map.
+const AVE_W = 14;
+const ST_W = 13;
+const COL_RANGE: [number, number] = [128, 196]; // avenue-to-avenue
+const ROW_RANGE: [number, number] = [62, 104]; // street-to-street
 
-/** Is the whole block (shrunk a little) on the borough's land? */
-function blockOnLand(borough: BoroughId, origin: { x: number; z: number }, c: number, r: number): boolean {
-  const x0 = origin.x + c * PITCH_X + 7 + 2;
-  const x1 = origin.x + (c + 1) * PITCH_X - 7 - 2;
-  const z0 = origin.z + r * PITCH_Z + 6.5 + 2;
-  const z1 = origin.z + (r + 1) * PITCH_Z - 6.5 - 2;
+/** Street lines from an anchor outwards both ways, with seeded uneven gaps. */
+function lines(anchor: number, from: number, to: number, range: [number, number], seed: string): number[] {
+  const rng = new Rng(seed);
+  const gap = () => Math.round(rng.range(range[0], range[1]));
+  const out = [anchor];
+  for (let v = anchor; v > from; ) out.unshift((v -= gap()));
+  for (let v = anchor; v < to; ) out.push((v += gap()));
+  return out;
+}
+
+interface GridSpec {
+  borough: BoroughId;
+  allXs: number[];
+  allZs: number[];
+  /** Playable part: indexes into allXs/allZs (line c0 … c1, r0 … r1). */
+  c0: number;
+  c1: number;
+  r0: number;
+  r1: number;
+}
+
+function gridFor(borough: BoroughId, anchor: { x: number; z: number }, play: { minX: number; maxX: number; minZ: number; maxZ: number }, seed: string): GridSpec {
+  const bb = boroughBounds(borough);
+  const allXs = lines(anchor.x, bb.minX - 200, bb.maxX + 200, COL_RANGE, `${seed}-x`);
+  const allZs = lines(anchor.z, bb.minZ - 200, bb.maxZ + 200, ROW_RANGE, `${seed}-z`);
+  const near = (arr: number[], v: number) => arr.reduce((bi, a, i) => (Math.abs(a - v) < Math.abs(arr[bi] - v) ? i : bi), 0);
+  return { borough, allXs, allZs, c0: near(allXs, play.minX), c1: near(allXs, play.maxX), r0: near(allZs, play.minZ), r1: near(allZs, play.maxZ) };
+}
+
+/** Is the whole block between lines (shrunk a little) on land? */
+function cellOnLand(borough: BoroughId, xs: number[], zs: number[], c: number, r: number): boolean {
+  const x0 = xs[c] + AVE_W / 2 + 2, x1 = xs[c + 1] - AVE_W / 2 - 2;
+  const z0 = zs[r] + ST_W / 2 + 2, z1 = zs[r + 1] - ST_W / 2 - 2;
   return [[x0, z0], [x1, z0], [x0, z1], [x1, z1], [(x0 + x1) / 2, (z0 + z1) / 2]].every(([x, z]) => onLand(borough, x, z));
 }
 
-/** Which block a real lat/lon falls in (for parks, plazas and lots tied to real places). */
-function blockOfLL(origin: { x: number; z: number }, lat: number, lon: number): string {
-  const p = project(lat, lon);
-  return `${Math.floor((p.x - origin.x) / PITCH_X)},${Math.floor((p.z - origin.z) / PITCH_Z)}`;
+/** Index of the gap containing v (−1 / n if outside). */
+function cellOf(arr: number[], v: number): number {
+  if (v < arr[0]) return -1;
+  for (let i = 0; i < arr.length - 1; i++) if (v < arr[i + 1]) return i;
+  return arr.length - 1;
+}
+
+/**
+ * Seeded joins: close a street (long block) or an avenue (wide block) now
+ * and then, never next to another join and never on special blocks.
+ */
+function makeJoins(cols: number, rows: number, seed: string, ok: (c: number, r: number) => boolean) {
+  const rng = new Rng(seed);
+  const S = new Set<string>();
+  const E = new Set<string>();
+  const used = new Set<string>();
+  for (let c = 0; c < cols; c++) {
+    for (let r = 0; r < rows; r++) {
+      if (used.has(`${c},${r}`) || !ok(c, r)) continue;
+      const roll = rng.next();
+      if (roll < 0.13 && r + 1 < rows && ok(c, r + 1) && !used.has(`${c},${r + 1}`)) {
+        S.add(`${c},${r}`);
+        used.add(`${c},${r}`).add(`${c},${r + 1}`);
+      } else if (roll > 0.92 && c + 1 < cols && ok(c + 1, r) && !used.has(`${c + 1},${r}`)) {
+        E.add(`${c},${r}`);
+        used.add(`${c},${r}`).add(`${c + 1},${r}`);
+      }
+    }
+  }
+  return { joinS: (c: number, r: number) => S.has(`${c},${r}`), joinE: (c: number, r: number) => E.has(`${c},${r}`) };
 }
 
 // ---- Manhattan: real street numbers and avenues from x/z ----
@@ -98,7 +169,6 @@ const ordinal = (n: number) => `${n}${n % 100 >= 11 && n % 100 <= 13 ? 'th' : ['
 function manhattanAvenue(x: number): string {
   let best = M_AVES[0];
   for (const a of M_AVES) if (Math.abs(a[1] - x) < Math.abs(best[1] - x)) best = a;
-  // Central Park West is 8th Ave above 59th St.
   return best[0];
 }
 function manhattanStreet(x: number, z: number): string {
@@ -109,56 +179,96 @@ function manhattanStreet(x: number, z: number): string {
   return `${x < 116 ? 'W' : 'E'} ${ordinal(n)} St`;
 }
 
-const M_ORIGIN = { x: -378, z: -1042 };
-const M_COLS = 8;
-const M_ROWS = 31;
-const M_SPECIAL: Record<string, BlockKind> = {
-  [blockOfLL(M_ORIGIN, 40.7536, -73.9832)]: 'park', // Bryant Park
-  [blockOfLL(M_ORIGIN, 40.7540, -74.0020)]: 'vacant', // Hudson Yards lots
-  [blockOfLL(M_ORIGIN, 40.7525, -74.0005)]: 'vacant',
-  '1,11': 'plaza', // Funland, the Upper West Side waterfront
-};
-const M_LAND: boolean[][] = Array.from({ length: M_COLS }, (_, c) => Array.from({ length: M_ROWS }, (_, r) => blockOnLand('manhattan', M_ORIGIN, c, r)));
+/** Build a district from its grid spec and its own rules. */
+function district(base: Omit<DistrictDef, 'origin' | 'xs' | 'zs' | 'allXs' | 'allZs' | 'cols' | 'rows' | 'joinS' | 'joinE' | 'kind' | 'hub' | 'avenueNames' | 'streetNames'> & {
+  grid: GridSpec;
+  /** Kind of a land block (water is handled for you), from its centre. */
+  kindAt: (x: number, z: number, c: number, r: number) => BlockKind;
+  /** Where the hub (Times Square / Atlantic Plaza) is. */
+  hubAt: { x: number; z: number; name: string };
+}): DistrictDef {
+  const g = base.grid;
+  const xs = g.allXs.slice(g.c0, g.c1 + 1);
+  const zs = g.allZs.slice(g.r0, g.r1 + 1);
+  const cols = xs.length - 1;
+  const rows = zs.length - 1;
+  const land = Array.from({ length: cols }, (_, c) => Array.from({ length: rows }, (_, r) => cellOnLand(g.borough, xs, zs, c, r)));
+  const hub = { c: cellOf(xs, base.hubAt.x), r: cellOf(zs, base.hubAt.z), name: base.hubAt.name };
+  const kinds: BlockKind[][] = Array.from({ length: cols }, (_, c) =>
+    Array.from({ length: rows }, (_, r) => (land[c][r] ? base.kindAt((xs[c] + xs[c + 1]) / 2, (zs[r] + zs[r + 1]) / 2, c, r) : 'water')),
+  );
+  // The hub and the block north of it are the bright plaza.
+  if (kinds[hub.c]?.[hub.r] && kinds[hub.c][hub.r] !== 'water') kinds[hub.c][hub.r] = 'plaza';
+  const joins = makeJoins(cols, rows, `${base.seed}-joins`, (c, r) => kinds[c][r] === 'buildings' && !(c === hub.c && Math.abs(r - hub.r) <= 1));
+  return {
+    ...base,
+    origin: { x: xs[0], z: zs[0] },
+    xs,
+    zs,
+    allXs: g.allXs,
+    allZs: g.allZs,
+    cols,
+    rows,
+    joinS: joins.joinS,
+    joinE: joins.joinE,
+    kind: (c, r) => kinds[c]?.[r] ?? 'water',
+    hub,
+    avenueNames: xs.map((x) => base.names(x, (zs[0] + zs[rows]) / 2)[0]),
+    streetNames: zs.map((z) => base.names((xs[0] + xs[cols]) / 2, z)[1]),
+  };
+}
 
-const MANHATTAN: DistrictDef = {
+// kindAt runs while the district is being built, so it reads the playable
+// lines from these (filled just before each district is created).
+const MANHATTAN_GRID = { xs: [] as number[], zs: [] as number[] };
+const BROOKLYN_GRID = { xs: [] as number[], zs: [] as number[] };
+function playable(g: GridSpec, into: { xs: number[]; zs: number[] }): GridSpec {
+  into.xs = g.allXs.slice(g.c0, g.c1 + 1);
+  into.zs = g.allZs.slice(g.r0, g.r1 + 1);
+  return g;
+}
+
+const TIMES_SQ = project(40.758, -73.9855);
+const M_FUNLAND = project(40.7795, -73.9845);
+const M_BRYANT = project(40.7536, -73.9832);
+const M_HY = project(40.7535, -74.001);
+
+const MANHATTAN = district({
   id: 'manhattan',
   name: 'Manhattan',
   tagline: 'Central Park · Midtown · Hell’s Kitchen',
   borough: 'manhattan',
-  origin: M_ORIGIN,
-  cols: M_COLS,
-  rows: M_ROWS,
-  blockW: 92,
-  blockD: 38,
-  // Two-lane roads (one lane each way) plus a parking lane on each kerb.
-  avenueW: 14,
-  streetW: 13,
-  avenueNames: Array.from({ length: M_COLS + 1 }, (_, i) => manhattanAvenue(M_ORIGIN.x + i * PITCH_X)),
-  streetNames: Array.from({ length: M_ROWS + 1 }, (_, j) => manhattanStreet(0, M_ORIGIN.z + j * PITCH_Z)),
+  // Anchored on Central Park West (x −56) and Central Park South (z −226);
+  // playable from 110th St down to 14th St.
+  grid: playable(gridFor('manhattan', { x: -56, z: -226 }, { minX: -470, maxX: 480, minZ: -1042, maxZ: 492 }, 'manhattan-grid-v3'), MANHATTAN_GRID),
+  blockW: 150,
+  blockD: 70,
+  avenueW: AVE_W,
+  streetW: ST_W,
   names: (x, z) => [manhattanAvenue(x), manhattanStreet(x, z)],
   water: { side: 'west', label: 'Hudson River' },
   zone: (c, r) => {
-    const x = M_ORIGIN.x + (c + 0.5) * PITCH_X;
-    const n = manhattanStreetAt(M_ORIGIN.z + (r + 0.5) * PITCH_Z);
+    const d = MANHATTAN;
+    const x = (d.xs[c] + d.xs[c + 1]) / 2;
+    const n = manhattanStreetAt((d.zs[r] + d.zs[r + 1]) / 2);
     if (x < -240) return 'waterfront';
     if (n >= 30 && n <= 59 && x > -60) return 'tall'; // Midtown
     if (n > 59) return x > 150 ? 'midrise' : 'brownstone'; // Upper West / Upper East Side
     if (n < 30) return x < -60 ? 'brownstone' : 'midrise'; // Chelsea / Flatiron & Gramercy
     return x < -60 ? 'midrise' : 'tall'; // Hell's Kitchen / Murray Hill
   },
-  kind: (c, r) => {
-    if (!M_LAND[c]?.[r]) return 'water';
-    const special = M_SPECIAL[`${c},${r}`];
-    if (special) return special;
-    const x = M_ORIGIN.x + (c + 0.5) * PITCH_X;
-    const n = manhattanStreetAt(M_ORIGIN.z + (r + 0.5) * PITCH_Z);
-    if (n > 59 && n < 111 && x > -60 && x < 152) return 'park'; // Central Park, 59th → 110th, 8th → 5th Ave
-    if (c === 3 && (r === 19 || r === 20)) return 'plaza'; // Times Square, 7th Ave & Broadway, 42nd–47th
+  kindAt: (x, z, c, r) => {
+    const n = manhattanStreetAt(z);
+    const inBlock = (p: { x: number; z: number }) => cellOf(MANHATTAN_GRID.xs, p.x) === c && cellOf(MANHATTAN_GRID.zs, p.z) === r;
+    if (n > 59 && n < 111 && x > -56 && x < 116) return 'park'; // Central Park, 59th → 110th, 8th → 5th Ave
+    if (inBlock(M_BRYANT)) return 'park';
+    if (inBlock(M_FUNLAND)) return 'plaza';
+    if (inBlock(M_HY)) return 'vacant';
     return 'buildings';
   },
-  hub: { c: 3, r: 20, name: 'Times Square' },
-  seed: 'manhattan-real-v2',
-};
+  hubAt: { x: TIMES_SQ.x, z: TIMES_SQ.z, name: 'Times Square' },
+  seed: 'manhattan-real-v3',
+});
 
 // ---- Brooklyn: Downtown, DUMBO, Fort Greene, Boerum Hill ----
 /** Real Brooklyn streets near the grid, as straight lines (lat/lon ends). */
@@ -185,55 +295,47 @@ function bkNames(x: number, z: number): [string, string] {
   return [sorted[0].n, sorted[1].n];
 }
 
-const B_ORIGIN = { x: 480, z: 980 };
-const B_COLS = 6;
-const B_ROWS = 11;
-const B_SPECIAL: Record<string, BlockKind> = {
-  [blockOfLL(B_ORIGIN, 40.6913, -73.9757)]: 'park', // Fort Greene Park
-  [blockOfLL(B_ORIGIN, 40.6845, -73.978)]: 'plaza', // Atlantic Plaza (by the arena)
-};
-const B_LAND: boolean[][] = Array.from({ length: B_COLS }, (_, c) => Array.from({ length: B_ROWS }, (_, r) => blockOnLand('brooklyn', B_ORIGIN, c, r)));
-const B_HUB = blockOfLL(B_ORIGIN, 40.6845, -73.978).split(',').map(Number);
+const B_FG_PARK = project(40.6913, -73.9757);
+const B_HUB = project(40.6845, -73.978);
 
-const BROOKLYN: DistrictDef = {
+const BROOKLYN = district({
   id: 'brooklyn',
   name: 'Brooklyn',
   tagline: 'DUMBO · Downtown · Fort Greene',
   borough: 'brooklyn',
-  origin: B_ORIGIN,
-  cols: B_COLS,
-  rows: B_ROWS,
-  blockW: 92,
-  blockD: 38,
-  avenueW: 14,
-  streetW: 13,
-  avenueNames: Array.from({ length: B_COLS + 1 }, (_, i) => bkNames(B_ORIGIN.x + i * PITCH_X, B_ORIGIN.z + (B_ROWS / 2) * PITCH_Z)[0]),
-  streetNames: Array.from({ length: B_ROWS + 1 }, (_, j) => bkNames(B_ORIGIN.x + (B_COLS / 2) * PITCH_X, B_ORIGIN.z + j * PITCH_Z)[0]),
+  grid: playable(gridFor('brooklyn', { x: 480, z: 980 }, { minX: 470, maxX: 1150, minZ: 975, maxZ: 1600 }, 'brooklyn-grid-v3'), BROOKLYN_GRID),
+  blockW: 150,
+  blockD: 70,
+  avenueW: AVE_W,
+  streetW: ST_W,
   names: bkNames,
   water: { side: 'north', label: 'East River' },
   zone: (c, r) => {
-    const x = B_ORIGIN.x + (c + 0.5) * PITCH_X;
-    const z = B_ORIGIN.z + (r + 0.5) * PITCH_Z;
+    const d = BROOKLYN;
+    const x = (d.xs[c] + d.xs[c + 1]) / 2;
+    const z = (d.zs[r] + d.zs[r + 1]) / 2;
     if (z < 1110) return 'waterfront'; // DUMBO / Vinegar Hill warehouses
     if (x > 560 && x < 760 && z > 1200 && z < 1380) return 'tall'; // Downtown Brooklyn
     return 'brownstone'; // Brooklyn Heights, Fort Greene, Boerum Hill, Clinton Hill
   },
-  kind: (c, r) => {
-    if (!B_LAND[c]?.[r]) return 'water';
-    return B_SPECIAL[`${c},${r}`] ?? 'buildings';
+  kindAt: (x, z, c, r) => {
+    void x;
+    void z;
+    if (cellOf(BROOKLYN_GRID.xs, B_FG_PARK.x) === c && cellOf(BROOKLYN_GRID.zs, B_FG_PARK.z) === r) return 'park';
+    return 'buildings';
   },
-  hub: { c: B_HUB[0], r: B_HUB[1], name: 'Atlantic Plaza' },
-  seed: 'brooklyn-real-v2',
-};
+  hubAt: { x: B_HUB.x, z: B_HUB.z, name: 'Atlantic Plaza' },
+  seed: 'brooklyn-real-v3',
+});
 
 export const DISTRICTS: Record<AreaId, DistrictDef> = { manhattan: MANHATTAN, brooklyn: BROOKLYN };
 
 export function avenueX(d: DistrictDef, i: number): number {
-  return d.origin.x + i * (d.blockW + d.avenueW);
+  return d.xs[Math.max(0, Math.min(d.cols, i))];
 }
 
 export function streetZ(d: DistrictDef, j: number): number {
-  return d.origin.z + j * (d.blockD + d.streetW);
+  return d.zs[Math.max(0, Math.min(d.rows, j))];
 }
 
 export interface Rect {
@@ -243,24 +345,28 @@ export interface Rect {
   maxZ: number;
 }
 
-/** The land of block (c, r), sidewalks included. */
+/**
+ * The land of block (c, r), sidewalks included. Where a street or avenue
+ * is closed, the block reaches across it to meet its neighbour (so a
+ * joined pair reads as one long or wide block).
+ */
 export function blockRect(d: DistrictDef, c: number, r: number): Rect {
-  return {
+  const rect = {
     minX: avenueX(d, c) + d.avenueW / 2,
     maxX: avenueX(d, c + 1) - d.avenueW / 2,
     minZ: streetZ(d, r) + d.streetW / 2,
     maxZ: streetZ(d, r + 1) - d.streetW / 2,
   };
+  if (d.joinE(c, r)) rect.maxX = avenueX(d, c + 1);
+  if (c > 0 && d.joinE(c - 1, r)) rect.minX = avenueX(d, c);
+  if (d.joinS(c, r)) rect.maxZ = streetZ(d, r + 1);
+  if (r > 0 && d.joinS(c, r - 1)) rect.minZ = streetZ(d, r);
+  return rect;
 }
 
 /** The whole area including a margin of empty land around it. */
 export function districtBounds(d: DistrictDef, margin = 60): Rect {
-  return {
-    minX: avenueX(d, 0) - margin,
-    maxX: avenueX(d, d.cols) + margin,
-    minZ: streetZ(d, 0) - margin,
-    maxZ: streetZ(d, d.rows) + margin,
-  };
+  return { minX: d.xs[0] - margin, maxX: d.xs[d.cols] + margin, minZ: d.zs[0] - margin, maxZ: d.zs[d.rows] + margin };
 }
 
 export function districtCenter(d: DistrictDef): { x: number; z: number } {
@@ -268,19 +374,57 @@ export function districtCenter(d: DistrictDef): { x: number; z: number } {
   return { x: (b.minX + b.maxX) / 2, z: (b.minZ + b.maxZ) / 2 };
 }
 
+/** Which block column / row a point is in (by the street centre lines; may be off the grid). */
+export function colAt(d: DistrictDef, x: number): number {
+  return cellOf(d.xs, x);
+}
+export function rowAt(d: DistrictDef, z: number): number {
+  return cellOf(d.zs, z);
+}
+
 /** Which block (if any) a world point is inside. */
 export function blockAt(d: DistrictDef, x: number, z: number): { c: number; r: number } | null {
-  for (let c = 0; c < d.cols; c++) {
-    for (let r = 0; r < d.rows; r++) {
-      const b = blockRect(d, c, r);
-      if (x >= b.minX && x <= b.maxX && z >= b.minZ && z <= b.maxZ) return { c, r };
-    }
-  }
-  return null;
+  const c = colAt(d, x);
+  const r = rowAt(d, z);
+  if (c < 0 || r < 0 || c >= d.cols || r >= d.rows) return null;
+  const b = blockRect(d, c, r);
+  return x >= b.minX && x <= b.maxX && z >= b.minZ && z <= b.maxZ ? { c, r } : null;
 }
 
 /** Name of the nearest cross streets, e.g. "8th Ave & W 44th St" (real names). */
 export function crossStreets(d: DistrictDef, x: number, z: number): string {
   const [a, b] = d.names(x, z);
   return `${a} & ${b}`;
+}
+
+/** Is block (c, r) a park? (false off the grid) */
+export function isPark(d: DistrictDef, c: number, r: number): boolean {
+  return c >= 0 && r >= 0 && c < d.cols && r < d.rows && d.kind(c, r) === 'park';
+}
+
+/** Is the road between block (c, r) and its east / south neighbour closed (park or joined block)? */
+function closedE(d: DistrictDef, c: number, r: number): boolean {
+  return (isPark(d, c, r) && isPark(d, c + 1, r)) || (c >= 0 && r >= 0 && c < d.cols && d.joinE(c, r));
+}
+function closedS(d: DistrictDef, c: number, r: number): boolean {
+  return (isPark(d, c, r) && isPark(d, c, r + 1)) || (c >= 0 && r >= 0 && r < d.rows && d.joinS(c, r));
+}
+
+/**
+ * Is (x, z) on a road that isn't there: through the middle of a park
+ * (parks are one green patch) or across a joined block? No asphalt, no
+ * cars, no road markings there.
+ */
+export function inParkGap(d: DistrictDef, x: number, z: number): boolean {
+  // Which avenue / street line is (x, z) on, if any?
+  let ave = -1;
+  for (let i = 0; i <= d.cols; i++) if (Math.abs(x - d.xs[i]) < d.avenueW / 2) ave = i;
+  let st = -1;
+  for (let j = 0; j <= d.rows; j++) if (Math.abs(z - d.zs[j]) < d.streetW / 2) st = j;
+  const c = colAt(d, x);
+  const r = rowAt(d, z);
+  if (ave >= 0 && st >= 0) return closedE(d, ave - 1, st - 1) && closedE(d, ave - 1, st) && closedS(d, ave - 1, st - 1) && closedS(d, ave, st - 1);
+  if (ave >= 0) return closedE(d, ave - 1, r);
+  if (st >= 0) return closedS(d, c, st - 1);
+  return isPark(d, c, r);
 }

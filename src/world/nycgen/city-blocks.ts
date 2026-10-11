@@ -84,7 +84,7 @@ export class CityBlocks {
         if (kind === 'water') continue; // in the river: nothing to build
         const seed = `${d.seed}-nyc-${c}-${r}`;
         const plan = kind === 'buildings' && !opts.skip(c, r) ? planNycBlock(inner, d.zone(c, r), new Rng(seed), opts.nearHub(c, r), () => this.fades.allocate()) : { buildings: [], yard: null };
-        this.blocks.push({ c, r, key: `${c},${r}`, rect, inner, kind, buildings: plan.buildings, yard: plan.yard, farId: this.fades.allocate(), near: null, parkTrees: (opts.parkTrees ?? []).filter((t) => t.x >= rect.minX && t.x <= rect.maxX && t.z >= rect.minZ && t.z <= rect.maxZ), lastUsed: 0, seed });
+        this.blocks.push({ c, r, key: `${c},${r}`, rect, inner, kind, buildings: plan.buildings, yard: plan.yard, farId: this.fades.allocate(), near: null, parkTrees: (opts.parkTrees ?? []).filter((t) => t.x >= rect.minX - d.avenueW / 2 - 1 && t.x < rect.maxX + d.avenueW / 2 + 1 && t.z >= rect.minZ - d.streetW / 2 - 1 && t.z < rect.maxZ + d.streetW / 2 + 1), lastUsed: 0, seed });
       }
     }
     // 2. Far stand-ins, grouped 4×5 blocks per mesh so off-screen groups are skipped.

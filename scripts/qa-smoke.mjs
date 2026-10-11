@@ -128,7 +128,13 @@ let spot = null;
 for (const [fx, fy] of [[0.25, 0.5], [0.7, 0.55], [0.5, 0.4], [0.3, 0.65], [0.75, 0.35], [0.5, 0.6], [0.2, 0.7], [0.8, 0.7], [0.5, 0.75], [0.35, 0.45]]) {
   const p = [Math.round(width * fx), Math.round(height * fy)];
   const w = await nyc((x, y) => window.__nyc.whatsAt(x, y), p[0], p[1]);
-  if (!w.door && (w.ground === 'ground' || w.ground === 'sidewalks')) { spot = p; break; }
+  if (!w.door && (w.ground === 'ground' || w.ground === 'roads' || w.ground === 'sidewalks')) { spot = p; break; }
+}
+if (!spot) {
+  const seen = [];
+  for (const [fx, fy] of [[0.25, 0.5], [0.7, 0.55], [0.5, 0.4], [0.3, 0.65], [0.5, 0.6], [0.5, 0.75]]) seen.push(await nyc((x, y) => window.__nyc.whatsAt(x, y), Math.round(width * fx), Math.round(height * fy)));
+  console.log('no street spot found:', JSON.stringify(seen));
+  spot = [Math.round(width * 0.5), Math.round(height * 0.6)];
 }
 await page.touchscreen.tap(spot[0], spot[1]);
 // Software rendering in CI runs at a few fps (the game clamps each frame
