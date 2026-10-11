@@ -20,7 +20,10 @@ import { esc, money } from '../core/format.ts';
 import { carsForSale, RARITY_INFO, VEHICLES } from '../data/vehicles.ts';
 import { DEBT, fileBankruptcy, payDebt } from '../sim/debt.ts';
 import { buyCar, coolScore, drivingCar, GARAGE, licenceSuspended, sellCar } from '../sim/garage.ts';
-import { CREWS, GANG, joinBlocker, joinCrew, leaveCrew, RANKS, respectOf, standing, tryRankUp } from '../sim/gangs.ts';
+import { CREWS, doMission, GANG, joinBlocker, joinCrew, leaveCrew, MISSIONS, missionBlocker, RANKS, repPerks, respectOf, SAFE_AREAS, standing, tryRankUp, turfAt } from '../sim/gangs.ts';
+import { chargeBill } from '../sim/economy.ts';
+import { addDebt } from '../sim/debt.ts';
+import { arrest } from '../sim/jail.ts';
 import { nowMs } from '../core/clock.ts';
 import type { GameState } from '../sim/types.ts';
 import type { PhoneHost } from './phone.ts';
@@ -207,6 +210,19 @@ PHONE_APPS.add({
   },
 });
 
+/** Street-rep perks and the missions you can run where you're standing. */
+function perksCard(s: GameState): string {
+  const p = repPerks(s);
+  const here = s.location.placeId ? null : turfAt(s, s.location.area, s.location.x, s.location.z);
+  const zone = s.location.placeId ? 'inside' : SAFE_AREAS.includes(s.location.area) ? 'safe zone' : here ? `${here.emoji} ${here.name} turf` : 'neutral ground';
+  return `<div class="card"><h3>🗡️ Street rep ${p.rep}</h3>
+    <p class="sub">Getaway +${Math.round(p.getaway * 100)}% · Carrying: ${p.weapon.emoji} ${esc(p.weapon.name)} · You’re on: ${esc(zone)}</p>
+    <div class="stack" style="margin-top:8px">${MISSIONS.map((m) => {
+      const why = s.location.placeId ? 'Go outside first.' : missionBlocker(s, m.id, s.location.area, s.location.x, s.location.z);
+      return `<button class="btn ${why ? '' : 'primary'} block" data-act="crew.mission:${m.id}" ${why ? 'disabled' : ''} title="${esc(why ?? m.blurb)}">${m.emoji} ${esc(m.name)}${why ? ` — <small>${esc(why)}</small>` : ''}</button>`;
+    }).join('')}</div></div>`;
+}
+
 // ---------------------------------------------------------------------
 // Crew: the five crews, respect, joining and ranks
 // ---------------------------------------------------------------------
@@ -223,7 +239,8 @@ PHONE_APPS.add({
     const next = mine && s.gang.rank + 1 < RANKS.length ? GANG.rankRespect[s.gang.rank + 1] : null;
     return {
       title: 'Crews',
-      body: `<p class="blurb">Five crews run pieces of the city. They remember everything you do. Walk their turf carefully — open the Map and switch on <b>Gang view</b> to see who owns which blocks.</p>
+      body: `<p class="blurb">Five crews run pieces of Brooklyn. <b>Manhattan is a safe zone</b> (so are DUMBO, Brooklyn Heights and Downtown). Crews remember everything you do. Open the Map and switch on <b>🧢 Gang view</b> to see who owns which blocks.</p>
+        ${perksCard(s)}
         ${mine ? `<div class="card" style="border-left:6px solid ${mine.color}"><h3>${mine.emoji} ${esc(mine.name)} · ${RANKS[s.gang.rank]}</h3><p>Respect ${respectOf(s, mine.id)}/100${next !== null ? ` · next rank at ${next}` : ' · you run this crew'}</p>${bar(respectOf(s, mine.id) + 100, 200, mine.color)}
           ${next !== null && respectOf(s, mine.id) >= next ? `<button class="btn primary block" style="margin-top:10px" data-act="crew.rank">⬆ Become ${RANKS[s.gang.rank + 1]}</button>` : '<p class="sub" style="margin-top:8px">Earn respect: take favours on your turf, back your crew, keep your mouth shut.</p>'}
           <button class="btn ghost block" style="margin-top:8px" data-act="crew.leave">Leave the crew (they won’t like it)</button></div>` : ''}
@@ -240,6 +257,19 @@ PHONE_APPS.add({
   },
   act: (act, { s }) => {
     const [what, id] = act.split(':');
+    if (what === 'mission') {
+      const r = doMission(s, id, s.location.area, s.location.x, s.location.z);
+      if (r.hospital) {
+        const { short } = chargeBill(s, r.hospital, 'ER visit (crew business)');
+        addDebt(s, short);
+      }
+      if (r.arrest) {
+        toast(`${r.text} ${arrest(s, r.arrest.reason, r.arrest.hours, r.arrest.bail)}`, { icon: '🚔', tone: 'bad', ms: 5000 });
+        return 'close';
+      }
+      toast(r.text, { icon: r.tone === 'good' ? '🚩' : '🤕', tone: r.tone, ms: 4000 });
+      return;
+    }
     if (what === 'join') {
       const err = joinCrew(s, id);
       toast(err ?? `You’re ${RANKS[0]} for ${CREWS.get(id)?.name} now. Every other crew noticed.`, { icon: CREWS.get(id)?.emoji ?? '🧢', tone: err ? 'bad' : 'good', ms: 4000 });

@@ -4,6 +4,7 @@
 // =====================================================================
 
 import { runCollections } from './debt.ts';
+import { runGangDay } from './gangs.ts';
 import { bus } from '../core/bus.ts';
 import { daysBetween, nowMs, nycTime } from '../core/clock.ts';
 import { OFFLINE_CATCHUP_MAX_HOURS, OFFLINE_DECAY_MULTIPLIER } from '../core/constants.ts';
@@ -70,6 +71,9 @@ function rollDays(state: GameState): string | null {
   // Debt collectors (sim/debt.ts).
   const coll = runCollections(state);
   if (coll) notes.push(coll);
+  // Crews raid each other; NPC bosses may demote idle members (sim/gangs.ts).
+  const gangNote = runGangDay(state, today);
+  if (gangNote) notes.push(gangNote);
 
   // ----- Rent: every 7 days from the move-in day -----
   if (state.home.weeklyRent > 0) {

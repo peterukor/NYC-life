@@ -13,11 +13,11 @@
 import { money } from '../core/format.ts';
 import { EVENTS, type EventContext, type Outcome } from './events.ts';
 import { coolScore } from './garage.ts';
-import { changeRespect, CREWS, fight, lackingRisk, RANKS, standing, turfAt, type CrewDef } from './gangs.ts';
+import { changeRespect, CREWS, fight, lackingRisk, markActive, RANKS, repPerks, standing, turfAt, type CrewDef } from './gangs.ts';
 import { arrest } from './jail.ts';
 import { changeMoney } from './economy.ts';
 
-const here = (c: EventContext): CrewDef | null => (c.where === 'street' ? turfAt(c.area, c.s.location.x, c.s.location.z) : null);
+const here = (c: EventContext): CrewDef | null => (c.where === 'street' ? turfAt(c.s, c.area, c.s.location.x, c.s.location.z) : null);
 
 /** Something about you that caught their eye (for flavour). */
 function flex(c: EventContext): string {
@@ -62,7 +62,7 @@ EVENTS.push(
         label: 'Run for it', emoji: '🏃',
         hint: 'Fitness helps',
         run: (c) => {
-          if (Math.random() < 0.35 + c.skill('fitness') * 0.06) return { text: 'You bolted through traffic and lost them two blocks later. Heart pounding.', tone: 'good', needs: { energy: -20, fun: 5 } };
+          if (Math.random() < 0.35 + c.skill('fitness') * 0.06 + repPerks(c.s).getaway) return { text: 'You bolted through traffic and lost them two blocks later. Heart pounding.', tone: 'good', needs: { energy: -20, fun: 5 } };
           const amt = lose(c, 0.8);
           return { text: `They caught you at the corner. Took ${money(amt)} and gave you a few bruises to remember them by.`, tone: 'bad', hospitalBill: 30_000, needs: { energy: -30 }, moodlet: { id: 'beatUp', label: 'Bruised', emoji: '🤕', value: -20, minutes: 60 * 24 } };
         },
@@ -158,6 +158,7 @@ EVENTS.push(
             return { text: `${msg} You kept your mouth shut. ${crew.name} noticed.`, tone: 'bad' };
           }
           changeRespect(c.s, crew.id, 8);
+          markActive(c.s);
           return { text: 'Dropped off, no questions. +8 respect.', tone: 'good', money: 15_000 + c.s.gang.rank * 10_000 };
         },
       },

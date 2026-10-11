@@ -12,6 +12,7 @@
 // =====================================================================
 
 import * as THREE from 'three';
+import { onLand } from './geo-proj.ts';
 import { pickVehicle, type VehicleDef } from '../data/vehicles.ts';
 import { avenueX, streetZ, type DistrictDef } from './layout.ts';
 import { PAINT_MARKER, vehicleGeometry, vehicleMaterial } from './vehicle-models.ts';
@@ -45,18 +46,24 @@ export class Traffic {
   constructor(d: DistrictDef, count: number) {
     const zA = streetZ(d, 0) - 40;
     const zB = streetZ(d, d.rows) + 40;
+    // Lanes only run over land (the grid has blocks in the river): each
+    // avenue/street keeps its longest stretch on the borough's coastline.
+    const add = (x0: number, z0: number, x1: number, z1: number) => {
+      const run = landRun(d, x0, z0, x1, z1);
+      if (run) this.lanes.push(makeLane(run[0], run[1], run[2], run[3]));
+    };
     for (let i = 0; i <= d.cols; i++) {
       const x = avenueX(d, i);
       // Two lanes, one each way (drive on the right).
-      this.lanes.push(makeLane(x - 2.3, zA, x - 2.3, zB));
-      this.lanes.push(makeLane(x + 2.3, zB, x + 2.3, zA));
+      add(x - 2.3, zA, x - 2.3, zB);
+      add(x + 2.3, zB, x + 2.3, zA);
     }
     const xA = avenueX(d, 0) - 40;
     const xB = avenueX(d, d.cols) + 40;
     for (let j = 1; j < d.rows; j++) {
       const z = streetZ(d, j);
-      this.lanes.push(makeLane(xA, z + 2.2, xB, z + 2.2));
-      this.lanes.push(makeLane(xB, z - 2.2, xA, z - 2.2));
+      add(xA, z + 2.2, xB, z + 2.2);
+      add(xB, z - 2.2, xA, z - 2.2);
     }
 
     // Roll every car: which vehicle (by trafficWeight), which paint, how fast.
@@ -96,13 +103,34 @@ export class Traffic {
     }
   }
 
-  update(dt: number, rush: boolean): void {
+  private nearLanes: number[] = [];
+  private nearTimer = 0;
+
+  /** focus = where the player/camera is: cars that wander far away respawn near it, so the streets around you stay busy. */
+  update(dt: number, rush: boolean, focus?: { x: number; z: number }): void {
     // Rush hour: everything crawls.
     const slow = rush ? 0.45 : 1;
+    if (focus && (this.nearTimer -= dt) <= 0) {
+      this.nearTimer = 1;
+      this.nearLanes = [];
+      this.lanes.forEach((l, i) => {
+        if (closestT(l, focus).d < 180) this.nearLanes.push(i);
+      });
+    }
     this.cars.forEach((car) => {
-      const lane = this.lanes[car.lane];
+      let lane = this.lanes[car.lane];
       car.t += (car.speed * slow * dt) / lane.length;
       if (car.t > 1) car.t -= 1;
+      if (focus && this.nearLanes.length) {
+        const px = lane.x0 + (lane.x1 - lane.x0) * car.t;
+        const pz = lane.z0 + (lane.z1 - lane.z0) * car.t;
+        if (Math.abs(px - focus.x) > 260 || Math.abs(pz - focus.z) > 260) {
+          car.lane = this.nearLanes[Math.floor(Math.random() * this.nearLanes.length)];
+          lane = this.lanes[car.lane];
+          const c = closestT(lane, focus);
+          car.t = Math.min(1, Math.max(0, c.t + (Math.random() - 0.5) * (300 / lane.length)));
+        }
+      }
       this.dummy.position.set(lane.x0 + (lane.x1 - lane.x0) * car.t, 0, lane.z0 + (lane.z1 - lane.z0) * car.t);
       this.dummy.rotation.set(0, lane.heading, 0);
       this.dummy.updateMatrix();
@@ -116,6 +144,34 @@ export class Traffic {
     for (const m of this.meshes) m.dispose();
     this.group.removeFromParent();
   }
+}
+
+function closestT(l: Lane, p: { x: number; z: number }): { t: number; d: number } {
+  const dx = l.x1 - l.x0;
+  const dz = l.z1 - l.z0;
+  const t = Math.max(0, Math.min(1, ((p.x - l.x0) * dx + (p.z - l.z0) * dz) / (dx * dx + dz * dz || 1)));
+  return { t, d: Math.hypot(p.x - (l.x0 + dx * t), p.z - (l.z0 + dz * t)) };
+}
+
+/** The longest stretch of a straight road that stays on land (null if under 60 m). */
+function landRun(d: DistrictDef, x0: number, z0: number, x1: number, z1: number): [number, number, number, number] | null {
+  const len = Math.hypot(x1 - x0, z1 - z0);
+  const steps = Math.ceil(len / 4);
+  let best: [number, number] | null = null;
+  let start = -1;
+  for (let i = 0; i <= steps + 1; i++) {
+    const t = i / steps;
+    const on = i <= steps && onLand(d.borough, x0 + (x1 - x0) * t, z0 + (z1 - z0) * t);
+    if (on && start < 0) start = i;
+    if (!on && start >= 0) {
+      if (!best || i - 1 - start > best[1] - best[0]) best = [start, i - 1];
+      start = -1;
+    }
+  }
+  if (!best || ((best[1] - best[0]) / steps) * len < 60) return null;
+  const a = best[0] / steps;
+  const b = best[1] / steps;
+  return [x0 + (x1 - x0) * a, z0 + (z1 - z0) * a, x0 + (x1 - x0) * b, z0 + (z1 - z0) * b];
 }
 
 function makeLane(x0: number, z0: number, x1: number, z1: number): Lane {

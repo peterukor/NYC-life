@@ -425,3 +425,5 @@ a { color: var(--info); }
 .m3-ad { position: absolute; left: 0; top: 0; width: 28px; height: 28px; display: grid; place-items: center; padding: 0; border: 2px solid #1c2340; border-radius: 9px; background: #ffd23f; box-shadow: 0 2px 0 rgba(28, 35, 64, 0.85); font-size: 14px; pointer-events: auto; will-change: transform; }
 .m3-ad.hub { background: #ff4fa3; }
 .m3-me { position: absolute; left: 0; top: 0; width: 20px; height: 20px; margin-top: 10px; border: 4px solid #fff; border-radius: 50%; background: #007aff; box-shadow: 0 0 0 10px rgba(0, 122, 255, 0.22); }
+.m3-hood { position: absolute; left: 0; top: 0; font: 900 15px/1 Nunito, system-ui, sans-serif; letter-spacing: 0.22em; color: rgba(40, 36, 60, 0.82); text-shadow: 0 0 4px #fff, 0 0 8px #fff, 0 0 2px #fff; white-space: nowrap; pointer-events: none; will-change: transform; }
+.map-title { flex: 1; min-width: 0; padding: 8px 14px; border: var(--line); border-radius: 18px; background: var(--paper); box-shadow: var(--drop-sm); font-family: var(--display); font-size: 20px; }

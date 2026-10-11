@@ -15,9 +15,12 @@ import { esc } from '../core/format.ts';
 import { doorOf, isOpen, placesIn, type PlaceDef } from '../data/places.ts';
 import type { AreaId } from '../sim/types.ts';
 import { html, onAct, root } from './dom.ts';
+import { HOODS } from '../data/neighborhoods.ts';
+import { project, type BoroughId } from '../world/geo-proj.ts';
 
 export interface Map3DOptions {
   area: AreaId;
+  borough: BoroughId;
   areaName: string;
   hour: number;
   homeId: string;
@@ -26,6 +29,8 @@ export interface Map3DOptions {
   onPlace: (place: PlaceDef) => void;
   onBillboard: (slotId: string) => void;
   onWholeCity: () => void;
+  /** Gang view on/off (game.ts tints turf blocks). */
+  onGang: (on: boolean) => void;
   onClose: () => void;
 }
 
@@ -39,19 +44,28 @@ export function openMap3D(o: Map3DOptions): Map3D {
     <div class="map3d">
       <div class="map3d-top">
         <div class="map3d-title"><b>${esc(o.areaName)}</b><small>Drag to move · pinch to zoom · tap a place</small></div>
-        <button class="btn" data-act="city">🗺️ Whole city</button>
+        <button class="btn" data-act="gang" title="Gang view">🧢</button>
+        <button class="btn" data-act="city">🗺️ City</button>
         <button class="btn" data-act="close" aria-label="Close map">✕</button>
       </div>
       <div class="map3d-labels"></div>
     </div>`);
   root().appendChild(el);
   const layer = el.querySelector<HTMLElement>('.map3d-labels')!;
+  let gang = false;
   const places = placesIn(o.area);
-  type Item = { el: HTMLElement; x: number; y: number; z: number; minZoom: number };
+  type Item = { el: HTMLElement; x: number; y: number; z: number; minZoom: number; maxZoom?: number };
   const items: Item[] = [];
 
+  // Big neighbourhood names, the way they're written on the flat map.
+  for (const hd of HOODS.filter((x) => x.borough === o.borough)) {
+    const p = project(hd.at[0], hd.at[1]);
+    const label = html(`<div class="m3-hood">${esc(hd.name.toUpperCase())}</div>`);
+    layer.appendChild(label);
+    items.push({ el: label, x: p.x, y: 4, z: p.z, minZoom: 99999, maxZoom: 260 });
+  }
   for (const p of places) {
-    const d = doorOf(p);
+    const d = p.model ? project(p.model[0], p.model[1]) : doorOf(p);
     const big = !!p.landmark || p.type === 'landmark' || p.id === o.homeId;
     const label = html(`<button class="m3-pin${big ? ' big' : ''}${p.id === o.homeId ? ' home' : ''}${isOpen(p, o.hour) ? '' : ' closed'}" data-act="place:${p.id}"><span class="ico">${p.emoji}</span><span class="nm">${esc(p.id === o.homeId ? 'Home' : p.name)}</span></button>`);
     layer.appendChild(label);
@@ -83,6 +97,11 @@ export function openMap3D(o: Map3DOptions): Map3D {
   onAct(el, (act) => {
     if (act === 'close') return o.onClose();
     if (act === 'city') return o.onWholeCity();
+    if (act === 'gang') {
+      gang = !gang;
+      el.querySelector('[data-act="gang"]')!.classList.toggle('primary', gang);
+      return o.onGang(gang);
+    }
     if (act.startsWith('place:')) {
       const p = places.find((x) => x.id === act.slice(6));
       if (p) o.onPlace(p);
@@ -92,8 +111,10 @@ export function openMap3D(o: Map3DOptions): Map3D {
 
   return {
     update(camera, w, h, camDist) {
+      // Zoomed all the way out: show the whole city (flat map).
+      if (camDist > 1420) return o.onWholeCity();
       for (const it of items) {
-        if (camDist > it.minZoom) it.el.style.display = 'none';
+        if (camDist > it.minZoom || (it.maxZoom && camDist < it.maxZoom)) it.el.style.display = 'none';
         else place(it.el, it.x, it.y, it.z, camera, w, h);
       }
       const p = o.player();

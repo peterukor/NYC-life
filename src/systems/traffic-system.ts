@@ -18,7 +18,7 @@ SYSTEMS.add({
     ctx.scene.add(traffic.group);
   },
   update(dt, ctx) {
-    traffic?.update(dt, isRushHour(ctx.time));
+    traffic?.update(dt, isRushHour(ctx.time), ctx.player);
   },
   areaUnloaded() {
     traffic?.dispose();

@@ -19,6 +19,7 @@ import { Registry } from '../core/registry.ts';
 import { chargeBill, changeMoney } from './economy.ts';
 import { addDebt } from './debt.ts';
 import { coolScore } from './garage.ts';
+import { repPerks } from './gangs.ts';
 import { arrest } from './jail.ts';
 import { addMoodlet, applyNeeds } from './needs.ts';
 import { adjustLikes, moodToday, personOf, remember, repeatFactor, type DayMood, type Memory, type Person } from './people.ts';
@@ -275,7 +276,7 @@ export function socialContext(s: GameState, personId: string, area: AreaId, hour
 export function streetFight(s: GameState, personId: string, area: AreaId): { won: boolean; text: string } {
   const p = personOf(personId);
   const m = remember(s, personId, area, nowMs());
-  const you = (s.skills.fitness ?? 0) * 1.2 + (s.skills.streetSmarts ?? 0) * 0.8 + Math.random() * 6;
+  const you = (s.skills.fitness ?? 0) * 1.2 + (s.skills.streetSmarts ?? 0) * 0.8 + repPerks(s).weapon.bonus + Math.random() * 6;
   const them = p.strength + Math.random() * 6;
   m.grudge = Math.min(100, m.grudge + 20);
   if (you > them) {

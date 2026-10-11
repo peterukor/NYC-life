@@ -9,6 +9,7 @@
 // =====================================================================
 
 import { blockRect, districtBounds, SIDEWALK, type DistrictDef, type Rect } from './layout.ts';
+import { onLand } from './geo-proj.ts';
 
 export const CELL = 3;
 
@@ -49,9 +50,12 @@ export function buildNavGrid(d: DistrictDef, solids: Rect[] = []): NavGrid {
 
   for (const r of solids) block(r);
 
-  // The river.
-  if (d.water.side === 'west') block({ minX: b.minX, maxX: b.minX + 30 - d.avenueW / 2, minZ: b.minZ, maxZ: b.maxZ });
-  else block({ minX: b.minX, maxX: b.maxX, minZ: b.minZ, maxZ: b.minZ + 30 - d.streetW / 2 });
+  // The river: anything off the borough's real coastline is water.
+  for (let rr = 0; rr < rows; rr++) {
+    for (let cc = 0; cc < cols; cc++) {
+      if (!onLand(d.borough, b.minX + (cc + 0.5) * CELL, b.minZ + (rr + 0.5) * CELL)) walk[rr * cols + cc] = 0;
+    }
+  }
   return grid;
 }
 

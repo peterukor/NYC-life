@@ -22,17 +22,20 @@
 // =====================================================================
 
 import type { AreaId } from '../sim/types.ts';
+import { onLand, project, type BoroughId } from './geo-proj.ts';
 
 export type Zone = 'tall' | 'midrise' | 'brownstone' | 'waterfront';
 
-/** What occupies a block, if it isn't ordinary buildings. */
-export type BlockKind = 'buildings' | 'plaza' | 'park' | 'vacant';
+/** What occupies a block, if it isn't ordinary buildings. 'water' = the block is in the river. */
+export type BlockKind = 'buildings' | 'plaza' | 'park' | 'vacant' | 'water';
 
 export interface DistrictDef {
   id: AreaId;
   name: string;
   /** Short neighbourhood label shown on the map. */
   tagline: string;
+  /** Which real borough this is (world/geo-proj.ts outlines). */
+  borough: BoroughId;
   origin: { x: number; z: number };
   cols: number;
   rows: number;
@@ -40,9 +43,12 @@ export interface DistrictDef {
   blockD: number;
   avenueW: number;
   streetW: number;
+  /** Street names along each grid avenue line / street line (for map labels). */
   avenueNames: string[];
   streetNames: string[];
-  /** Which side has water (river) along it, drawn on the map and in 3D. */
+  /** Real cross-street names at any point (HUD signposts). */
+  names: (x: number, z: number) => [string, string];
+  /** Water label for the maps. */
   water: { side: 'west' | 'north'; label: string };
   zone: (c: number, r: number) => Zone;
   kind: (c: number, r: number) => BlockKind;
@@ -54,73 +60,173 @@ export interface DistrictDef {
 
 export const SIDEWALK = 4;
 
+// ---------------------------------------------------------------------
+// The playable street grids are laid over the REAL borough shapes
+// (world/geo-proj.ts: Times Square = 0,0; 1 game metre = 5 real metres;
+// turned 29° so avenues run up the screen). Grid lines were chosen to
+// line up with real streets: Central Park runs from Central Park South
+// to 110th St between 8th and 5th Avenue, Times Square sits at 7th Ave
+// and 42nd–47th, and so on. Blocks that fall in the river are 'water'.
+// The rest of each borough (outside the grid) is "expandable" land for
+// sale (world/coast.ts), ready for future neighbourhoods.
+// ---------------------------------------------------------------------
+
+const PITCH_X = 92 + 14;
+const PITCH_Z = 38 + 13;
+
+/** Is the whole block (shrunk a little) on the borough's land? */
+function blockOnLand(borough: BoroughId, origin: { x: number; z: number }, c: number, r: number): boolean {
+  const x0 = origin.x + c * PITCH_X + 7 + 2;
+  const x1 = origin.x + (c + 1) * PITCH_X - 7 - 2;
+  const z0 = origin.z + r * PITCH_Z + 6.5 + 2;
+  const z1 = origin.z + (r + 1) * PITCH_Z - 6.5 - 2;
+  return [[x0, z0], [x1, z0], [x0, z1], [x1, z1], [(x0 + x1) / 2, (z0 + z1) / 2]].every(([x, z]) => onLand(borough, x, z));
+}
+
+/** Which block a real lat/lon falls in (for parks, plazas and lots tied to real places). */
+function blockOfLL(origin: { x: number; z: number }, lat: number, lon: number): string {
+  const p = project(lat, lon);
+  return `${Math.floor((p.x - origin.x) / PITCH_X)},${Math.floor((p.z - origin.z) / PITCH_Z)}`;
+}
+
+// ---- Manhattan: real street numbers and avenues from x/z ----
+/** Real street number at z (14th St … 110th St, linear: 15.87 game m per street). */
+export const manhattanStreetAt = (z: number) => 14 + (488 - z) / 15.87;
+/** Real avenues by x (measured at the projected intersections). West → east. */
+const M_AVES: [string, number][] = [['12th Ave', -287], ['11th Ave', -230], ['10th Ave', -172], ['9th Ave', -114], ['8th Ave', -56], ['7th Ave', -4], ['6th Ave', 56], ['5th Ave', 116], ['Madison Ave', 146], ['Park Ave', 176], ['Lexington Ave', 206], ['3rd Ave', 246], ['2nd Ave', 290], ['1st Ave', 335], ['York Ave', 380]];
+const ordinal = (n: number) => `${n}${n % 100 >= 11 && n % 100 <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] ?? 'th'}`;
+function manhattanAvenue(x: number): string {
+  let best = M_AVES[0];
+  for (const a of M_AVES) if (Math.abs(a[1] - x) < Math.abs(best[1] - x)) best = a;
+  // Central Park West is 8th Ave above 59th St.
+  return best[0];
+}
+function manhattanStreet(x: number, z: number): string {
+  const n = Math.round(manhattanStreetAt(z));
+  const inPark = x > -56 && x < 116;
+  if (n === 59 && inPark) return 'Central Park S';
+  if (n === 110 && inPark) return 'Central Park N';
+  return `${x < 116 ? 'W' : 'E'} ${ordinal(n)} St`;
+}
+
+const M_ORIGIN = { x: -378, z: -1042 };
+const M_COLS = 8;
+const M_ROWS = 31;
+const M_SPECIAL: Record<string, BlockKind> = {
+  [blockOfLL(M_ORIGIN, 40.7536, -73.9832)]: 'park', // Bryant Park
+  [blockOfLL(M_ORIGIN, 40.7540, -74.0020)]: 'vacant', // Hudson Yards lots
+  [blockOfLL(M_ORIGIN, 40.7525, -74.0005)]: 'vacant',
+  '1,11': 'plaza', // Funland, the Upper West Side waterfront
+};
+const M_LAND: boolean[][] = Array.from({ length: M_COLS }, (_, c) => Array.from({ length: M_ROWS }, (_, r) => blockOnLand('manhattan', M_ORIGIN, c, r)));
+
 const MANHATTAN: DistrictDef = {
   id: 'manhattan',
   name: 'Manhattan',
   tagline: 'Central Park · Midtown · Hell’s Kitchen',
-  // Three rows were added north of the original map for Central Park.
-  // The origin moved north by exactly those rows, so everything that was
-  // already there keeps its world position (old row r is now r + 3).
-  origin: { x: 0, z: -153 },
-  cols: 6,
-  rows: 12,
+  borough: 'manhattan',
+  origin: M_ORIGIN,
+  cols: M_COLS,
+  rows: M_ROWS,
   blockW: 92,
   blockD: 38,
   // Two-lane roads (one lane each way) plus a parking lane on each kerb.
   avenueW: 14,
   streetW: 13,
-  avenueNames: ['12th Ave', '10th Ave', '9th Ave', '8th Ave', '7th Ave', '6th Ave', '5th Ave'],
-  streetNames: ['W 72nd St', 'W 65th St', 'Central Park S', 'W 50th St', 'W 48th St', 'W 46th St', 'W 44th St', 'W 42nd St', 'W 40th St', 'W 38th St', 'W 36th St', 'W 34th St', 'W 32nd St'],
+  avenueNames: Array.from({ length: M_COLS + 1 }, (_, i) => manhattanAvenue(M_ORIGIN.x + i * PITCH_X)),
+  streetNames: Array.from({ length: M_ROWS + 1 }, (_, j) => manhattanStreet(0, M_ORIGIN.z + j * PITCH_Z)),
+  names: (x, z) => [manhattanAvenue(x), manhattanStreet(x, z)],
   water: { side: 'west', label: 'Hudson River' },
   zone: (c, r) => {
-    if (r <= 2) return c >= 5 ? 'tall' : 'brownstone'; // Upper West Side / Central Park South towers
-    r -= 3;
-    return c >= 3 ? 'tall' : c === 0 ? (r >= 5 ? 'waterfront' : 'midrise') : r <= 1 ? 'brownstone' : 'midrise';
+    const x = M_ORIGIN.x + (c + 0.5) * PITCH_X;
+    const n = manhattanStreetAt(M_ORIGIN.z + (r + 0.5) * PITCH_Z);
+    if (x < -240) return 'waterfront';
+    if (n >= 30 && n <= 59 && x > -60) return 'tall'; // Midtown
+    if (n > 59) return x > 150 ? 'midrise' : 'brownstone'; // Upper West / Upper East Side
+    if (n < 30) return x < -60 ? 'brownstone' : 'midrise'; // Chelsea / Flatiron & Gramercy
+    return x < -60 ? 'midrise' : 'tall'; // Hell's Kitchen / Murray Hill
   },
   kind: (c, r) => {
-    if (r <= 1 && c >= 1 && c <= 4) return 'park'; // Central Park
-    if (r <= 1 && c === 0) return 'plaza'; // Funland amusement park, west of the park
-    r -= 3;
-    if (c === 4 && r >= 1 && r <= 3) return 'plaza'; // Times Square
-    if (c === 5 && r === 4) return 'park'; // Bryant Park
-    if (c === 0 && r >= 6) return 'vacant'; // Hudson Yards expansion land
+    if (!M_LAND[c]?.[r]) return 'water';
+    const special = M_SPECIAL[`${c},${r}`];
+    if (special) return special;
+    const x = M_ORIGIN.x + (c + 0.5) * PITCH_X;
+    const n = manhattanStreetAt(M_ORIGIN.z + (r + 0.5) * PITCH_Z);
+    if (n > 59 && n < 111 && x > -60 && x < 152) return 'park'; // Central Park, 59th → 110th, 8th → 5th Ave
+    if (c === 3 && (r === 19 || r === 20)) return 'plaza'; // Times Square, 7th Ave & Broadway, 42nd–47th
     return 'buildings';
   },
-  hub: { c: 4, r: 5, name: 'Times Square' },
-  seed: 'manhattan-midtown-v1',
+  hub: { c: 3, r: 20, name: 'Times Square' },
+  seed: 'manhattan-real-v2',
 };
+
+// ---- Brooklyn: Downtown, DUMBO, Fort Greene, Boerum Hill ----
+/** Real Brooklyn streets near the grid, as straight lines (lat/lon ends). */
+const BK_STREETS: [string, [number, number], [number, number]][] = [
+  ['Atlantic Ave', [40.6915, -74.0], [40.681, -73.96]],
+  ['Flatbush Ave', [40.699, -73.987], [40.6805, -73.9745]],
+  ['Fulton St', [40.7027, -73.994], [40.6845, -73.97]],
+  ['Court St', [40.695, -73.9905], [40.68, -73.996]],
+  ['Myrtle Ave', [40.6935, -73.985], [40.6955, -73.96]],
+  ['DeKalb Ave', [40.6905, -73.984], [40.6895, -73.96]],
+  ['Tillary St', [40.6965, -73.991], [40.6985, -73.98]],
+  ['Water St', [40.7035, -73.993], [40.703, -73.98]],
+  ['Washington Ave', [40.696, -73.967], [40.68, -73.964]],
+  ['Smith St', [40.6895, -73.9895], [40.678, -73.9945]],
+];
+const BK_LINES = BK_STREETS.map(([n, a, b]) => ({ n, a: project(a[0], a[1]), b: project(b[0], b[1]) }));
+function bkNames(x: number, z: number): [string, string] {
+  const dist = (l: (typeof BK_LINES)[number]) => {
+    const dx = l.b.x - l.a.x, dz = l.b.z - l.a.z;
+    const t = Math.max(0, Math.min(1, ((x - l.a.x) * dx + (z - l.a.z) * dz) / (dx * dx + dz * dz)));
+    return Math.hypot(x - (l.a.x + t * dx), z - (l.a.z + t * dz));
+  };
+  const sorted = [...BK_LINES].sort((p, q) => dist(p) - dist(q));
+  return [sorted[0].n, sorted[1].n];
+}
+
+const B_ORIGIN = { x: 480, z: 980 };
+const B_COLS = 6;
+const B_ROWS = 11;
+const B_SPECIAL: Record<string, BlockKind> = {
+  [blockOfLL(B_ORIGIN, 40.6913, -73.9757)]: 'park', // Fort Greene Park
+  [blockOfLL(B_ORIGIN, 40.6845, -73.978)]: 'plaza', // Atlantic Plaza (by the arena)
+};
+const B_LAND: boolean[][] = Array.from({ length: B_COLS }, (_, c) => Array.from({ length: B_ROWS }, (_, r) => blockOnLand('brooklyn', B_ORIGIN, c, r)));
+const B_HUB = blockOfLL(B_ORIGIN, 40.6845, -73.978).split(',').map(Number);
 
 const BROOKLYN: DistrictDef = {
   id: 'brooklyn',
   name: 'Brooklyn',
-  tagline: 'Downtown · DUMBO · Fort Greene',
-  // Far from Manhattan on purpose: the two areas are never loaded at once.
-  origin: { x: 4000, z: 0 },
-  cols: 5,
-  rows: 7,
-  blockW: 78,
-  blockD: 42,
+  tagline: 'DUMBO · Downtown · Fort Greene',
+  borough: 'brooklyn',
+  origin: B_ORIGIN,
+  cols: B_COLS,
+  rows: B_ROWS,
+  blockW: 92,
+  blockD: 38,
   avenueW: 14,
   streetW: 13,
-  avenueNames: ['Court St', 'Smith St', 'Hoyt St', 'Flatbush Ave', 'Fort Greene Pl', 'Clermont Ave'],
-  streetNames: ['Water St', 'Front St', 'Tillary St', 'Fulton St', 'Atlantic Ave', 'Pacific St', 'Dean St', 'Bergen St'],
+  avenueNames: Array.from({ length: B_COLS + 1 }, (_, i) => bkNames(B_ORIGIN.x + i * PITCH_X, B_ORIGIN.z + (B_ROWS / 2) * PITCH_Z)[0]),
+  streetNames: Array.from({ length: B_ROWS + 1 }, (_, j) => bkNames(B_ORIGIN.x + (B_COLS / 2) * PITCH_X, B_ORIGIN.z + j * PITCH_Z)[0]),
+  names: bkNames,
   water: { side: 'north', label: 'East River' },
-  zone: (c, r) => (r === 0 ? 'waterfront' : c >= 3 && r >= 2 && r <= 4 ? 'tall' : 'brownstone'),
-  kind: (c, r) => {
-    if (c === 3 && r === 3) return 'plaza'; // Atlantic Plaza, Brooklyn's bright hub
-    if (c === 1 && r === 3) return 'park'; // Fort Greene Park
-    if ((c === 4 && r >= 5) || (c === 0 && r === 6)) return 'vacant';
-    return 'buildings';
+  zone: (c, r) => {
+    const x = B_ORIGIN.x + (c + 0.5) * PITCH_X;
+    const z = B_ORIGIN.z + (r + 0.5) * PITCH_Z;
+    if (z < 1110) return 'waterfront'; // DUMBO / Vinegar Hill warehouses
+    if (x > 560 && x < 760 && z > 1200 && z < 1380) return 'tall'; // Downtown Brooklyn
+    return 'brownstone'; // Brooklyn Heights, Fort Greene, Boerum Hill, Clinton Hill
   },
-  hub: { c: 3, r: 3, name: 'Atlantic Plaza' },
-  seed: 'brooklyn-downtown-v1',
+  kind: (c, r) => {
+    if (!B_LAND[c]?.[r]) return 'water';
+    return B_SPECIAL[`${c},${r}`] ?? 'buildings';
+  },
+  hub: { c: B_HUB[0], r: B_HUB[1], name: 'Atlantic Plaza' },
+  seed: 'brooklyn-real-v2',
 };
 
 export const DISTRICTS: Record<AreaId, DistrictDef> = { manhattan: MANHATTAN, brooklyn: BROOKLYN };
-
-// ---------------------------------------------------------------------
-// Geometry helpers
-// ---------------------------------------------------------------------
 
 export function avenueX(d: DistrictDef, i: number): number {
   return d.origin.x + i * (d.blockW + d.avenueW);
@@ -173,11 +279,8 @@ export function blockAt(d: DistrictDef, x: number, z: number): { c: number; r: n
   return null;
 }
 
-/** Name of the nearest cross streets, e.g. "8th Ave & W 44th St". */
+/** Name of the nearest cross streets, e.g. "8th Ave & W 44th St" (real names). */
 export function crossStreets(d: DistrictDef, x: number, z: number): string {
-  let bestA = 0;
-  let bestS = 0;
-  for (let i = 0; i <= d.cols; i++) if (Math.abs(avenueX(d, i) - x) < Math.abs(avenueX(d, bestA) - x)) bestA = i;
-  for (let j = 0; j <= d.rows; j++) if (Math.abs(streetZ(d, j) - z) < Math.abs(streetZ(d, bestS) - z)) bestS = j;
-  return `${d.avenueNames[bestA]} & ${d.streetNames[bestS]}`;
+  const [a, b] = d.names(x, z);
+  return `${a} & ${b}`;
 }

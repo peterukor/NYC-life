@@ -8,7 +8,7 @@
 // =====================================================================
 
 import * as THREE from 'three';
-import { streetZ } from '../layout.ts';
+import { project } from '../geo-proj.ts';
 import { LANDMARKS } from './registry.ts';
 import { Toy } from './toy.ts';
 
@@ -19,10 +19,20 @@ const CABLE = '#f4efe6';
 
 LANDMARKS.add({
   id: 'brooklynBridge',
-  build({ block, district, group, track }) {
-    const x = (block.minX + block.maxX) / 2;
-    const shore = streetZ(district, 0) - district.streetW / 2;
-    const span = 420;
+  build({ group: parent, track }) {
+    // Real ends: the Brooklyn approach by Old Fulton St, and Manhattan by
+    // City Hall. Built in a local frame running along −z, then turned to
+    // point at Manhattan (world/geo-proj.ts).
+    const a = project(40.6995, -73.9893);
+    const b = project(40.7115, -74.0045);
+    const length = Math.hypot(b.x - a.x, b.z - a.z);
+    const group = new THREE.Group();
+    group.position.set(a.x, 0, a.z);
+    group.rotation.y = Math.atan2(-(b.x - a.x), -(b.z - a.z));
+    parent.add(group);
+    const x = 0;
+    const shore = 0;
+    const span = length + 40;
     const toy = new Toy();
 
     // Deck with a lighter walkway down the middle (the famous promenade).
@@ -33,7 +43,7 @@ LANDMARKS.add({
     toy.add(ramp, DECK);
 
     // Towers with twin pointed arches.
-    const towerZs = [shore - 60, shore - 330];
+    const towerZs = [shore - length * 0.2, shore - length * 0.8];
     for (const tz of towerZs) {
       toy.block(8, 86, 11, x - 9.5, 0, tz, GRANITE, 0.08); // west leg
       toy.block(8, 86, 11, x + 9.5, 0, tz, GRANITE, 0.08); // east leg

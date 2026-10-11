@@ -69,6 +69,7 @@ import './sim/gang-events.ts';
 import { syncJail } from './ui/jail.ts';
 import { eventAt, joinEvent } from './data/city-events.ts';
 import { openMap3D, type Map3D } from './ui/map3d.ts';
+import { SAFE_AREAS, turfMap } from './sim/gangs.ts';
 import { bindPeople, confront, openPerson, openSpeak, type PeopleHost } from './ui/people-ui.ts';
 import { clearBubbles, updateBubbles } from './ui/bubbles.ts';
 import { familiarFace, personOf } from './sim/people.ts';
@@ -233,6 +234,24 @@ export class Game {
       anim: (name: FolkAnim | null) => this.player.setAction(name),
       tryLook: (patch: Partial<Look>) => this.player.setLook({ ...this.state.profile.look, ...patch }),
       /** Heaviest visible meshes (name, triangles) — for performance checks. */
+      /** Visible, in-frustum meshes counted by name (what the draw calls are). */
+      callBreakdown: () => {
+        const cam = this.engine.camera;
+        const fr = new THREE.Frustum().setFromProjectionMatrix(new THREE.Matrix4().multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse));
+        const out: Record<string, number> = {};
+        this.engine.cityScene.traverseVisible((o) => {
+          const m = o as THREE.Mesh;
+          if (!m.isMesh && !(o as THREE.LineSegments).isLineSegments) return;
+          if (m.frustumCulled && m.geometry) {
+            if (!m.geometry.boundingSphere) m.geometry.computeBoundingSphere();
+            const sph = m.geometry.boundingSphere!.clone().applyMatrix4(m.matrixWorld);
+            if (!fr.intersectsSphere(sph)) return;
+          }
+          const k = (m.name || `${m.type}<${m.parent?.name ?? ''}>`).replace(/-\d.*$/, '');
+          out[k] = (out[k] ?? 0) + 1;
+        });
+        return out;
+      },
       meshStats: () => {
         const rows: [string, number][] = [];
         this.engine.cityScene.traverseVisible((o) => {
@@ -469,7 +488,8 @@ export class Game {
     if (this.engine.mode === 'city' && this.city) {
       this.updatePlayer(dt);
       const camDist = this.engine.camera.position.distanceTo(this.engine.controls.target);
-      this.city.updateLod(this.engine.controls.target, DETAIL_RADIUS + camDist * 0.6, camDist);
+      // Street details (signs, awnings, posters) only near the focus; zoomed far out they'd be specks.
+      this.city.updateLod(this.engine.controls.target, Math.min(DETAIL_RADIUS + camDist * 0.6, camDist > 300 ? 170 : 400), camDist);
       this.city.updateSeeThrough(this.engine.camera.position, this.player.root.position, dt);
       this.city.tick(dt);
       const hub = DISTRICTS[this.city.area].hub;
@@ -1138,6 +1158,8 @@ export class Game {
     const d = DISTRICTS[this.city.area];
     this.map3d = openMap3D({
       area: this.city.area,
+      borough: d.borough,
+      onGang: (on) => this.showTurf(on),
       areaName: d.name,
       hour: nycTime().hour,
       homeId: this.state.home.placeId,
@@ -1153,15 +1175,43 @@ export class Game {
       },
       onWholeCity: () => {
         this.closeCityMap();
-        this.openMapOverlay();
+        this.openMapOverlay(true);
       },
       onClose: () => this.closeCityMap(),
     });
     this.overlayClose = () => this.closeCityMap();
   }
 
+  /** Gang view in the sky map: tint crew turf blocks (safe areas stay clear). */
+  private turfGroup: THREE.Group | null = null;
+  private showTurf(on: boolean): void {
+    this.turfGroup?.removeFromParent();
+    this.turfGroup?.traverse((o) => ((o as THREE.Mesh).geometry as THREE.BufferGeometry | undefined)?.dispose?.());
+    this.turfGroup = null;
+    if (!on || !this.city) return;
+    const area = this.city.area;
+    if (SAFE_AREAS.includes(area)) {
+      toast(`${DISTRICTS[area].name} is a safe zone — no crews here.`, { icon: '🕊️', ms: 3500 });
+      return;
+    }
+    const d = DISTRICTS[area];
+    const g = new THREE.Group();
+    const mats = new Map<string, THREE.MeshBasicMaterial>();
+    for (const t of turfMap(this.state, area)) {
+      const b = blockRect(d, t.c, t.r);
+      let m = mats.get(t.crew.color);
+      if (!m) mats.set(t.crew.color, (m = new THREE.MeshBasicMaterial({ color: t.crew.color, transparent: true, opacity: 0.45, depthWrite: false })));
+      const mesh = new THREE.Mesh(new THREE.PlaneGeometry(b.maxX - b.minX, b.maxZ - b.minZ).rotateX(-Math.PI / 2), m);
+      mesh.position.set((b.minX + b.maxX) / 2, t.base ? 70 : 45, (b.minZ + b.maxZ) / 2);
+      g.add(mesh);
+    }
+    this.engine.cityScene.add(g);
+    this.turfGroup = g;
+  }
+
   private closeCityMap(): void {
     if (!this.map3d) return;
+    this.showTurf(false);
     this.map3d.close();
     this.map3d = null;
     this.map3dSaved?.();
@@ -1170,17 +1220,26 @@ export class Game {
     this.hud?.setVisible(true);
   }
 
-  private openMapOverlay(): void {
+  /** The flat map (ui/map.ts): borough by borough, or the whole city. */
+  private openMapOverlay(whole = false): void {
     const s = this.state;
     const p = this.player.root.position;
     this.overlayClose = openMap({
       area: s.location.area,
+      whole,
+      state: s,
       player: { area: s.location.area, x: this.engine.mode === 'city' ? p.x : s.location.x, z: this.engine.mode === 'city' ? p.z : s.location.z },
       hour: nycTime().hour,
+      billboards: this.city ? this.city.adSlots.map((a) => ({ id: a.id, x: a.center.x, z: a.center.z, tier: a.tier })) : [],
       onPick: (id) => {
         this.overlayClose?.();
         this.travelSheet(PLACE_BY_ID[id]);
       },
+      onBillboard: (id) => {
+        this.overlayClose?.();
+        this.openAdCard(id);
+      },
+      onFlyover: () => window.setTimeout(() => this.openCityMap(), 0),
       onClose: () => (this.overlayClose = null),
     });
   }

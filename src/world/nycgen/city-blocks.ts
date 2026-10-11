@@ -19,7 +19,7 @@
 
 import * as THREE from 'three';
 import { Rng } from '../../core/rng.ts';
-import type { DistrictDef, Rect } from '../layout.ts';
+import type { BlockKind, DistrictDef, Rect } from '../layout.ts';
 import { blockRect, SIDEWALK } from '../layout.ts';
 import { BuildingFades, cityMaterial } from './atlas.ts';
 import { CityMeshBuilder } from './builder.ts';
@@ -32,7 +32,7 @@ interface BlockEntry {
   key: string;
   rect: Rect;
   inner: Rect;
-  kind: 'buildings' | 'park' | 'plaza' | 'vacant';
+  kind: Exclude<BlockKind, 'water'>;
   buildings: BuildingPlan[];
   yard: Rect | null;
   /** Id that switches this block's far stand-in on/off. */
@@ -81,15 +81,16 @@ export class CityBlocks {
         const rect = blockRect(d, c, r);
         const inner = { minX: rect.minX + SIDEWALK, maxX: rect.maxX - SIDEWALK, minZ: rect.minZ + SIDEWALK, maxZ: rect.maxZ - SIDEWALK };
         const kind = d.kind(c, r);
+        if (kind === 'water') continue; // in the river: nothing to build
         const seed = `${d.seed}-nyc-${c}-${r}`;
         const plan = kind === 'buildings' && !opts.skip(c, r) ? planNycBlock(inner, d.zone(c, r), new Rng(seed), opts.nearHub(c, r), () => this.fades.allocate()) : { buildings: [], yard: null };
         this.blocks.push({ c, r, key: `${c},${r}`, rect, inner, kind, buildings: plan.buildings, yard: plan.yard, farId: this.fades.allocate(), near: null, parkTrees: (opts.parkTrees ?? []).filter((t) => t.x >= rect.minX && t.x <= rect.maxX && t.z >= rect.minZ && t.z <= rect.maxZ), lastUsed: 0, seed });
       }
     }
-    // 2. Far stand-ins, grouped 3×3 blocks per mesh so off-screen groups are skipped.
+    // 2. Far stand-ins, grouped 4×5 blocks per mesh so off-screen groups are skipped.
     const groups = new Map<string, BlockEntry[]>();
     for (const b of this.blocks) {
-      const k = `${Math.floor(b.c / 3)},${Math.floor(b.r / 3)}`;
+      const k = `${Math.floor(b.c / 4)},${Math.floor(b.r / 5)}`;
       if (!groups.has(k)) groups.set(k, []);
       groups.get(k)!.push(b);
     }

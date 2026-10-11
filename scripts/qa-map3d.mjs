@@ -33,6 +33,25 @@ await wait(3500);
 await page.screenshot({ path: 'test-results/map3d-3-close.png' });
 await page.$eval('[data-act="city"]', (el) => el.click());
 await wait(1500);
-await page.screenshot({ path: 'test-results/map3d-4-flat.png' });
+await page.screenshot({ path: 'test-results/map3d-4-whole-city.png' });
+// Tap Manhattan on the whole-city map, then Brooklyn.
+const tapAt = async (lat, lon) => {
+  const p = await page.evaluate(([la, lo]) => window.__mapPoint?.(la, lo), [lat, lon]);
+  if (p) await page.mouse.click(p.x, p.y);
+};
+await tapAt(40.78, -73.965);
+await wait(1200);
+await page.screenshot({ path: 'test-results/map3d-5-manhattan.png' });
+await page.$eval('.map [data-act="gang"]', (el) => el.click());
+await page.$eval('.map [data-act="city"]', (el) => el.click());
+await wait(900);
+await tapAt(40.65, -73.95);
+await wait(1200);
+await page.screenshot({ path: 'test-results/map3d-6-brooklyn-gangs.png' });
+const box2 = await (await page.$('.map canvas')).boundingBox();
+await page.mouse.move(box2.x + box2.width * 0.3, box2.y + box2.height * 0.3);
+for (let i = 0; i < 8; i++) { await page.mouse.wheel({ deltaY: -200 }); await wait(100); }
+await wait(800);
+await page.screenshot({ path: 'test-results/map3d-7-brooklyn-zoom.png' });
 console.log(errors.length ? errors : 'no errors');
 await browser.close();

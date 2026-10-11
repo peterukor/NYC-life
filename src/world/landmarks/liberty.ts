@@ -9,6 +9,7 @@
 
 import * as THREE from 'three';
 import { LANDMARKS } from './registry.ts';
+import { project } from '../geo-proj.ts';
 import { Toy } from './toy.ts';
 
 const PATINA = '#7fcdb4';
@@ -18,10 +19,11 @@ const GRASS = '#86cf73';
 
 LANDMARKS.add({
   id: 'statueOfLiberty',
-  build({ block, group, track, animate }) {
-    // Out in the river, west of the block.
-    const x = block.minX - 95;
-    const z = (block.minZ + block.maxZ) / 2;
+  build({ place, block, group, track, animate }) {
+    // On Liberty Island in the harbour (its real spot), or west of the block.
+    const at = place.model ? project(place.model[0], place.model[1]) : { x: block.minX - 95, z: (block.minZ + block.maxZ) / 2 };
+    const x = at.x;
+    const z = at.z;
     const toy = new Toy();
     // Island, star fort and lawn.
     toy.cyl(34, 38, 3, x, -1.5, z, '#d8c9a8', 24);

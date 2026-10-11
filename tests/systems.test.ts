@@ -6,9 +6,9 @@ import { newLife } from '../src/sim/state.ts';
 import { addDebt, bankruptcyBlocker, fileBankruptcy, runCollections } from '../src/sim/debt.ts';
 import { arrest, inJail, postBail } from '../src/sim/jail.ts';
 import { buyCar, driveTrip, GARAGE, licenceSuspended, sellCar, coolScore } from '../src/sim/garage.ts';
-import { CREWS, crewOfBlock, joinBlocker, joinCrew, standing, turfAt } from '../src/sim/gangs.ts';
+import { CREWS, baseBlock, defaultOwner, joinBlocker, joinCrew, ownerOf, runGangDay, standing, turfAt } from '../src/sim/gangs.ts';
 import { VEHICLES, carsForSale, RARITY_INFO } from '../src/data/vehicles.ts';
-import { DISTRICTS, blockRect } from '../src/world/layout.ts';
+import { DISTRICTS } from '../src/world/layout.ts';
 import { PLACE_BY_ID } from '../src/data/places.ts';
 
 const fresh = () => newLife({ name: 'T', origin: 'hustler', spawnClass: 'middle', look: { body: 'f', skin: '#000', top: '#000', bottom: '#000', hair: '#000' }, birthYear: 1990, traits: [] });
@@ -74,19 +74,44 @@ test('garage: buy, tickets suspend your licence, sell back', () => {
   assert.equal(s.garage.cars.length as number, 0);
 });
 
-test('crews: five crews, turf lookups, joining needs street rep', () => {
+test('crews: five crews in Brooklyn, Manhattan is safe, bases can never be taken', () => {
   assert.equal(CREWS.all().length, 5);
-  const kings = CREWS.require('kings');
-  const [c0, , r0] = kings.turf[0];
-  const r = blockRect(DISTRICTS.manhattan, c0, r0);
-  assert.equal(turfAt('manhattan', (r.minX + r.maxX) / 2, (r.minZ + r.maxZ) / 2)?.id, 'kings');
-  assert.equal(crewOfBlock('manhattan', c0, r0)?.id, 'kings');
   const s = fresh();
+  // Manhattan: no turf anywhere.
+  const m = DISTRICTS.manhattan;
+  for (let c = 0; c < m.cols; c++) for (let r = 0; r < m.rows; r++) assert.equal(defaultOwner('manhattan', c, r), null);
+  // Every crew has a base block on its own starting turf.
+  for (const crew of CREWS.all()) {
+    const b = baseBlock(crew);
+    assert.ok(b, `${crew.id} base is on the grid`);
+    assert.equal(defaultOwner(crew.area, b!.c, b!.r)?.id, crew.id, `${crew.id} owns its base`);
+  }
+  // Raids never touch bases.
+  for (let i = 0; i < 40; i++) runGangDay(s, `2026-02-${String((i % 27) + 1).padStart(2, '0')}`);
+  for (const crew of CREWS.all()) {
+    const b = baseBlock(crew)!;
+    assert.equal(ownerOf(s, crew.area, b.c, b.r)?.id, crew.id, `${crew.id} kept its base`);
+  }
   assert.ok(joinBlocker(s, 'kings'));
   s.paths.rep.crime = 100;
   assert.equal(joinCrew(s, 'kings'), null);
   assert.equal(standing(s, 'kings'), 'family');
   assert.equal(standing(s, 'dragons'), 'rival');
+  void turfAt;
+});
+
+test('crews: idle members get demoted and lose rep', () => {
+  const s = fresh();
+  s.paths.rep.crime = 500;
+  joinCrew(s, 'lions');
+  s.gang.rank = 3;
+  s.gang.lastActive = '2026-01-01';
+  const rnd = Math.random;
+  Math.random = () => 0.1;
+  runGangDay(s, '2026-01-10');
+  Math.random = rnd;
+  assert.equal(s.gang.rank, 2);
+  assert.ok((s.paths.rep.crime ?? 0) < 500);
 });
 
 import { personOf, remember, MAX_MEMORIES, familiarFace } from '../src/sim/people.ts';

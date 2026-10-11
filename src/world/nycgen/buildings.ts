@@ -73,13 +73,15 @@ const AWNINGS = ['#e63946', '#2a9d8f', '#f4a261', '#3a86ff', '#8338ec', '#06a77d
 const ROOFS = ['#7d828f', '#8f97a3', '#9b8f84', '#6f7684'];
 
 /** Height, width and look rules per style. */
+// Lots are wide on purpose (Peter, 2026-10-11: "space out the houses or make them bigger"):
+// fewer, chunkier buildings read better from the sky map and cost less on phones.
 const STYLE_RULES: Record<Style, { floors: [number, number]; floorH: number; width: [number, number]; bay: number; tile: number; ground: number }> = {
-  brownstone: { floors: [3, 4], floorH: 3.3, width: [6.5, 8.5], bay: 2.4, tile: TILE.brownstoneWindow, ground: TILE.brownstoneWindow },
-  walkup: { floors: [4, 6], floorH: 3.2, width: [8, 13], bay: 2.6, tile: TILE.brickWindow, ground: TILE.storefront },
-  prewar: { floors: [7, 14], floorH: 3.3, width: [14, 22], bay: 3.0, tile: TILE.prewarWindow, ground: TILE.storefront },
-  modern: { floors: [5, 12], floorH: 3.2, width: [12, 18], bay: 3.4, tile: TILE.ribbon, ground: TILE.storefront },
-  glass: { floors: [18, 40], floorH: 3.5, width: [20, 32], bay: 3.0, tile: TILE.glass, ground: TILE.storefront },
-  deco: { floors: [20, 34], floorH: 3.4, width: [20, 30], bay: 3.0, tile: TILE.officeWindow, ground: TILE.storefront },
+  brownstone: { floors: [3, 4], floorH: 3.3, width: [10, 13], bay: 2.4, tile: TILE.brownstoneWindow, ground: TILE.brownstoneWindow },
+  walkup: { floors: [4, 6], floorH: 3.2, width: [12, 17], bay: 2.6, tile: TILE.brickWindow, ground: TILE.storefront },
+  prewar: { floors: [7, 14], floorH: 3.3, width: [18, 26], bay: 3.0, tile: TILE.prewarWindow, ground: TILE.storefront },
+  modern: { floors: [5, 12], floorH: 3.2, width: [16, 22], bay: 3.4, tile: TILE.ribbon, ground: TILE.storefront },
+  glass: { floors: [18, 40], floorH: 3.5, width: [24, 36], bay: 3.0, tile: TILE.glass, ground: TILE.storefront },
+  deco: { floors: [20, 34], floorH: 3.4, width: [24, 32], bay: 3.0, tile: TILE.officeWindow, ground: TILE.storefront },
 };
 
 /** Which styles each neighbourhood type is made of (with weights). */
