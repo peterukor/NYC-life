@@ -23,7 +23,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
-export const AI_MODELS = ['house-tiny', 'house-townhouse', 'house-villa', 'house-mansion', 'block-walkups-a'] as const;
+export const AI_MODELS = ['house-tiny', 'house-townhouse', 'house-villa', 'house-mansion', 'block-walkups-a', 'block-rowhouses-a'] as const;
 export type AiModelName = (typeof AI_MODELS)[number];
 
 export interface AiModel {

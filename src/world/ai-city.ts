@@ -38,7 +38,14 @@ export const HOUSE_FOOTPRINT: Record<string, [number, number]> = {
   'house-mansion': [4, 2],
 };
 
-const TILE_MODELS: AiModelName[] = ['block-walkups-a'];
+/**
+ * Whole-block models. Not tied to a neighbourhood (Peter: a model named
+ * "Greenwich Village" can go anywhere, Brooklyn included): each block
+ * picks whichever model's footprint fits its shape best.
+ */
+const TILE_MODELS: AiModelName[] = ['block-walkups-a', 'block-rowhouses-a'];
+/** Real-world length (m) of one copy of each block model, along its long side. */
+const TILE_LEN: Partial<Record<AiModelName, number>> = { 'block-walkups-a': 46, 'block-rowhouses-a': 72 };
 /** Share of eligible street blocks that get an AI block model. */
 const TILE_SHARE = 0.32;
 
@@ -116,14 +123,34 @@ export function buildAiCity(d: DistrictDef, models: Models | undefined, plan: Ai
     const inner = { minX: b.minX + SIDEWALK, maxX: b.maxX - SIDEWALK, minZ: b.minZ + SIDEWALK, maxZ: b.maxZ - SIDEWALK };
     const W = inner.maxX - inner.minX, D = inner.maxZ - inner.minZ;
     const alongX = W >= D;
-    const n = Math.max(1, Math.min(3, Math.round((alongX ? W : D) / (alongX ? D : W))));
+    const long = alongX ? W : D;
     const rng = new Rng(`${d.seed}-ai-tile-${key}`);
-    for (let i = 0; i < n; i++) {
-      const cell = alongX
-        ? { minX: inner.minX + (W * i) / n, maxX: inner.minX + (W * (i + 1)) / n, minZ: inner.minZ, maxZ: inner.maxZ }
-        : { minX: inner.minX, maxX: inner.maxX, minZ: inner.minZ + (D * i) / n, maxZ: inner.minZ + (D * (i + 1)) / n };
-      const model = TILE_MODELS.filter((t) => models.has(t))[rng.int(0, TILE_MODELS.length - 1)] ?? TILE_MODELS[0];
-      fit(model, cell, rng.int(0, 3) * (Math.PI / 2), 0.98);
+    // Pick a model (seeded) and repeat it along the block so it keeps a
+    // believable size: each copy's long side is about TILE_LEN metres
+    // (a row of ~7 brownstones is ~75 m; the walk-up corner block ~45 m).
+    const usable = TILE_MODELS.filter((t) => models.has(t));
+    if (!usable.length) continue;
+    const pickM = usable[rng.int(0, usable.length - 1)];
+    const len = TILE_LEN[pickM] ?? 50;
+    const mm = models.get(pickM)!;
+    const depthM = (len * Math.min(mm.size.x, mm.size.z)) / Math.max(mm.size.x, mm.size.z);
+    // Copies along the block, and rows across it (deep blocks get two rows back to back).
+    const best = { model: pickM, n: Math.max(1, Math.min(4, Math.round(long / len))), rows: Math.max(1, Math.min(2, Math.round((alongX ? D : W) / depthM))) };
+    if (!best) continue;
+    const m = models.get(best.model)!;
+    // Turn the model so its long side runs along the block; flip half of them.
+    const modelLongX = m.size.x >= m.size.z;
+    const base = modelLongX === alongX ? 0 : Math.PI / 2;
+    for (let i = 0; i < best.n; i++) {
+      for (let j = 0; j < best.rows; j++) {
+        const a0 = i / best.n, a1 = (i + 1) / best.n, b0 = j / best.rows, b1 = (j + 1) / best.rows;
+        const cell = alongX
+          ? { minX: inner.minX + W * a0, maxX: inner.minX + W * a1, minZ: inner.minZ + D * b0, maxZ: inner.minZ + D * b1 }
+          : { minX: inner.minX + W * b0, maxX: inner.minX + W * b1, minZ: inner.minZ + D * a0, maxZ: inner.minZ + D * a1 };
+        // Two rows: each faces its own street (back to back), else a seeded flip.
+        const flip = best.rows === 2 ? (j === 0 ? Math.PI : 0) : rng.chance(0.5) ? Math.PI : 0;
+        fit(best.model, cell, base + flip, 0.98);
+      }
     }
   }
 

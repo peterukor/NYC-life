@@ -31,7 +31,7 @@ for (const [name, p, dist] of views) {
   await wait(4000);
   await page.screenshot({ path: `test-results/ai-${name}.png` });
 }
-const tiles = (await page.evaluate(() => window.__nyc.aiSpots())).filter((s) => s.model.startsWith('block'));
+const tiles = (await page.evaluate(() => window.__nyc.aiSpots())).filter((s) => s.model.startsWith(process.env.TILE ?? 'block'));
 for (const [i, t] of tiles.slice(0, 2).entries()) {
   await page.evaluate((x, z) => window.__nyc.skyAt(x, z, 140), t.x, t.z);
   await wait(4000);
