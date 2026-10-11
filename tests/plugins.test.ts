@@ -166,3 +166,30 @@ test('each spawn class starts with its own money, home and wardrobe', () => {
     assert.equal(s.profile.spawnClass, cls);
   }
 });
+
+import { PATHS } from '../src/data/paths.ts';
+import { ACTIONS, actionLock } from '../src/data/actions.ts';
+import { joinPath, levelBlockers, levelTasks, onPathAction, pathLevel, tryLevelUp } from '../src/sim/paths.ts';
+
+test('life paths: valid data, seeded checklists, rep, gating and level-ups', () => {
+  for (const p of PATHS.all()) {
+    assert.equal(p.repCurve.length, p.titles.length, `${p.id} rep curve length`);
+    assert.equal(p.tasks.length, p.titles.length - 1, `${p.id} task stages`);
+    for (const id of Object.keys(p.rep)) assert.ok(ACTIONS[id], `${p.id}: unknown rep action ${id}`);
+    for (const st of p.tasks) for (const t of [...st.pool, ...(st.fixed ?? [])]) if (t.kind === 'action') assert.ok(ACTIONS[t.action], `${p.id}: unknown task action ${t.action}`);
+  }
+  assert.equal(PATHS.require('celebrity').titles.length, 6, 'celebrity tops out at 6');
+  const s = newLife({ name: 'T', origin: 'hustler', look: { body: 'm', skin: '#000', top: '#000', bottom: '#000', hair: '#000' }, birthYear: 1990, traits: [] });
+  // Path actions are locked until you join.
+  assert.ok(actionLock(ACTIONS.streetDeal, s, 12));
+  joinPath(s, 'crime');
+  assert.equal(actionLock(ACTIONS.streetDeal, s, 12), null);
+  assert.deepEqual(levelTasks(s, 'crime'), levelTasks(s, 'crime'), 'checklist is stable');
+  // Earn rep and finish the level-1 checklist.
+  for (let i = 0; i < 12; i++) onPathAction(s, 'streetDeal', 0);
+  s.skills.streetSmarts = 3;
+  s.stats.placesVisited = ['a', 'b', 'c', 'd', 'e', 'f'];
+  assert.deepEqual(levelBlockers(s, 'crime'), []);
+  assert.equal(tryLevelUp(s, 'crime'), 'Runner');
+  assert.equal(pathLevel(s, 'crime'), 2);
+});

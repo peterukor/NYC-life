@@ -71,7 +71,7 @@ export const PLACES: PlaceDef[] = [
     id: 'diveBar', area: 'manhattan', name: 'The Rusty Nail', emoji: '🍺', type: 'nightlife',
     blurb: 'Dive bar with a jukebox stuck on 2004. Karaoke Thursdays (and every other day).',
     block: [2, 4], side: 'S', slot: 1, hours: [16, 4], interior: 'bar', color: '#8c2f39',
-    actions: ['happyHour', 'karaoke'],
+    actions: ['happyHour', 'karaoke', 'streetDeal', 'collectDebt', 'betrayCrew'],
   },
   {
     id: 'comedyCellar', area: 'manhattan', name: 'The Basement Comedy Club', emoji: '😂', type: 'nightlife',
@@ -88,7 +88,7 @@ export const PLACES: PlaceDef[] = [
   {
     id: 'midtownTower', area: 'manhattan', name: 'Sixth Avenue Tower', emoji: '🏢', type: 'work',
     blurb: 'Glass, granite and a lobby that smells like money.',
-    block: [5, 5], side: 'W', slot: 1, interior: 'office', color: '#355c7d', actions: [],
+    block: [5, 5], side: 'W', slot: 1, interior: 'office', color: '#355c7d', actions: ['pitchInvestors', 'dumpWaste', 'bribeCops'],
   },
   {
     id: 'timesSquare', area: 'manhattan', name: 'Times Square', emoji: '🌆', type: 'plaza',

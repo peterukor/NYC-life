@@ -31,6 +31,10 @@ export interface ActionDef {
   moodlet?: { id: string; label: string; emoji: string; value: number; minutes: number };
   /** Only available between these New York hours (e.g. [22, 4] wraps past midnight). */
   hours?: [number, number];
+  /** Only for players on this life path (data/paths.ts), from this level. */
+  path?: { id: string; minLevel: number };
+  /** Chance (0–1) this goes wrong and you get caught (sim/paths.ts handles it). */
+  risk?: number;
   tags: string[];
 }
 
@@ -108,6 +112,18 @@ const LIST: ActionDef[] = [
   { id: 'funnelCake', label: 'Funnel cake', emoji: '🍰', seconds: 5, cost: 900, needs: { hunger: 30, fun: 10 }, tags: ['eat'] },
   { id: 'catchGame', label: 'Catch a game', emoji: '🏀', seconds: 14, cost: 6_500, needs: { fun: 50, social: 25, hunger: -8 }, tags: ['landmark', 'fun', 'nightlife'] },
 
+  // ---------- Life paths (data/paths.ts) ----------
+  // Crime: kept vague on purpose (it's a cartoon, 21+). Risky ones can get you busted.
+  { id: 'streetDeal', label: 'Move a package for the crew', emoji: '📦', seconds: 10, needs: { energy: -6, fun: 4 }, pay: (s) => 3_000 + 1_500 * lvl(s, 'streetSmarts'), skill: { key: 'streetSmarts', gain: 0.4 }, path: { id: 'crime', minLevel: 1 }, risk: 0.04, tags: ['crime', 'earn'] },
+  { id: 'collectDebt', label: 'Collect what you’re owed', emoji: '💰', seconds: 12, needs: { energy: -8, social: -4 }, pay: (s) => 6_000 + 2_500 * lvl(s, 'hustle'), skill: { key: 'hustle', gain: 0.4 }, path: { id: 'crime', minLevel: 2 }, risk: 0.06, tags: ['crime', 'earn'] },
+  { id: 'betrayCrew', label: 'Sell out someone who trusted you', emoji: '🐍', seconds: 8, needs: { social: -30, fun: -10 }, moodlet: { id: 'betrayer', label: 'Watching your back', emoji: '🐍', value: -18, minutes: 60 * 12 }, path: { id: 'crime', minLevel: 5 }, risk: 0.15, tags: ['crime', 'betrayal'] },
+  // CEO
+  { id: 'pitchInvestors', label: 'Pitch investors', emoji: '📊', seconds: 14, needs: { energy: -10, social: 8 }, skill: { key: 'charisma', gain: 0.5 }, path: { id: 'ceo', minLevel: 1 }, tags: ['ceo', 'skill'] },
+  { id: 'dumpWaste', label: 'Quietly dump waste in the river', emoji: '🛢️', seconds: 8, needs: { fun: -10 }, pay: 40_000, moodlet: { id: 'guilt', label: 'People are getting sick', emoji: '😷', value: -15, minutes: 60 * 12 }, path: { id: 'ceo', minLevel: 5 }, risk: 0.2, tags: ['ceo', 'illegal'] },
+  { id: 'bribeCops', label: 'Pay off an investigator', emoji: '🤫', seconds: 6, cost: 30_000, path: { id: 'ceo', minLevel: 5 }, risk: 0.25, tags: ['ceo', 'illegal'] },
+  // Celebrity
+  { id: 'postContent', label: 'Post content', emoji: '📸', seconds: 8, needs: { fun: 8, social: 6, energy: -3 }, skill: { key: 'charisma', gain: 0.2 }, path: { id: 'celebrity', minLevel: 1 }, tags: ['celebrity', 'online'] },
+
   // ---------- Transit ----------
   { id: 'subwayShowtime', label: 'Watch the Showtime dancers', emoji: '🕺', seconds: 6, needs: { fun: 16 }, tags: ['fun'] },
   { id: 'tipPerformer', label: 'Tip the performer $5', emoji: '💵', seconds: 2, cost: 500, needs: { fun: 6, social: 6 }, moodlet: { id: 'goodDeed', label: 'Supported local art', emoji: '💛', value: 6, minutes: 60 }, tags: ['social'] },
@@ -124,6 +140,10 @@ export function actionLock(a: ActionDef, s: GameState, hour: number): string | n
     const [from, to] = a.hours;
     const open = from <= to ? hour >= from && hour < to : hour >= from || hour < to;
     if (!open) return `From ${fmtHour(from)}`;
+  }
+  if (a.path) {
+    const p = s.paths.active === a.path.id ? s.paths.levels[a.path.id] ?? 1 : 0;
+    if (p < a.path.minLevel) return p ? `${a.path.id === 'ceo' ? 'CEO' : a.path.id} level ${a.path.minLevel}` : 'Join this path first';
   }
   if (a.cost && s.money < a.cost) return 'Not enough cash';
   return null;

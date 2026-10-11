@@ -21,6 +21,8 @@ import { HOUSE_ADS } from '../render/textures.ts';
 import type { AdStats } from '../world/ads.ts';
 import { html, onAct, root, toast } from './dom.ts';
 import { STOCKS } from '../data/stocks.ts';
+import { PATHS } from '../data/paths.ts';
+import { joinPath, leavePath, levelBlockers, levelTasks, pathLevel, pathTitle, taskProgress, tryLevelUp } from '../sim/paths.ts';
 import { buyStock, dayChange, netWorth, portfolioValue, priceOf, recentPrices, sellStock, TRADE_FEE } from '../sim/market.ts';
 
 export interface PhoneHost {
@@ -43,6 +45,7 @@ const APPS = [
   { id: 'ride', label: 'Rideshare', icon: '🚗', bg: '#00b4d8', needsPhone: true },
   { id: 'bank', label: 'Bank', icon: '🏦', bg: '#0b3d91', needsPhone: true },
   { id: 'stocks', label: 'Stocks', icon: '📈', bg: '#06a77d', needsPhone: true },
+  { id: 'path', label: 'Life Path', icon: '🪜', bg: '#8338ec', needsPhone: false },
   { id: 'news', label: 'City News', icon: '📰', bg: '#e63946', needsPhone: false },
   { id: 'me', label: 'Me', icon: '🙂', bg: '#6d597a', needsPhone: false },
   { id: 'ads', label: 'Ad Center', icon: '📢', bg: '#f4a261', needsPhone: true },
@@ -110,6 +113,33 @@ export function openPhone(host: PhoneHost, startApp?: string): () => void {
         ${s.home.weeklyRent ? `<div class="card"><h3>🏠 Rent</h3><p>${money(s.home.weeklyRent)} every week (cash first, then bank).</p></div>` : `<div class="card"><h3>🏠 Rent</h3><p>Paid by Dad. Must be nice.</p></div>`}
         <h3 style="margin:16px 0 8px;font-size:15px">History</h3>
         ${s.ledger.length ? s.ledger.slice(0, 40).map((l) => `<div class="list-item"><div class="grow"><div class="title">${esc(l.reason)}</div><div class="sub">${new Date(l.at).toLocaleString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</div></div><div class="amt ${l.delta > 0 ? 'pos' : 'neg'}">${money(l.delta, { sign: true })}</div></div>`).join('') : '<p class="blurb">No transactions yet.</p>'}`);
+    },
+    path() {
+      const active = s.paths.active ? PATHS.get(s.paths.active) : null;
+      if (!active) {
+        page('Life Path', `
+          <p class="blurb">Pick a ladder to climb. Rep comes fast at first and very slowly at the top. Every level asks for a different mix of things, so no two climbs are the same.</p>
+          ${PATHS.all().map((p) => `<div class="card"><h3>${p.emoji} ${p.name}</h3><p>${esc(p.blurb)}</p><p class="sub" style="margin-top:6px">${p.titles.map((t, i) => `${i + 1}. ${esc(t)}`).join(' → ')}</p>${p.warning ? `<p style="margin-top:6px;color:var(--bad);font-size:12px">⚠️ ${esc(p.warning)}</p>` : ''}<button class="btn primary block" style="margin-top:10px" data-act="path:join:${p.id}">Start as ${esc(p.titles[0])}${s.paths.levels[p.id] ? ` (you were ${esc(p.titles[s.paths.levels[p.id] - 1])})` : ''}</button></div>`).join('')}`);
+        return;
+      }
+      const lvl = pathLevel(s, active.id);
+      const top = lvl >= active.titles.length;
+      const rep = Math.floor(s.paths.rep[active.id] ?? 0);
+      const need = active.repCurve[Math.min(lvl, active.repCurve.length - 1)];
+      const tasks = levelTasks(s, active.id);
+      const blockers = levelBlockers(s, active.id);
+      page('Life Path', `
+        <div class="card"><h3>${active.emoji} ${esc(pathTitle(s, active.id))}</h3><p>${active.name} · level ${lvl} of ${active.titles.length}</p>
+          <div class="skill-row" style="margin-top:8px"><span>Rep</span><div class="bar"><i style="width:${top ? 100 : Math.min(100, (rep / need) * 100)}%;background:#8338ec"></i></div><span>${rep}${top ? '' : `/${need}`}</span></div></div>
+        ${top ? '<p class="blurb">You’re at the top. Legend.</p>' : `<h3 style="margin:14px 0 8px;font-size:15px">To become ${esc(active.titles[lvl])}</h3>
+        ${tasks.map((t) => {
+          const pr = taskProgress(s, active.id, t);
+          const done = pr.have >= pr.need;
+          const show = t.kind === 'netWorth' ? `${money(pr.have)} / ${money(pr.need)}` : `${Math.min(pr.have, pr.need)} / ${pr.need}`;
+          return `<div class="list-item"><div style="font-size:20px">${done ? '✅' : '⬜'}</div><div class="grow"><div class="title">${esc(t.label)}</div><div class="sub">${show}</div></div></div>`;
+        }).join('')}
+        <button class="btn ${blockers.length ? '' : 'primary'} block" style="margin-top:10px" data-act="path:up" ${blockers.length ? 'disabled' : ''}>${blockers.length ? `Still needed: ${blockers.length}` : `⬆ Become ${esc(active.titles[lvl])}`}</button>`}
+        <button class="btn ghost block" style="margin-top:10px" data-act="path:leave">Step away from this path (progress is kept)</button>`);
     },
     stocks() {
       const spark = (prices: number[]) => {
@@ -230,6 +260,18 @@ export function openPhone(host: PhoneHost, startApp?: string): () => void {
       host.save();
       host.refresh();
       return apps.bank();
+    }
+    if (act.startsWith('path:')) {
+      const [, what, id] = act.split(':');
+      if (what === 'join') joinPath(s, id);
+      if (what === 'leave') leavePath(s);
+      if (what === 'up') {
+        const t = tryLevelUp(s, s.paths.active!);
+        if (t) toast(`You’re now a ${t}!`, { icon: '📈', tone: 'good', ms: 4000 });
+      }
+      host.save();
+      host.refresh();
+      return apps.path();
     }
     if (act.startsWith('buy:') || act.startsWith('sell:')) {
       const [kind, id, amt] = act.split(':');

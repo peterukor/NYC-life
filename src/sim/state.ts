@@ -6,6 +6,7 @@ import { HUSTLER_LOAN, SAVE_VERSION } from '../core/constants.ts';
 import { nowMs, nycTime } from '../core/clock.ts';
 import { doorOf, PLACE_BY_ID } from '../data/places.ts';
 import { starterWardrobe, type SpawnClass } from '../data/wardrobe.ts';
+import { newPathsState } from './paths.ts';
 import { NEED_KEYS, SKILL_KEYS, type GameState, type Look, type NeedKey, type Origin, type SkillKey } from './types.ts';
 
 export interface NewLifeOptions {
@@ -123,6 +124,7 @@ export function newLife(opts: NewLifeOptions): GameState {
     homes: {},
     auto: { on: false, routine: [], since: 0 },
     portfolio: {},
+    paths: newPathsState(),
     news: [],
     tutorialStep: 0,
     settings: { quality: 'auto', sound: true },

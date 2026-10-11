@@ -54,6 +54,8 @@ import { openCloset } from './ui/closet.ts';
 import { openSidePanel } from './ui/side-panel.ts';
 import { openAutoMode } from './ui/auto-mode.ts';
 import { recordVariety } from './sim/auto.ts';
+import { levelBlockers, onPathAction, pathTitle } from './sim/paths.ts';
+import { PATHS } from './data/paths.ts';
 import { DISTRICTS, crossStreets, blockRect } from './world/layout.ts';
 import { findPath, nearestWalkable } from './world/nav.ts';
 import { SystemRunner, type SystemContext } from './core/systems.ts';
@@ -625,6 +627,8 @@ export class Game {
     const s = this.state;
     const hour = nycTime().hour;
     const cards = actionIds
+      // Life-path activities (crime, CEO, celebrity) only show for players on that path.
+      .filter((id) => !ACTIONS[id]?.path || s.paths.active === ACTIONS[id].path!.id)
       .map((id) => {
         const a = ACTIONS[id];
         const lock = !open ? 'Closed now' : actionLock(a, s, hour);
@@ -833,6 +837,12 @@ export class Game {
     this.busy = false;
     const recovered = recordVariety(this.state, a.id);
     if (recovered) toast(recovered, { icon: '🌤️', tone: 'good', ms: 4500 });
+    const path = onPathAction(this.state, a.id, a.risk ?? 0);
+    if (path.busted) {
+      sfx.bad();
+      toast(path.busted, { tone: 'bad', ms: 5000 });
+    } else if (path.rep) toast(`+${path.rep} rep · ${pathTitle(this.state)}`, { icon: PATHS.get(this.state.paths.active!)?.emoji ?? '⭐', ms: 1800 });
+    if (this.state.paths.active && !levelBlockers(this.state, this.state.paths.active).length) toast('You can level up! Phone → Life Path', { icon: '📈', tone: 'good', ms: 3500 });
     const bits = [`${a.emoji} ${a.label} — done`];
     if (out.earned > 0) bits.push(`+${money(out.earned)}`);
     else if (a.pay && out.earned === 0 && a.id === 'lottoTicket') bits.push('no luck this time');
