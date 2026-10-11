@@ -44,7 +44,7 @@ for (const [name, d, front] of views) {
   await page.screenshot({ path: `test-results/shot-${name}.png` });
 }
 // Landmarks.
-for (const [id, d, y] of [['empireState', 330, 120], ['timesSquare', 160, 30], ['atlanticArena', 150, 15], ['brooklynBridge', 420, 40]]) {
+for (const [id, d, y] of [['empireState', 330, 120], ['centralPark', 330, 10], ['parkMall', 150, 12], ['timesSquare', 160, 30], ['funland', 170, 12], ['atlanticArena', 150, 15], ['brooklynBridge', 420, 40]]) {
   const ok = await page.evaluate((i, dd, yy) => window.__nyc.viewPlace(i, dd, yy), id, d, y);
   await wait(2500);
   if (ok) await page.screenshot({ path: `test-results/shot-lm-${id}.png` });

@@ -140,6 +140,26 @@ export async function loadKits(names: KitName[] = ['buildings', 'props', 'cars']
 export const kitNight = { value: 0 };
 
 /**
+ * "See-through" cutaway, like The Sims: (x, y) = the player's position on
+ * screen in pixels, z = radius in pixels (0 = off), w = the player's
+ * distance from the camera. Building pixels inside that circle AND in
+ * front of the player are dissolved, so a building never hides you.
+ * game.ts updates it every frame.
+ */
+export const kitCut = { value: new THREE.Vector4(0, 0, 0, 0) };
+
+const CUT_GLSL = `
+  if (uCut.z > 0.0) {
+    float cutD = length(gl_FragCoord.xy - uCut.xy);
+    if (cutD < uCut.z && vViewPosition.z < uCut.w - 2.0) {
+      // Soft dotted edge instead of a hard hole.
+      float edge = smoothstep(uCut.z * 0.7, uCut.z, cutD);
+      float n = fract(sin(dot(floor(gl_FragCoord.xy / 2.0), vec2(12.9898, 78.233))) * 43758.5453);
+      if (n > edge) discard;
+    }
+  }`;
+
+/**
  * Shader snippet: pale grey pixels (walls) take the building's colour;
  * dark grey pixels (roofs, trims) take a deep shade of the same colour,
  * so a pink building gets a plum roof — the bright Township look.
@@ -173,8 +193,9 @@ export function kitMaterial(map: THREE.Texture | null, opts: { tintWalls?: boole
   if (opts.tintWalls || opts.nightWindows) {
     m.onBeforeCompile = (shader) => {
       shader.uniforms.uNight = kitNight;
+      shader.uniforms.uCut = kitCut;
       shader.fragmentShader = shader.fragmentShader
-        .replace('void main() {', 'uniform float uNight;\nvoid main() {')
+        .replace('void main() {', `uniform float uNight;\nuniform vec4 uCut;\nvoid main() {\n${opts.tintWalls ? CUT_GLSL : ''}`)
         .replace(
           '#include <color_fragment>',
           `

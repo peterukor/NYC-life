@@ -67,6 +67,8 @@ export interface BuiltCity {
   solids: THREE.Object3D[];
   /** Show/hide detail by distance from the camera's focus point. */
   updateLod: (focus: THREE.Vector3, radius: number, cameraDistance?: number) => void;
+  /** Per-frame animation (Ferris wheels, carousels…). */
+  tick: (dt: number) => void;
   dispose: () => void;
 }
 
@@ -102,7 +104,7 @@ const STYLE_BY_ZONE: Record<string, FacadeStyle[]> = {
 };
 
 /** Landmarks that occupy their whole block (no generated buildings there). */
-const FULL_BLOCK_LANDMARKS = new Set(['empireState', 'atlanticArena']);
+const FULL_BLOCK_LANDMARKS = new Set(['empireState', 'atlanticArena', 'parkMall']);
 
 const HEIGHT_BY_ZONE: Record<string, [number, number]> = {
   tall: [34, 150],
@@ -464,11 +466,12 @@ export function buildCity(area: AreaId, opts: { trees: boolean; shadows?: boolea
 
   // --------------------------------------------------------- landmarks
   // Cartoon landmarks come from their own registry (world/landmarks/).
+  const animators: ((dt: number) => void)[] = [];
   for (const p of places) {
     const lm = LANDMARKS.get(p.id);
     if (!lm) continue;
     const bl = blockRect(d, p.block[0], p.block[1]);
-    lm.build({ place: p, district: d, block: bl, inner: { minX: bl.minX + SIDEWALK, maxX: bl.maxX - SIDEWALK, minZ: bl.minZ + SIDEWALK, maxZ: bl.maxZ - SIDEWALK }, group, track });
+    lm.build({ place: p, district: d, block: bl, inner: { minX: bl.minX + SIDEWALK, maxX: bl.maxX - SIDEWALK, minZ: bl.minZ + SIDEWALK, maxZ: bl.maxZ - SIDEWALK }, group, track, animate: (fn) => animators.push(fn) });
   }
 
   // --------------------------------------------------------- storefronts & doors
@@ -537,6 +540,9 @@ export function buildCity(area: AreaId, opts: { trees: boolean; shadows?: boolea
     walkSurfaces,
     solids: solidMeshes,
     updateLod,
+    tick: (dt) => {
+      for (const fn of animators) fn(dt);
+    },
     dispose() {
       group.removeFromParent();
       for (const x of disposables) x.dispose();

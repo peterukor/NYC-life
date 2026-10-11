@@ -99,6 +99,13 @@ const LIST: ActionDef[] = [
   // ---------- Landmarks ----------
   { id: 'observationDeck', label: 'Go up to the observation deck', emoji: '🏙️', seconds: 12, cost: 4_400, needs: { fun: 40, energy: -4 }, moodlet: { id: 'topOfCity', label: 'On top of the city', emoji: '🏙️', value: 15, minutes: 180 }, tags: ['landmark', 'fun'] },
   { id: 'walkBridge', label: 'Walk the bridge at sunset', emoji: '🌉', seconds: 12, needs: { fun: 30, energy: -8 }, moodlet: { id: 'bridgeWalk', label: 'Skyline views', emoji: '🌉', value: 12, minutes: 120 }, tags: ['landmark', 'fitness'] },
+  { id: 'rowboat', label: 'Rent a rowboat on the lake', emoji: '🚣', seconds: 12, cost: 2_000, needs: { fun: 35, social: 10, energy: -6 }, moodlet: { id: 'rowboat', label: 'Lake day', emoji: '🚣', value: 10, minutes: 120 }, tags: ['landmark', 'fun'] },
+  { id: 'windowShop', label: 'Window shop', emoji: '🛍️', seconds: 8, needs: { fun: 18, energy: -3 }, tags: ['fun', 'shopping'] },
+  { id: 'foodHall', label: 'Eat at the food hall', emoji: '🍜', seconds: 9, cost: 1_800, needs: { hunger: 60, fun: 10, social: 6 }, tags: ['eat'] },
+  { id: 'ferrisWheel', label: 'Ride the Ferris wheel', emoji: '🎡', seconds: 10, cost: 1_200, needs: { fun: 35, social: 8 }, moodlet: { id: 'ferris', label: 'On top of the wheel', emoji: '🎡', value: 10, minutes: 120 }, tags: ['fun', 'landmark'] },
+  { id: 'rollerCoaster', label: 'Ride the roller coaster', emoji: '🎢', seconds: 8, cost: 1_500, needs: { fun: 50, energy: -6, bladder: -10 }, moodlet: { id: 'coaster', label: 'Adrenaline!', emoji: '🎢', value: 14, minutes: 90 }, tags: ['fun', 'landmark'] },
+  { id: 'carnivalGames', label: 'Play carnival games', emoji: '🎯', seconds: 9, cost: 800, needs: { fun: 28 }, skill: { key: 'streetSmarts', gain: 0.2 }, tags: ['fun'] },
+  { id: 'funnelCake', label: 'Funnel cake', emoji: '🍰', seconds: 5, cost: 900, needs: { hunger: 30, fun: 10 }, tags: ['eat'] },
   { id: 'catchGame', label: 'Catch a game', emoji: '🏀', seconds: 14, cost: 6_500, needs: { fun: 50, social: 25, hunger: -8 }, tags: ['landmark', 'fun', 'nightlife'] },
 
   // ---------- Transit ----------

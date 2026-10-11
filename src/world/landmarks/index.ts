@@ -20,3 +20,6 @@ export { LANDMARKS, type LandmarkCtx, type LandmarkDef } from './registry.ts';
 import './empire-state.ts';
 import './brooklyn-bridge.ts';
 import './barclays.ts';
+import './central-park.ts';
+import './park-mall.ts';
+import './funland.ts';

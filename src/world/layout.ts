@@ -57,25 +57,35 @@ export const SIDEWALK = 4;
 const MANHATTAN: DistrictDef = {
   id: 'manhattan',
   name: 'Manhattan',
-  tagline: 'Midtown · Hell’s Kitchen',
-  origin: { x: 0, z: 0 },
+  tagline: 'Central Park · Midtown · Hell’s Kitchen',
+  // Three rows were added north of the original map for Central Park.
+  // The origin moved north by exactly those rows, so everything that was
+  // already there keeps its world position (old row r is now r + 3).
+  origin: { x: 0, z: -153 },
   cols: 6,
-  rows: 9,
+  rows: 12,
   blockW: 92,
   blockD: 38,
   avenueW: 20,
   streetW: 13,
   avenueNames: ['12th Ave', '10th Ave', '9th Ave', '8th Ave', '7th Ave', '6th Ave', '5th Ave'],
-  streetNames: ['W 50th St', 'W 48th St', 'W 46th St', 'W 44th St', 'W 42nd St', 'W 40th St', 'W 38th St', 'W 36th St', 'W 34th St', 'W 32nd St'],
+  streetNames: ['W 72nd St', 'W 65th St', 'Central Park S', 'W 50th St', 'W 48th St', 'W 46th St', 'W 44th St', 'W 42nd St', 'W 40th St', 'W 38th St', 'W 36th St', 'W 34th St', 'W 32nd St'],
   water: { side: 'west', label: 'Hudson River' },
-  zone: (c, r) => (c >= 3 ? 'tall' : c === 0 ? (r >= 5 ? 'waterfront' : 'midrise') : r <= 1 ? 'brownstone' : 'midrise'),
+  zone: (c, r) => {
+    if (r <= 2) return c >= 5 ? 'tall' : 'brownstone'; // Upper West Side / Central Park South towers
+    r -= 3;
+    return c >= 3 ? 'tall' : c === 0 ? (r >= 5 ? 'waterfront' : 'midrise') : r <= 1 ? 'brownstone' : 'midrise';
+  },
   kind: (c, r) => {
+    if (r <= 1 && c >= 1 && c <= 4) return 'park'; // Central Park
+    if (r <= 1 && c === 0) return 'plaza'; // Funland amusement park, west of the park
+    r -= 3;
     if (c === 4 && r >= 1 && r <= 3) return 'plaza'; // Times Square
     if (c === 5 && r === 4) return 'park'; // Bryant Park
     if (c === 0 && r >= 6) return 'vacant'; // Hudson Yards expansion land
     return 'buildings';
   },
-  hub: { c: 4, r: 2, name: 'Times Square' },
+  hub: { c: 4, r: 5, name: 'Times Square' },
   seed: 'manhattan-midtown-v1',
 };
 
