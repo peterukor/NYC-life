@@ -378,3 +378,14 @@ a { color: var(--info); }
 .spark { width: 60px; height: 20px; flex: none; margin-top: 4px; }
 .list-item.stock .row { display: flex; flex-wrap: wrap; gap: 6px; }
 .list-item.stock .row .btn { padding: 6px 10px; font-size: 13px; min-height: 0; width: auto; }
+
+/* Mini-games (data/minigames.ts) */
+.mg { display: grid; gap: 12px; }
+.mg-top { display: flex; justify-content: space-between; font-size: 16px; }
+.mg-order { min-height: 54px; display: grid; place-items: center; }
+.mg-bubble { display: inline-block; padding: 10px 14px; border: var(--line-thin); border-radius: 18px 18px 18px 4px; background: #fff; box-shadow: var(--drop-sm); font-size: 17px; }
+.mg-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.mg-item { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 14px 8px; border: var(--line); border-radius: 18px; background: var(--paper); box-shadow: var(--drop); font: inherit; font-size: 13px; color: var(--ink); }
+.mg-item span { font-size: 34px; line-height: 1; }
+.mg-item.ok { background: #c9f7d8; }
+.mg-item.no { background: #ffd1d6; }

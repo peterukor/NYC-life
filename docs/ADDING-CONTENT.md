@@ -31,6 +31,7 @@ fails the test).
 | Add a random event | `src/sim/events.ts` | An entry in `EVENTS`: when it can happen (`weight`), its `rarity` (common, uncommon, rare, veryRare or legendary), the text and the choices with their outcomes. Rarity multiplies the weight; a badge shows on rarer messages. |
 | Add a stock or fund | `src/data/stocks.ts` | An entry: ticker, name, sector, starting price, drift (trend) and volatility (how wild). Prices are the same for everyone (seeded by game day). |
 | Tune or add a life path (Crime Boss, CEO, Celebrity…) | `src/data/paths.ts` | Titles, the rep curve, which actions give rep, and the task pool per level (`pick` random tasks plus `fixed` ones, such as betrayals or active days). Path-only activities are actions with `path: { id, minLevel }`, and optionally `risk` (chance of getting busted), in `src/data/actions.ts`. |
+| Add a work mini-game | `src/data/minigames.ts` | An entry with the careers it's for and `run(host, done)`: draw into `host`, then call `done(score 0..1)` once. For a quick one, reuse `orderRush(...)` with that job's items. The score sets shift performance and pay. |
 | Add a landmark | New file in `src/world/landmarks/`, then one import line in `src/world/landmarks/index.ts` | `LANDMARKS.add({ id, build(ctx) })`, plus a place in `src/data/places.ts`. |
 | Add clothes | `src/data/wardrobe.ts` | An entry in `CLOTHES`. |
 | Add a place (shop, bar, gym) | `src/data/places.ts` | Its block, side, slot, type, hours and actions. |

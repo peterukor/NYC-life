@@ -205,3 +205,12 @@ test('no two places share a door spot', () => {
   }
   assert.ok(PLACES.some((p) => p.sells?.includes('exclusive')), 'somewhere sells exclusive clothes');
 });
+
+import { MINIGAMES } from '../src/data/minigames.ts';
+import { CAREERS } from '../src/data/careers.ts';
+
+test('every career has a mini-game and every mini-game names real careers', () => {
+  const ids = new Set(CAREERS.map((c) => c.id));
+  for (const m of MINIGAMES.all()) for (const c of m.careers) assert.ok(ids.has(c), `${m.id}: unknown career ${c}`);
+  for (const c of CAREERS) assert.ok(MINIGAMES.where((m) => m.careers.includes(c.id)).length, `${c.id} has no mini-game`);
+});

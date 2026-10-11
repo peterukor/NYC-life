@@ -52,6 +52,7 @@ import { layoutForPlace } from './data/homes.ts';
 import { FURNITURE } from './data/furniture.ts';
 import { openCloset } from './ui/closet.ts';
 import { openStore } from './ui/store.ts';
+import { minigameFor } from './data/minigames.ts';
 import { openSidePanel } from './ui/side-panel.ts';
 import { openAutoMode } from './ui/auto-mode.ts';
 import { recordVariety } from './sim/auto.ts';
@@ -904,6 +905,31 @@ export class Game {
   private async runShift(): Promise<void> {
     this.busy = true;
     const career = CAREER_BY_ID[this.state.job!.careerId];
+    // A mini-game for this job? Offer to play the shift instead of skipping it.
+    const game = minigameFor(career.id);
+    if (game) {
+      const play = await new Promise<boolean>((resolve) => {
+        const m = openModal(`<div class="big">${game.emoji}</div><h2>${esc(game.name)}</h2><p>${esc(game.howTo)}</p><div class="choices"><button class="choice" data-act="play">🎮 <span>Play the shift<span class="hint">Do well for better pay and performance</span></span></button><button class="choice" data-act="skip">⏩ <span>Skip to end of shift<span class="hint">The usual 4 hours, fast-forwarded</span></span></button></div>`);
+        onAct(m.el, (act) => {
+          m.close();
+          resolve(act === 'play');
+        });
+      });
+      if (play) {
+        const score = await new Promise<number>((resolve) => {
+          const m = openModal(`<h2>${game.emoji} ${esc(game.name)}</h2><div class="mg-host"></div>`);
+          const host = m.el.querySelector<HTMLElement>('.mg-host')!;
+          const cleanup = game.run(host, (sc) => {
+            cleanup();
+            m.close();
+            resolve(sc);
+          });
+        });
+        const r = completeShift(this.state, 'chill', { perf: Math.round((score - 0.5) * 16), pay: 0.9 + score * 0.25 });
+        toast(`${game.name}: ${Math.round(score * 100)}%${score >= 0.8 ? ' — boss is impressed!' : score < 0.4 ? ' — rough shift' : ''}`, { icon: game.emoji, tone: score >= 0.5 ? 'good' : 'bad' });
+        return this.afterShift(r);
+      }
+    }
     // The shift reads as SHIFT_GAME_HOURS on a little clock that races
     // ahead, but only takes SHIFT_SECONDS. "Skip to end of shift" finishes
     // it at once (a stand-in for the mini-games coming later).
@@ -942,7 +968,11 @@ export class Game {
       tick();
     });
     bar.remove();
-    const r = completeShift(this.state, style ?? 'chill');
+    this.afterShift(completeShift(this.state, style ?? 'chill'));
+  }
+
+  /** Everything after a shift: stats, pay toast, promotion. */
+  private afterShift(r: ReturnType<typeof completeShift>): void {
     this.state.stats.actionsDone['__shift'] = (this.state.stats.actionsDone['__shift'] ?? 0) + 1;
     this.busy = false;
     toast(`Shift done · +${money(r.pay)} · performance ${r.performanceDelta >= 0 ? '▲' : '▼'}`, { icon: '💵', tone: 'good', ms: 3500 });

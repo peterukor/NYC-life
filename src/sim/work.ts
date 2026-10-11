@@ -78,7 +78,11 @@ export interface ShiftResult {
 }
 
 /** Finish a shift worked in the given style. Pays, updates performance, maybe promotes. */
-export function completeShift(s: GameState, style: WorkStyle): ShiftResult {
+/**
+ * `extra` comes from a played mini-game: a performance bonus (−8…+8)
+ * and a pay multiplier for doing well.
+ */
+export function completeShift(s: GameState, style: WorkStyle, extra: { perf?: number; pay?: number } = {}): ShiftResult {
   const job = s.job!;
   const c = CAREER_BY_ID[job.careerId];
   const mood = moodWorkMultiplier(s);
@@ -102,6 +106,8 @@ export function completeShift(s: GameState, style: WorkStyle): ShiftResult {
       break;
   }
   s.skills[c.skill] += 0.4 * skillGainMultiplier(s, c.skill);
+  perf += extra.perf ?? 0;
+  payMult *= extra.pay ?? 1;
 
   job.performance = clamp(job.performance + perf, 0, 100);
   job.shiftsToday += 1;

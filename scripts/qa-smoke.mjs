@@ -102,7 +102,14 @@ if (hour >= 6 && hour < 23) {
   const moneyBefore = s.money;
   await wait(400);
   await click('[data-work]');
+  // Jobs with a mini-game ask "play or skip" first: skip, to test the timer path.
   await page.waitForSelector('.modal .choice', { timeout: 20000 });
+  if (await page.$('.modal [data-act="skip"]')) {
+    await shot('05a-play-or-skip');
+    await click('.modal [data-act="skip"]');
+    await wait(600);
+    await page.waitForSelector('.modal .choice', { timeout: 20000 });
+  }
   await shot('05-shift-choice');
   await click('.modal .choice');
   await wait(12500);
