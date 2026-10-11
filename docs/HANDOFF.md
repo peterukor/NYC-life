@@ -46,14 +46,18 @@ How to add or change content: **`docs/ADDING-CONTENT.md`**.
 - **Investing:** shared seeded market (`sim/market.ts`, `data/stocks.ts`), Phone → Stocks, `netWorth()`. `marketMood()` is the recession seam.
 - **Spawn classes:** pick poor, middle, upper or wealthy at the start (`CLASSES` in `sim/state.ts`).
 
+- **Life paths** (`data/paths.ts`, `sim/paths.ts`, Phone → Life Path): Crime Boss, CEO, Celebrity. Rep, seeded checklists, betrayal gates, the Celebrity streak, risky actions that can get you busted.
+- **Clothing stores** (4 shops, by tier, `ui/store.ts`).
+- **NPCs go home:** they walk to a residential block and vanish inside for a while.
+- **Mini-games** (`data/minigames.ts`): "Play the shift" (Order Rush for every job) or skip.
+- **Businesses** (`data/businesses.ts`, `sim/business.ts`, Phone → Business): buy, hire and fire staff, 32% daily tax, creative accounting with audits.
+
 ## Next steps, in order
-1. **Career ladders** (7 levels: crime boss, CEO, celebrity), following the DESIGN-SPEC difficulty curve, with randomised requirements against bots and betrayal gates.
-2. **Clothing stores** in the city, selling by tier.
-3. **NPC homes:** crowd agents heading "home" walk to a block and disappear there.
-   - **Visiting:** follow home, shared address or spare key. Multiplayer needs the server; build the seams.
-4. **Mini-game plug-in interface:** replaces "Skip to end of shift".
-5. **Business ownership and hiring; taxes and audits; Cool meter and tickets for speeding** (DESIGN-SPEC).
-6. **Server:** billionaire cap, recession, reset vote. `marketMood()` and `sim/economy.ts` are the seams.
+1. **Jail system:** busts and audits only fine you for now. Add jail time, gang territory and the "gang view" map overlay (DESIGN-SPEC).
+2. **Player cars:** buy from `VEHICLES` (prices exist), drive, Cool meter, speeding tickets, losing your licence.
+3. **Multiplayer server (Colyseus skill in repo):** player homes on blocks, visiting (follow home, shared address, spare key), friends pins, billionaire cap, recession and reset vote (seams: `marketMood()`, `sim/economy.ts`).
+4. **More mini-games** per job (the interface is ready).
+5. **Visual polish:** more building styles (warehouses for Brooklyn, a church), parks with paths, and interiors for shops and venues using the furniture kit.
 
 ## User requests not started yet (all must be modular: nothing should break the whole game)
 - **Game clock:** one in-game day = 3 h 23 min real time. Replace the real-NYC-clock mapping in `core/clock.ts` with a configurable ratio (constant), and keep `?clock=` for testing.
