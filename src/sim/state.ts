@@ -2,6 +2,8 @@
 // state.ts — creating a brand-new life.
 // =====================================================================
 
+import { newGarageState } from './garage.ts';
+import { newGangState } from './gangs.ts';
 import { HUSTLER_LOAN, SAVE_VERSION } from '../core/constants.ts';
 import { nowMs, nycTime } from '../core/clock.ts';
 import { doorOf, PLACE_BY_ID } from '../data/places.ts';
@@ -127,6 +129,11 @@ export function newLife(opts: NewLifeOptions): GameState {
     portfolio: {},
     paths: newPathsState(),
     business: newBusinessState(),
+    debt: null,
+    record: { bankruptcies: 0 },
+    jail: null,
+    garage: newGarageState(),
+    gang: newGangState(),
     news: [],
     tutorialStep: 0,
     settings: { quality: 'auto', sound: true },

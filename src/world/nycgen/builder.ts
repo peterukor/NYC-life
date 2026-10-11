@@ -222,6 +222,17 @@ export class CityMeshBuilder {
     for (let i = 0; i < index.count; i++) this.idx.push(base + index.getX(i));
   }
 
+  /** Add one plain-coloured vertex (for custom smooth shapes like car bodies). Returns its index. */
+  rawVert(x: number, y: number, z: number, nx: number, ny: number, nz: number, color: THREE.ColorRepresentation): number {
+    this.c.set(color);
+    return this.vert(x, y, z, nx, ny, nz, 0, 0, 0);
+  }
+
+  /** Add one triangle from three rawVert indices (counter-clockwise seen from outside). */
+  rawTri(a: number, b: number, c: number): void {
+    this.idx.push(a, b, c);
+  }
+
   /** A thin box from point a to point b (railings, ladders, legs). */
   beam(ax: number, ay: number, az: number, bx: number, by: number, bz: number, thick: number, color: THREE.ColorRepresentation): void {
     const dx = bx - ax, dy = by - ay, dz = bz - az;

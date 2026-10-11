@@ -11,11 +11,10 @@
 //   • tryLevelUp: checks rep + checklist and promotes you.
 // =====================================================================
 
+import { arrest } from './jail.ts';
 import { nowMs } from '../core/clock.ts';
-import { money } from '../core/format.ts';
 import { Rng } from '../core/rng.ts';
 import { PATHS, type PathTask } from '../data/paths.ts';
-import { changeMoney } from './economy.ts';
 import { netWorth } from './market.ts';
 import { addMoodlet } from './needs.ts';
 import { postNews } from './news.ts';
@@ -135,13 +134,11 @@ export function onPathAction(s: GameState, actionId: string, risk = 0): { rep: n
 
   let busted: string | null = null;
   if (risk > 0 && Math.random() < risk * (1 + lvl * 0.08)) {
-    // Caught: a fine, rep loss, a bad mood, and the news if you're big.
-    const fine = Math.max(20_000, Math.round(s.money * 0.25 / 100) * 100);
-    const paid = Math.min(fine, s.money);
-    if (paid > 0) changeMoney(s, -paid, 'Fine (busted)');
+    // Caught: arrested. Bail costs about what the old fine did; or do the time.
+    const bail = Math.max(20_000, Math.round(s.money * 0.25 / 100) * 100);
     s.paths.rep[id] = Math.floor((s.paths.rep[id] ?? 0) * 0.85);
     addMoodlet(s, { id: 'busted', label: 'Busted', emoji: '🚔', value: -20, minutes: 60 * 6 });
-    busted = `🚔 Busted! You paid a ${money(paid)} fine and lost some rep.${lvl >= 4 ? ' It made the news.' : ''}`;
+    busted = `${arrest(s, 'caught in the act', 6 + lvl * 3, bail)} You lost some rep.${lvl >= 4 ? ' It made the news.' : ''}`;
     if (lvl >= 4) postNews(s, { scope: s.location.area, emoji: '🚔', headline: `${s.profile.name} caught in a police sting`, personal: true });
   }
   return { rep: gained, busted };

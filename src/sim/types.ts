@@ -113,6 +113,16 @@ export interface GameState {
   bank: number;
   ledger: LedgerEntry[];
   loan: { owed: number; weekly: number; lastPaidDay: string } | null;
+  /** Unpaid bills in collections (hospital etc.): see sim/debt.ts. */
+  debt: import('./debt.ts').DebtState | null;
+  /** Your permanent record: bankruptcies, arrests, jail time (sim/debt.ts, sim/jail.ts). */
+  record: { bankruptcies: number; lastBankruptcy?: string; arrests?: number; jailDays?: number };
+  /** Jail: while `until` (real ms) is in the future you're locked up (sim/jail.ts). */
+  jail: import('./jail.ts').JailState | null;
+  /** Cars you own, your licence and your Cool rating (sim/garage.ts). */
+  garage: import('./garage.ts').GarageState;
+  /** Your crew and standing with every crew in the city (sim/gangs.ts). */
+  gang: import('./gangs.ts').GangState;
 
   needs: Record<NeedKey, number>;
   moodlets: Moodlet[];

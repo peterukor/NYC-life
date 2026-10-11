@@ -49,7 +49,7 @@ function lighten(hex: string, k: number): string {
  */
 export function parkedCar(b: CityMeshBuilder, x: number, z: number, along: 'x' | 'z', rng: Rng): void {
   const v = pickVehicle(() => rng.next(), 'parkWeight');
-  const geo = vehicleGeometry(v, rng.pick(v.paints));
+  const geo = vehicleGeometry(v, rng.pick(v.paints), 0);
   const facing = rng.chance(0.5) ? 0 : Math.PI;
   b.addBuilt(geo, x, 0, z, (along === 'x' ? Math.PI / 2 : 0) + facing);
 }
@@ -227,7 +227,7 @@ export function emitBlockProps(bld: CityMeshBuilder, o: PropOptions, rng: Rng): 
     }
     // Parked cars along the kerb, leaving the corners and hydrants clear.
     for (let t = s.from + 6; t < s.to - 6; t += rng.range(5.4, 6.4)) {
-      if (!rng.chance(0.7)) continue;
+      if (!rng.chance(0.55)) continue;
       if (Math.abs(t - (s.along === 'x' ? h.x : h.z)) < 3) continue;
       if (s.along === 'x') parkedCar(bld, t, s.road, 'x', rng);
       else parkedCar(bld, s.road, t, 'z', rng);

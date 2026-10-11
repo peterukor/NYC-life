@@ -19,12 +19,13 @@
 // how to recover (block, report, call your bank, track your phone).
 // =====================================================================
 
+import { addDebt } from './debt.ts';
 import { dayPart, isRushHour, nowMs, nycTime, type DayPart } from '../core/clock.ts';
 import { DIRECTOR_TICK_SECONDS, EVENT_BASE_CHANCE, EVENT_COOLDOWN_SECONDS, EVENT_MIN_GAP_SECONDS } from '../core/constants.ts';
 import { money } from '../core/format.ts';
 import { weightedIndex } from '../core/rng.ts';
 import type { PlaceType } from '../data/places.ts';
-import { changeMoney, deposit } from './economy.ts';
+import { chargeBill, changeMoney, deposit } from './economy.ts';
 import { addMoodlet, applyNeeds, computeMood } from './needs.ts';
 import { postNews } from './news.ts';
 import { skillGainMultiplier } from './state.ts';
@@ -58,8 +59,8 @@ export interface Outcome {
   news?: { scope: 'city' | AreaId; emoji: string; headline: string };
   /** Extra lesson shown after a scam: how to recover in real life. */
   lesson?: string;
-  /** Legendary bad luck: this life is over (the game offers a fresh start). */
-  lifeOver?: boolean;
+  /** A hospital bill that must be paid (cash first, then the bank, like rent). */
+  hospitalBill?: number;
   /** Legendary good luck: a fortune lands in your bank (cents). */
   inherit?: number;
 }
@@ -350,13 +351,14 @@ export const EVENTS: RandomEventDef[] = [
     ],
   },
   {
-    // The owner's legendary bad event: a fatal crash. Extremely rare. The
-    // life ends and the player starts a new one.
-    id: 'fatalCrash', title: 'The worst day', emoji: '🚑', kind: 'bad', rarity: 'legendary',
+    // Legendary bad luck: a serious crash. You survive — hospital, a big
+    // bill, weeks of feeling rough. (Softened from a fatal crash at the
+    // owner's request: nobody loses their whole life to bad luck.)
+    id: 'seriousCrash', title: 'The worst day', emoji: '🚑', kind: 'bad', rarity: 'legendary',
     weight: (c) => (c.where === 'street' ? 0.25 : 0),
-    text: () => 'A delivery truck runs a red light. You never see it coming.',
+    text: () => 'A delivery truck runs a red light. You never see it coming. You wake up in a hospital bed, sore everywhere — but alive.',
     choices: [
-      { label: 'Continue', emoji: '🕯️', run: () => ({ text: 'Your story in New York ends here. The city keeps moving — and so can you, with a brand-new life.', tone: 'bad', lifeOver: true, news: { scope: 'city', emoji: '🕯️', headline: 'Tragic crash on a Manhattan avenue; neighbours leave flowers' } }) },
+      { label: 'Rest and recover', emoji: '🏥', run: () => ({ text: 'Two days in the hospital, a mountain of paperwork, and a bill that hurts more than your ribs. You’ll be okay.', tone: 'bad', hospitalBill: 250_000, needs: { energy: -60, fun: -30, hygiene: -30 }, moodlet: { id: 'recovering', label: 'Recovering from a crash', emoji: '🩹', value: -25, minutes: 60 * 72 }, news: { scope: 'city', emoji: '🚑', headline: 'Truck runs red light on a Manhattan avenue; pedestrian hospitalised, expected to recover' } }) },
     ],
   },
 
@@ -476,6 +478,11 @@ export function applyOutcome(s: GameState, o: Outcome): string {
       changeMoney(s, -lost, 'Pickpocketed');
       text += ` You lost ${money(lost)}.`;
     }
+  }
+  if (o.hospitalBill) {
+    const { paid, short } = chargeBill(s, o.hospitalBill, 'Hospital bill');
+    addDebt(s, short);
+    text += ` Hospital bill: ${money(paid)}${short ? ` (${money(short)} you couldn’t cover went to collections: pay it off or file for bankruptcy in Phone → Bank)` : ''}.`;
   }
   if (o.inherit) {
     // Paid in as cash, then straight into the bank (money only moves through economy.ts).

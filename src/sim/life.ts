@@ -3,6 +3,7 @@
 // a new day starts at New York midnight, and weekly bills come due.
 // =====================================================================
 
+import { runCollections } from './debt.ts';
 import { bus } from '../core/bus.ts';
 import { daysBetween, nowMs, nycTime } from '../core/clock.ts';
 import { OFFLINE_CATCHUP_MAX_HOURS, OFFLINE_DECAY_MULTIPLIER } from '../core/constants.ts';
@@ -66,6 +67,9 @@ function rollDays(state: GameState): string | null {
   // Businesses: one run per new day (capped, so a long absence doesn't explode).
   const biz = runBusinessDay(state, today);
   if (biz) notes.push(biz);
+  // Debt collectors (sim/debt.ts).
+  const coll = runCollections(state);
+  if (coll) notes.push(coll);
 
   // ----- Rent: every 7 days from the move-in day -----
   if (state.home.weeklyRent > 0) {

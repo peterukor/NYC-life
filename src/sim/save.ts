@@ -7,6 +7,8 @@
 // format changes, so players never lose progress after an update.
 // =====================================================================
 
+import { newGarageState } from './garage.ts';
+import { newGangState } from './gangs.ts';
 import { SAVE_KEY, SAVE_VERSION } from '../core/constants.ts';
 import { STARTER_ITEMS } from '../data/wardrobe.ts';
 import { newPathsState } from './paths.ts';
@@ -68,6 +70,11 @@ function migrate(data: GameState): GameState | null {
   data.portfolio ??= {};
   data.paths ??= newPathsState();
   data.business ??= newBusinessState();
+  data.debt ??= null;
+  data.record ??= { bankruptcies: 0 };
+  data.jail ??= null;
+  data.garage ??= newGarageState();
+  data.gang ??= newGangState();
   // Saves from before owned clothes: you own the free items plus what you wear.
   if (!data.wardrobe) {
     const l = data.profile.look;

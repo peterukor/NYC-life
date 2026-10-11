@@ -7,18 +7,19 @@
 // =====================================================================
 
 import * as THREE from 'three';
-import type { VehicleDef } from '../data/vehicles.ts';
+import { drawVehicle, type VehicleDef } from '../data/vehicles.ts';
 import { BuildingFades, cityMaterial } from './nycgen/atlas.ts';
 import { CityMeshBuilder } from './nycgen/builder.ts';
 
 const cache = new Map<string, THREE.BufferGeometry>();
 
-export function vehicleGeometry(v: VehicleDef, paint: string): THREE.BufferGeometry {
-  const key = `${v.id}|${paint}`;
+/** lod 0 = cheap version (parked cars, low-end phones), 1 = full detail. */
+export function vehicleGeometry(v: VehicleDef, paint: string, lod: 0 | 1 = 1): THREE.BufferGeometry {
+  const key = `${v.id}|${paint}|${lod}`;
   let g = cache.get(key);
   if (!g) {
     const b = new CityMeshBuilder();
-    v.build(b, paint);
+    drawVehicle(v, b, paint, lod);
     g = b.build() ?? new THREE.BufferGeometry();
     cache.set(key, g);
   }

@@ -12,7 +12,7 @@
 // =====================================================================
 
 import * as THREE from 'three';
-import { pickVehicle } from '../data/vehicles.ts';
+import { pickVehicle, type VehicleDef } from '../data/vehicles.ts';
 import { avenueX, streetZ, type DistrictDef } from './layout.ts';
 import { PAINT_MARKER, vehicleGeometry, vehicleMaterial } from './vehicle-models.ts';
 
@@ -62,10 +62,19 @@ export class Traffic {
     // Roll every car: which vehicle (by trafficWeight), which paint, how fast.
     // One mesh per vehicle model; the paint is each car's instance colour.
     const picks = new Map<string, { geo: THREE.BufferGeometry; cars: { speed: number; paint: string }[] }>();
-    for (let i = 0; i < count; i++) {
+    // Each different model is one draw call, so an area only uses a
+    // handful of models (always the common ones, plus a couple of rare
+    // ones that change every time you load the area).
+    const among: VehicleDef[] = [];
+    const maxModels = count < 40 ? 9 : 13;
+    for (let tries = 0; tries < 200 && among.length < maxModels; tries++) {
       const v = pickVehicle(Math.random, 'trafficWeight');
+      if (!among.includes(v)) among.push(v);
+    }
+    for (let i = 0; i < count; i++) {
+      const v = pickVehicle(Math.random, 'trafficWeight', among);
       const paint = v.paints[Math.floor(Math.random() * v.paints.length)];
-      if (!picks.has(v.id)) picks.set(v.id, { geo: vehicleGeometry(v, PAINT_MARKER), cars: [] });
+      if (!picks.has(v.id)) picks.set(v.id, { geo: vehicleGeometry(v, PAINT_MARKER, count < 40 ? 0 : 1), cars: [] });
       picks.get(v.id)!.cars.push({ speed: v.speed[0] + Math.random() * (v.speed[1] - v.speed[0]), paint });
     }
     let n = 0;

@@ -17,6 +17,8 @@
 // =====================================================================
 
 import * as THREE from 'three';
+import { VEHICLES } from './data/vehicles.ts';
+import { vehicleGeometry, vehicleMaterial } from './world/vehicle-models.ts';
 import { bus } from './core/bus.ts';
 import { isRushHour, nowMs, nycTime } from './core/clock.ts';
 import { DETAIL_RADIUS, RIDESHARE, SUBWAY_FARE, WALK_SPEED, SHIFT_GAME_HOURS, SHIFT_SECONDS, DIRECTOR_TICK_SECONDS, CAMERA } from './core/constants.ts';
@@ -173,6 +175,35 @@ export class Game {
         controls.update();
         this.followCamera = false;
         return true;
+      },
+      /** Line up every vehicle on a white floor for a screenshot (scripts/qa-cars.mjs). */
+      carShow: (ids?: string[], cols = 4) => {
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color('#dfe9f3');
+        scene.add(new THREE.HemisphereLight('#ffffff', '#b9c4cf', 1.6));
+        const sun = new THREE.DirectionalLight('#ffffff', 2.2);
+        sun.position.set(-6, 10, 8);
+        scene.add(sun);
+        const list = ids ? ids.map((i) => VEHICLES.require(i)) : VEHICLES.all();
+        list.forEach((v, i) => {
+          const m = new THREE.Mesh(vehicleGeometry(v, v.paints[0]), vehicleMaterial());
+          m.position.set((i % cols) * 7 - (cols - 1) * 3.5, 0, Math.floor(i / cols) * 7.5);
+          m.rotation.y = -0.6;
+          scene.add(m);
+        });
+        const floor = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), new THREE.MeshLambertMaterial({ color: '#eef2f6' }));
+        floor.rotation.x = -Math.PI / 2;
+        scene.add(floor);
+        this.engine.altScene = scene;
+        this.engine.altCamera = this.engine.camera;
+        this.engine.mode = 'transit';
+        const rows = Math.ceil(list.length / cols);
+        const { camera, controls } = this.engine;
+        controls.maxDistance = 500;
+        controls.target.set(0, 0, (rows - 1) * 3.75);
+        camera.position.set(0, 4 + rows * 2.2, (rows - 1) * 3.75 + 5 + rows * 3.2);
+        camera.lookAt(controls.target);
+        this.followCamera = false;
       },
       /** Jump straight inside a place (for screenshots of interiors). */
       enterPlace: (id: string) => {
@@ -1218,13 +1249,6 @@ export class Game {
         onAct(m.el, (a2) => {
           if (a2 !== 'ok') return;
           m.close();
-          if (outcome.lifeOver) {
-            // Legendary bad luck: this life is over. Start fresh.
-            deleteGame();
-            fade(true, 'Rest in peace', 'A new life in New York begins…');
-            window.setTimeout(() => location.reload(), 2600);
-            return resolve();
-          }
           this.save();
           this.refreshHud(true);
           resolve();
