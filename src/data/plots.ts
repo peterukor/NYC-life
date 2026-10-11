@@ -2,8 +2,9 @@
 // plots.ts — land players can RENT with real money (Peter, 2026-10-11).
 //
 // Three kinds of plot:
-//   • AD BLOCK  — a street block split into 2 halves (2 billboards each).
-//                 Rent one half or both, weekly. No limit per player.
+//   • AD BLOCK  — the block itself is the ad (it covers the ground), split
+//                 into a left and a right half. Rent one or both, weekly.
+//                 No limit per player.
 //   • HOME LOT  — empty land. Pick a house type from HOUSES and rent a
 //                 spot for it, weekly. 3 per borough per player. A block
 //                 holds 16 tiny homes, 8 townhouses, 4 villas or 2 mansions.
@@ -34,7 +35,7 @@ import { rectOnCorridor } from '../world/corridors.ts';
 
 export type PlotKind = 'ad' | 'home' | 'island';
 /** Location decides the price. */
-export type PriceTier = 'harlem' | 'uptown' | 'midtown' | 'downtown' | 'brooklyn' | 'bronx';
+export type PriceTier = 'harlem' | 'uptown' | 'midtown' | 'downtown' | 'brooklyn' | 'bronx' | 'queens';
 
 export interface Plot {
   id: string;
@@ -65,8 +66,8 @@ export const MAX_WEEKS = 26;
 export const AD_MAX_WEEKS = MAX_WEEKS;
 
 /**
- * Ad blocks are split in TWO halves (north and south, two billboards
- * each). Price per WEEK for one half and for both halves (the whole block).
+ * An ad space is the BLOCK ITSELF (the ad covers the ground, seen from
+ * the map), split down the middle into a LEFT and a RIGHT half. Price per WEEK for one half and for both halves (the whole block).
  * Peter set the top areas: $79.99 a half, $149.99 both. The cheaper areas
  * are scaled down from that (to confirm).
  */
@@ -77,12 +78,11 @@ export const AD_PRICES: Record<PriceTier, { unit: number; block: number }> = {
   brooklyn: { unit: 64.99, block: 119.99 },
   harlem: { unit: 49.99, block: 89.99 },
   bronx: { unit: 49.99, block: 89.99 },
+  queens: { unit: 64.99, block: 119.99 },
 };
 /** Halves per ad block. */
 export const AD_UNITS = 2;
-export const AD_UNIT_NAMES = ['North half', 'South half'];
-/** Which half a billboard (0 NW, 1 NE, 2 SW, 3 SE) belongs to. */
-export const halfOfBoard = (board: number) => (board < 2 ? 0 : 1);
+export const AD_UNIT_NAMES = ['Left half', 'Right half'];
 
 /**
  * House types you can put on a lot, with the weekly price in the
@@ -100,7 +100,7 @@ export type HouseId = (typeof HOUSES)[number]['id'];
 /** Spaces on one home block (see HOUSES.spaces). */
 export const BLOCK_SPACES = 16;
 /** Location multiplier for houses. */
-export const TIER_MULT: Record<PriceTier, number> = { harlem: 1, bronx: 0.95, brooklyn: 1.1, uptown: 1.15, downtown: 1.3, midtown: 1.4 };
+export const TIER_MULT: Record<PriceTier, number> = { harlem: 1, bronx: 0.95, queens: 1.05, brooklyn: 1.1, uptown: 1.15, downtown: 1.3, midtown: 1.4 };
 /** Most homes one player can rent in one borough. */
 export const HOMES_PER_BOROUGH = 3;
 
@@ -147,6 +147,7 @@ const PICKS: Record<AreaId, { ads: number; harlemLots: number; lots: number }> =
   manhattan: { ads: 20, harlemLots: 0.3, lots: 6 },
   brooklyn: { ads: 12, harlemLots: 0, lots: 10 },
   bronx: { ads: 10, harlemLots: 0, lots: 10 },
+  queens: { ads: 10, harlemLots: 0, lots: 10 },
 };
 
 // ---------------------------------------------------------------- building the list
@@ -154,6 +155,7 @@ export const blockId = (d: DistrictDef, c: number, r: number) => `${d.id}:${d.xs
 
 function tierAt(d: DistrictDef, z: number): PriceTier {
   if (d.id === 'bronx') return 'bronx';
+  if (d.id === 'queens') return 'queens';
   if (d.id !== 'manhattan') return 'brooklyn';
   const n = manhattanStreetAt(z);
   if (z > 500) return 'downtown';
@@ -277,14 +279,12 @@ export function neighbourPlots(p: Plot): Plot[] {
   return PLOTS.filter((q) => q !== p && q.kind === p.kind && q.area === p.area && q.block && Math.abs(q.block[0] - c) + Math.abs(q.block[1] - r) === 1);
 }
 
-/** The four billboard spots of an ad block (0 NW, 1 NE, 2 SW, 3 SE); halves are 0+1 and 2+3. */
+/** The two halves of an ad block, split down the middle: 0 = left (west), 1 = right (east). */
 export function adUnitRects(p: Plot): { minX: number; maxX: number; minZ: number; maxZ: number }[] {
   const r = p.rect!;
-  const mx = (r.minX + r.maxX) / 2, mz = (r.minZ + r.maxZ) / 2;
+  const mx = (r.minX + r.maxX) / 2;
   return [
-    { minX: r.minX, maxX: mx, minZ: r.minZ, maxZ: mz },
-    { minX: mx, maxX: r.maxX, minZ: r.minZ, maxZ: mz },
-    { minX: r.minX, maxX: mx, minZ: mz, maxZ: r.maxZ },
-    { minX: mx, maxX: r.maxX, minZ: mz, maxZ: r.maxZ },
+    { minX: r.minX, maxX: mx, minZ: r.minZ, maxZ: r.maxZ },
+    { minX: mx, maxX: r.maxX, minZ: r.minZ, maxZ: r.maxZ },
   ];
 }

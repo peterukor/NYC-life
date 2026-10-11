@@ -206,6 +206,38 @@ const RAW: RawPlace[] = [
     actions: ['ferrisWheel', 'rollerCoaster', 'carnivalGames', 'funnelCake', 'photoSelfie'],
   },
 
+  // ======================= QUEENS =======================
+  {
+    id: 'courtSqStation', area: 'queens', name: 'Court Sq Station', emoji: '🚇', type: 'station',
+    blurb: 'The 7, the E, the M and the G. One stop from Midtown, a world away.',
+    at: [40.7471, -73.9456], interior: 'none', color: '#0039a6',
+    actions: ['subwayShowtime', 'tipPerformer'],
+  },
+  {
+    id: 'gantryPlaza', area: 'queens', name: 'Gantry Plaza State Park', emoji: '🌇', type: 'park',
+    blurb: 'Old ship gantries, the Pepsi-Cola sign and the best Manhattan skyline view there is.',
+    at: [40.7454, -73.9584], hours: [6, 24], interior: 'none', color: '#2e8b57',
+    actions: ['picnic', 'peopleWatch', 'jog', 'photoSelfie'],
+  },
+  {
+    id: 'astoriaPark', area: 'queens', name: 'Astoria Park', emoji: '🌳', type: 'park',
+    blurb: 'Under the Hell Gate and Triborough bridges: a huge lawn, a track and the city’s oldest pool.',
+    at: [40.7786, -73.9228], hours: [6, 23], interior: 'none', color: '#2e8b57',
+    actions: ['picnic', 'jog', 'peopleWatch'],
+  },
+  {
+    id: 'beerGarden', area: 'queens', name: 'Astoria Beer Garden', emoji: '🍺', type: 'nightlife',
+    blurb: 'Long picnic tables under the trees, pitchers and a grill. Since 1910.',
+    at: [40.7728, -73.9093], hours: [12, 2], interior: 'bar', color: '#6a994e',
+    actions: ['happyHour', 'karaoke'],
+  },
+  {
+    id: 'jhDeli', area: 'queens', name: 'Jackson Heights Deli', emoji: '🥟', type: 'food',
+    blurb: 'Momos, samosas and a chopped cheese, all under the 7 train.',
+    at: [40.7557, -73.8831], interior: 'bodega', color: '#e8b923',
+    actions: ['baconEggCheese', 'choppedCheese', 'bodegaCoffee', 'petBodegaCat', 'lottoTicket', 'gistWithOwner'],
+  },
+
   // ======================= THE BRONX =======================
   {
     id: 'yankeeStation', area: 'bronx', name: '161 St–Yankee Stadium Station', emoji: '🚇', type: 'station',

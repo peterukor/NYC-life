@@ -36,6 +36,12 @@ const CITY_POOL: [string, string][] = [
 ];
 
 const AREA_POOL: Record<AreaId, [string, string][]> = {
+  queens: [
+    ['🌇', 'Gantry Plaza sunset draws a crowd: the Manhattan skyline glows pink'],
+    ['🥟', 'Jackson Heights food crawl crowned “best in the city” again'],
+    ['🍺', 'Astoria beer garden opens its summer season; tables full by noon'],
+    ['🏗️', 'Another glass tower tops out in Long Island City'],
+  ],
   bronx: [
     ['⚾', 'Yankees walk-off sends the whole Concourse into the street'],
     ['🍕', 'Arthur Ave bakery line stretches past the market: fresh bread at 7'],

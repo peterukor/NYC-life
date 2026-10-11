@@ -461,4 +461,3 @@ a { color: var(--info); }
 .plot-merge { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; width: 100%; margin: 0 0 12px; padding: 10px 12px; border: var(--line-thin); border-style: dashed; border-radius: 12px; background: #f3f0ff; font: inherit; text-align: left; cursor: pointer; }
 .plot-merge small { color: var(--ink-soft); font-size: 12px; font-weight: 600; }
 .plot-merge[aria-pressed="true"] { border-style: solid; background: #e0d7ff; box-shadow: var(--drop-sm); }
-.plot-units.halves { grid-template-columns: 1fr; }

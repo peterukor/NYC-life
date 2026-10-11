@@ -46,7 +46,7 @@ export interface MapOptions {
   onClose: () => void;
 }
 
-const AREA_OF: Partial<Record<BoroughId, AreaId>> = { manhattan: 'manhattan', brooklyn: 'brooklyn', bronx: 'bronx' };
+const AREA_OF: Partial<Record<BoroughId, AreaId>> = { manhattan: 'manhattan', brooklyn: 'brooklyn', bronx: 'bronx', queens: 'queens' };
 const FONT = 'Nunito, system-ui, sans-serif';
 
 export function openMap(opts: MapOptions): () => void {
@@ -223,14 +223,12 @@ export function openMap(opts: MapOptions): () => void {
           g.stroke();
           g.setLineDash([]);
         } else if (kind === 'ads') {
-          // Ad block: four bright units.
-          const cols = ['#ff4f8b', '#3b82f6', '#a855f7', '#f59e0b'];
+          // Ad block: the block is the ad, a bright left half and right half.
+          const cols = ['#ff4f8b', '#3b82f6'];
           const pad = 3 * scale;
-          for (let k = 0; k < 4; k++) {
-            const ux = x + pad + ((w - pad * 3) / 2 + pad) * (k % 2);
-            const uy = y + pad + ((h - pad * 3) / 2 + pad) * Math.floor(k / 2);
+          for (let k = 0; k < 2; k++) {
             g.fillStyle = cols[k];
-            rr(ux, uy, (w - pad * 3) / 2, (h - pad * 3) / 2, 2 * scale);
+            rr(x + pad + ((w - pad * 3) / 2 + pad) * k, y + pad, (w - pad * 3) / 2, h - pad * 2, 2 * scale);
             g.fill();
           }
         } else if (kind === 'vacant') {

@@ -550,7 +550,75 @@ const BRONX = district({
   seed: 'bronx-real-v1',
 });
 
-export const DISTRICTS: Record<AreaId, DistrictDef> = { manhattan: MANHATTAN, brooklyn: BROOKLYN, bronx: BRONX };
+// ---- Queens: Long Island City, Astoria, Sunnyside, Woodside, Jackson Heights ----
+const QN_STREETS: [string, [number, number], [number, number]][] = [
+  ['Queens Blvd', [40.7437, -73.9535], [40.738, -73.878]],
+  ['Northern Blvd', [40.752, -73.933], [40.759, -73.86]],
+  ['Astoria Blvd', [40.77, -73.928], [40.767, -73.885]],
+  ['21st St', [40.741, -73.953], [40.772, -73.933]],
+  ['Steinway St', [40.757, -73.921], [40.773, -73.907]],
+  ['Broadway', [40.762, -73.932], [40.748, -73.905]],
+  ['31st St', [40.744, -73.937], [40.776, -73.913]],
+  ['Vernon Blvd', [40.74, -73.957], [40.768, -73.938]],
+  ['Jackson Ave', [40.742, -73.952], [40.751, -73.938]],
+  ['37th Ave', [40.753, -73.92], [40.75, -73.875]],
+  ['Roosevelt Ave', [40.744, -73.912], [40.748, -73.875]],
+  ['Ditmars Blvd', [40.779, -73.918], [40.772, -73.89]],
+  ['Skillman Ave', [40.747, -73.935], [40.745, -73.905]],
+];
+const QN_LINES = QN_STREETS.map(([n, a, b]) => ({ n, a: project(a[0], a[1]), b: project(b[0], b[1]) }));
+function qnNames(x: number, z: number): [string, string] {
+  const dist = (l: (typeof QN_LINES)[number]) => {
+    const dx = l.b.x - l.a.x, dz = l.b.z - l.a.z;
+    const t = Math.max(0, Math.min(1, ((x - l.a.x) * dx + (z - l.a.z) * dz) / (dx * dx + dz * dz)));
+    return Math.hypot(x - (l.a.x + t * dx), z - (l.a.z + t * dz));
+  };
+  const sorted = [...QN_LINES].sort((p, q) => dist(p) - dist(q));
+  return [sorted[0].n, sorted[1].n];
+}
+const QUEENS_GRID = { xs: [] as number[], zs: [] as number[] };
+const Q_HUB = project(40.7471, -73.9435); // Court Square
+const Q_ASTORIA_PARK = project(40.7786, -73.9228);
+const Q_GANTRY = project(40.7454, -73.9584);
+const Q_SUNNYSIDE_GDN = project(40.7468, -73.9165);
+
+const QUEENS = district({
+  id: 'queens',
+  name: 'Queens',
+  tagline: 'Long Island City · Astoria · Jackson Heights',
+  borough: 'queens',
+  // Queens: LIC towers by the river, Astoria and Sunnyside row houses,
+  // Jackson Heights. Irregular blocks plus Queens Blvd, Northern Blvd and
+  // friends cutting across (world/corridors.ts).
+  grid: playable(gridFor('queens', { x: 700, z: -100 }, { minX: 520, maxX: 1700, minZ: -1000, maxZ: 150 }, 'queens-grid-v1', [104, 210], [55, 125]), QUEENS_GRID),
+  joinRate: { s: 0.2, e: 0.12 },
+  blockW: 150,
+  blockD: 70,
+  avenueW: AVE_W,
+  streetW: ST_W,
+  names: qnNames,
+  water: { side: 'west', label: 'East River' },
+  zone: (c, r) => {
+    const d = QUEENS;
+    const x = (d.xs[c] + d.xs[c + 1]) / 2;
+    const z = (d.zs[r] + d.zs[r + 1]) / 2;
+    if (x < 860 && z > -300) return x < 640 ? 'waterfront' : 'tall'; // LIC towers & the Gantry waterfront
+    if (x > 1400) return 'midrise'; // Jackson Heights co-ops
+    if (z < -500) return 'brownstone'; // Astoria row houses
+    return x < 1000 ? 'midrise' : 'brownstone'; // Sunnyside & Woodside
+  },
+  kindAt: (x, z, c, r) => {
+    void x;
+    void z;
+    const inBlock = (p: { x: number; z: number }) => cellOf(QUEENS_GRID.xs, p.x) === c && cellOf(QUEENS_GRID.zs, p.z) === r;
+    if (inBlock(Q_ASTORIA_PARK) || inBlock(Q_GANTRY) || inBlock(Q_SUNNYSIDE_GDN)) return 'park';
+    return 'buildings';
+  },
+  hubAt: { x: Q_HUB.x, z: Q_HUB.z, name: 'Court Square' },
+  seed: 'queens-real-v1',
+});
+
+export const DISTRICTS: Record<AreaId, DistrictDef> = { manhattan: MANHATTAN, brooklyn: BROOKLYN, bronx: BRONX, queens: QUEENS };
 
 export function avenueX(d: DistrictDef, i: number): number {
   return d.xs[Math.max(0, Math.min(d.cols, i))];

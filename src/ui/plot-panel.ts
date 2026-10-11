@@ -2,7 +2,7 @@
 // plot-panel.ts — the "rent this" sheet for plots (data/plots.ts).
 // Every rent is a WEEKLY SUBSCRIPTION: billed each week, cancel any
 // time, ends by itself after 26 weeks (then re-rent to keep it).
-//   • AD BLOCK: pick a half (north / south) or both, how many weeks,
+//   • AD BLOCK: pick a half (left / right) or both, how many weeks,
 //     add your picture. Can merge with the ad block next door.
 //   • HOME LOT: pick a house; a block holds 16 tiny homes, 8 townhouses,
 //     4 villas or 2 mansions. Can merge with the lot next door.
@@ -18,7 +18,7 @@ import { homeRequestsIn, saveRequest } from '../sim/plot-requests.ts';
 import { openSheet, toast } from './dom.ts';
 
 const usd = (v: number) => `$${v.toFixed(2)}`;
-const TIER_LABEL: Record<Plot['tier'], string> = { harlem: 'Harlem', uptown: 'Uptown', midtown: 'Midtown', downtown: 'Downtown', brooklyn: 'Brooklyn', bronx: 'The Bronx' };
+const TIER_LABEL: Record<Plot['tier'], string> = { harlem: 'Harlem', uptown: 'Uptown', midtown: 'Midtown', downtown: 'Downtown', brooklyn: 'Brooklyn', bronx: 'The Bronx', queens: 'Queens' };
 
 export function openPlotPanel(plot: Plot, focusUnit = -1): void {
   if (plot.kind === 'ad') return adPanel(plot, focusUnit);
@@ -31,7 +31,7 @@ const auctionNote = (p: Plot) => (p.auction ? '<p class="plot-note auction">🔨
 const subNote = '<p class="plot-note">🔁 Weekly subscription: cancel any time. It ends by itself after 26 weeks (6 months); re-rent to keep it.</p>';
 /** The "how many weeks" slider. */
 const weeksField = (weeks: number) => `<label class="plot-field">Subscribe for <b data-weeks>${weeks} weeks</b><input type="range" min="1" max="${MAX_WEEKS}" value="${weeks}" data-range></label>`;
-const mergeButton = (m: Plot, what: string) => `<button class="plot-merge" data-merge="${esc(m.id)}" aria-pressed="false">🔗 <b>Merge with the ${what} next door</b><small>${esc(m.name)} · ${what === 'block' ? 'rent both whole blocks and they become ONE giant billboard' : 'rent both and build one big estate across them'}</small></button>`;
+const mergeButton = (m: Plot, what: string) => `<button class="plot-merge" data-merge="${esc(m.id)}" aria-pressed="false">🔗 <b>Merge with the ${what} next door</b><small>${esc(m.name)} · ${what === 'block' ? 'rent both whole blocks and they become ONE giant ad' : 'rent both and build one big estate across them'}</small></button>`;
 
 /** Wires the weeks slider and merge buttons shared by the ad and home sheets. */
 function common(b: HTMLElement, mates: Plot[], st: { weeks: number; merge: Plot | null }, refresh: () => void, onMerge?: () => void): void {
@@ -63,10 +63,10 @@ function adPanel(p: Plot, focusUnit: number): void {
     title: 'Ad space',
     sub: `${esc(p.name)} · ${TIER_LABEL[p.tier]}`,
     body: `
-      <p class="blurb">This block is split in two halves, each with two giant billboards. ${usd(price.unit)} a week for a half, ${usd(price.block)} a week for the whole block.</p>
+      <p class="blurb">This whole block is ad space: your picture covers the ground, big enough to see from the map. Rent the left half, the right half or both: ${usd(price.unit)} a week for a half, ${usd(price.block)} a week for the whole block.</p>
       ${auctionNote(p)}
-      <div class="plot-units halves" role="group" aria-label="Halves of the block">
-        ${AD_UNIT_NAMES.map((n, i) => `<button class="plot-unit" data-u="${i}" aria-pressed="false"><b>${n}</b><small>2 billboards · ${usd(price.unit)}/wk</small></button>`).join('')}
+      <div class="plot-units" role="group" aria-label="Halves of the block">
+        ${AD_UNIT_NAMES.map((n, i) => `<button class="plot-unit" data-u="${i}" aria-pressed="false"><b>${n}</b><small>${usd(price.unit)}/wk</small></button>`).join('')}
       </div>
       <div class="row"><button class="btn" data-all>Whole block · ${usd(price.block)}/wk</button></div>
       ${mates.map((m) => mergeButton(m, 'block')).join('')}

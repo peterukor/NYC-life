@@ -644,7 +644,7 @@ export class Game {
       this.crowd!.hold(who.personId, 12, p.x, p.z);
       return this.walkTo(who.x, who.z);
     }
-    // A rentable billboard (ad block or island board)?
+    // An ad block half or an island panel?
     const boardHit = this.engine.pick(x, y, [this.city.adBoards.faces]);
     const board = boardHit?.faceIndex != null ? this.city.adBoards.boardAt(boardHit.faceIndex) : null;
     if (board && PLOT_BY_ID[board.plotId]) return openPlotPanel(PLOT_BY_ID[board.plotId], board.unit);

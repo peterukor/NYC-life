@@ -1,5 +1,5 @@
 // QA: sky-map views of any real places.
-//   AREA=brooklyn|bronx (optional) VIEWS='[["name",lat,lon,dist],...]' node scripts/qa-sky-custom.mjs → test-results/sky-<name>.png
+//   AREA=brooklyn|bronx|queens (optional) VIEWS='[["name",lat,lon,dist],...]' node scripts/qa-sky-custom.mjs → test-results/sky-<name>.png
 import puppeteer from 'puppeteer-core';
 import { mkdirSync } from 'node:fs';
 mkdirSync('test-results', { recursive: true });
@@ -19,7 +19,7 @@ await page.$eval('#ob-go', (el) => el.click());
 await wait(2500);
 await page.$eval('[data-nav="leave"]', (el) => el.click());
 await wait(2000);
-const TARGET = { brooklyn: 'fortGreenePark', bronx: 'yankeeStadium' }[process.env.AREA ?? ''];
+const TARGET = { brooklyn: 'fortGreenePark', bronx: 'yankeeStadium', queens: 'gantryPlaza' }[process.env.AREA ?? ''];
 if (TARGET) {
   // Take the subway to Brooklyn first (answer any on-board event).
   await page.evaluate((t) => window.__nyc.travel(t), TARGET);

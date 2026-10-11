@@ -316,7 +316,7 @@ export function buildCity(area: AreaId, opts: { trees: boolean; shadows?: boolea
 
       if (kind === 'lot') continue; // grass lot + FOR RENT board (world/coast.ts lots)
       if (kind === 'ads') {
-        grassGeo.flat(inner.minX, inner.maxX, inner.minZ, inner.maxZ, 0.2, 4); // lawn under the billboards (world/ad-blocks.ts)
+        plazaGeo.flat(inner.minX, inner.maxX, inner.minZ, inner.maxZ, 0.2, 3); // paved; the ad itself covers it (world/ad-blocks.ts)
         continue;
       }
       if (kind === 'vacant') {
@@ -410,9 +410,10 @@ export function buildCity(area: AreaId, opts: { trees: boolean; shadows?: boolea
     addAdSlot(adSlots, chunks[chunkFor(p.rect.minX, p.rect.minZ)].detail, area, 'L', 'avenue', w, w * 0.42, new THREE.Vector3(facingEast ? p.rect.maxX - 1.5 : p.rect.minX + 1.5, roofY + 1.4 + (w * 0.42) / 2, (p.rect.minZ + p.rect.maxZ) / 2), new THREE.Vector3(facingEast ? 1 : -1, 0, 0), chunkFor(p.rect.minX, p.rect.minZ), track, true);
   }
 
-  // --------------------------------------------------------- rentable billboards
-  // Ad blocks (4 boards each) and the islands for rent (data/plots.ts).
-  // On the main group, so they show from the sky map; 2 draw calls total.
+  // --------------------------------------------------------- ad blocks
+  // The ad blocks (the block itself is the ad, left + right half) and the
+  // islands for rent (data/plots.ts). On the main group, so they show from
+  // the sky map; 1 draw call total.
   const adBoards = buildAdBoards(plotsIn(area), track);
   group.add(adBoards.group);
 

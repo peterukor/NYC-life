@@ -123,6 +123,17 @@ const BX: typeof BK = [
   { id: 'crossBronx', name: 'Cross Bronx Expwy', width: 18, highway: true, pts: [[40.844, -73.925], [40.842, -73.905], [40.838, -73.885], [40.835, -73.865]] },
 ];
 
+/** Queens: the big boulevards and two expressways (real points). */
+const QN: typeof BK = [
+  { id: 'queensBlvd', name: 'Queens Blvd', width: 20, pts: [[40.7437, -73.9535], [40.743, -73.925], [40.741, -73.9], [40.738, -73.878]] },
+  { id: 'northernBlvd', name: 'Northern Blvd', width: 15, pts: [[40.752, -73.933], [40.753, -73.91], [40.756, -73.885], [40.759, -73.86]] },
+  { id: 'astoriaBlvd', name: 'Astoria Blvd', width: 14, pts: [[40.77, -73.928], [40.769, -73.905], [40.767, -73.885]] },
+  { id: 'qnBroadway', name: 'Broadway', width: 13, pts: [[40.762, -73.932], [40.756, -73.918], [40.748, -73.905]] },
+  { id: 'steinway', name: 'Steinway St', width: 12, pts: [[40.757, -73.921], [40.765, -73.914], [40.773, -73.907]] },
+  { id: 'qnBqe', name: 'BQE', width: 18, highway: true, pts: [[40.735, -73.92], [40.75, -73.907], [40.76, -73.898], [40.77, -73.893]] },
+  { id: 'lie', name: 'Long Island Expwy', width: 18, highway: true, pts: [[40.74, -73.945], [40.737, -73.92], [40.735, -73.89]] },
+];
+
 let cache: Corridor[] | null = null;
 
 export function corridors(): Corridor[] {
@@ -133,6 +144,7 @@ export function corridors(): Corridor[] {
     // Brooklyn Bridge approach on the Manhattan side (City Hall).
     { id: 'bbApproach', name: 'Brooklyn Bridge', area: 'manhattan', width: 16, highway: true, pts: ll([[40.7123, -74.0052], [40.7095, -74.001]]) },
     ...BK.map((c) => ({ id: c.id, name: c.name, area: 'brooklyn' as AreaId, width: c.width, highway: c.highway, pts: resample(chaikin(ll(c.pts), false, 2), 14, false) })),
+    ...QN.map((c) => ({ id: c.id, name: c.name, area: 'queens' as AreaId, width: c.width, highway: c.highway, pts: resample(chaikin(ll(c.pts), false, 2), 14, false) })),
     ...BX.map((c) => ({ id: c.id, name: c.name, area: 'bronx' as AreaId, width: c.width, highway: c.highway, pts: resample(chaikin(ll(c.pts), false, 2), 14, false) })),
   ];
   return cache;
