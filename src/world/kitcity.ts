@@ -13,7 +13,7 @@
 // HOW TO TUNE THE LOOK
 //   • Add/remove models in ZONE_MODELS (names from kit-buildings.glb).
 //   • Change the colours in PALETTES.
-//   • SCALE is metres per kit unit (14 ≈ a 4–5 storey building).
+//   • planBlock decides how many buildings per block (2–3 per row).
 // =====================================================================
 
 import * as THREE from 'three';
@@ -34,8 +34,6 @@ export interface Placement {
   rect: Rect;
 }
 
-/** Metres per kit unit for ordinary buildings. */
-const SCALE = 14;
 
 const ZONE_MODELS: Record<string, string[]> = {
   tall: ['building-skyscraper-a', 'building-skyscraper-b', 'building-skyscraper-c', 'building-skyscraper-d', 'building-skyscraper-e', 'building-m', 'building-l', 'building-n'],
@@ -74,26 +72,29 @@ export function planBlock(models: Map<string, KitModel>, inner: Rect, zone: stri
 
   for (const row of rows) {
     const rowDepth = row.z1 - row.z0 - 0.6;
-    let x = inner.minX + 0.3;
-    let guard = 0;
-    while (x < inner.maxX - 4 && guard++ < 40) {
-      const name = rng.pick(list);
+    // Summarised blocks: only a few big buildings per row (2 towers, or
+    // 2–3 mid-rises) instead of a long row of small ones. Reads better
+    // from the top-down camera and is much cheaper to draw.
+    const n = tall ? 2 : rng.chance(0.5) ? 2 : 3;
+    const gap = 1.2;
+    const lotW = (inner.maxX - inner.minX - gap * (n + 1)) / n;
+    for (let i = 0; i < n; i++) {
+      // Prefer models whose footprint shape suits the lot.
+      const want = lotW / rowDepth;
+      const ranked = [...list].sort((p, q) => {
+        const mp = models.get(p)!;
+        const mq = models.get(q)!;
+        return Math.abs(Math.log(mp.size.x / mp.size.z / want)) - Math.abs(Math.log(mq.size.x / mq.size.z / want));
+      });
+      const name = rng.pick(ranked.slice(0, Math.min(3, ranked.length)));
       const m = models.get(name)!;
-      // Fit the model's depth to the row; towers may be a bit larger.
-      const s = Math.min(tall ? 30 : SCALE * 1.15, rowDepth / m.size.z);
-      let w = m.size.x * s;
-      const room = inner.maxX - 0.3 - x;
-      let sx = s;
-      if (w > room) {
-        if (room < 5) break;
-        sx = s * (room / w); // squeeze the last building to fit the block end
-        w = room;
-      }
-      // Towers grow taller in Midtown; near the hub they're tallest of all.
-      const sy = tall ? s * rng.range(nearHub ? 1.3 : 1.0, nearHub ? 1.9 : 1.6) : s * rng.range(0.95, 1.25);
-      const cx = x + w / 2;
+      const s = rowDepth / m.size.z;
+      // Stretch sideways to fill the lot, within cartoon-friendly limits.
+      const sx = THREE.MathUtils.clamp(lotW / m.size.x, s * 0.75, s * 1.6);
+      const w = m.size.x * sx;
+      const sy = tall ? s * rng.range(nearHub ? 1.2 : 0.9, nearHub ? 1.7 : 1.4) : s * rng.range(0.9, 1.2);
+      const cx = inner.minX + gap + i * (lotW + gap) + lotW / 2;
       const cz = (row.z0 + row.z1) / 2;
-      // Sit the model so its footprint is centred on the lot.
       const centreX = -(m.min.x + m.size.x / 2) * sx;
       const centreZ = -(m.min.z + m.size.z / 2) * s * row.facing;
       out.push({
@@ -104,9 +105,8 @@ export function planBlock(models: Map<string, KitModel>, inner: Rect, zone: stri
         scale: new THREE.Vector3(sx, sy, s),
         color: new THREE.Color(rng.pick(palette)),
         roof: m.size.y * sy,
-        rect: { minX: x, maxX: x + w, minZ: cz - (m.size.z * s) / 2, maxZ: cz + (m.size.z * s) / 2 },
+        rect: { minX: cx - w / 2, maxX: cx + w / 2, minZ: cz - (m.size.z * s) / 2, maxZ: cz + (m.size.z * s) / 2 },
       });
-      x += w + rng.range(0.2, 1.2);
     }
   }
   return out;
@@ -135,6 +135,8 @@ const FAR_MODEL: Record<string, string> = {
  * update() swaps which chunks are near; far meshes are rebuilt only when
  * that set changes (not every frame).
  */
+const tmp = new THREE.Vector3();
+
 export class KitBuildings {
   readonly group = new THREE.Group();
   /** Everything a tap can hit (for "walk to the sidewalk in front"). */
@@ -144,6 +146,30 @@ export class KitBuildings {
   private nearKey = '';
   private dummy = new THREE.Object3D();
   private disposables: { dispose(): void }[] = [];
+  /** For see-through: where each near placement is drawn, and its fade. */
+  private slots: { p: Placement; mesh: THREE.InstancedMesh; index: number; fade: number; target: number; chunkVisible: () => boolean }[] = [];
+  private fadeTimer = 0;
+  private materials = new Map<THREE.Texture | null, THREE.Material>();
+
+  /** One building material per palette texture (shared by every mesh). */
+  private material(map: THREE.Texture | null): THREE.Material {
+    let m = this.materials.get(map);
+    if (!m) this.materials.set(map, (m = kitMaterial(map, { tintWalls: true, nightWindows: true })));
+    return m;
+  }
+
+  /** A per-mesh geometry that shares the model's vertices but has its own fade list. */
+  private withFade(src: THREE.BufferGeometry, count: number): THREE.BufferGeometry {
+    const g = new THREE.BufferGeometry();
+    for (const k of Object.keys(src.attributes)) g.setAttribute(k, src.getAttribute(k));
+    g.setIndex(src.getIndex());
+    g.boundingBox = src.boundingBox;
+    g.boundingSphere = src.boundingSphere;
+    const fade = new THREE.InstancedBufferAttribute(new Float32Array(count), 1);
+    fade.setUsage(THREE.DynamicDrawUsage);
+    g.setAttribute('instanceFade', fade);
+    return g;
+  }
 
   constructor(
     private models: Map<string, KitModel>,
@@ -177,7 +203,7 @@ export class KitBuildings {
     }
     for (const [name, n] of farCounts) {
       const m = models.get(name)!;
-      const mesh = new THREE.InstancedMesh(m.geometry, kitMaterial(m.map, { tintWalls: true, nightWindows: true }), n);
+      const mesh = new THREE.InstancedMesh(this.withFade(m.geometry, n), this.material(m.map), n);
       mesh.receiveShadow = true;
       mesh.name = `kit-far-${name}`;
       this.far.set(name, mesh);
@@ -204,8 +230,9 @@ export class KitBuildings {
     const out: THREE.InstancedMesh[] = [];
     for (const [name, list] of by) {
       const m = this.models.get(name)!;
-      const mesh = new THREE.InstancedMesh(m.geometry, kitMaterial(m.map, { tintWalls: true, nightWindows: true }), list.length);
+      const mesh = new THREE.InstancedMesh(this.withFade(m.geometry, list.length), this.material(m.map), list.length);
       list.forEach((p, i) => {
+        this.slots.push({ p, mesh, index: i, fade: 0, target: 0, chunkVisible: () => mesh.parent?.visible ?? false });
         this.dummy.position.set(p.x, 0.18, p.z);
         this.dummy.rotation.set(0, p.rotY, 0);
         this.dummy.scale.copy(p.scale);
@@ -265,7 +292,46 @@ export class KitBuildings {
     }
   }
 
+  /**
+   * See-through: every ~0.15 s, test which nearby buildings block the
+   * line from the camera to the player (a cheap box test, no triangle
+   * ray casting), then fade those out smoothly and the rest back in.
+   */
+  updateSeeThrough(camera: THREE.Vector3, player: THREE.Vector3, dt: number): void {
+    this.fadeTimer -= dt;
+    if (this.fadeTimer <= 0) {
+      this.fadeTimer = 0.15;
+      const targets = [new THREE.Vector3(player.x, player.y + 0.4, player.z), new THREE.Vector3(player.x, player.y + 1.6, player.z)];
+      for (const s of this.slots) {
+        s.target = 0;
+        if (!s.chunkVisible()) continue;
+        const r = s.p.rect;
+        const box = new THREE.Box3(new THREE.Vector3(r.minX - 0.5, 0, r.minZ - 0.5), new THREE.Vector3(r.maxX + 0.5, s.p.roof + 1, r.maxZ + 0.5));
+        if (box.containsPoint(targets[0])) continue;
+        for (const t of targets) {
+          const ray = new THREE.Ray(camera.clone(), t.clone().sub(camera).normalize());
+          const hit = ray.intersectBox(box, tmp);
+          if (hit && hit.distanceTo(camera) < t.distanceTo(camera) - 0.5) {
+            s.target = 1;
+            break;
+          }
+        }
+      }
+    }
+    const k = Math.min(1, dt * 6);
+    const dirty = new Set<THREE.InstancedMesh>();
+    for (const s of this.slots) {
+      if (Math.abs(s.fade - s.target) < 0.01) continue;
+      s.fade += (s.target - s.fade) * k;
+      if (Math.abs(s.fade - s.target) < 0.01) s.fade = s.target;
+      (s.mesh.geometry.getAttribute('instanceFade') as THREE.InstancedBufferAttribute).setX(s.index, s.fade);
+      dirty.add(s.mesh);
+    }
+    for (const m of dirty) m.geometry.getAttribute('instanceFade').needsUpdate = true;
+  }
+
   dispose(): void {
+    for (const m of this.materials.values()) m.dispose();
     for (const d of this.disposables) d.dispose();
     this.group.removeFromParent();
   }

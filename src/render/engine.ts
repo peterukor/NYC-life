@@ -65,10 +65,10 @@ export class Engine {
     this.controls.enablePan = false;
     this.controls.minDistance = CAMERA.minDistance;
     this.controls.maxDistance = CAMERA.maxDistance;
-    this.controls.minPolarAngle = 0.2;
+    this.controls.minPolarAngle = 0.45;
     // Township-style: the camera always looks down on the city at a
     // comfortable angle, so streets (and you) stay visible.
-    this.controls.maxPolarAngle = 1.12;
+    this.controls.maxPolarAngle = 0.98;
     this.controls.zoomSpeed = 1.1;
     this.controls.rotateSpeed = 0.7;
     this.controls.touches = { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_ROTATE };

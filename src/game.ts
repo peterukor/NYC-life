@@ -42,7 +42,7 @@ import { skyAt } from './render/sky.ts';
 import { AdManager } from './world/ads.ts';
 import { makeAvatar, type Avatar } from './world/avatar.ts';
 import { loadFolk, type FolkAnim, type FolkKit } from './world/folk.ts';
-import { kitCut, kitNight, loadKits, type Kits } from './assets/kit.ts';
+import { kitNight, loadKits, type Kits } from './assets/kit.ts';
 import { buildCity, setNightGlow, type BuiltCity } from './world/city.ts';
 import { Crowd } from './world/crowd.ts';
 import { buildInterior, type Interior } from './world/interior.ts';
@@ -273,7 +273,7 @@ export class Game {
     const loc = this.state.location;
     this.player.root.position.set(loc.x, 0.2, loc.z);
     this.engine.controls.target.set(loc.x, 2, loc.z);
-    this.engine.camera.position.set(loc.x + 16, CAMERA.startDistance * 0.85, loc.z + 26);
+    this.engine.camera.position.set(loc.x + 20, CAMERA.startDistance * 0.73, loc.z + 36);
     this.path = [];
   }
 
@@ -330,7 +330,7 @@ export class Game {
       this.updatePlayer(dt);
       const camDist = this.engine.camera.position.distanceTo(this.engine.controls.target);
       this.city.updateLod(this.engine.controls.target, DETAIL_RADIUS + camDist * 0.6, camDist);
-      this.updateCutaway();
+      this.city.updateSeeThrough(this.engine.camera.position, this.player.root.position, dt);
       this.city.tick(dt);
       const hub = DISTRICTS[this.city.area].hub;
       const hb = blockRect(DISTRICTS[this.city.area], hub.c, hub.r);
@@ -441,25 +441,6 @@ export class Game {
       this.walkTo(target.x, target.z);
     }
   }
-
-  /**
-   * Keep the player visible: tell the building shader where the player
-   * is on screen, so buildings in front of them dissolve in a circle
-   * (see kitCut in assets/kit.ts).
-   */
-  private updateCutaway(): void {
-    const cam = this.engine.camera;
-    const p = this.player.root.position;
-    const head = this.tmpV3.set(p.x, p.y + 1.2, p.z).project(cam);
-    const size = this.engine.renderer.getDrawingBufferSize(this.tmpV2);
-    const dist = cam.position.distanceTo(this.tmpV3b.set(p.x, p.y + 1.2, p.z));
-    const onScreen = Math.abs(head.x) < 1.2 && Math.abs(head.y) < 1.2 && head.z < 1;
-    const radius = onScreen ? size.y * THREE.MathUtils.clamp(10 / dist, 0.09, 0.22) : 0;
-    kitCut.value.set((head.x * 0.5 + 0.5) * size.x, (head.y * 0.5 + 0.5) * size.y, radius, dist);
-  }
-  private tmpV2 = new THREE.Vector2();
-  private tmpV3 = new THREE.Vector3();
-  private tmpV3b = new THREE.Vector3();
 
   private walkTo(x: number, z: number): void {
     if (!this.city) return;

@@ -125,7 +125,12 @@ export const DETAIL_RADIUS = 260;
 export const CROWD_RADIUS = 170;
 
 /** Camera zoom limits (metres from the player). Zoom out far to see the whole area. */
-export const CAMERA = { minDistance: 9, maxDistance: 520, startDistance: 38 } as const;
+/**
+ * Camera: a slanted top-down view (Township / Hay Day style). You can
+ * zoom and spin, but the tilt stays between ~26° and ~56° from straight
+ * down, so streets, ads and your character are always in view.
+ */
+export const CAMERA = { minDistance: 16, maxDistance: 520, startDistance: 60 } as const;
 
 /**
  * Player travel speed on foot, metres per second. Faster than a real walk

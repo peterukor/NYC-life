@@ -69,6 +69,8 @@ export interface BuiltCity {
   updateLod: (focus: THREE.Vector3, radius: number, cameraDistance?: number) => void;
   /** Per-frame animation (Ferris wheels, carousels…). */
   tick: (dt: number) => void;
+  /** Fade out buildings standing between the camera and the player. */
+  updateSeeThrough: (camera: THREE.Vector3, player: THREE.Vector3, dt: number) => void;
   dispose: () => void;
 }
 
@@ -543,6 +545,7 @@ export function buildCity(area: AreaId, opts: { trees: boolean; shadows?: boolea
     tick: (dt) => {
       for (const fn of animators) fn(dt);
     },
+    updateSeeThrough: (camera, player, dt) => kitCity?.updateSeeThrough(camera, player, dt),
     dispose() {
       group.removeFromParent();
       for (const x of disposables) x.dispose();
@@ -565,11 +568,16 @@ function addAdSlot(slots: AdSlot[], parent: THREE.Object3D, area: AreaId, size: 
   const mesh = new THREE.Mesh(track(new THREE.PlaneGeometry(w, h)), mat);
   mesh.position.copy(center).addScaledVector(normal, 0.15);
   mesh.lookAt(mesh.position.clone().add(normal));
+  // Lean ads back toward the sky so the slanted top-down camera sees
+  // them nearly face-on: rooftop boards a lot, building screens a bit.
+  const lean = withFrame ? 0.5 : tier === 'hub' ? 0.18 : 0;
+  mesh.rotateX(-lean);
   parent.add(mesh);
   if (withFrame) {
     const frame = new THREE.Mesh(track(new THREE.BoxGeometry(w + 0.5, h + 0.5, 0.3)), track(new THREE.MeshLambertMaterial({ color: '#222' })));
     frame.position.copy(center).addScaledVector(normal, -0.05);
     frame.lookAt(frame.position.clone().add(normal));
+    frame.rotateX(-lean);
     parent.add(frame);
     // Two legs so rooftop billboards look mounted, not floating.
     for (const side of [-1, 1]) {
@@ -582,7 +590,7 @@ function addAdSlot(slots: AdSlot[], parent: THREE.Object3D, area: AreaId, size: 
   }
   const id = `${area}-${size}-${slots.length}`;
   mesh.userData.adSlotId = id;
-  slots.push({ id, area, size, width: w, height: h, mesh, center: center.clone(), normal: normal.clone(), tier, chunk });
+  slots.push({ id, area, size, width: w, height: h, mesh, center: center.clone(), normal: new THREE.Vector3(0, 0, 1).applyQuaternion(mesh.quaternion), tier, chunk });
 }
 
 /**
