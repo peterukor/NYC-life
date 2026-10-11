@@ -25,6 +25,7 @@ import type { AreaId } from '../sim/types.ts';
 import { crowdGeometries, OUTFIT_COLORS, SKIN_TONES } from './avatar.ts';
 import { findPath, nearestWalkable, isWalkable, type NavGrid } from './nav.ts';
 import { blobShadowTexture } from '../render/textures.ts';
+import { Actor, FOLK_ROLES, type FolkKit } from './folk.ts';
 
 type Stop = PlaceType | 'wander';
 type Personality = 'commuter' | 'partier' | 'tourist' | 'local';
@@ -82,6 +83,11 @@ interface Agent {
   waitUntil: number;
   phase: number;
   active: boolean;
+  /** Which cartoon character this person is (index into the standing meshes). */
+  look: number;
+  /** The animated actor drawing this person right now, if close to the camera. */
+  actor: Actor | null;
+  moving: boolean;
 }
 
 export class Crowd {
@@ -94,8 +100,12 @@ export class Crowd {
   private targets: Record<Stop, { x: number; z: number }[]>;
   private pathBudget = 0;
   private time = 0;
+  /** Cartoon people: standing copies for far away + an animated pool nearby. */
+  private standing: THREE.InstancedMesh[] = [];
+  private pool: Actor[] = [];
+  private poolTimer = 0;
 
-  constructor(private nav: NavGrid, area: AreaId, private max: number) {
+  constructor(private nav: NavGrid, area: AreaId, private max: number, folk?: FolkKit, animated = 12) {
     const { clothes, skin } = crowdGeometries();
     const clothesMat = new THREE.MeshLambertMaterial({ vertexColors: true });
     const skinMat = new THREE.MeshLambertMaterial();
@@ -107,6 +117,33 @@ export class Crowd {
       m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
       m.frustumCulled = false; // the crowd follows the camera; culling the whole batch would hide everyone
       this.group.add(m);
+    }
+    if (folk) {
+      // Cartoon people replace the simple figures.
+      this.clothes.visible = false;
+      this.skin.visible = false;
+      for (const { name, geometry } of folk.standing) {
+        const m = new THREE.InstancedMesh(geometry, folk.material, max);
+        m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+        m.frustumCulled = false;
+        m.count = 0;
+        m.name = `crowd-${name}`;
+        this.standing.push(m);
+        this.group.add(m);
+      }
+      // Nearby animated people: mostly casual, with office workers,
+      // doctors, chefs, builders and the odd cop mixed in.
+      const cast = [...FOLK_ROLES.casual, ...FOLK_ROLES.casual, ...FOLK_ROLES.office, ...FOLK_ROLES.health, ...FOLK_ROLES.chef, ...FOLK_ROLES.construction, ...FOLK_ROLES.wealthy, FOLK_ROLES.police[0]];
+      const tones = ['#8d5524', '#f1c27d', '#c68642', '#5c3a21', '#e0ac69', '#ffdbac', '#a46b44', '#3b2414'];
+      const tops = ['#e63946', '#2a9d8f', '#f4a261', '#3a86ff', '#ffbe0b', '#8338ec', '#ff006e', '#06d6a0', '#ffffff', '#1d3557'];
+      for (let i = 0; i < animated; i++) {
+        const character = cast[(i * 7) % cast.length];
+        const casual = (FOLK_ROLES.casual as readonly string[]).includes(character);
+        const a = new Actor(folk, { character, skin: tones[(i * 3) % tones.length], top: casual ? tops[(i * 5) % tops.length] : undefined }, false);
+        a.visible = false;
+        this.pool.push(a);
+        this.group.add(a.root);
+      }
     }
     const color = new THREE.Color();
     for (let i = 0; i < max; i++) {
@@ -128,7 +165,7 @@ export class Crowd {
     }
     const personalities: Personality[] = ['commuter', 'commuter', 'local', 'local', 'partier', 'tourist'];
     for (let i = 0; i < max; i++) {
-      this.agents.push({ x: 0, z: 0, heading: 0, speed: 1.2 + Math.random() * 0.6, path: [], last: 'wander', personality: personalities[i % personalities.length], waitUntil: 0, phase: Math.random() * 10, active: false });
+      this.agents.push({ x: 0, z: 0, heading: 0, speed: 1.2 + Math.random() * 0.6, path: [], last: 'wander', personality: personalities[i % personalities.length], waitUntil: 0, phase: Math.random() * 10, active: false, look: i, actor: null, moving: false });
     }
   }
 
@@ -214,6 +251,7 @@ export class Crowd {
         }
       }
 
+      a.moving = moving;
       a.phase += dt * (moving ? 9 : 1.5);
       const bob = moving ? Math.abs(Math.sin(a.phase)) * 0.06 : 0;
       this.dummy.position.set(a.x, 0.18 + bob, a.z);
@@ -232,9 +270,54 @@ export class Crowd {
       m.count = shown;
       m.instanceMatrix.needsUpdate = true;
     }
+    if (this.standing.length) this.drawCartoon(dt, focus, wanted);
+  }
+
+  /**
+   * Cartoon drawing: the people nearest the camera focus get animated
+   * actors (re-chosen twice a second); everyone else is a standing copy
+   * that bobs a little as it walks.
+   */
+  private drawCartoon(dt: number, focus: THREE.Vector3, wanted: number): void {
+    this.poolTimer -= dt;
+    if (this.poolTimer <= 0) {
+      this.poolTimer = 0.5;
+      const active = this.agents.slice(0, wanted).filter((a) => a.active);
+      active.sort((p, q) => (p.x - focus.x) ** 2 + (p.z - focus.z) ** 2 - ((q.x - focus.x) ** 2 + (q.z - focus.z) ** 2));
+      const near = new Set(active.slice(0, this.pool.length));
+      for (const a of this.agents) if (a.actor && !near.has(a)) a.actor = null;
+      const free = this.pool.filter((p) => !this.agents.some((a) => a.actor === p));
+      for (const a of near) if (!a.actor) a.actor = free.pop() ?? null;
+      for (const p of this.pool) p.visible = this.agents.some((a) => a.actor === p);
+    }
+    const counts = this.standing.map(() => 0);
+    for (let i = 0; i < wanted && i < this.agents.length; i++) {
+      const a = this.agents[i];
+      if (!a.active) continue;
+      if (a.actor) {
+        a.actor.root.position.set(a.x, 0.18, a.z);
+        a.actor.root.rotation.y = a.heading;
+        a.actor.move(a.moving ? a.speed * 1.4 : 0);
+        a.actor.update(dt);
+        continue;
+      }
+      const k = a.look % this.standing.length;
+      const bob = a.moving ? Math.abs(Math.sin(a.phase)) * 0.12 : 0;
+      this.dummy.position.set(a.x, 0.18 + bob, a.z);
+      this.dummy.rotation.set(0, a.heading, a.moving ? Math.sin(a.phase) * 0.08 : 0);
+      this.dummy.scale.setScalar(1);
+      this.dummy.updateMatrix();
+      this.standing[k].setMatrixAt(counts[k]++, this.dummy.matrix);
+    }
+    this.standing.forEach((m, k) => {
+      m.count = counts[k];
+      m.instanceMatrix.needsUpdate = true;
+    });
   }
 
   dispose(): void {
+    for (const p of this.pool) p.dispose();
+    for (const m of this.standing) m.dispose();
     for (const m of [this.clothes, this.skin, this.shadows]) {
       m.geometry.dispose();
       (m.material as THREE.Material).dispose();

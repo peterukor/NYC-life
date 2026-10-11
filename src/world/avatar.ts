@@ -16,7 +16,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { Look } from '../sim/types.ts';
-import { loadPeople, Person, type AnimName, type PeopleAssets } from './people.ts';
+import { Actor, loadFolk, type FolkAnim, type FolkKit, type FolkLook } from './folk.ts';
 
 /** Soft, slightly glossy material: nicer than flat shading, still cheap for one character. */
 const soft = (color: string, roughness = 0.75) => new THREE.MeshStandardMaterial({ color, roughness, metalness: 0 });
@@ -32,7 +32,7 @@ export interface Avatar {
    * Play an activity animation (sitting, eating, phone…) while standing
    * still, or null to go back to normal. Walking always overrides it.
    */
-  setAction: (name: AnimName | null) => void;
+  setAction: (name: FolkAnim | null) => void;
   dispose: () => void;
 }
 
@@ -48,53 +48,61 @@ export function makeAvatar(look: Look): Avatar {
   const root = new THREE.Group();
   const simple = makeSimpleAvatar(look);
   root.add(simple.root);
-  let person: Person | null = null;
+  let actor: Actor | null = null;
   let current = look;
-  let action: AnimName | null = null;
-  let assets: PeopleAssets | null = null;
+  let action: FolkAnim | null = null;
 
-  const build = () => {
-    if (!assets) return;
-    person?.dispose();
-    person = new Person(assets, current);
-    root.add(person.root);
-    simple.root.visible = false;
-  };
-  loadPeople()
-    .then((a) => {
-      assets = a;
-      build();
+  loadFolk()
+    .then((kit: FolkKit) => {
+      actor = new Actor(kit, folkLookOf(current));
+      root.add(actor.root);
+      simple.root.visible = false;
     })
-    .catch((err) => console.info('[people] using the simple figure:', err?.message ?? err));
+    .catch((err) => console.info('[folk] using the simple figure:', err?.message ?? err));
 
   return {
     root,
     animate(speed, dt) {
-      if (!person) return simple.animate(speed, dt);
-      if (speed > 0.15 || !action) person.move(speed);
-      else person.play(action, 0.3);
-      person.update(dt);
+      if (!actor) return simple.animate(speed, dt);
+      if (speed > 0.15 || !action) actor.move(speed);
+      else actor.play(action, 0.25);
+      actor.update(dt);
     },
     setLook(l) {
-      const bodyChanged = l.body !== current.body;
       current = l;
       simple.setLook(l);
-      if (!person) return;
-      if (bodyChanged) build();
-      else person.setLook(l);
+      actor?.setLook(folkLookOf(l));
     },
     setDetail(d) {
       simple.setDetail(d);
-      person?.setDetail(d < 45);
     },
     setAction(name) {
       action = name;
     },
     dispose() {
       simple.dispose();
-      person?.dispose();
+      actor?.dispose();
     },
   };
+}
+
+/**
+ * Which cartoon character parts a Look uses. The hairstyle picks the
+ * head and the top picks the outfit, so changing clothes in the closet
+ * changes the character on screen.
+ */
+export function folkLookOf(look: Look): FolkLook {
+  const f = look.body === 'f';
+  const pick = (m: string, w: string) => (f ? w : m);
+  // The top decides the base model (a blazer is a suit, a hoodie is casual…).
+  const top = look.topId ?? 'tee';
+  const character =
+    top === 'blazer' ? pick('Suit_Male', 'Suit_Female')
+    : top === 'longsleeve' || top === 'hoodie' || top === 'pufferJacket' ? pick('Casual2_Male', 'Casual2_Female')
+    : top === 'denimJacket' || top === 'leatherJacket' ? pick('Casual3_Male', 'Casual3_Female')
+    : look.hairStyle === 'hair_bald' && !f ? 'Casual_Bald'
+    : pick('Casual_Male', 'Casual_Female');
+  return { character, skin: look.skin, hair: look.hair, top: look.top, bottom: look.bottom, hat: look.hat };
 }
 
 /** A capsule hanging down from its top end (handy for limbs that rotate at the joint). */

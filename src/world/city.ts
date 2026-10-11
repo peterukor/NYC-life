@@ -22,6 +22,8 @@ import { comingSoonTexture, facadeTextures, signTexture, type FacadeStyle } from
 import { GeoBuilder } from './geo.ts';
 import { avenueX, blockRect, districtBounds, DISTRICTS, SIDEWALK, streetZ, type DistrictDef, type Rect } from './layout.ts';
 import { buildNavGrid, type NavGrid } from './nav.ts';
+import { kitMaterial, type Kits } from '../assets/kit.ts';
+import { KitBuildings, planBlock, type Placement } from './kitcity.ts';
 
 export type AdSize = 'S' | 'M' | 'L' | 'XL';
 
@@ -63,7 +65,7 @@ export interface BuiltCity {
   /** Building walls: a tap that hits one walks you to the sidewalk in front of it. */
   solids: THREE.Object3D[];
   /** Show/hide detail by distance from the camera's focus point. */
-  updateLod: (focus: THREE.Vector3, radius: number) => void;
+  updateLod: (focus: THREE.Vector3, radius: number, cameraDistance?: number) => void;
   dispose: () => void;
 }
 
@@ -110,7 +112,10 @@ const HEIGHT_BY_ZONE: Record<string, [number, number]> = {
 
 // ---------------------------------------------------------------------
 
-export function buildCity(area: AreaId, opts: { trees: boolean }): BuiltCity {
+export function buildCity(area: AreaId, opts: { trees: boolean; shadows?: boolean; kits?: Kits }): BuiltCity {
+  const kitBuildings = opts.kits?.buildings;
+  const kitProps = opts.kits?.props;
+  const placements: Placement[] = [];
   const d = DISTRICTS[area];
   const rng = new Rng(d.seed);
   const group = new THREE.Group();
@@ -146,7 +151,7 @@ export function buildCity(area: AreaId, opts: { trees: boolean }): BuiltCity {
   };
 
   // --------------------------------------------------------- ground & water
-  const asphalt = track(new THREE.MeshLambertMaterial({ color: '#3b3d42' }));
+  const asphalt = track(new THREE.MeshLambertMaterial({ color: '#59606f' }));
   const ground = new THREE.Mesh(track(new THREE.PlaneGeometry(bounds.maxX - bounds.minX + 800, bounds.maxZ - bounds.minZ + 800)), asphalt);
   ground.rotation.x = -Math.PI / 2;
   ground.position.set((bounds.minX + bounds.maxX) / 2, 0, (bounds.minZ + bounds.maxZ) / 2);
@@ -273,6 +278,24 @@ export function buildCity(area: AreaId, opts: { trees: boolean }): BuiltCity {
       // ---- blocks fully taken by a landmark get no ordinary buildings
       if (places.some((p) => FULL_BLOCK_LANDMARKS.has(p.id) && p.block[0] === c && p.block[1] === r)) continue;
 
+      // ---- cartoon kit buildings (when the model pack has loaded)
+      if (kitBuildings) {
+        const bc = { x: (inner.minX + inner.maxX) / 2, z: (inner.minZ + inner.maxZ) / 2 };
+        const nearHub = Math.abs(bc.x - (hubRect.minX + hubRect.maxX) / 2) < d.blockW * 1.6 && Math.abs(bc.z - (hubRect.minZ + hubRect.maxZ) / 2) < d.blockD * 2.2;
+        for (const p of planBlock(kitBuildings, inner, zone, rng, nearHub)) {
+          placements.push(p);
+          const chunk = chunkFor(p.x, p.z);
+          if (p.roof < 40 && rng.chance(0.18)) waterTowers.push(new THREE.Vector3(rng.range(p.rect.minX + 3, p.rect.maxX - 3), p.roof + 0.18, (p.rect.minZ + p.rect.maxZ) / 2));
+          if (zone !== 'brownstone' && p.roof < 45 && p.roof > 14 && rng.chance(0.1)) {
+            const facingEast = rng.chance(0.5);
+            const w = Math.min(14, (p.rect.maxZ - p.rect.minZ) * 0.8);
+            addAdSlot(adSlots, group, area, 'L', 'avenue', w, w * 0.42, new THREE.Vector3(facingEast ? p.rect.maxX - 1 : p.rect.minX + 1, p.roof + 1.4 + (w * 0.42) / 2, (p.rect.minZ + p.rect.maxZ) / 2), new THREE.Vector3(facingEast ? 1 : -1, 0, 0), chunk, track, true);
+          }
+        }
+        if (zone === 'brownstone' && opts.trees) for (const tz of [b.minZ + 1.6, b.maxZ - 1.6]) for (let tx = inner.minX + 6; tx < inner.maxX - 4; tx += rng.range(12, 20)) trees.push(new THREE.Vector3(tx, 0.18, tz));
+        continue;
+      }
+
       // ---- ordinary buildings: two rows of lots (north half, south half)
       const midZ = (inner.minZ + inner.maxZ) / 2;
       for (const [z0, z1] of [[inner.minZ, midZ], [midZ, inner.maxZ]] as const) {
@@ -332,7 +355,7 @@ export function buildCity(area: AreaId, opts: { trees: boolean }): BuiltCity {
   addHub(d, group, adSlots, track, chunkFor, rng, solids);
 
   // --------------------------------------------------------- merge static meshes
-  const concrete = track(new THREE.MeshLambertMaterial({ color: '#a7a39b' }));
+  const concrete = track(new THREE.MeshLambertMaterial({ color: '#d8dbe4' }));
   const sidewalkMesh = new THREE.Mesh(track(sidewalkGeo.build()), concrete);
   sidewalkMesh.receiveShadow = true;
   sidewalkMesh.name = 'sidewalks';
@@ -340,20 +363,20 @@ export function buildCity(area: AreaId, opts: { trees: boolean }): BuiltCity {
   walkSurfaces.push(sidewalkMesh);
 
   if (!grassGeo.empty) {
-    const grass = new THREE.Mesh(track(grassGeo.build()), track(new THREE.MeshLambertMaterial({ color: '#5f9e4f' })));
+    const grass = new THREE.Mesh(track(grassGeo.build()), track(new THREE.MeshLambertMaterial({ color: '#7ed37a' })));
     grass.receiveShadow = true;
     group.add(grass);
     walkSurfaces.push(grass);
   }
   if (!plazaGeo.empty) {
-    const plaza = new THREE.Mesh(track(plazaGeo.build()), track(new THREE.MeshLambertMaterial({ color: '#c9b8a3' })));
+    const plaza = new THREE.Mesh(track(plazaGeo.build()), track(new THREE.MeshLambertMaterial({ color: '#f0dfc8' })));
     plaza.receiveShadow = true;
     group.add(plaza);
     walkSurfaces.push(plaza);
   }
   if (!dirtGeo.empty) group.add(new THREE.Mesh(track(dirtGeo.build()), track(new THREE.MeshLambertMaterial({ color: '#8a6f4e' }))));
 
-  const roofMat = track(new THREE.MeshLambertMaterial({ color: '#55575c' }));
+  const roofMat = track(new THREE.MeshLambertMaterial({ color: '#6b6f80' }));
   for (const [chunk, g] of roofGeo) {
     const m = new THREE.Mesh(track(g.build()), roofMat);
     m.receiveShadow = true;
@@ -368,6 +391,14 @@ export function buildCity(area: AreaId, opts: { trees: boolean }): BuiltCity {
     m.name = `walls-${key}`;
     group.add(m);
     solidMeshes.push(m);
+  }
+
+  let kitCity: KitBuildings | null = null;
+  if (kitBuildings && placements.length) {
+    kitCity = new KitBuildings(kitBuildings, placements, CHUNK_SIZE, !!opts.shadows);
+    group.add(kitCity.group);
+    solidMeshes.push(...kitCity.pickables);
+    disposables.push(kitCity);
   }
 
   // --------------------------------------------------------- instanced props
@@ -387,7 +418,25 @@ export function buildCity(area: AreaId, opts: { trees: boolean }): BuiltCity {
     group.add(mesh);
   };
 
-  if (opts.trees) {
+  // Cartoon kit props (trees, lamps, traffic lights) when the pack loaded.
+  const kp = (name: string) => kitProps?.get(name);
+  const kitInstanced = (name: string, scale: number, items: { p: THREE.Vector3; rotY?: number; s?: number }[], shadow = false) => {
+    const m = kp(name);
+    if (!m || !items.length) return false;
+    instanced(m.geometry.clone().scale(scale, scale, scale), kitMaterial(m.map), items, shadow);
+    return true;
+  };
+  const treeItems = trees.map((p) => ({ p, rotY: rng.range(0, 6.28), s: rng.range(0.8, 1.25) }));
+  const kitTrees = opts.trees && kitInstanced('tree-large', 10, treeItems, true);
+  const kitLamps = kitInstanced('light-curved', 9, lamps.map((p) => ({ p, rotY: Math.atan2(p.x - Math.round(p.x / 10) * 10, 1) })));
+  if (kitProps) {
+    // Traffic lights on one corner of every intersection.
+    const lights: { p: THREE.Vector3; rotY: number }[] = [];
+    for (let i = 0; i <= d.cols; i++) for (let j = 0; j <= d.rows; j++) lights.push({ p: new THREE.Vector3(avenueX(d, i) + d.avenueW / 2 + 1, 0.18, streetZ(d, j) + d.streetW / 2 + 1), rotY: Math.PI });
+    kitInstanced('traffic-light', 9, lights);
+  }
+
+  if (opts.trees && !kitTrees) {
     const leaves = track(new THREE.MeshLambertMaterial({ color: '#3f7d3a' }));
     const trunk = track(new THREE.MeshLambertMaterial({ color: '#5b4331' }));
     const items = trees.map((p) => ({ p, s: rng.range(0.8, 1.3) }));
@@ -396,10 +445,10 @@ export function buildCity(area: AreaId, opts: { trees: boolean }): BuiltCity {
   }
 
   const lampMat = track(new THREE.MeshLambertMaterial({ color: '#2f3b33' }));
-  instanced(new THREE.CylinderGeometry(0.09, 0.12, 6, 5).translate(0, 3, 0), lampMat, lamps.map((p) => ({ p })));
+  if (!kitLamps) instanced(new THREE.CylinderGeometry(0.09, 0.12, 6, 5).translate(0, 3, 0), lampMat, lamps.map((p) => ({ p })));
   const lampHeads = track(new THREE.MeshBasicMaterial({ color: '#fff3c4' }));
   lampHeads.userData.nightLamp = true;
-  instanced(new THREE.SphereGeometry(0.32, 6, 4).translate(0, 6.1, 0), lampHeads, lamps.map((p) => ({ p })));
+  if (!kitLamps) instanced(new THREE.SphereGeometry(0.32, 6, 4).translate(0, 6.1, 0), lampHeads, lamps.map((p) => ({ p })));
 
   const tankMat = track(new THREE.MeshLambertMaterial({ color: '#6e5136' }));
   instanced(new THREE.CylinderGeometry(1.5, 1.5, 3.2, 10).translate(0, 4.6, 0), tankMat, waterTowers.map((p) => ({ p })), true);
@@ -459,13 +508,17 @@ export function buildCity(area: AreaId, opts: { trees: boolean }): BuiltCity {
 
   const nav = buildNavGrid(d, solids);
 
-  const updateLod = (focus: THREE.Vector3, radius: number) => {
+  const updateLod = (focus: THREE.Vector3, radius: number, cameraDistance = 40) => {
     const r2 = radius * radius;
     for (const ch of chunks) {
       const dx = ch.center.x - focus.x;
       const dz = ch.center.y - focus.z;
       ch.detail.visible = dx * dx + dz * dz < r2;
     }
+    // Full-detail buildings only close to the camera's focus.
+    // Zoomed far out, everything is small on screen: use stand-ins only
+    // near the centre of view.
+    kitCity?.update(focus, cameraDistance > 200 ? 90 : cameraDistance > 110 ? 160 : 220);
   };
 
   return {

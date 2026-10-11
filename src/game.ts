@@ -41,7 +41,8 @@ import { qualitySettings } from './render/quality.ts';
 import { skyAt } from './render/sky.ts';
 import { AdManager } from './world/ads.ts';
 import { makeAvatar, type Avatar } from './world/avatar.ts';
-import type { AnimName } from './world/people.ts';
+import { loadFolk, type FolkAnim, type FolkKit } from './world/folk.ts';
+import { kitNight, loadKits, type Kits } from './assets/kit.ts';
 import { buildCity, setNightGlow, type BuiltCity } from './world/city.ts';
 import { Crowd } from './world/crowd.ts';
 import { buildInterior, type Interior } from './world/interior.ts';
@@ -65,6 +66,9 @@ export class Game {
   private traffic: Traffic | null = null;
   private ads: AdManager | null = null;
   private player: Avatar;
+  /** Cartoon model packs (empty if they couldn't load: simple shapes are used). */
+  private kits: Kits = {};
+  private folk: FolkKit | null = null;
   private hud!: Hud;
   private interior: Interior | null = null;
   private transit: TransitScene | null = null;
@@ -127,15 +131,29 @@ export class Game {
         if (front) {
           // Swing round to face the player (the avatar looks down its +Z axis).
           const yaw = this.player.root.rotation.y;
-          offset.set(Math.sin(yaw) * d * 0.85, d * 0.45, Math.cos(yaw) * d * 0.85);
+          const up = d < 10 ? 0.45 : 0.85; // close-ups from eye level, wider shots from above
+          offset.set(Math.sin(yaw) * d * 0.8, d * up, Math.cos(yaw) * d * 0.8);
         }
         camera.position.copy(controls.target).add(offset);
         controls.update();
       },
       /** Try on clothes without saving (for screenshots). */
       /** Force an activity animation on the player (null = back to normal). */
-      anim: (name: AnimName | null) => this.player.setAction(name),
+      anim: (name: FolkAnim | null) => this.player.setAction(name),
       tryLook: (patch: Partial<Look>) => this.player.setLook({ ...this.state.profile.look, ...patch }),
+      /** Heaviest visible meshes (name, triangles) — for performance checks. */
+      meshStats: () => {
+        const rows: [string, number][] = [];
+        this.engine.cityScene.traverseVisible((o) => {
+          const m = o as THREE.Mesh;
+          if (!m.isMesh) return;
+          const g = m.geometry;
+          const tris = (g.index ? g.index.count : g.getAttribute('position').count) / 3;
+          const n = (m as THREE.InstancedMesh).isInstancedMesh ? (m as THREE.InstancedMesh).count : 1;
+          rows.push([m.name || m.type, Math.round(tris * n)]);
+        });
+        return rows.sort((a, b) => b[1] - a[1]).slice(0, 15);
+      },
       fps: () => Math.round(this.engine.fps),
       drawCalls: () => this.engine.renderer.info.render.calls,
       triangles: () => this.engine.renderer.info.render.triangles,
@@ -147,6 +165,12 @@ export class Game {
   // ===================================================================
 
   async boot(): Promise<void> {
+    // Cartoon model packs. Waits at most a few seconds: on a very slow
+    // connection the game starts with simple shapes instead of hanging.
+    const timeout = <T,>(p: Promise<T>, ms: number, fallback: T) => Promise.race([p, new Promise<T>((r) => window.setTimeout(() => r(fallback), ms))]);
+    const [kits, folk] = await Promise.all([timeout(loadKits(), 12000, {} as Kits), timeout(loadFolk().catch(() => null), 12000, null)]);
+    this.kits = kits;
+    this.folk = folk;
     const loaded = loadGame();
     if (loaded) {
       this.state = loaded;
@@ -217,11 +241,11 @@ export class Game {
     this.traffic?.dispose();
     this.city?.dispose();
     const q = this.engine.quality;
-    this.city = buildCity(area, { trees: q.trees });
+    this.city = buildCity(area, { trees: q.trees, shadows: q.shadows, kits: this.kits });
     this.engine.cityScene.add(this.city.group);
-    this.crowd = new Crowd(this.city.nav, area, q.crowd);
+    this.crowd = new Crowd(this.city.nav, area, q.crowd, this.folk ?? undefined, q.tier === 'low' ? 6 : q.tier === 'medium' ? 12 : 20);
     this.engine.cityScene.add(this.crowd.group);
-    this.traffic = new Traffic(DISTRICTS[area], q.cars);
+    this.traffic = new Traffic(DISTRICTS[area], q.cars, this.kits.cars);
     this.engine.cityScene.add(this.traffic.group);
     this.ads = new AdManager(this.city.adSlots, q.tier);
     bus.emit('area:changed', { area });
@@ -281,11 +305,13 @@ export class Game {
     this.engine.sun.intensity = sky.sun;
     this.engine.sun.color.copy(sky.sunColor);
     setNightGlow(sky.glow * 1.1);
+    kitNight.value = sky.glow;
     this.engine.followSun(this.player.root.position, sky.sunDir);
 
     if (this.engine.mode === 'city' && this.city) {
       this.updatePlayer(dt);
-      this.city.updateLod(this.engine.controls.target, DETAIL_RADIUS + this.engine.camera.position.distanceTo(this.engine.controls.target) * 0.6);
+      const camDist = this.engine.camera.position.distanceTo(this.engine.controls.target);
+      this.city.updateLod(this.engine.controls.target, DETAIL_RADIUS + camDist * 0.6, camDist);
       const hub = DISTRICTS[this.city.area].hub;
       const hb = blockRect(DISTRICTS[this.city.area], hub.c, hub.r);
       const hubX = (hb.minX + hb.maxX) / 2;

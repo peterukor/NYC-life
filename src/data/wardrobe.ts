@@ -17,7 +17,7 @@
 //
 // HOW TO ADD A NEW KIND OF SHAPE (e.g. a new hat style)
 //   Add the style name to the type here, then draw it in
-//   world/people.ts → buildHeadwear() / buildExtras().
+//   world/avatar.ts → folkLookOf() (which cartoon head/outfit an item uses).
 // =====================================================================
 
 import { Registry } from '../core/registry.ts';

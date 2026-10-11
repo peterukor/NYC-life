@@ -26,7 +26,7 @@ export class Engine {
   readonly camera: THREE.PerspectiveCamera;
   readonly controls: OrbitControls;
   readonly cityScene = new THREE.Scene();
-  readonly hemi = new THREE.HemisphereLight('#ffffff', '#59544d', 0.9);
+  readonly hemi = new THREE.HemisphereLight('#f4f8ff', '#9a8f7e', 0.9);
   readonly sun = new THREE.DirectionalLight('#ffffff', 1.2);
   mode: ViewMode = 'city';
   /** Scene used when mode is 'interior' or 'transit'. */
@@ -47,8 +47,10 @@ export class Engine {
     this.renderer.setPixelRatio(quality.pixelRatio);
     this.renderer.setSize(host.clientWidth, host.clientHeight);
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
-    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.05;
+    // Neutral tone mapping keeps cartoon colours bright and true (ACES
+    // made them darker and greyer).
+    this.renderer.toneMapping = THREE.NeutralToneMapping;
+    this.renderer.toneMappingExposure = 1.15;
     this.renderer.shadowMap.enabled = quality.shadows;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     host.appendChild(this.renderer.domElement);

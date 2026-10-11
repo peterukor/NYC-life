@@ -130,7 +130,7 @@ export const CAMERA = { minDistance: 9, maxDistance: 520, startDistance: 38 } as
 /**
  * Player travel speed on foot, metres per second. Faster than a real walk
  * so short trips don't drag; the character plays a light jog at this
- * speed (see world/people.ts → Person.move). Long trips: take the subway.
+ * speed (see world/folk.ts → Actor.move). Long trips: take the subway.
  */
 export const WALK_SPEED = 5;
 
