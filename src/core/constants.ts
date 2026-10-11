@@ -18,6 +18,15 @@ export const SAVE_VERSION = 1;
 /** The real-world time zone the game clock follows (1 real minute = 1 game minute). */
 export const GAME_TIME_ZONE = 'America/New_York';
 
+/**
+ * How long one in-game day lasts in REAL minutes. 203 = 3 h 23 min, so
+ * the game day turns about 7 times in one real day. Change this one
+ * number to speed the world up or slow it down (1440 = real time).
+ * Everyone shares the same game clock: it's worked out from the real
+ * time, so all players see the same hour.
+ */
+export const GAME_DAY_REAL_MINUTES = 203;
+
 /** Minimum age to play, matching the Terms of Use draft. */
 export const MIN_AGE = 21;
 

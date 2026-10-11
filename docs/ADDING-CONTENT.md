@@ -32,6 +32,7 @@ fails the test).
 | Add a building style | `src/world/nycgen/buildings.ts` | Add the style to `Style`, `STYLE_RULES`, `PAL` and `ZONE_MIX`, then add any special details in `emitDetailed()`. |
 | Add a street prop (bench, kiosk…) | `src/world/nycgen/props.ts` | A small function that draws it, called from `emitBlockProps()`. |
 | Change prices, rent, needs or balance numbers | `src/core/constants.ts` | Change the number. |
+| Make game days longer or shorter | `src/core/constants.ts` | `GAME_DAY_REAL_MINUTES` (203 = 3 h 23 min; 1440 = real time). |
 
 ## Testing a change quickly
 
@@ -42,8 +43,9 @@ options in the address bar:
   `heatwave` or `flood`.
 - `?quality=low` uses the cheap-phone settings. `medium` and `high`
   also work.
-- `?clock=-6h` shifts the clock, for example to see daytime when it's
-  night.
+- `?hour=11` jumps the game clock to 11 AM (use `?hour=21` for night).
+- `?clock=-6h` shifts the real clock.
+- `?clockmode=real` runs on the real New York clock instead of game time.
 - `?qa=1` turns on the test hooks (`window.__nyc`).
 
 The test scripts are:

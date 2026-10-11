@@ -6,7 +6,7 @@ await page.setViewport({ width: 390, height: 844 });
 const errors = [];
 page.on('pageerror', (e) => errors.push(e.message));
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
-await page.goto('http://localhost:4173/?qa=1&clock=-14h', { waitUntil: 'load' });
+await page.goto('http://localhost:4173/?qa=1&hour=11', { waitUntil: 'load' });
 await page.evaluate(() => localStorage.clear());
 await page.reload({ waitUntil: 'load' });
 await page.waitForSelector('#ob-year', { timeout: 30000 });

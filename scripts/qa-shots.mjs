@@ -1,7 +1,7 @@
 // =====================================================================
 // QA: daytime screenshots of the look of the game (character close-up,
 // street view, neighbourhood view). Needs `npx vite preview --port 4173`.
-//   CLOCK=-6h node scripts/qa-shots.mjs      → test-results/shot-*.png
+//   node scripts/qa-shots.mjs   (HOUR=20 for night) → test-results/shot-*.png
 // =====================================================================
 import puppeteer from 'puppeteer-core';
 import { mkdirSync } from 'node:fs';
@@ -18,7 +18,7 @@ const errors = [];
 page.on('pageerror', (e) => errors.push(e.message));
 page.on('console', (m) => (m.type() === 'error' ? errors.push(m.text()) : null));
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
-const clock = process.env.CLOCK ? `&clock=${encodeURIComponent(process.env.CLOCK)}` : '';
+const clock = process.env.CLOCK ? `&clock=${encodeURIComponent(process.env.CLOCK)}` : `&hour=${process.env.HOUR ?? 11}`;
 await page.goto(`http://localhost:4173/?qa=1${clock}`, { waitUntil: 'load' });
 await page.evaluate(() => localStorage.clear());
 await page.reload({ waitUntil: 'load' });
