@@ -5,6 +5,7 @@
 import { HUSTLER_LOAN, SAVE_VERSION, START_MONEY } from '../core/constants.ts';
 import { nowMs, nycTime } from '../core/clock.ts';
 import { doorOf, PLACE_BY_ID } from '../data/places.ts';
+import { starterWardrobe, type SpawnClass } from '../data/wardrobe.ts';
 import { NEED_KEYS, SKILL_KEYS, type GameState, type Look, type NeedKey, type Origin, type SkillKey } from './types.ts';
 
 export interface NewLifeOptions {
@@ -51,6 +52,11 @@ export function newLife(opts: NewLifeOptions): GameState {
   const skills = Object.fromEntries(SKILL_KEYS.map((k) => [k, 0])) as Record<SkillKey, number>;
 
   const trust = opts.origin === 'trustFund';
+  // Origins map onto spawn classes for now (poor/middle/upper/wealthy);
+  // the full class pick comes with the new character screen.
+  const spawnClass: SpawnClass = trust ? 'upper' : 'poor';
+  const l = opts.look;
+  const wearing = [l.hairStyle, l.topId, l.bottomId, l.shoesId, l.hatId, l.extraId].filter((x): x is string => !!x);
   if (trust) skills.charisma = 2;
   else {
     skills.hustle = 2;
@@ -61,7 +67,8 @@ export function newLife(opts: NewLifeOptions): GameState {
     version: SAVE_VERSION,
     createdAt: now,
     lastTick: now,
-    profile: { name: opts.name, origin: opts.origin, traits: opts.traits, look: opts.look, birthYear: opts.birthYear },
+    profile: { name: opts.name, origin: opts.origin, traits: opts.traits, look: opts.look, birthYear: opts.birthYear, spawnClass },
+    wardrobe: starterWardrobe(spawnClass, wearing, Math.random),
     money: trust ? 150_000 : START_MONEY.hustler,
     bank: trust ? START_MONEY.trustFund : 0,
     ledger: [],

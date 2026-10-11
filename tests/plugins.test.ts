@@ -98,3 +98,18 @@ test('home layouts only use real furniture, inside the walls, with unique ids', 
     assert.ok(HOME_LAYOUTS.has(layoutId), `unknown layout ${layoutId}`);
   }
 });
+
+import { CLOTHES, STARTING_WARDROBE, starterWardrobe, tierOf, type SpawnClass } from '../src/data/wardrobe.ts';
+
+test('starting wardrobes follow the class table and always cover the basics', () => {
+  for (const cls of Object.keys(STARTING_WARDROBE) as SpawnClass[]) {
+    const owned = starterWardrobe(cls, ['tee', 'jeans', 'sneakers'], () => 0.5).map((id) => CLOTHES.get(id)!).filter((c) => c.slot !== 'hair');
+    for (const slot of ['top', 'bottom', 'shoes']) assert.ok(owned.some((c) => c.slot === slot), `${cls} has no ${slot}`);
+    const want = STARTING_WARDROBE[cls];
+    for (const tier of ['premium', 'exclusive'] as const) {
+      assert.equal(owned.filter((c) => tierOf(c) === tier).length, want[tier], `${cls} ${tier}`);
+    }
+    // Plain: the table count plus at most the 3 items you were wearing.
+    assert.ok(owned.filter((c) => tierOf(c) === 'plain').length <= want.plain + 3);
+  }
+});

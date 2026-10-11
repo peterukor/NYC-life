@@ -27,6 +27,15 @@ await page.screenshot({ path: 'test-results/home-moving.png' });
 await page.evaluate(() => document.querySelector('[data-mv="done"]')?.click());
 await wait(500);
 const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('nyclife.save.v1') || '{}').homes);
+await page.evaluate(() => window.__nyc.openObject('closet'));
+await wait(700);
+await page.evaluate(() => document.querySelector('[data-act="closet"]')?.click());
+await wait(900);
+await page.screenshot({ path: 'test-results/home-closet.png' });
+const wardrobe = await page.evaluate(() => window.__nyc.state().wardrobe.length);
+console.log('owned clothes:', wardrobe);
+await page.evaluate(() => document.querySelector('.sheet .close')?.click());
+await wait(500);
 for (const id of ['wburgLoft', 'sharedApt']) {
   await page.evaluate((i) => window.__nyc.enterPlace(i), id);
   await wait(2500);

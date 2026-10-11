@@ -25,6 +25,16 @@ import type { Look } from '../sim/types.ts';
 
 export type Slot = 'hair' | 'top' | 'bottom' | 'shoes' | 'hat' | 'extra';
 
+/**
+ * Clothing tiers. Plain = everyday basics, premium = nicer brands,
+ * exclusive = rare designer pieces. Tier decides what you start with
+ * (see STARTING_WARDROBE) and, later, which stores sell it.
+ */
+export type Tier = 'plain' | 'premium' | 'exclusive';
+
+/** Social class you start life in (decides money, home and starting clothes). */
+export type SpawnClass = 'poor' | 'middle' | 'upper' | 'wealthy';
+
 interface Base {
   id: string;
   name: string;
@@ -33,6 +43,8 @@ interface Base {
   price: number;
   /** Suggested colours shown as swatches (the first is the default). */
   colors: string[];
+  /** Plain / premium / exclusive. Left out = worked out from the price (see tierOf). */
+  tier?: Tier;
 }
 
 export interface TopItem extends Base {
@@ -107,15 +119,19 @@ CLOTHES.add(
   { id: 'leatherJacket', slot: 'top', name: 'Leather jacket', emoji: '🧥', price: 14000, colors: ['#111111', '#5c4033', '#7f1d1d'], sleeve: 'long', open: true },
   { id: 'blazer', slot: 'top', name: 'Blazer', emoji: '🤵', price: 12000, colors: ['#1b263b', '#2b2d42', '#5c4033', '#111111', '#7d8597'], sleeve: 'long', open: true, long: true },
   { id: 'pufferJacket', slot: 'top', name: 'Puffer jacket', emoji: '🧥', price: 16000, colors: ['#111111', '#e63946', '#f4a261', '#2a9d8f', '#ffffff'], sleeve: 'long', hood: true, long: true },
-  { id: 'jersey', slot: 'top', name: 'Basketball jersey', emoji: '🏀', price: 5500, colors: ['#1d428a', '#ffffff', '#f58426', '#000000'], sleeve: 'none', long: true },
-  { id: 'sundress', slot: 'top', name: 'Sundress', emoji: '👗', price: 5200, colors: ['#e9c46a', '#e76f51', '#8ecae6', '#ffffff', '#b5838d'], sleeve: 'none', dress: 0.5 },
+  { id: 'jersey', slot: 'top', name: 'Basketball jersey', emoji: '🏀', price: 5500, tier: 'premium', colors: ['#1d428a', '#ffffff', '#f58426', '#000000'], sleeve: 'none', long: true },
+  { id: 'sundress', slot: 'top', name: 'Sundress', emoji: '👗', price: 5200, tier: 'premium', colors: ['#e9c46a', '#e76f51', '#8ecae6', '#ffffff', '#b5838d'], sleeve: 'none', dress: 0.5 },
+  { id: 'turtleneck', slot: 'top', name: 'Turtleneck', emoji: '🧶', price: 7500, colors: ['#111111', '#f1e9da', '#5c4033', '#6d597a'], sleeve: 'long' },
+  { id: 'trenchCoat', slot: 'top', name: 'Trench coat', emoji: '🧥', price: 15000, colors: ['#c2a878', '#111111', '#5c4033'], sleeve: 'long', open: true, long: true },
+  { id: 'designerSuit', slot: 'top', name: 'Designer suit jacket', emoji: '🤵', price: 120000, tier: 'exclusive', colors: ['#0b132b', '#3a0ca3', '#7f1d1d', '#111111'], sleeve: 'long', open: true, long: true },
+  { id: 'silkGown', slot: 'top', name: 'Silk gown', emoji: '👗', price: 150000, tier: 'exclusive', colors: ['#c9a227', '#9b2226', '#0b132b', '#e5e5e5'], sleeve: 'none', dress: 0.85 },
   { id: 'slipDress', slot: 'top', name: 'Evening dress', emoji: '👗', price: 11000, colors: ['#111111', '#9b2226', '#3a0ca3', '#c9a227'], sleeve: 'none', dress: 0.72 },
 
   // ---- Bottoms
   { id: 'jeans', slot: 'bottom', name: 'Jeans', emoji: '👖', price: 0, colors: DENIM, leg: 'long' },
   { id: 'joggers', slot: 'bottom', name: 'Joggers', emoji: '👖', price: 0, colors: ['#8d99ae', '#111111', '#1d3557', '#2b2d42'], leg: 'long' },
   { id: 'shorts', slot: 'bottom', name: 'Shorts', emoji: '🩳', price: 2200, colors: [...DENIM.slice(0, 3), '#c2b280', '#111111'], leg: 'shorts' },
-  { id: 'chinos', slot: 'bottom', name: 'Chinos', emoji: '👖', price: 4800, colors: ['#c2b280', '#2b2d42', '#5c4033', '#6b705c'], leg: 'long' },
+  { id: 'chinos', slot: 'bottom', name: 'Chinos', emoji: '👖', price: 4800, tier: 'premium', colors: ['#c2b280', '#2b2d42', '#5c4033', '#6b705c'], leg: 'long' },
   { id: 'suitPants', slot: 'bottom', name: 'Suit trousers', emoji: '👔', price: 9000, colors: ['#1b263b', '#2b2d42', '#111111', '#7d8597'], leg: 'long' },
   { id: 'capris', slot: 'bottom', name: 'Cropped pants', emoji: '👖', price: 3800, colors: NEUTRAL, leg: 'capri' },
   { id: 'miniSkirt', slot: 'bottom', name: 'Mini skirt', emoji: '👗', price: 3500, colors: ['#111111', '#9b2226', '#1d3557', '#d6d2c4'], leg: 'shorts', skirt: 0.32 },
@@ -125,6 +141,7 @@ CLOTHES.add(
   { id: 'sneakers', slot: 'shoes', name: 'Sneakers', emoji: '👟', price: 0, colors: ['#f2f2f2', '#111111', '#e63946', '#3a86ff'], sole: '#f7f7f7' },
   { id: 'kicks', slot: 'shoes', name: 'High-top kicks', emoji: '👟', price: 13000, colors: ['#e63946', '#111111', '#ffffff', '#1d3557'], sole: '#ffffff', high: true },
   { id: 'boots', slot: 'shoes', name: 'Work boots', emoji: '🥾', price: 9500, colors: ['#c68b3b', '#3b2a1a', '#111111'], sole: '#2b2118', high: true },
+  { id: 'limitedKicks', slot: 'shoes', name: 'Limited-drop sneakers', emoji: '👟', price: 90000, tier: 'exclusive', colors: ['#c9a227', '#7f1d1d', '#ffffff'], sole: '#111111', high: true },
   { id: 'loafers', slot: 'shoes', name: 'Loafers', emoji: '👞', price: 8000, colors: ['#3b2a1a', '#111111', '#7f4f24'], sole: '#1a1410' },
 
   // ---- Hats
@@ -137,7 +154,8 @@ CLOTHES.add(
   { id: 'shades', slot: 'extra', name: 'Sunglasses', emoji: '🕶️', price: 2500, colors: ['#111111'], style: 'shades' },
   { id: 'glasses', slot: 'extra', name: 'Glasses', emoji: '👓', price: 6000, colors: ['#222222', '#7f4f24', '#c9a227'], style: 'glasses' },
   { id: 'backpack', slot: 'extra', name: 'Backpack', emoji: '🎒', price: 4000, colors: ['#111111', '#e63946', '#2a9d8f', '#f4a261'], style: 'backpack' },
-  { id: 'chain', slot: 'extra', name: 'Gold chain', emoji: '📿', price: 25000, colors: ['#d4af37'], style: 'chain' },
+  { id: 'chain', slot: 'extra', name: 'Gold chain', emoji: '📿', price: 25000, tier: 'exclusive', colors: ['#d4af37'], style: 'chain' },
+  { id: 'diamondShades', slot: 'extra', name: 'Designer sunglasses', emoji: '🕶️', price: 60000, tier: 'exclusive', colors: ['#c9a227'], style: 'shades' },
 );
 
 /** What everyone wears if their save doesn't say (older saves, crowd defaults). */
@@ -147,6 +165,46 @@ export function outfitDefaults(body: 'm' | 'f'): Required<Pick<Look, 'hairStyle'
 
 /** Item ids every player owns from the start (all the free ones). */
 export const STARTER_ITEMS = (): string[] => CLOTHES.where((c) => c.price === 0).map((c) => c.id);
+
+/** An item's tier: its own setting, or worked out from the price. */
+export function tierOf(item: ClothingItem): Tier {
+  if (item.tier) return item.tier;
+  return item.price <= 5500 ? 'plain' : item.price <= 20000 ? 'premium' : 'exclusive';
+}
+
+/** How many items of each tier you start with, by spawn class. */
+export const STARTING_WARDROBE: Record<SpawnClass, Record<Tier, number>> = {
+  poor: { plain: 5, premium: 0, exclusive: 0 },
+  middle: { plain: 6, premium: 2, exclusive: 0 },
+  upper: { plain: 10, premium: 5, exclusive: 1 },
+  wealthy: { plain: 0, premium: 15, exclusive: 5 },
+};
+
+/**
+ * Pick a starting wardrobe: every hairstyle, the outfit you made on the
+ * character screen, then random items per tier until the counts in
+ * STARTING_WARDROBE are met. Everyone gets at least one top, bottom and
+ * pair of shoes. `rand` returns 0..1.
+ */
+export function starterWardrobe(cls: SpawnClass, wearing: string[], rand: () => number): string[] {
+  const owned = new Set<string>(CLOTHES.where((c) => c.slot === 'hair').map((c) => c.id));
+  for (const id of wearing) if (CLOTHES.has(id)) owned.add(id);
+  for (const [tier, n] of Object.entries(STARTING_WARDROBE[cls]) as [Tier, number][]) {
+    const pool = CLOTHES.where((c) => c.slot !== 'hair' && tierOf(c) === tier && !owned.has(c.id));
+    // Basics first so nobody starts without trousers.
+    pool.sort((a, b) => (['top', 'bottom', 'shoes'].includes(b.slot) ? 1 : 0) - (['top', 'bottom', 'shoes'].includes(a.slot) ? 1 : 0) + (rand() - 0.5) * 1.5);
+    let added = 0;
+    for (const it of pool) {
+      if (added >= n) break;
+      owned.add(it.id);
+      added++;
+    }
+  }
+  for (const slot of ['top', 'bottom', 'shoes'] as const) {
+    if (![...owned].some((id) => CLOTHES.get(id)?.slot === slot)) owned.add(CLOTHES.where((c) => c.slot === slot).sort((a, b) => a.price - b.price)[0].id);
+  }
+  return [...owned];
+}
 
 /** Narrow helper: the item in a slot, typed. */
 export function itemOf<S extends Slot>(id: string | undefined, slot: S): Extract<ClothingItem, { slot: S }> | undefined {

@@ -97,8 +97,8 @@ export function folkLookOf(look: Look): FolkLook {
   // The top decides the base model (a blazer is a suit, a hoodie is casual…).
   const top = look.topId ?? 'tee';
   const character =
-    top === 'blazer' ? pick('Suit_Male', 'Suit_Female')
-    : top === 'longsleeve' || top === 'hoodie' || top === 'pufferJacket' ? pick('Casual2_Male', 'Casual2_Female')
+    top === 'blazer' || top === 'designerSuit' || top === 'trenchCoat' ? pick('Suit_Male', 'Suit_Female')
+    : top === 'longsleeve' || top === 'hoodie' || top === 'pufferJacket' || top === 'turtleneck' ? pick('Casual2_Male', 'Casual2_Female')
     : top === 'denimJacket' || top === 'leatherJacket' ? pick('Casual3_Male', 'Casual3_Female')
     : look.hairStyle === 'hair_bald' && !f ? 'Casual_Bald'
     : pick('Casual_Male', 'Casual_Female');

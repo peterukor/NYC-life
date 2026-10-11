@@ -8,6 +8,7 @@
 // =====================================================================
 
 import { SAVE_KEY, SAVE_VERSION } from '../core/constants.ts';
+import { STARTER_ITEMS } from '../data/wardrobe.ts';
 import type { GameState } from './types.ts';
 
 function storage(): Storage | null {
@@ -61,5 +62,10 @@ function migrate(data: GameState): GameState | null {
   data.events ??= { lastFiredAt: Date.now(), cooldowns: {} };
   data.settings ??= { quality: 'auto', sound: true };
   data.homes ??= {};
+  // Saves from before owned clothes: you own the free items plus what you wear.
+  if (!data.wardrobe) {
+    const l = data.profile.look;
+    data.wardrobe = [...new Set([...STARTER_ITEMS(), ...[l.hairStyle, l.topId, l.bottomId, l.shoesId, l.hatId, l.extraId].filter((x): x is string => !!x)])];
+  }
   return data;
 }

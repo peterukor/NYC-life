@@ -49,6 +49,8 @@ import { buildInterior, type Interior } from './world/interior.ts';
 import { buildHome, type HomeInterior } from './world/home-interior.ts';
 import { loadFurnitureKit, type FurnitureKit } from './assets/furniture-kit.ts';
 import { layoutForPlace } from './data/homes.ts';
+import { FURNITURE } from './data/furniture.ts';
+import { openCloset } from './ui/closet.ts';
 import { DISTRICTS, crossStreets, blockRect } from './world/layout.ts';
 import { findPath, nearestWalkable } from './world/nav.ts';
 import { SystemRunner, type SystemContext } from './core/systems.ts';
@@ -628,6 +630,9 @@ export class Game {
       ? `<button class="action" data-act="prepaid"><span class="price">${money(PREPAID_PHONE_PRICE)}</span><span style="font-size:22px">📱</span><span class="t">Buy a prepaid phone</span><span class="m">Get your apps back</span></button>`
       : '';
     const isOffice = place?.type === 'work';
+    // Home furniture that opens a screen (the closet).
+    const homeItem = movableId && this.interior && 'items' in this.interior ? (this.interior as HomeInterior).items.find((i) => i.uid === movableId) : undefined;
+    const opensCloset = !!homeItem && FURNITURE.get(homeItem.item)?.opens === 'closet';
     const workBtn = isOffice && this.state.job && CAREER_BY_ID[this.state.job.careerId].placeId === place!.id ? '<button class="btn primary block" style="margin-bottom:10px" data-act="work">💼 Work a shift</button>' : '';
     const sheet = openSheet({
       emoji,
@@ -636,6 +641,7 @@ export class Game {
       body:
         workBtn +
         (actionIds.length || phoneOffer ? this.actionGrid(actionIds, open, phoneOffer) : `<p class="blurb">${isOffice ? 'This is a workplace. Apply for the job on your phone, then come back for shifts.' : movableId ? 'Just for looks — but it makes the place feel like home.' : 'Nothing to do here right now.'}</p>`) +
+        (opensCloset ? '<button class="btn primary block" style="margin-top:10px" data-act="closet">👕 Open closet</button>' : '') +
         (movableId ? '<button class="btn block" style="margin-top:10px" data-act="move-furniture">✋ Move this</button>' : ''),
     });
     onAct(sheet.body, (act, el) => {
@@ -647,6 +653,10 @@ export class Game {
       }
       if (act === 'work') return void this.goToWork();
       if (act === 'move-furniture' && movableId) return this.startMoving(movableId);
+      if (act === 'closet') return openCloset(this.state, (look) => {
+        this.player.setLook(look);
+        this.save();
+      });
       if (act.startsWith('do:')) void this.runAction(act.slice(3), el);
     });
   }

@@ -75,7 +75,11 @@ check('eating raises hunger', s.needs.hunger > hungerBefore, `${hungerBefore.toF
 await nyc(() => window.__nyc.openObject('shower'));
 await wait(400);
 await click('[data-act="do:shower"]');
-await wait(8000);
+// Poll instead of a fixed wait: software rendering can be slow.
+for (let i = 0; i < 30; i++) {
+  await wait(800);
+  if ((await state()).tutorialStep >= 2) break;
+}
 s = await state();
 check('tutorial advances past the first goals', s.tutorialStep >= 2, `step ${s.tutorialStep}`);
 

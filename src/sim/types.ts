@@ -95,7 +95,9 @@ export interface GameState {
   /** Real time (ms) the simulation last advanced to. */
   lastTick: number;
 
-  profile: { name: string; origin: Origin; traits: string[]; look: Look; birthYear: number };
+  profile: { name: string; origin: Origin; traits: string[]; look: Look; birthYear: number; /** poor | middle | upper | wealthy (see data/wardrobe.ts). */ spawnClass?: 'poor' | 'middle' | 'upper' | 'wealthy' };
+  /** Clothing ids you own (data/wardrobe.ts). */
+  wardrobe: string[];
 
   /** Cash on hand, in cents. Change ONLY through sim/economy.ts. */
   money: number;

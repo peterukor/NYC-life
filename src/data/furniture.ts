@@ -40,6 +40,8 @@ export interface FurnitureDef {
   flat?: boolean;
   /** Pieces with a screen: the TV ad plays on these. */
   tv?: boolean;
+  /** Opens a screen when tapped (the closet opens your wardrobe). */
+  opens?: 'closet';
 }
 
 export const FURNITURE = new Registry<FurnitureDef>('furniture');
@@ -49,6 +51,7 @@ FURNITURE.add(
   { id: 'bedDouble', name: 'Double bed', emoji: '🛏️', price: 60_000, parts: [{ model: 'bedDouble' }], actions: ['sleep', 'nap'] },
   { id: 'bedSingle', name: 'Single bed', emoji: '🛏️', price: 30_000, parts: [{ model: 'bedSingle' }], actions: ['sleep', 'nap'] },
   { id: 'nightstand', name: 'Nightstand', emoji: '🗄️', price: 8_000, parts: [{ model: 'cabinetBedDrawer' }, { model: 'lampSquareTable', y: 0.52 }], actions: [] },
+  { id: 'closet', name: 'Closet', emoji: '👕', price: 35_000, parts: [{ model: 'bookcaseClosedWide' }], actions: [], opens: 'closet' },
   // ---- kitchen
   { id: 'stove', name: 'Stove', emoji: '🍳', price: 45_000, parts: [{ model: 'kitchenStove' }], actions: ['cookPasta', 'cookFancy'] },
   { id: 'fridge', name: 'Fridge', emoji: '🧊', price: 50_000, parts: [{ model: 'kitchenFridge' }], actions: ['snack'] },

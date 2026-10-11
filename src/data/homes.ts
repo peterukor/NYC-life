@@ -97,6 +97,7 @@ HOME_LAYOUTS.add(
       { uid: 'lamp', item: 'floorLamp', x: -0.6, z: 3.6, rot: 0 },
       { uid: 'coat', item: 'coatRack', x: -5.5, z: 3.9, rot: 0 },
       { uid: 'trash', item: 'trashcan', x: -1.6, z: -4.1, rot: 0 },
+      { uid: 'closet', item: 'closet', x: -3.0, z: 4.0, rot: PI },
     ],
   },
   {
@@ -144,6 +145,7 @@ HOME_LAYOUTS.add(
       { uid: 'plant2', item: 'plant', x: -1.6, z: -4.6, rot: 0 },
       { uid: 'lamp', item: 'floorLamp', x: -1.6, z: 4.4, rot: 0 },
       { uid: 'side', item: 'sideTable', x: 4.2, z: 4.5, rot: 0 },
+      { uid: 'closet', item: 'closet', x: -4.0, z: 4.6, rot: PI },
     ],
   },
   {
@@ -182,6 +184,7 @@ HOME_LAYOUTS.add(
       { uid: 'bsink', item: 'bathSink', x: 3.3, z: 0.4, rot: 0 },
       { uid: 'coat', item: 'coatRack', x: 0.1, z: 3.9, rot: 0 },
       { uid: 'trash', item: 'trashcan', x: 5.5, z: -4.1, rot: 0 },
+      { uid: 'closet', item: 'closet', x: -5.6, z: -0.6, rot: H },
     ],
   },
 );
