@@ -89,3 +89,16 @@ Branch: `feat/prototype-foundation`. Build with `npm run build`, preview with `n
 - Branches named `feat/...`.
 - Comments in simple, detailed English.
 - Money is integer cents and only changes through `sim/economy.ts`.
+
+## 2026-10-10 — Megapolis/Supercell detail pass (IN PROGRESS)
+- New procedural NYC generator in `src/world/nycgen/` replaces Kenney kit buildings:
+  `atlas.ts` (painted facade atlas + shared city material, see-through, night windows),
+  `builder.ts` (merges everything per block into one mesh), `buildings.ts` (brownstone,
+  walkup, prewar, modern, glass, deco styles; stoops, fire escapes, awnings, cornices,
+  water towers, roof gardens), `props.ts` (puffy trees, parked toy cars/taxis, lamps,
+  hydrants, cafés, fruit stands, food carts, scaffolding), `city-blocks.ts` (near/far LOD).
+- First run: area view 123 calls / 534k tris — TOO MANY TRIANGLES. Next: cut near-block
+  tris (~37k each → target ~12k: fewer blob segments on trees, fewer parked cars,
+  simplify fire-escape beams), shrink near radius on low tier, then screenshot review.
+- Furniture/home-layout work from the previous session was lost (never pushed): redo
+  `scripts/build-furniture-assets.mjs`, `src/data/furniture.ts`, `src/data/homes.ts`.

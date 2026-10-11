@@ -65,7 +65,7 @@ export function skyAt(hourFloat: number, weather: Weather): SkyState {
   // Bad weather: greyer, darker, and the lights come on earlier.
   if (weather === 'rain' || weather === 'storm' || weather === 'cloudy') {
     // Cartoon city: bad weather is moodier but never drab grey.
-    const k = weather === 'cloudy' ? 0.2 : weather === 'rain' ? 0.35 : 0.5;
+    const k = weather === 'cloudy' ? 0.1 : weather === 'rain' ? 0.18 : 0.3;
     const lum = out.sky.getHSL({ h: 0, s: 0, l: 0 }).l;
     out.sky.lerp(grey.clone().multiplyScalar(Math.max(0.25, lum * 1.2)), k);
     out.fog.lerp(grey.clone().multiplyScalar(Math.max(0.3, lum * 1.25)), k);
