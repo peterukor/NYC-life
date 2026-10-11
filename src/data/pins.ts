@@ -100,7 +100,7 @@ PIN_SOURCES.add(
     id: 'daily-sales',
     pins: ({ area, time }) => {
       const rng = new Rng(`sales-${area}-${time.dateKey}`);
-      const shops = placesIn(area).filter((p) => p.type === 'food' || p.type === 'cafe' || p.type === 'nightlife' || p.type === 'fitness');
+      const shops = placesIn(area).filter((p) => p.type === 'food' || p.type === 'cafe' || p.type === 'nightlife' || p.type === 'fitness' || p.type === 'shop');
       if (!shops.length) return [];
       const out: Pin[] = [];
       const deals = ['2-for-1 deal', 'Happy hour', '20% off', 'Free refill', 'Flash sale'];

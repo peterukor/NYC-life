@@ -32,8 +32,9 @@ export const NEXT_STOP: Record<Stop, Partial<Record<Stop, number>>> = {
   park: { wander: 2, cafe: 2, food: 2, plaza: 1 },
   plaza: { plaza: 2, food: 2, landmark: 2, station: 2, wander: 2 },
   landmark: { plaza: 2, food: 2, station: 2, park: 1 },
-  station: { wander: 3, work: 2, plaza: 2, home: 2 },
-  wander: { wander: 2, food: 2, cafe: 1, plaza: 2, park: 1, station: 1, nightlife: 1 },
+  station: { wander: 3, work: 2, plaza: 2, home: 2, shop: 1 },
+  shop: { wander: 3, food: 2, cafe: 2, shop: 1, station: 2 },
+  wander: { wander: 2, food: 2, cafe: 1, plaza: 2, park: 1, station: 1, nightlife: 1, shop: 1 },
 };
 
 /** Time-of-day nudge for a stop (1 = no change). */
@@ -68,7 +69,7 @@ PERSONALITIES.add(
   { id: 'commuter', share: 2, bias: { work: 2, station: 1.8, cafe: 1.4 }, speed: [1.5, 1.9], linger: [1, 4] },
   { id: 'local', share: 2, bias: { food: 1.5, park: 1.5, cafe: 1.3 }, speed: [1.2, 1.6], linger: [2, 8] },
   { id: 'partier', share: 1, bias: { nightlife: 2.5, food: 1.3 }, speed: [1.2, 1.7], linger: [2, 6] },
-  { id: 'tourist', share: 1, bias: { plaza: 3, landmark: 3, station: 1.2, work: 0.1 }, speed: [1.0, 1.4], linger: [4, 12] },
+  { id: 'tourist', share: 1, bias: { plaza: 3, landmark: 3, station: 1.2, work: 0.1, shop: 1.8 }, speed: [1.0, 1.4], linger: [4, 12] },
 );
 
 /** How busy the streets are by hour (1 = rush hour peak). */

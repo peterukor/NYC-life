@@ -51,6 +51,7 @@ import { loadFurnitureKit, type FurnitureKit } from './assets/furniture-kit.ts';
 import { layoutForPlace } from './data/homes.ts';
 import { FURNITURE } from './data/furniture.ts';
 import { openCloset } from './ui/closet.ts';
+import { openStore } from './ui/store.ts';
 import { openSidePanel } from './ui/side-panel.ts';
 import { openAutoMode } from './ui/auto-mode.ts';
 import { recordVariety } from './sim/auto.ts';
@@ -600,6 +601,7 @@ export class Game {
         <div class="row"><span class="tag ${open ? 'open' : 'closed'}">${open ? '● Open' : '● Closed'}</span><span class="tag">${hours}</span>${isHome ? '<span class="tag">🏠 Your home</span>' : ''}</div>
         <p class="blurb">${esc(place.blurb)}</p>
         ${landmark}${station}${rentable}
+        ${place.sells ? `<button class="btn primary block" style="margin-bottom:10px" data-act="shop" ${open ? '' : 'disabled'}>🛍️ Browse clothes</button>` : ''}
         ${canGoIn && (place.type !== 'home' || isHome) ? `<button class="btn primary block" data-act="enter" ${open ? '' : 'disabled'}>${open ? (isHome ? 'Go inside' : 'Go in') : `Closed — opens ${fmtH(place.hours![0])}`}</button>` : ''}
         ${actions}`,
     });
@@ -607,6 +609,13 @@ export class Game {
       if (act === 'enter') {
         sheet.close();
         return this.enterInterior(place, true);
+      }
+      if (act === 'shop') {
+        sheet.close();
+        return openStore(this.state, place, (look) => this.player.setLook(look), () => {
+          this.save();
+          this.refreshHud(true);
+        });
       }
       if (act === 'move') {
         sheet.close();

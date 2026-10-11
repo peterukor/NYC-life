@@ -411,7 +411,7 @@ export function buildCity(area: AreaId, opts: { trees: boolean; shadows?: boolea
     const detail = chunks[chunk].detail;
     const facing = Math.atan2(door.faceX, door.faceZ);
     // Storefront sign above the door (not for parks/plazas/landmarks).
-    if (p.interior !== 'none' || p.type === 'station') {
+    if (p.interior !== 'none' || p.type === 'station' || p.type === 'shop') {
       const sign = new THREE.Mesh(track(new THREE.PlaneGeometry(7, 1.3)), track(new THREE.MeshBasicMaterial({ map: track(signTexture(p.name, p.color)) })));
       sign.position.set(door.x + door.faceX * -SIDEWALK * 0.42, 4.2, door.z + door.faceZ * -SIDEWALK * 0.42);
       sign.rotation.y = facing;

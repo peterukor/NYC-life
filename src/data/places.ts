@@ -19,10 +19,12 @@ import { DISTRICTS, blockRect, SIDEWALK } from '../world/layout.ts';
 
 export type InteriorKind = 'apartment' | 'bodega' | 'pizza' | 'cafe' | 'bar' | 'club' | 'office' | 'gym' | 'comedy' | 'none';
 
-export type PlaceType = 'home' | 'food' | 'cafe' | 'nightlife' | 'work' | 'fitness' | 'park' | 'plaza' | 'landmark' | 'station';
+export type PlaceType = 'home' | 'food' | 'cafe' | 'nightlife' | 'work' | 'fitness' | 'park' | 'plaza' | 'landmark' | 'station' | 'shop';
 
 export interface PlaceDef {
   id: string;
+  /** Clothing stores: which tiers they sell (data/wardrobe.ts). */
+  sells?: ('plain' | 'premium' | 'exclusive')[];
   area: AreaId;
   name: string;
   emoji: string;
@@ -129,6 +131,30 @@ export const PLACES: PlaceDef[] = [
     block: [2, 1], side: 'S', slot: 1, hours: [6, 1], interior: 'none', color: '#2e8b57',
     actions: ['picnic', 'jog', 'rowboat', 'peopleWatch', 'busk', 'halalCart', 'publicRestroom'],
     landmark: { description: 'The 843-acre park in the middle of Manhattan, designed by Olmsted and Vaux.', officialSite: 'https://www.centralparknyc.org/', siteLabel: 'centralparknyc.org' },
+  },
+  {
+    id: 'thriftHk', area: 'manhattan', name: 'Hell’s Kitchen Thrift', emoji: '👕', type: 'shop',
+    blurb: 'Racks of basics, vintage tees and the occasional mystery jacket.',
+    block: [2, 7], side: 'S', slot: 2, hours: [9, 21], interior: 'none', color: '#2a9d8f',
+    actions: ['windowShop'], sells: ['plain'],
+  },
+  {
+    id: 'sohoThreads', area: 'manhattan', name: 'Midtown Threads', emoji: '🛍️', type: 'shop',
+    blurb: 'Good basics and the nicer brands. The changing rooms have great lighting.',
+    block: [3, 6], side: 'N', slot: 1, hours: [10, 21], interior: 'none', color: '#3a86ff',
+    actions: ['windowShop'], sells: ['plain', 'premium'],
+  },
+  {
+    id: 'fifthBoutique', area: 'manhattan', name: 'Maison Fifth', emoji: '💎', type: 'shop',
+    blurb: 'Fifth Avenue designer boutique. They offer you champagne. Prices are not shown on purpose.',
+    block: [5, 9], side: 'W', slot: 1, hours: [11, 19], interior: 'none', color: '#c9a227',
+    actions: ['windowShop'], sells: ['premium', 'exclusive'],
+  },
+  {
+    id: 'fultonMallShop', area: 'brooklyn', name: 'Fulton Street Kicks & Fits', emoji: '👟', type: 'shop',
+    blurb: 'Brooklyn streetwear: sneakers, jerseys, puffers.',
+    block: [2, 3], side: 'S', slot: 2, hours: [10, 21], interior: 'none', color: '#e63946',
+    actions: ['windowShop'], sells: ['plain', 'premium'],
   },
   {
     id: 'chrysler', area: 'manhattan', name: 'Chrysler Building', emoji: '🏢', type: 'landmark',

@@ -117,7 +117,7 @@ export class Crowd {
 
     // Where NPCs can go: every door in the area, grouped by place type,
     // plus "wander" points on random sidewalks.
-    this.targets = { home: [], work: [], cafe: [], food: [], nightlife: [], fitness: [], park: [], plaza: [], landmark: [], station: [], wander: [] };
+    this.targets = { home: [], work: [], cafe: [], food: [], nightlife: [], fitness: [], park: [], plaza: [], landmark: [], station: [], shop: [], wander: [] };
     for (const p of placesIn(area)) {
       const d = doorOf(p);
       this.targets[p.type].push({ x: d.x, z: d.z });

@@ -193,3 +193,15 @@ test('life paths: valid data, seeded checklists, rep, gating and level-ups', () 
   assert.equal(tryLevelUp(s, 'crime'), 'Runner');
   assert.equal(pathLevel(s, 'crime'), 2);
 });
+
+import { PLACES } from '../src/data/places.ts';
+
+test('no two places share a door spot', () => {
+  const seen = new Map<string, string>();
+  for (const p of PLACES) {
+    const key = `${p.area}|${p.block.join(',')}|${p.side}|${p.slot}`;
+    assert.ok(!seen.has(key), `${p.id} has the same door as ${seen.get(key)}`);
+    seen.set(key, p.id);
+  }
+  assert.ok(PLACES.some((p) => p.sells?.includes('exclusive')), 'somewhere sells exclusive clothes');
+});
