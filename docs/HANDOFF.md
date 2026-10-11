@@ -34,17 +34,26 @@ How to add or change content: **`docs/ADDING-CONTENT.md`**.
   - Move mode: "Move this" on any piece, then tap the floor, Turn, Done. Saved in `state.homes`.
 - **Still from before:** folk characters (`world/folk.ts`), the UI redesign, landmarks (`world/landmarks/`), wardrobe (`data/wardrobe.ts`).
 
+## Done overnight (after the generator), newest last
+- **Clothing:** tiers and starting wardrobe by class, plus a closet at home (`ui/closet.ts`).
+- **Game clock:** 1 game day = 3 h 23 min (`GAME_DAY_REAL_MINUTES`). Test with `?hour=11`; `?clockmode=real` uses the real clock.
+- **Work:** shifts read as 4 game hours, with "Skip to end of shift".
+- **Landmarks:** cartoon Chrysler, Flatiron and Statue of Liberty, plus a real Times Square (One Times Square tower, TKTS steps, plaza seating).
+- **2D map:** Apple Maps transit style (`ui/map.ts`).
+- **☰ menu** (`ui/side-panel.ts`): HAPPENING NOW (at most 5 items) and shortcuts. Buttons are a registry.
+- **Event rarity tiers:** common to legendary (`RARITY` in `sim/events.ts`). Legendary events: a true inheritance and a fatal crash, which starts a new life.
+- **Auto mode** (`sim/auto.ts`, `ui/auto-mode.ts`): the routine runs while you're away, it can't fill every bar, and staying on auto mode for 6 days puts you in a rut that 2 varied game days cure.
+- **Investing:** shared seeded market (`sim/market.ts`, `data/stocks.ts`), Phone → Stocks, `netWorth()`. `marketMood()` is the recession seam.
+- **Spawn classes:** pick poor, middle, upper or wealthy at the start (`CLASSES` in `sim/state.ts`).
+
 ## Next steps, in order
-1. **Closet and clothing stores, with tiers.**
-   - Add `tier` to CLOTHES.
-   - Starting wardrobe by spawn class (table below).
-   - Add a closet piece of furniture to homes.
-2. **Game clock ratio:** 1 in-game day = 3 h 23 min real time, set in one constant (`core/clock.ts`).
-3. **Work:** a "skip to end of shift" timer that reads as 4 in-game hours.
-4. **Landmarks:** cartoon Times Square (One Times Square tower, TKTS red steps), Statue of Liberty, Chrysler, Flatiron.
-5. **Apple Maps transit-style 2D map** (`ui/map.ts`).
-6. **Hamburger side panel** with HAPPENING NOW / BREAKING NEWS. Homes-on-blocks visiting (see DESIGN-SPEC.md, 2026-10-11).
-7. **More plug-in systems:** auto mode, economy (investing, recession), careers and businesses, events by rarity.
+1. **Career ladders** (7 levels: crime boss, CEO, celebrity), following the DESIGN-SPEC difficulty curve, with randomised requirements against bots and betrayal gates.
+2. **Clothing stores** in the city, selling by tier.
+3. **NPC homes:** crowd agents heading "home" walk to a block and disappear there.
+   - **Visiting:** follow home, shared address or spare key. Multiplayer needs the server; build the seams.
+4. **Mini-game plug-in interface:** replaces "Skip to end of shift".
+5. **Business ownership and hiring; taxes and audits; Cool meter and tickets for speeding** (DESIGN-SPEC).
+6. **Server:** billionaire cap, recession, reset vote. `marketMood()` and `sim/economy.ts` are the seams.
 
 ## User requests not started yet (all must be modular: nothing should break the whole game)
 - **Game clock:** one in-game day = 3 h 23 min real time. Replace the real-NYC-clock mapping in `core/clock.ts` with a configurable ratio (constant), and keep `?clock=` for testing.
