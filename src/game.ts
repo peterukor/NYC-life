@@ -207,6 +207,8 @@ export class Game {
         });
         return { shadows: this.engine.renderer.shadowMap.enabled, ...out };
       },
+      /** The game clock's current hour (0-23). */
+      hour: () => nycTime().hour,
       fps: () => Math.round(this.engine.fps),
       drawCalls: () => this.engine.renderer.info.render.calls,
       triangles: () => this.engine.renderer.info.render.triangles,
