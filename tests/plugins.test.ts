@@ -113,3 +113,20 @@ test('starting wardrobes follow the class table and always cover the basics', ()
     assert.ok(owned.filter((c) => tierOf(c) === 'plain').length <= want.plain + 3);
   }
 });
+
+import { EVENTS, RARITY, applyOutcome } from '../src/sim/events.ts';
+import { newLife } from '../src/sim/state.ts';
+
+test('events have valid rarities and legendary ones are astronomically rare', () => {
+  for (const e of EVENTS) assert.ok(RARITY[e.rarity ?? 'common'], `${e.id} has an unknown rarity`);
+  assert.ok(EVENTS.some((e) => e.rarity === 'legendary' && e.kind === 'good'), 'needs a legendary good event');
+  assert.ok(EVENTS.some((e) => e.rarity === 'legendary' && e.kind === 'bad'), 'needs a legendary bad event');
+  assert.ok(RARITY.legendary.mult * 100 < RARITY.common.mult, 'legendary must be at least 100x rarer than common');
+});
+
+test('a real inheritance lands in the bank', () => {
+  const s = newLife({ name: 'T', origin: 'hustler', look: { body: 'm', skin: '#000', top: '#000', bottom: '#000', hair: '#000' }, birthYear: 1990, traits: [] });
+  const before = s.bank;
+  applyOutcome(s, { text: 'x', tone: 'good', inherit: 40_000_000 });
+  assert.equal(s.bank - before, 40_000_000);
+});

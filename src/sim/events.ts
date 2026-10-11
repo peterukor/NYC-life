@@ -24,7 +24,7 @@ import { DIRECTOR_TICK_SECONDS, EVENT_BASE_CHANCE, EVENT_COOLDOWN_SECONDS, EVENT
 import { money } from '../core/format.ts';
 import { weightedIndex } from '../core/rng.ts';
 import type { PlaceType } from '../data/places.ts';
-import { changeMoney } from './economy.ts';
+import { changeMoney, deposit } from './economy.ts';
 import { addMoodlet, applyNeeds, computeMood } from './needs.ts';
 import { postNews } from './news.ts';
 import { skillGainMultiplier } from './state.ts';
@@ -58,6 +58,10 @@ export interface Outcome {
   news?: { scope: 'city' | AreaId; emoji: string; headline: string };
   /** Extra lesson shown after a scam: how to recover in real life. */
   lesson?: string;
+  /** Legendary bad luck: this life is over (the game offers a fresh start). */
+  lifeOver?: boolean;
+  /** Legendary good luck: a fortune lands in your bank (cents). */
+  inherit?: number;
 }
 
 export interface EventChoice {
@@ -69,10 +73,26 @@ export interface EventChoice {
   run: (c: EventContext) => Outcome;
 }
 
+/**
+ * How rare an event is. Rarity multiplies the event's own weight, so a
+ * "legendary" event is hundreds of times less likely than a common one
+ * in the same situation. Shown as a little badge on the message.
+ */
+export type Rarity = 'common' | 'uncommon' | 'rare' | 'veryRare' | 'legendary';
+export const RARITY: Record<Rarity, { mult: number; label: string; color: string }> = {
+  common: { mult: 1, label: '', color: '' },
+  uncommon: { mult: 0.4, label: 'Uncommon', color: '#2a9d8f' },
+  rare: { mult: 0.1, label: 'Rare', color: '#3a86ff' },
+  veryRare: { mult: 0.025, label: 'Very rare', color: '#8338ec' },
+  legendary: { mult: 0.004, label: 'Legendary', color: '#e09f00' },
+};
+
 export interface RandomEventDef {
   id: string;
   title: string;
   emoji: string;
+  /** Common by default. See RARITY. */
+  rarity?: Rarity;
   /** Rough tone, used by the director to keep good and bad balanced. */
   kind: 'good' | 'bad' | 'mixed' | 'scam';
   weight: (c: EventContext) => number;
@@ -91,7 +111,7 @@ const cash = (c: EventContext) => c.s.money;
 export const EVENTS: RandomEventDef[] = [
   // ---------------- On the subway ----------------
   {
-    id: 'coffeeSpill', title: 'Rush-hour coffee spill', emoji: '☕', kind: 'bad',
+    id: 'coffeeSpill', title: 'Rush-hour coffee spill', emoji: '☕', kind: 'bad', rarity: 'uncommon',
     weight: (c) => (c.where === 'subway' ? (c.rush ? 3 : 1) : 0),
     text: () => 'The train lurches. The guy next to you wears his iced coffee… and so do you.',
     choices: [
@@ -140,7 +160,7 @@ export const EVENTS: RandomEventDef[] = [
     ],
   },
   {
-    id: 'pickpocket', title: 'A bump in the crowd', emoji: '🫳', kind: 'bad',
+    id: 'pickpocket', title: 'A bump in the crowd', emoji: '🫳', kind: 'bad', rarity: 'uncommon',
     weight: (c) => ((c.where === 'subway' || c.where === 'plaza') && c.rush ? 1 : c.where === 'plaza' ? 0.6 : 0),
     text: () => 'Someone bumps you hard in the crowd, says sorry, and keeps moving fast.',
     redFlags: ['A hard bump in a crowd', 'They apologise and leave quickly', 'Wallet in a back pocket'],
@@ -154,7 +174,7 @@ export const EVENTS: RandomEventDef[] = [
 
   // ---------------- On the street ----------------
   {
-    id: 'bump', title: 'Sidewalk collision', emoji: '💥', kind: 'mixed',
+    id: 'bump', title: 'Sidewalk collision', emoji: '💥', kind: 'mixed', rarity: 'uncommon',
     weight: (c) => (c.where === 'street' ? (c.rush ? 2.5 : 1) : 0),
     text: () => 'You’re texting, they’re texting. You collide at full Midtown speed.',
     choices: [
@@ -165,7 +185,7 @@ export const EVENTS: RandomEventDef[] = [
     ],
   },
   {
-    id: 'fight', title: 'A fight breaks out', emoji: '🥊', kind: 'bad',
+    id: 'fight', title: 'A fight breaks out', emoji: '🥊', kind: 'bad', rarity: 'uncommon',
     weight: (c) => ((c.where === 'street' || c.where === 'nightlife') && (c.part === 'night' || c.part === 'lateNight') ? 1.2 : 0),
     text: () => 'Two guys outside the bar start shoving over who was first in line for the halal cart.',
     choices: [
@@ -177,7 +197,7 @@ export const EVENTS: RandomEventDef[] = [
     ],
   },
   {
-    id: 'found20', title: 'Twenty on the ground', emoji: '💵', kind: 'good',
+    id: 'found20', title: 'Twenty on the ground', emoji: '💵', kind: 'good', rarity: 'uncommon',
     weight: (c) => (c.where === 'street' || c.where === 'park' ? 0.6 : 0),
     text: () => 'A crumpled $20 bill is blowing down the sidewalk towards you.',
     choices: [
@@ -224,7 +244,7 @@ export const EVENTS: RandomEventDef[] = [
     ],
   },
   {
-    id: 'phoneSnatch', title: 'Phone snatched!', emoji: '🚲', kind: 'bad',
+    id: 'phoneSnatch', title: 'Phone snatched!', emoji: '🚲', kind: 'bad', rarity: 'rare',
     weight: (c) => (c.where === 'street' && c.s.phone.ok && (c.part === 'night' || c.part === 'lateNight') ? 0.35 : 0),
     text: () => 'A guy on an e-bike rides past and yanks the phone right out of your hand.',
     redFlags: ['Phone held loosely at the curb', 'Late at night on a quiet block', 'E-bike riding close to the sidewalk'],
@@ -266,7 +286,7 @@ export const EVENTS: RandomEventDef[] = [
     ],
   },
   {
-    id: 'threeCardMonte', title: 'Find the lady', emoji: '🃏', kind: 'scam',
+    id: 'threeCardMonte', title: 'Find the lady', emoji: '🃏', kind: 'scam', rarity: 'uncommon',
     weight: (c) => (c.where === 'street' || c.where === 'plaza' ? 0.6 : 0),
     text: () => 'A guy is shuffling three cards on a cardboard box. Someone in the crowd just won $100 “easy”.',
     redFlags: ['The “winner” is part of the crew', 'Easy money on a cardboard box', 'Lookouts watching for police'],
@@ -276,7 +296,7 @@ export const EVENTS: RandomEventDef[] = [
     ],
   },
   {
-    id: 'fakeRecruiter', title: 'A “recruiter” DMs you', emoji: '💼', kind: 'scam',
+    id: 'fakeRecruiter', title: 'A “recruiter” DMs you', emoji: '💼', kind: 'scam', rarity: 'uncommon',
     weight: (c) => (c.s.phone.ok && c.skill('coding') < 3 ? 0.5 : 0),
     text: () => '“Hi! A top tech company loved your profile. $180k remote role. Just pay a $300 training-kit fee and send your bank login to set up payroll.”',
     redFlags: ['A job that asks YOU to pay', 'Asking for bank logins', 'Too good to be true for your experience'],
@@ -286,7 +306,7 @@ export const EVENTS: RandomEventDef[] = [
     ],
   },
   {
-    id: 'realRecruiter', title: 'A real recruiter', emoji: '🚀', kind: 'good',
+    id: 'realRecruiter', title: 'A real recruiter', emoji: '🚀', kind: 'good', rarity: 'rare',
     weight: (c) => (c.skill('coding') >= 3 && (c.where === 'cafe' || c.where === 'work') ? 0.9 : 0),
     text: () => 'The person at the next table noticed your code. She’s a recruiter at a Brooklyn startup and hands you a card — no fees, just an interview.',
     choices: [
@@ -295,7 +315,7 @@ export const EVENTS: RandomEventDef[] = [
     ],
   },
   {
-    id: 'billionaireKid', title: 'Charming stranger', emoji: '🥂', kind: 'mixed',
+    id: 'billionaireKid', title: 'Charming stranger', emoji: '🥂', kind: 'mixed', rarity: 'rare',
     weight: (c) => ((c.where === 'nightlife' || c.where === 'landmark') && (c.part === 'evening' || c.part === 'night') ? 0.18 : 0),
     text: () => 'You hit it off with someone who mentions, very casually, that their family owns “a few buildings on Park”.',
     choices: [
@@ -306,7 +326,7 @@ export const EVENTS: RandomEventDef[] = [
     ],
   },
   {
-    id: 'heirOffer', title: 'An old billionaire seeks an heir', emoji: '🏦', kind: 'scam',
+    id: 'heirOffer', title: 'An old billionaire seeks an heir', emoji: '🏦', kind: 'scam', rarity: 'veryRare',
     // Extremely rare, and (for now) almost always a scam. The real heir
     // challenge becomes a multi-week multiplayer storyline later.
     weight: (c) => (c.s.phone.ok ? 0.05 : 0),
@@ -318,9 +338,31 @@ export const EVENTS: RandomEventDef[] = [
     ],
   },
 
+  // ---------------- Legendary (once-in-a-lifetime) ----------------
+  {
+    // The real one. Not a scam. Astronomically rare; future versions turn
+    // this into a multi-week heir challenge between players.
+    id: 'trueHeir', title: 'A real inheritance', emoji: '👑', kind: 'good', rarity: 'legendary',
+    weight: (c) => (c.where === 'landmark' || c.where === 'park' || c.where === 'plaza' ? 0.6 : 0.2),
+    text: () => 'An elderly man you once helped with directions has passed away. His lawyer — a real, verifiable firm on Park Avenue — calls: he left you part of his estate. No fees. No catch. Just paperwork.',
+    choices: [
+      { label: 'Visit the lawyer', emoji: '⚖️', run: () => ({ text: 'Everything checks out. You sign. Your bank balance will never look the same.', tone: 'good', inherit: 40_000_000, moodlet: { id: 'heir', label: 'Life changed overnight', emoji: '👑', value: 40, minutes: 60 * 48 }, news: { scope: 'city', emoji: '👑', headline: 'Mystery New Yorker inherits a fortune from a kindly stranger' } }) },
+    ],
+  },
+  {
+    // The owner's legendary bad event: a fatal crash. Extremely rare. The
+    // life ends and the player starts a new one.
+    id: 'fatalCrash', title: 'The worst day', emoji: '🚑', kind: 'bad', rarity: 'legendary',
+    weight: (c) => (c.where === 'street' ? 0.25 : 0),
+    text: () => 'A delivery truck runs a red light. You never see it coming.',
+    choices: [
+      { label: 'Continue', emoji: '🕯️', run: () => ({ text: 'Your story in New York ends here. The city keeps moving — and so can you, with a brand-new life.', tone: 'bad', lifeOver: true, news: { scope: 'city', emoji: '🕯️', headline: 'Tragic crash on a Manhattan avenue; neighbours leave flowers' } }) },
+    ],
+  },
+
   // ---------------- Inside places ----------------
   {
-    id: 'drinkBought', title: 'A drink from a stranger', emoji: '🍹', kind: 'good',
+    id: 'drinkBought', title: 'A drink from a stranger', emoji: '🍹', kind: 'good', rarity: 'uncommon',
     weight: (c) => (c.where === 'nightlife' ? 1.2 : 0),
     text: () => 'The bartender slides a drink over. “From the table by the window.” They raise a glass.',
     choices: [
@@ -396,7 +438,7 @@ export function directorPick(s: GameState, where: EventContext['where'], force =
 
   const candidates = EVENTS.filter((e) => (s.events.cooldowns[e.id] ?? 0) <= now);
   const weights = candidates.map((e) => {
-    let w = e.weight(ctx);
+    let w = e.weight(ctx) * RARITY[e.rarity ?? 'common'].mult;
     if (w <= 0) return 0;
     if (lastTwoBad && e.kind === 'good') w *= 2.5;
     if (lastTwoBad && (e.kind === 'bad' || e.kind === 'scam')) w *= 0.3;
@@ -434,6 +476,10 @@ export function applyOutcome(s: GameState, o: Outcome): string {
       changeMoney(s, -lost, 'Pickpocketed');
       text += ` You lost ${money(lost)}.`;
     }
+  }
+  if (o.inherit) {
+    // Paid in as cash, then straight into the bank (money only moves through economy.ts).
+    if (changeMoney(s, o.inherit, 'Inheritance').ok) deposit(s, o.inherit);
   }
   if (o.needs) applyNeeds(s, o.needs);
   if (o.moodlet) addMoodlet(s, o.moodlet);

@@ -28,6 +28,7 @@ fails the test).
 | Add or change a home floor plan | `src/data/homes.ts` | A layout: size, room floors, inner walls with door gaps, and the starting furniture. Point a home place at it in `HOME_LAYOUT_FOR`. |
 | Add a button to the ☰ menu | `src/ui/side-panel.ts` | An entry in `PANEL_BUTTONS` (label, emoji, and what it opens). |
 | Add something to "Happening now" | `src/data/pins.ts` | Any new pin source (sales, events, friends…) also appears in the menu's HAPPENING NOW list, which shows at most 5 lines. |
+| Add a random event | `src/sim/events.ts` | An entry in `EVENTS`: when it can happen (`weight`), its `rarity` (common, uncommon, rare, veryRare or legendary), the text and the choices with their outcomes. Rarity multiplies the weight; a badge shows on rarer messages. |
 | Add a landmark | New file in `src/world/landmarks/`, then one import line in `src/world/landmarks/index.ts` | `LANDMARKS.add({ id, build(ctx) })`, plus a place in `src/data/places.ts`. |
 | Add clothes | `src/data/wardrobe.ts` | An entry in `CLOTHES`. |
 | Add a place (shop, bar, gym) | `src/data/places.ts` | Its block, side, slot, type, hours and actions. |

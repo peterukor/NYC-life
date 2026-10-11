@@ -365,3 +365,6 @@ a { color: var(--info); }
 .side-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .side-buttons button { display: flex; align-items: center; gap: 8px; padding: 12px; border: var(--line-thin); border-radius: 14px; background: var(--paper); box-shadow: var(--drop-sm); font: inherit; font-size: 14px; color: var(--ink); }
 .side-buttons button span { font-size: 18px; }
+
+/* Event rarity badge (sim/events.ts RARITY) */
+.rarity { display: inline-block; margin: 0 auto 6px; padding: 3px 10px; border-radius: 10px; background: var(--rc); color: #fff; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; box-shadow: var(--drop-sm); }

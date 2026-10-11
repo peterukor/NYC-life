@@ -26,7 +26,7 @@ import { CAREER_BY_ID } from './data/careers.ts';
 import { doorOf, isOpen, PLACE_BY_ID, stationOf, type PlaceDef } from './data/places.ts';
 import { finishAction, startAction } from './sim/activity.ts';
 import { changeMoney } from './sim/economy.ts';
-import { applyOutcome, buildContext, directorPick, EVENTS, type EventContext, type RandomEventDef } from './sim/events.ts';
+import { RARITY, applyOutcome, buildContext, directorPick, EVENTS, type EventContext, type RandomEventDef } from './sim/events.ts';
 import { checkGoal, currentGoal } from './sim/goals.ts';
 import { advanceTo } from './sim/life.ts';
 import { postDailyNews } from './sim/news.ts';
@@ -1141,7 +1141,9 @@ export class Game {
     const choices = ev.choices.filter((c) => !c.show || c.show(ctx));
     sfx.notify();
     return new Promise((resolve) => {
-      const m = openModal(`<div class="big">${ev.emoji}</div><h2>${esc(ev.title)}</h2><p>${esc(ev.text(ctx))}</p><div class="choices">${choices.map((c, i) => `<button class="choice" data-act="${i}">${c.emoji} <span>${esc(c.label)}${c.hint ? `<span class="hint">${esc(c.hint)}</span>` : ''}</span></button>`).join('')}</div>`);
+      const rar = RARITY[ev.rarity ?? 'common'];
+      const badge = rar.label ? `<div class="rarity" style="--rc:${rar.color}">${rar.label}</div>` : '';
+      const m = openModal(`${badge}<div class="big">${ev.emoji}</div><h2>${esc(ev.title)}</h2><p>${esc(ev.text(ctx))}</p><div class="choices">${choices.map((c, i) => `<button class="choice" data-act="${i}">${c.emoji} <span>${esc(c.label)}${c.hint ? `<span class="hint">${esc(c.hint)}</span>` : ''}</span></button>`).join('')}</div>`);
       onAct(m.el, (act) => {
         const choice = choices[Number(act)];
         if (!choice) return;
@@ -1157,6 +1159,13 @@ export class Game {
         onAct(m.el, (a2) => {
           if (a2 !== 'ok') return;
           m.close();
+          if (outcome.lifeOver) {
+            // Legendary bad luck: this life is over. Start fresh.
+            deleteGame();
+            fade(true, 'Rest in peace', 'A new life in New York begins…');
+            window.setTimeout(() => location.reload(), 2600);
+            return resolve();
+          }
           this.save();
           this.refreshHud(true);
           resolve();
