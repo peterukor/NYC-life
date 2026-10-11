@@ -119,9 +119,11 @@ for (const [fx, fy] of [[0.25, 0.5], [0.7, 0.55], [0.5, 0.4], [0.3, 0.65], [0.75
   if (!w.door && (w.ground === 'ground' || w.ground === 'sidewalks')) { spot = p; break; }
 }
 await page.touchscreen.tap(spot[0], spot[1]);
-await wait(2500);
+// Software rendering in CI runs at a few fps (the game clamps each frame
+// to 0.1 s), so give the walk plenty of time.
+await wait(6000);
 const after = (await state()).location;
-check('tapping the street walks the player', Math.hypot(after.x - before.x, after.z - before.z) > 1, `moved ${Math.hypot(after.x - before.x, after.z - before.z).toFixed(1)} m`);
+check('tapping the street walks the player', Math.hypot(after.x - before.x, after.z - before.z) > 1.5, `moved ${Math.hypot(after.x - before.x, after.z - before.z).toFixed(1)} m`);
 await shot('07-street');
 // Close-up of the player character, to eyeball the avatar's look.
 await nyc(() => window.__nyc.zoom(9));

@@ -123,8 +123,10 @@ export class Game {
         const c = this.city!;
         const door = this.engine.pick(x, y, c.doors.map((d) => d.hit));
         const ground = this.engine.pick(x, y, [...c.walkSurfaces, ...c.solids]);
-        return { door: door?.object.userData.placeId ?? null, ground: ground ? ground.object.name || ground.object.type : null };
+        return { door: door?.object.userData.placeId ?? null, ground: ground ? ground.object.name || ground.object.type : null, point: ground ? { x: Math.round(ground.point.x), z: Math.round(ground.point.z) } : null };
       },
+      /** Where the player is walking to (remaining waypoints). */
+      path: () => this.path.map((w) => ({ x: Math.round(w.x), z: Math.round(w.z) })),
       /** Move the street camera to `d` metres from the player (for close-up screenshots). */
       zoom: (d: number, front = false) => {
         const { camera, controls } = this.engine;
