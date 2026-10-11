@@ -1,42 +1,50 @@
 # NYC Life — handoff notes (read this first)
 
-Branch: `feat/prototype-foundation`. Build with `npm run build`, preview with `npx vite preview --port 4173`, then QA with `node scripts/qa-smoke.mjs` (play-through) and `node scripts/qa-looks.mjs` (character close-ups → test-results/).
+Branch: **`feat/nyc-generator`** (branched from `feat/prototype-foundation`).
 
-## Current state (2026-10-10, evening)
-- **Art direction done (cartoon, Township/Sims-like):**
-  - Buildings, props and cars come from the Kenney kits.
-    - Packed by `scripts/build-kenney-assets.mjs` into `public/models/kit-*.glb`.
-    - Source copied from the user's folder into `/home/claude/assets-src/kenney` (not in the repo).
-  - People come from Quaternius' Ultimate Animated Character Pack (19 characters; `scripts/build-folk-assets.mjs` → `public/models/folk.glb`).
-  - Runtime code:
-    - `assets/kit.ts`: loader, wall/roof tint shader, night windows.
-    - `world/kitcity.ts`: block planner, PALETTES, near/far detail levels.
-    - `world/folk.ts`: Actor, FOLK_ROLES, slot recolouring.
-    - `world/crowd.ts`: animated near crowd, instanced far crowd.
-    - `world/traffic.ts`: STREET_MIX.
-- **UI redesign done** ("subway signage meets toy box"): `src/ui/styles.css` and `src/ui/hud.ts`.
-  - Needs are subway line bullets, location is street-sign blades, money is a MetroCard.
-  - Fonts are Lilita One and Nunito.
-- **Landmarks:** `world/landmarks/` registry, one file each.
-  - Done: Empire State, Brooklyn Bridge, Atlantic Arena (Barclays-like).
-  - Times Square is still the plain hub plaza: it needs a cartoon One Times Square tower and the TKTS red steps.
-- **Wardrobe:** see `data/wardrobe.ts` (CLOTHES registry). The cartoon character mapping is `avatar.ts → folkLookOf()`. Clothes recolour the top, bottom, hair and skin slots.
-- **QA:**
-  - `npm run build && npx vite preview --port 4173 &`
-  - `CLOCK=-6h node scripts/qa-smoke.mjs` (11 checks)
-  - `CLOCK=-6h node scripts/qa-shots.mjs` (screenshots plus the heaviest meshes)
-  - `npm test`
+Build and test:
+- `npm run build && npx vite preview --port 4173 &`
+- `node scripts/qa-smoke.mjs`: 11 play checks.
+- `node scripts/qa-shots.mjs`: screenshots.
+- `node scripts/qa-home.mjs`: homes and move mode.
+- `Q=low node scripts/qa-perf.mjs`: triangles and draw calls.
+- `npm test`
+
+How to add or change content: **`docs/ADDING-CONTENT.md`**.
+
+## Current state (2026-10-11, overnight session)
+- **City look (Megapolis/Supercell direction).** A procedural NYC generator in `src/world/nycgen/` has replaced the Kenney buildings.
+  - `atlas.ts`: the painted facade atlas plus one shared city material. It handles see-through, night windows, snow and wet streets.
+  - `builder.ts`: merges each block into one mesh.
+  - `buildings.ts`: 6 building styles with stoops, fire escapes, awnings, cornices, water towers and roof gardens.
+  - `props.ts`: trees, parked cars, lamps, cafés, fruit stands, food carts and scaffolding.
+  - `city-blocks.ts`: near/far level of detail.
+  - Performance on low-tier phones: 149k–277k triangles and 57–124 draw calls.
+- **Roads:** two lanes with double yellow lines and parking lanes.
+- **Plug-in systems:**
+  - `core/systems.ts` holds `SYSTEMS` and `SystemRunner`. A system that crashes is switched off.
+  - `systems/index.ts` lists what's on: weather-fx, traffic, pins.
+- **Vehicles:** `data/vehicles.ts`, 13 toy vehicles with rarity, weights, speeds, paints and prices.
+- **Weather:** `sim/weather.ts` is a `WEATHER` registry with snow, heat wave and flash flood. Weather drives the sky, need drain, rideshare surge and news. `systems/weather-fx.ts` adds rain, snow, wet streets, snow on roofs and flood water. Force one with `?weather=snow`.
+- **NPC brain:** `data/crowd-brain.ts` holds personalities, next-stop tables and density.
+- **Map pins:** `data/pins.ts` and `systems/pins.ts`. At most 4 pins show, overlapping pins merge, and only one bounces. Sources so far: home, work, daily sales, landmarks.
+- **Homes:**
+  - Furniture: `scripts/build-furniture-assets.mjs` builds `public/models/furniture.glb`; the pieces are listed in `data/furniture.ts`.
+  - Three floor plans in `data/homes.ts`; `world/home-interior.ts` builds them with Sims-style cutaway walls.
+  - Move mode: "Move this" on any piece, then tap the floor, Turn, Done. Saved in `state.homes`.
+- **Still from before:** folk characters (`world/folk.ts`), the UI redesign, landmarks (`world/landmarks/`), wardrobe (`data/wardrobe.ts`).
 
 ## Next steps, in order
-1. Closet in the apartment and clothing stores (uses the CLOTHES registry).
-   - Add `tier: plain|premium|exclusive`.
+1. **Closet and clothing stores, with tiers.**
+   - Add `tier` to CLOTHES.
    - Starting wardrobe by spawn class (table below).
-   - Map tops to folk characters: suit, doctor, chef, worker.
-2. Game clock ratio: one in-game day = 3 h 23 min real time (`core/clock.ts`, one constant).
-3. Work: show a "skip to end of shift" button plus a timer that reads as 4 in-game hours.
-4. Times Square cartoon upgrade; more landmarks (Statue of Liberty, Chrysler, Flatiron, Central Park).
-5. Plug-in systems (SystemRegistry), then auto mode, economy, careers and jobs, events by rarity (see DESIGN-SPEC.md).
-6. Write `docs/ADDING-CONTENT.md`.
+   - Add a closet piece of furniture to homes.
+2. **Game clock ratio:** 1 in-game day = 3 h 23 min real time, set in one constant (`core/clock.ts`).
+3. **Work:** a "skip to end of shift" timer that reads as 4 in-game hours.
+4. **Landmarks:** cartoon Times Square (One Times Square tower, TKTS red steps), Statue of Liberty, Chrysler, Flatiron.
+5. **Apple Maps transit-style 2D map** (`ui/map.ts`).
+6. **Hamburger side panel** with HAPPENING NOW / BREAKING NEWS. Homes-on-blocks visiting (see DESIGN-SPEC.md, 2026-10-11).
+7. **More plug-in systems:** auto mode, economy (investing, recession), careers and businesses, events by rarity.
 
 ## User requests not started yet (all must be modular: nothing should break the whole game)
 - **Game clock:** one in-game day = 3 h 23 min real time. Replace the real-NYC-clock mapping in `core/clock.ts` with a configurable ratio (constant), and keep `?clock=` for testing.
@@ -89,16 +97,3 @@ Branch: `feat/prototype-foundation`. Build with `npm run build`, preview with `n
 - Branches named `feat/...`.
 - Comments in simple, detailed English.
 - Money is integer cents and only changes through `sim/economy.ts`.
-
-## 2026-10-10 — Megapolis/Supercell detail pass (IN PROGRESS)
-- New procedural NYC generator in `src/world/nycgen/` replaces Kenney kit buildings:
-  `atlas.ts` (painted facade atlas + shared city material, see-through, night windows),
-  `builder.ts` (merges everything per block into one mesh), `buildings.ts` (brownstone,
-  walkup, prewar, modern, glass, deco styles; stoops, fire escapes, awnings, cornices,
-  water towers, roof gardens), `props.ts` (puffy trees, parked toy cars/taxis, lamps,
-  hydrants, cafés, fruit stands, food carts, scaffolding), `city-blocks.ts` (near/far LOD).
-- First run: area view 123 calls / 534k tris — TOO MANY TRIANGLES. Next: cut near-block
-  tris (~37k each → target ~12k: fewer blob segments on trees, fewer parked cars,
-  simplify fire-escape beams), shrink near radius on low tier, then screenshot review.
-- Furniture/home-layout work from the previous session was lost (never pushed): redo
-  `scripts/build-furniture-assets.mjs`, `src/data/furniture.ts`, `src/data/homes.ts`.
