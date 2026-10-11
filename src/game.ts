@@ -19,7 +19,7 @@
 import * as THREE from 'three';
 import { bus } from './core/bus.ts';
 import { isRushHour, nowMs, nycTime } from './core/clock.ts';
-import { DETAIL_RADIUS, RIDESHARE, SUBWAY_FARE, WALK_SPEED, SHIFT_SECONDS, DIRECTOR_TICK_SECONDS, CAMERA } from './core/constants.ts';
+import { DETAIL_RADIUS, RIDESHARE, SUBWAY_FARE, WALK_SPEED, SHIFT_GAME_HOURS, SHIFT_SECONDS, DIRECTOR_TICK_SECONDS, CAMERA } from './core/constants.ts';
 import { esc, money } from './core/format.ts';
 import { ACTIONS, actionLock } from './data/actions.ts';
 import { CAREER_BY_ID } from './data/careers.ts';
@@ -865,16 +865,27 @@ export class Game {
   private async runShift(): Promise<void> {
     this.busy = true;
     const career = CAREER_BY_ID[this.state.job!.careerId];
-    const bar = progressBar(`${career.emoji} Working as ${jobTitle(this.state)}…`);
+    // The shift reads as SHIFT_GAME_HOURS on a little clock that races
+    // ahead, but only takes SHIFT_SECONDS. "Skip to end of shift" finishes
+    // it at once (a stand-in for the mini-games coming later).
+    let skipped = false;
+    const bar = progressBar(`${career.emoji} Working as ${jobTitle(this.state)}…`, { skipLabel: '⏩ Skip to end of shift', onSkip: () => (skipped = true) });
     const total = SHIFT_SECONDS * 1000;
     const start = performance.now();
+    const startClock = nycTime();
+    const startMin = startClock.hour * 60 + startClock.minute;
+    const fmt = (min: number) => {
+      const h = Math.floor(min / 60) % 24;
+      const m = Math.floor(min % 60);
+      return `${h % 12 === 0 ? 12 : h % 12}:${String(m).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`;
+    };
     let style: WorkStyle | null = null;
     let paused = 0;
     await new Promise<void>((resolve) => {
       const tick = () => {
-        const f = (performance.now() - start - paused) / total;
-        bar.set(f);
-        if (f >= 0.45 && !style) {
+        const f = skipped ? 1 : (performance.now() - start - paused) / total;
+        bar.set(f, `${career.emoji} ${jobTitle(this.state)} · ${fmt(startMin + Math.min(1, f) * SHIFT_GAME_HOURS * 60)} → ${fmt(startMin + SHIFT_GAME_HOURS * 60)}`);
+        if (f >= 0.45 && !style && !skipped) {
           // Halfway: how do you want to work today?
           const pauseStart = performance.now();
           const m = openModal(`<div class="big">${career.emoji}</div><h2>How are you working today?</h2><p>Your choice affects pay, performance and your needs.</p><div class="choices">${(Object.keys(WORK_STYLES) as WorkStyle[]).map((k) => `<button class="choice" data-act="${k}">${WORK_STYLES[k].emoji} <span>${WORK_STYLES[k].label}<span class="hint">${WORK_STYLES[k].hint}</span></span></button>`).join('')}</div>`);

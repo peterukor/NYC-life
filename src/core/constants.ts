@@ -95,6 +95,9 @@ export const MAX_SINGLE_TRANSACTION = 50_000_000; // $500,000
 /** A shift is a short real-time task, like Lagos Life's "1-hour shifts". */
 export const SHIFT_SECONDS = 20;
 
+/** How long a shift reads on the game clock (the timer "skips" these hours). */
+export const SHIFT_GAME_HOURS = 4;
+
 /** Max paid shifts per real day, so the game rewards playing daily, not grinding. */
 export const MAX_SHIFTS_PER_DAY = 4;
 
