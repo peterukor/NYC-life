@@ -15,7 +15,8 @@ import * as THREE from 'three';
 import { FURNITURE, type FurnitureDef } from '../data/furniture.ts';
 import type { HomeItem, HomeLayout } from '../data/homes.ts';
 import type { PlaceDef } from '../data/places.ts';
-import { adTexture, HOUSE_ADS } from '../render/textures.ts';
+import { adTexture, HOUSE_ADS, signTexture } from '../render/textures.ts';
+import { HAIR_COLORS, makeAvatar, OUTFIT_COLORS, SKIN_TONES } from './avatar.ts';
 import type { FurnitureKit } from '../assets/furniture-kit.ts';
 import type { Interior, InteriorObject } from './interior.ts';
 
@@ -35,10 +36,18 @@ export interface HomeInterior extends Interior {
   rotateItem: (uid: string) => void;
   /** Glow the piece being moved (null = none). */
   highlight: (uid: string | null) => void;
+  /** Homes: you can move furniture. Venues (shops, bars): you can't. */
+  movable: boolean;
 }
 
-export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: HomeItem[], kit: FurnitureKit): HomeInterior {
-  void place; // kept for future per-home touches (name plate, colours)
+export interface BuildOptions {
+  /** Venues: the counter offers these (the place's own actions). */
+  placeActions?: string[];
+  /** Venues get a name sign and a few locals and staff. */
+  venue?: boolean;
+}
+
+export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: HomeItem[], kit: FurnitureKit, opts: BuildOptions = {}): HomeInterior {
   const scene = new THREE.Scene();
   const disposables: { dispose(): void }[] = [];
   const t = <T extends { dispose(): void }>(x: T) => (disposables.push(x), x);
@@ -173,7 +182,8 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
     scene.add(g);
     groups.set(it.uid, g);
     g.traverse((o) => (o.userData.objectId = it.uid));
-    objects.push({ id: it.uid, label: def.name, emoji: def.emoji, mesh: g, actions: def.actions, stand: new THREE.Vector3() });
+    const label = def.placeActions ? place.name : def.name;
+    objects.push({ id: it.uid, label, emoji: def.placeActions ? place.emoji : def.emoji, mesh: g, actions: def.placeActions ? opts.placeActions ?? [] : def.actions, stand: new THREE.Vector3() });
     placeGroup(it);
   }
 
@@ -199,6 +209,25 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
     if (adTimer <= 0 && tvScreen.color.getHex() !== 0x0b0b0b) tvScreen.color.setHSL((performance.now() / 4000) % 1, 0.5, 0.45);
   });
 
+  // ---- venues: a name sign, staff behind the counter, a few locals
+  if (opts.venue) {
+    const sign = new THREE.Mesh(t(new THREE.PlaneGeometry(6, 1.1)), t(new THREE.MeshBasicMaterial({ map: t(signTexture(place.name, place.color)) })));
+    sign.position.set(0, WALL_H - 0.55, -hd + WALL_T / 2 + 0.03);
+    scene.add(sign);
+    const counter = items.find((i) => FURNITURE.get(i.item)?.placeActions);
+    const people: { x: number; z: number; ry: number }[] = [];
+    if (counter) people.push({ x: counter.x + 0.6, z: counter.z - 1.0, ry: 0 });
+    for (let i = 0; i < 3; i++) people.push({ x: -hw + 2.5 + i * ((W - 5) / 2), z: 0.8 + (i % 2) * 1.8, ry: Math.PI + (i - 1) * 0.5 });
+    people.forEach((p, i) => {
+      const npc = makeAvatar({ body: i % 2 ? 'f' : 'm', skin: SKIN_TONES[(i * 3 + 1) % SKIN_TONES.length], top: i === 0 ? place.color : OUTFIT_COLORS[(i * 5 + 2) % OUTFIT_COLORS.length], bottom: '#2b2d42', hair: HAIR_COLORS[i % HAIR_COLORS.length] });
+      npc.root.position.set(p.x, 0, p.z);
+      npc.root.rotation.y = p.ry;
+      scene.add(npc.root);
+      disposables.push({ dispose: npc.dispose });
+      animated.push((dt) => npc.animate(0, dt));
+    });
+  }
+
   // ---- move mode helpers
   let lit: string | null = null;
   const glow = new THREE.Mesh(t(new THREE.RingGeometry(0.9, 1.15, 32)), t(new THREE.MeshBasicMaterial({ color: '#ffd400', transparent: true, opacity: 0.9, depthWrite: false })));
@@ -220,6 +249,7 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
     layout,
     items,
     floors,
+    movable: !opts.venue,
     focus: new THREE.Vector3(0, 0.6, -0.4),
     spawn: new THREE.Vector3(0, 0, hd - 1),
     halfWidth: hw + 0.6,

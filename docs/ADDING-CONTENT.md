@@ -33,6 +33,7 @@ fails the test).
 | Tune or add a life path (Crime Boss, CEO, Celebrity…) | `src/data/paths.ts` | Titles, the rep curve, which actions give rep, and the task pool per level (`pick` random tasks plus `fixed` ones, such as betrayals or active days). Path-only activities are actions with `path: { id, minLevel }`, and optionally `risk` (chance of getting busted), in `src/data/actions.ts`. |
 | Add a work mini-game | `src/data/minigames.ts` | An entry with the careers it's for and `run(host, done)`: draw into `host`, then call `done(score 0..1)` once. For a quick one, reuse `orderRush(...)` with that job's items. The score sets shift performance and pay. |
 | Add a business type | `src/data/businesses.ts` | Price, average daily revenue, daily upkeep and staff needed. Tax rate, fraud and audit odds, and hiring wages are in `TAX` and `HIRING` in `src/sim/business.ts`. |
+| Change how a café, bar, bodega, pizzeria, office or comedy club looks inside | `src/data/venues.ts` | Edit its floor plan (same format as homes). The `serviceCounter` / `barCounter` piece sells whatever that place offers. |
 | Add a landmark | New file in `src/world/landmarks/`, then one import line in `src/world/landmarks/index.ts` | `LANDMARKS.add({ id, build(ctx) })`, plus a place in `src/data/places.ts`. |
 | Add clothes | `src/data/wardrobe.ts` | An entry in `CLOTHES`. |
 | Add a place (shop, bar, gym) | `src/data/places.ts` | Its block, side, slot, type, hours and actions. |

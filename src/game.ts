@@ -49,6 +49,7 @@ import { buildInterior, type Interior } from './world/interior.ts';
 import { buildHome, type HomeInterior } from './world/home-interior.ts';
 import { loadFurnitureKit, type FurnitureKit } from './assets/furniture-kit.ts';
 import { layoutForPlace } from './data/homes.ts';
+import { VENUE_LAYOUT_FOR, VENUE_LAYOUTS } from './data/venues.ts';
 import { FURNITURE } from './data/furniture.ts';
 import { openCloset } from './ui/closet.ts';
 import { openStore } from './ui/store.ts';
@@ -127,7 +128,7 @@ export class Game {
       mode: () => this.engine.mode,
       openObject: (id: string) => {
         const o = this.interior?.objects.find((x) => x.id === id);
-        if (o) this.openObjectSheet(o.label, o.emoji, o.actions, this.interior && 'floors' in this.interior ? o.id : undefined);
+        if (o) this.openObjectSheet(o.label, o.emoji, o.actions, this.interior && (this.interior as HomeInterior).movable ? o.id : undefined);
         return !!o;
       },
       openPlace: (id: string) => this.openPlace(PLACE_BY_ID[id]),
@@ -505,7 +506,7 @@ export class Game {
       if (obj) {
         this.player.root.position.copy(obj.stand);
         this.player.root.lookAt(obj.mesh.getWorldPosition(new THREE.Vector3()).setY(0));
-        this.openObjectSheet(obj.label, obj.emoji, obj.actions, 'floors' in this.interior ? obj.id : undefined);
+        this.openObjectSheet(obj.label, obj.emoji, obj.actions, (this.interior as HomeInterior).movable ? obj.id : undefined);
       }
       return;
     }
@@ -747,10 +748,14 @@ export class Game {
     const go = () => {
       this.interior?.dispose();
       this.stopMoving(false);
+      const venue = VENUE_LAYOUTS[VENUE_LAYOUT_FOR[place.interior] ?? ''];
       if (place.interior === 'apartment' && this.furniture) {
         // Sims-style home: its own floor plan, real furniture, saved arrangement.
         const layout = layoutForPlace(place.id);
         this.interior = buildHome(place, layout, this.state.homes[place.id] ?? layout.furniture, this.furniture);
+      } else if (venue && this.furniture) {
+        // Shops, cafés, bars and offices: same Sims look, the counter sells what the place sells.
+        this.interior = buildHome(place, venue, venue.furniture, this.furniture, { venue: true, placeActions: place.actions });
       } else this.interior = buildInterior(place, place.actions);
       this.interior.scene.add(this.player.root);
       this.player.root.position.copy(this.interior.spawn);
