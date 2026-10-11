@@ -85,6 +85,7 @@ export function newLife(opts: NewLifeOptions): GameState {
     events: { lastFiredAt: now, cooldowns: {} },
     homes: {},
     auto: { on: false, routine: [], since: 0 },
+    portfolio: {},
     news: [],
     tutorialStep: 0,
     settings: { quality: 'auto', sound: true },

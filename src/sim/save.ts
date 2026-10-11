@@ -63,6 +63,7 @@ function migrate(data: GameState): GameState | null {
   data.settings ??= { quality: 'auto', sound: true };
   data.homes ??= {};
   data.auto ??= { on: false, routine: [], since: 0 };
+  data.portfolio ??= {};
   // Saves from before owned clothes: you own the free items plus what you wear.
   if (!data.wardrobe) {
     const l = data.profile.look;

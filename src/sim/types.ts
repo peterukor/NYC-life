@@ -98,6 +98,8 @@ export interface GameState {
   profile: { name: string; origin: Origin; traits: string[]; look: Look; birthYear: number; /** poor | middle | upper | wealthy (see data/wardrobe.ts). */ spawnClass?: 'poor' | 'middle' | 'upper' | 'wealthy' };
   /** Clothing ids you own (data/wardrobe.ts). */
   wardrobe: string[];
+  /** Investments: stock id → shares owned and what you paid in total (cents). */
+  portfolio: Record<string, { shares: number; cost: number }>;
   /** Auto mode: the routine your character follows while you're away (sim/auto.ts). */
   auto: { on: boolean; routine: string[]; since: number; blues?: { dayKey: string; today: string[]; variedDays: number } };
 

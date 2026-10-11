@@ -20,6 +20,8 @@ import { applyForJob, hireBlocker, jobTitle, quitJob, shiftPay } from '../sim/wo
 import { HOUSE_ADS } from '../render/textures.ts';
 import type { AdStats } from '../world/ads.ts';
 import { html, onAct, root, toast } from './dom.ts';
+import { STOCKS } from '../data/stocks.ts';
+import { buyStock, dayChange, netWorth, portfolioValue, priceOf, recentPrices, sellStock, TRADE_FEE } from '../sim/market.ts';
 
 export interface PhoneHost {
   state: GameState;
@@ -40,6 +42,7 @@ const APPS = [
   { id: 'jobs', label: 'Jobs', icon: '💼', bg: '#2a9d8f', needsPhone: true },
   { id: 'ride', label: 'Rideshare', icon: '🚗', bg: '#00b4d8', needsPhone: true },
   { id: 'bank', label: 'Bank', icon: '🏦', bg: '#0b3d91', needsPhone: true },
+  { id: 'stocks', label: 'Stocks', icon: '📈', bg: '#06a77d', needsPhone: true },
   { id: 'news', label: 'City News', icon: '📰', bg: '#e63946', needsPhone: false },
   { id: 'me', label: 'Me', icon: '🙂', bg: '#6d597a', needsPhone: false },
   { id: 'ads', label: 'Ad Center', icon: '📢', bg: '#f4a261', needsPhone: true },
@@ -62,7 +65,7 @@ export function openPhone(host: PhoneHost, startApp?: string): () => void {
       <button class="phone-close" data-act="close" aria-label="Close phone">✕</button>
       <div class="phone-home">
         <div class="phone-time">${clockLabel(t).replace(/ (AM|PM)/, '')}</div>
-        <div class="phone-date">${new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'America/New_York' })} · New York · ${w.emoji} ${w.label}</div>
+        <div class="phone-date">${new Date(`${t.dateKey}T12:00:00Z`).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'UTC' })} · New York · ${w.emoji} ${w.label}</div>
         ${s.phone.ok ? '' : `<div class="card" style="margin-bottom:14px;background:rgba(255,69,58,.15)"><h3>📵 Your phone is gone</h3><p>${esc(s.phone.lostReason ?? 'Lost')}. Most apps are locked until you get it back.</p><button class="btn primary block" style="margin-top:10px" data-act="app:recover">Get it back</button></div>`}
         <div class="apps">${APPS.map((a) => `<button class="app" data-act="app:${a.id}" ${a.needsPhone && !s.phone.ok ? 'aria-disabled="true" disabled' : ''}><span class="icon" style="background:${a.bg}">${a.icon}</span>${a.label}</button>`).join('')}</div>
       </div>`;
@@ -107,6 +110,28 @@ export function openPhone(host: PhoneHost, startApp?: string): () => void {
         ${s.home.weeklyRent ? `<div class="card"><h3>🏠 Rent</h3><p>${money(s.home.weeklyRent)} every week (cash first, then bank).</p></div>` : `<div class="card"><h3>🏠 Rent</h3><p>Paid by Dad. Must be nice.</p></div>`}
         <h3 style="margin:16px 0 8px;font-size:15px">History</h3>
         ${s.ledger.length ? s.ledger.slice(0, 40).map((l) => `<div class="list-item"><div class="grow"><div class="title">${esc(l.reason)}</div><div class="sub">${new Date(l.at).toLocaleString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</div></div><div class="amt ${l.delta > 0 ? 'pos' : 'neg'}">${money(l.delta, { sign: true })}</div></div>`).join('') : '<p class="blurb">No transactions yet.</p>'}`);
+    },
+    stocks() {
+      const spark = (prices: number[]) => {
+        if (prices.length < 2) return '';
+        const lo = Math.min(...prices);
+        const hi = Math.max(...prices);
+        const pts = prices.map((p, i) => `${(i / (prices.length - 1)) * 60},${18 - ((p - lo) / Math.max(1, hi - lo)) * 16}`).join(' ');
+        const up = prices[prices.length - 1] >= prices[0];
+        return `<svg class="spark" viewBox="0 0 60 20" aria-hidden="true"><polyline points="${pts}" fill="none" stroke="${up ? '#1a9e55' : '#e0283f'}" stroke-width="2" stroke-linejoin="round"/></svg>`;
+      };
+      const pv = portfolioValue(s);
+      page('Stocks', `
+        <div class="card"><p>Net worth</p><div class="big-number">${money(netWorth(s))}</div><p style="margin-top:6px">Investments ${money(pv)} · Cash ${money(s.money)} · Bank ${money(s.bank)}</p></div>
+        <p class="blurb">Made-up companies, real lessons: index funds are calm, single stocks swing, meme coins can vanish. Prices move once per game day. Fee: ${money(TRADE_FEE.flat)} + ${TRADE_FEE.rate * 100}% per trade.</p>
+        ${STOCKS.all().map((st) => {
+          const price = priceOf(st.id);
+          const ch = dayChange(st.id);
+          const h = s.portfolio[st.id];
+          const val = h ? Math.round(h.shares * price) : 0;
+          const gain = h ? val - h.cost : 0;
+          return `<div class="list-item stock"><div style="font-size:24px">${st.emoji}</div><div class="grow"><div class="title">${st.ticker} · ${esc(st.name)}</div><div class="sub">${esc(st.sector)}${st.fund ? ' · 🛡️ safer' : ''} · ${money(price)} <b style="color:${ch >= 0 ? 'var(--good)' : 'var(--bad)'}">${ch >= 0 ? '▲' : '▼'} ${Math.abs(ch).toFixed(1)}%</b></div>${h ? `<div class="sub">You own ${money(val)} (${gain >= 0 ? '+' : ''}${money(gain)})</div>` : ''}<div class="row" style="margin-top:6px"><button class="btn" data-act="buy:${st.id}:5000">Buy $50</button><button class="btn" data-act="buy:${st.id}:50000">Buy $500</button>${h ? `<button class="btn" data-act="sell:${st.id}">Sell all</button>` : ''}</div></div>${spark(recentPrices(st.id, 14))}</div>`;
+        }).join('')}`);
     },
     news() {
       const tabs: ('all' | 'city' | AreaId)[] = ['all', 'city', 'manhattan', 'brooklyn'];
@@ -205,6 +230,19 @@ export function openPhone(host: PhoneHost, startApp?: string): () => void {
       host.save();
       host.refresh();
       return apps.bank();
+    }
+    if (act.startsWith('buy:') || act.startsWith('sell:')) {
+      const [kind, id, amt] = act.split(':');
+      if (kind === 'buy') {
+        const err = buyStock(s, id, Number(amt));
+        toast(err ?? `Bought ${money(Number(amt))} of ${STOCKS.get(id)?.ticker}`, { icon: '📈', tone: err ? 'bad' : 'good' });
+      } else {
+        const r = sellStock(s, id);
+        toast('error' in r ? r.error : `Sold for ${money(r.got)}`, { icon: '📈', tone: 'error' in r ? 'bad' : 'good' });
+      }
+      host.save();
+      host.refresh();
+      return apps.stocks();
     }
     if (act.startsWith('q:')) {
       host.setQuality(act.slice(2) as GameState['settings']['quality']);

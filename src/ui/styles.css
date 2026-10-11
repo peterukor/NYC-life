@@ -374,3 +374,7 @@ a { color: var(--info); }
 .auto-chips .chip { padding: 7px 10px; border: var(--line-thin); border-radius: 14px; background: var(--paper); font: inherit; font-size: 13px; color: var(--ink); }
 .auto-chips .chip.on { background: #fff4c2; box-shadow: var(--drop-sm); }
 .auto-rules { margin: 12px 0; padding-left: 4px; list-style: none; display: grid; gap: 6px; font-size: 13px; color: var(--ink-soft); }
+.list-item.stock { align-items: flex-start; }
+.spark { width: 60px; height: 20px; flex: none; margin-top: 4px; }
+.list-item.stock .row { display: flex; flex-wrap: wrap; gap: 6px; }
+.list-item.stock .row .btn { padding: 6px 10px; font-size: 13px; min-height: 0; width: auto; }

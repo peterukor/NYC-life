@@ -130,3 +130,24 @@ test('a real inheritance lands in the bank', () => {
   applyOutcome(s, { text: 'x', tone: 'good', inherit: 40_000_000 });
   assert.equal(s.bank - before, 40_000_000);
 });
+
+import { STOCKS } from '../src/data/stocks.ts';
+import { buyStock, marketDay, netWorth, priceOf, sellStock } from '../src/sim/market.ts';
+
+test('the market is the same for everyone and trading keeps the books straight', () => {
+  const day = marketDay('2026-06-01');
+  for (const st of STOCKS.all()) {
+    const p = priceOf(st.id, day);
+    assert.ok(p > 0, `${st.id} price`);
+    assert.equal(priceOf(st.id, day), p, 'deterministic');
+  }
+  const s = newLife({ name: 'T', origin: 'hustler', look: { body: 'm', skin: '#000', top: '#000', bottom: '#000', hair: '#000' }, birthYear: 1990, traits: [] });
+  const before = netWorth(s);
+  assert.equal(buyStock(s, 'nyx', 20_000), null);
+  // Buying costs only the fee in net worth terms.
+  assert.ok(before - netWorth(s) <= 1_000 + 20_000 * 0.005 + 5);
+  const r = sellStock(s, 'nyx');
+  assert.ok('got' in r && r.got > 0);
+  assert.equal(s.portfolio.nyx, undefined);
+  assert.notEqual(buyStock(s, 'nyx', 999_999_999), null, 'cannot buy without cash');
+});
