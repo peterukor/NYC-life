@@ -14,7 +14,7 @@
 import * as THREE from 'three';
 import { pickVehicle } from '../data/vehicles.ts';
 import { avenueX, streetZ, type DistrictDef } from './layout.ts';
-import { vehicleGeometry, vehicleMaterial } from './vehicle-models.ts';
+import { PAINT_MARKER, vehicleGeometry, vehicleMaterial } from './vehicle-models.ts';
 
 interface Car {
   lane: number;
@@ -60,19 +60,23 @@ export class Traffic {
     }
 
     // Roll every car: which vehicle (by trafficWeight), which paint, how fast.
-    const picks = new Map<string, { geo: THREE.BufferGeometry; cars: { speed: number }[] }>();
+    // One mesh per vehicle model; the paint is each car's instance colour.
+    const picks = new Map<string, { geo: THREE.BufferGeometry; cars: { speed: number; paint: string }[] }>();
     for (let i = 0; i < count; i++) {
       const v = pickVehicle(Math.random, 'trafficWeight');
       const paint = v.paints[Math.floor(Math.random() * v.paints.length)];
-      const key = `${v.id}|${paint}`;
-      if (!picks.has(key)) picks.set(key, { geo: vehicleGeometry(v, paint), cars: [] });
-      picks.get(key)!.cars.push({ speed: v.speed[0] + Math.random() * (v.speed[1] - v.speed[0]) });
+      if (!picks.has(v.id)) picks.set(v.id, { geo: vehicleGeometry(v, PAINT_MARKER), cars: [] });
+      picks.get(v.id)!.cars.push({ speed: v.speed[0] + Math.random() * (v.speed[1] - v.speed[0]), paint });
     }
     let n = 0;
-    for (const [key, p] of picks) {
+    const c = new THREE.Color();
+    for (const [id, p] of picks) {
       const mesh = new THREE.InstancedMesh(p.geo, vehicleMaterial(), p.cars.length);
-      mesh.name = `car-${key.split('|')[0]}`;
-      p.cars.forEach((c, slot) => this.cars.push({ lane: n++ % this.lanes.length, t: Math.random(), speed: c.speed, mesh: this.meshes.length, slot }));
+      mesh.name = `car-${id}`;
+      p.cars.forEach((car, slot) => {
+        mesh.setColorAt(slot, c.set(car.paint));
+        this.cars.push({ lane: n++ % this.lanes.length, t: Math.random(), speed: car.speed, mesh: this.meshes.length, slot });
+      });
       this.meshes.push(mesh);
     }
     for (const m of this.meshes) {

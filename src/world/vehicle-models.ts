@@ -25,8 +25,34 @@ export function vehicleGeometry(v: VehicleDef, paint: string): THREE.BufferGeome
   return g;
 }
 
+/** The colour vehicles are built in when their paint comes from the instance (pure white). */
+export const PAINT_MARKER = '#ffffff';
+
 let mat: THREE.MeshLambertMaterial | null = null;
-/** Shared material for moving vehicles (same look as the city, never fades). */
+/**
+ * Shared material for moving vehicles (same look as the city, never
+ * fades). Each car's paint comes from its instance colour, but ONLY on
+ * the body: vertices built in pure white (PAINT_MARKER) take the paint;
+ * glass, tyres and lights keep their own colours. So one mesh per
+ * vehicle model draws every paint job (fewer draw calls).
+ */
 export function vehicleMaterial(): THREE.MeshLambertMaterial {
-  return (mat ??= cityMaterial(new BuildingFades()));
+  if (mat) return mat;
+  mat = cityMaterial(new BuildingFades());
+  const base = mat.onBeforeCompile;
+  mat.onBeforeCompile = (shader, renderer) => {
+    base.call(mat, shader, renderer);
+    shader.vertexShader = shader.vertexShader.replace(
+      '#include <color_vertex>',
+      `#include <color_vertex>
+      #ifdef USE_INSTANCING_COLOR
+        // Undo the default "tint everything", then tint only white (paint) vertices.
+        vColor.xyz = color.xyz;
+        float isPaint = step(2.94, color.r + color.g + color.b);
+        vColor.xyz = mix(color.xyz, instanceColor.xyz, isPaint);
+      #endif`,
+    );
+  };
+  mat.customProgramCacheKey = () => 'nyc-vehicle-v1';
+  return mat;
 }

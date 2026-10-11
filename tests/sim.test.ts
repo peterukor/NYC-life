@@ -168,3 +168,30 @@ test('every place door sits on its own block, and data references are valid', ()
   const ids = new Set(PLACES.map((p) => p.id));
   for (const c of CAREERS) assert.ok(ids.has(c.placeId), `${c.id} workplace exists`);
 });
+
+import { AUTO, recordVariety, runAuto, setAuto, checkBlues } from '../src/sim/auto.ts';
+
+test('auto mode runs the routine while away but never fills every bar', () => {
+  const s = fresh('trustFund');
+  for (const k of Object.keys(s.needs) as (keyof typeof s.needs)[]) s.needs[k] = 20;
+  setAuto(s, true, ['sleep', 'snack', 'shower', 'toilet', 'watchTv']);
+  const msg = runAuto(s, 10);
+  assert.ok(msg && msg.includes('Auto mode'), 'summary returned');
+  const values = Object.values(s.needs);
+  assert.ok(values.every((v) => v <= AUTO.needCap), 'capped');
+  assert.ok(values.some((v) => v <= AUTO.lowNeed), 'one need stays low');
+});
+
+test('too long on auto mode gives the blues; varied living cures them', () => {
+  const s = fresh('trustFund');
+  setAuto(s, true, ['sleep']);
+  s.auto.since = Date.now() - (AUTO.bluesAfterDays + 1) * 86_400_000;
+  assert.ok(checkBlues(s));
+  assert.ok(s.moodlets.some((m) => m.id === 'autoBlues'));
+  // Two varied days (simulate by bumping the day counter once and doing 4 things today).
+  s.auto.blues!.variedDays = AUTO.recoveryDays - 1;
+  let msg = null;
+  for (const id of ['watchTv', 'workout', 'callMom', 'codePractice']) msg = recordVariety(s, id) ?? msg;
+  assert.ok(msg, 'recovered');
+  assert.ok(!s.moodlets.some((m) => m.id === 'autoBlues'));
+});

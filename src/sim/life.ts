@@ -12,6 +12,7 @@ import { decayNeeds, expireMoodlets, addMoodlet } from './needs.ts';
 import { postDailyNews } from './news.ts';
 import type { GameState } from './types.ts';
 import { weatherFor } from './weather.ts';
+import { checkBlues, runAuto } from './auto.ts';
 
 /**
  * Advance the simulation to "now". Call it every frame (cheap) or after
@@ -33,12 +34,16 @@ export function advanceTo(state: GameState, now = nowMs()): string | null {
     decayNeeds(state, capped, OFFLINE_DECAY_MULTIPLIER);
     const h = Math.round(hours);
     summary = h >= 1 ? `You were away ${h} hour${h === 1 ? '' : 's'}. Life went on without you.` : null;
+    // Auto mode: your routine ran while you were gone.
+    const auto = runAuto(state, hours);
+    if (auto) summary = summary ? `${summary} ${auto}` : auto;
   } else {
     const t = nycTime(now);
     decayNeeds(state, hours, 1, weatherFor(t.dateKey, t.hour));
   }
 
   expireMoodlets(state);
+  if (checkBlues(state, now)) summary = `${summary ? `${summary} ` : ''}🌧️ Too long on autopilot: you feel stuck in a rut. Get out and do different things for a couple of days.`;
   const dayNote = rollDays(state);
   if (dayNote) summary = summary ? `${summary} ${dayNote}` : dayNote;
   return summary;

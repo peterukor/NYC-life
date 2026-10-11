@@ -52,6 +52,8 @@ import { layoutForPlace } from './data/homes.ts';
 import { FURNITURE } from './data/furniture.ts';
 import { openCloset } from './ui/closet.ts';
 import { openSidePanel } from './ui/side-panel.ts';
+import { openAutoMode } from './ui/auto-mode.ts';
+import { recordVariety } from './sim/auto.ts';
 import { DISTRICTS, crossStreets, blockRect } from './world/layout.ts';
 import { findPath, nearestWalkable } from './world/nav.ts';
 import { SystemRunner, type SystemContext } from './core/systems.ts';
@@ -275,6 +277,7 @@ export class Game {
         openSidePanel(this.state, (a) => {
           if (a.kind === 'phone') this.openPhoneApp(a.app);
           else if (a.kind === 'map') this.openMapOverlay();
+          else if (a.kind === 'auto') openAutoMode(this.state, () => this.save());
           else if (a.kind === 'place') {
             const p = PLACE_BY_ID[a.placeId];
             if (p) this.openPlace(p);
@@ -828,6 +831,8 @@ export class Game {
     bar.remove();
     const out = finishAction(this.state, a);
     this.busy = false;
+    const recovered = recordVariety(this.state, a.id);
+    if (recovered) toast(recovered, { icon: '🌤️', tone: 'good', ms: 4500 });
     const bits = [`${a.emoji} ${a.label} — done`];
     if (out.earned > 0) bits.push(`+${money(out.earned)}`);
     else if (a.pay && out.earned === 0 && a.id === 'lottoTicket') bits.push('no luck this time');

@@ -19,7 +19,7 @@ import type { GameState } from '../sim/types.ts';
 import { html, root } from './dom.ts';
 
 /** What a panel button can ask the game to do. */
-export type PanelAction = { kind: 'phone'; app?: string } | { kind: 'map' } | { kind: 'place'; placeId: string };
+export type PanelAction = { kind: 'phone'; app?: string } | { kind: 'map' } | { kind: 'place'; placeId: string } | { kind: 'auto' };
 
 export interface PanelButton {
   id: string;
@@ -32,6 +32,7 @@ export const PANEL_BUTTONS = new Registry<PanelButton>('panel button');
 PANEL_BUTTONS.add(
   { id: 'news', label: 'All news', emoji: '📰', action: { kind: 'phone', app: 'news' } },
   { id: 'map', label: 'Map', emoji: '🗺️', action: { kind: 'map' } },
+  { id: 'auto', label: 'Auto mode', emoji: '🤖', action: { kind: 'auto' } },
   { id: 'bank', label: 'Bank', emoji: '🏦', action: { kind: 'phone', app: 'bank' } },
   { id: 'jobs', label: 'Jobs', emoji: '💼', action: { kind: 'phone', app: 'jobs' } },
   { id: 'settings', label: 'Settings', emoji: '⚙️', action: { kind: 'phone', app: 'settings' } },

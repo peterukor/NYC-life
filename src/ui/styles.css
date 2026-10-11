@@ -368,3 +368,9 @@ a { color: var(--info); }
 
 /* Event rarity badge (sim/events.ts RARITY) */
 .rarity { display: inline-block; margin: 0 auto 6px; padding: 3px 10px; border-radius: 10px; background: var(--rc); color: #fff; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; box-shadow: var(--drop-sm); }
+
+/* Auto mode (ui/auto-mode.ts) */
+.auto-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.auto-chips .chip { padding: 7px 10px; border: var(--line-thin); border-radius: 14px; background: var(--paper); font: inherit; font-size: 13px; color: var(--ink); }
+.auto-chips .chip.on { background: #fff4c2; box-shadow: var(--drop-sm); }
+.auto-rules { margin: 12px 0; padding-left: 4px; list-style: none; display: grid; gap: 6px; font-size: 13px; color: var(--ink-soft); }

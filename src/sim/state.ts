@@ -84,6 +84,7 @@ export function newLife(opts: NewLifeOptions): GameState {
     stats: { actionsDone: {}, placesVisited: [home.id], eventsSeen: {}, scamsFallenFor: 0, scamsSpotted: 0, earnedToday: 0, dayKey: today },
     events: { lastFiredAt: now, cooldowns: {} },
     homes: {},
+    auto: { on: false, routine: [], since: 0 },
     news: [],
     tutorialStep: 0,
     settings: { quality: 'auto', sound: true },

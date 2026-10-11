@@ -20,5 +20,8 @@ await page.screenshot({ path: 'test-results/panel-hud.png' });
 await page.$eval('[data-menu]', (el) => el.click());
 await wait(900);
 await page.screenshot({ path: 'test-results/panel.png' });
+await page.evaluate(() => document.querySelector('[data-btn="auto"]')?.click());
+await wait(1200);
+await page.screenshot({ path: 'test-results/panel-auto.png' });
 console.log('errors:', errors.join('\n') || 'none');
 await browser.close();
