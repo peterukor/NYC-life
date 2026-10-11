@@ -34,7 +34,7 @@ import { buyPrepaidPhone, checkPoliceReturn, PREPAID_PHONE_PRICE } from './sim/p
 import { loadGame, saveGame, deleteGame } from './sim/save.ts';
 import { newLife } from './sim/state.ts';
 import type { AreaId, GameState, Look } from './sim/types.ts';
-import { weatherFor, isWet } from './sim/weather.ts';
+import { weatherDef, weatherFor } from './sim/weather.ts';
 import { completeShift, jobTitle, shiftBlocker, WORK_STYLES, type WorkStyle } from './sim/work.ts';
 import { Engine } from './render/engine.ts';
 import { qualitySettings } from './render/quality.ts';
@@ -48,7 +48,8 @@ import { Crowd } from './world/crowd.ts';
 import { buildInterior, type Interior } from './world/interior.ts';
 import { DISTRICTS, crossStreets, blockRect } from './world/layout.ts';
 import { findPath, nearestWalkable } from './world/nav.ts';
-import { Traffic } from './world/traffic.ts';
+import { SystemRunner, type SystemContext } from './core/systems.ts';
+import './systems/index.ts';
 import { buildSubwayRide, type TransitScene } from './world/transit.ts';
 import { sfx, setSoundEnabled } from './ui/audio.ts';
 import { closeSheet, fade, html, isSheetOpen, onAct, openModal, openSheet, progressBar, root, toast, wait } from './ui/dom.ts';
@@ -63,7 +64,8 @@ export class Game {
   private state!: GameState;
   private city: BuiltCity | null = null;
   private crowd: Crowd | null = null;
-  private traffic: Traffic | null = null;
+  /** Plug-in systems (weather effects, traffic…): see core/systems.ts. */
+  private systems = new SystemRunner();
   private ads: AdManager | null = null;
   private player: Avatar;
   /** Cartoon model packs (empty if they couldn't load: simple shapes are used). */
@@ -274,17 +276,31 @@ export class Game {
   private loadArea(area: AreaId): void {
     this.ads?.dispose();
     this.crowd?.dispose();
-    this.traffic?.dispose();
+    this.systems.areaUnloaded();
     this.city?.dispose();
     const q = this.engine.quality;
     this.city = buildCity(area, { trees: q.trees, shadows: q.shadows, kits: this.kits, detailScale: q.tier === 'low' ? 0.75 : 1 });
     this.engine.cityScene.add(this.city.group);
     this.crowd = new Crowd(this.city.nav, area, q.crowd, this.folk ?? undefined, q.tier === 'low' ? 6 : q.tier === 'medium' ? 12 : 20);
     this.engine.cityScene.add(this.crowd.group);
-    this.traffic = new Traffic(DISTRICTS[area], q.cars);
-    this.engine.cityScene.add(this.traffic.group);
+    this.systems.areaLoaded(this.systemContext());
     this.ads = new AdManager(this.city.adSlots, q.tier);
     bus.emit('area:changed', { area });
+  }
+
+  /** What plug-in systems get to see (core/systems.ts). */
+  private systemContext(): SystemContext {
+    const t = nycTime();
+    return {
+      scene: this.engine.cityScene,
+      camera: this.engine.camera,
+      player: this.player.root.position,
+      district: DISTRICTS[this.city?.area ?? 'manhattan'],
+      quality: this.engine.quality,
+      state: this.state,
+      time: t,
+      weather: weatherFor(t.dateKey, t.hour),
+    };
   }
 
   private placePlayerAtLocation(): void {
@@ -355,7 +371,7 @@ export class Game {
       const hubX = (hb.minX + hb.maxX) / 2;
       const hubZ = (hb.minZ + hb.maxZ) / 2;
       this.crowd?.update(dt, this.engine.controls.target, t.hour, (x, z) => (Math.hypot(x - hubX, z - hubZ) < 160 ? 1.5 : 1));
-      this.traffic?.update(dt, isRushHour(t));
+      this.systems.update(dt, this.systemContext());
       this.ads?.update(dt, this.engine.camera);
       // Door rings gently pulse so you notice them.
       const pulse = 0.55 + Math.sin(this.time * 3) * 0.3;
@@ -830,7 +846,7 @@ export class Game {
     const dist = crossing ? 3_500 : Math.hypot(d.x - s.location.x, d.z - s.location.z);
     let surge = 1;
     if (isRushHour(t)) surge += 0.6;
-    if (isWet(weatherFor(t.dateKey, t.hour))) surge += 0.4;
+    surge += weatherDef(weatherFor(t.dateKey, t.hour)).surge ?? 0;
     if (t.hour >= 1 && t.hour < 5) surge += 0.3;
     let cost = Math.max(RIDESHARE.minFare, RIDESHARE.base + Math.round((dist / 100) * RIDESHARE.per100m)) * surge;
     if (luxury) cost *= RIDESHARE.luxuryMultiplier;

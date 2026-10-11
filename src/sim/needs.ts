@@ -7,6 +7,7 @@
 // =====================================================================
 
 import { NEED_DECAY_PER_HOUR, NEED_LOW } from '../core/constants.ts';
+import { weatherNeedMultiplier, type Weather } from './weather.ts';
 import { clamp } from '../core/format.ts';
 import { nowMs } from '../core/clock.ts';
 import { NEED_KEYS, type GameState, type Moodlet, type NeedKey } from './types.ts';
@@ -25,10 +26,12 @@ export const NEED_INFO: Record<NeedKey, { label: string; emoji: string; color: s
  * Drain needs for `hours` of time passing.
  * `multiplier` lets offline time drain slower than active play.
  */
-export function decayNeeds(state: GameState, hours: number, multiplier = 1): void {
+export function decayNeeds(state: GameState, hours: number, multiplier = 1, weather?: Weather): void {
   if (hours <= 0) return;
   for (const key of NEED_KEYS) {
-    state.needs[key] = clamp(state.needs[key] - NEED_DECAY_PER_HOUR[key] * hours * multiplier, 0, 100);
+    // Weather can speed up or slow down a need (heat makes you sweaty…).
+    const w = weather ? weatherNeedMultiplier(weather, key) : 1;
+    state.needs[key] = clamp(state.needs[key] - NEED_DECAY_PER_HOUR[key] * hours * multiplier * w, 0, 100);
   }
 }
 

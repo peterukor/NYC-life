@@ -30,6 +30,7 @@
 
 import * as THREE from 'three';
 import { kitNight } from '../../assets/kit.ts';
+import { worldUniforms } from '../../render/world-uniforms.ts';
 
 /** Tile numbers in the atlas. Add new ones in paintTile() below. */
 export const TILE = {
@@ -317,6 +318,8 @@ export function cityMaterial(fades: BuildingFades): THREE.MeshLambertMaterial {
     shader.uniforms.uAtlas = { value: atlas };
     shader.uniforms.uFades = { value: fades.texture };
     shader.uniforms.uNight = kitNight;
+    shader.uniforms.uSnow = worldUniforms.uSnow;
+    shader.uniforms.uWet = worldUniforms.uWet;
     shader.vertexShader = shader.vertexShader
       .replace(
         'void main() {',
@@ -328,7 +331,9 @@ varying float vTile;
 varying float vFade;
 varying float vY;
 varying float vSeed;
+varying float vUp;
 void main() {
+  vUp = normal.y;
   vCell = aCell;
   vTile = aInfo.x;
   vSeed = aInfo.y;
@@ -346,6 +351,9 @@ void main() {
         'void main() {',
         `uniform sampler2D uAtlas;
 uniform float uNight;
+uniform float uSnow;
+uniform float uWet;
+varying float vUp;
 varying vec2 vCell;
 varying float vTile;
 varying float vFade;
@@ -374,13 +382,16 @@ void main() {
   vec3 base = mix(texel.rgb, texel.rgb * vColor.rgb, texel.a);
   // Contact shading: darker right at the ground, full colour from ~3 m up.
   base *= mix(0.6, 1.0, smoothstep(0.0, 3.2, vY));
+  // Weather: snow settles on anything facing up; rain darkens and cools.
+  base = mix(base, vec3(0.97, 0.98, 1.0), min(1.0, uSnow * 1.15) * smoothstep(0.45, 0.8, vUp));
+  base *= mix(vec3(1.0), vec3(0.84, 0.88, 0.95), uWet);
   diffuseColor.rgb = base;
   float windowLit = (1.0 - texel.a) * step(0.5, cellHash(floor(vCell) + vSeed * 0.731)) * step(0.5, tile) * step(tile, 6.5);
   `,
       )
       .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n  totalEmissiveRadiance += windowLit * uNight * vec3(1.0, 0.8, 0.45) * 0.95;');
   };
-  m.customProgramCacheKey = () => 'nyc-city-v1';
+  m.customProgramCacheKey = () => 'nyc-city-v2';
   return m;
 }
 

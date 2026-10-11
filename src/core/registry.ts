@@ -22,7 +22,10 @@ export class Registry<T extends { id: string }> {
   private items = new Map<string, T>();
 
   /** `kind` is only used in error messages ("duplicate vehicle id …"). */
-  constructor(readonly kind: string) {}
+  readonly kind: string;
+  constructor(kind: string) {
+    this.kind = kind;
+  }
 
   /** Add one or more items. Throws if an id is already taken. */
   add(...list: T[]): this {

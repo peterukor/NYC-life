@@ -1,0 +1,48 @@
+# Adding, editing and removing content in NYC Life
+
+The game is built from **plug-ins**: most things are a list entry in
+one data file, or a small self-contained file that registers itself.
+To add something, you add an entry. To remove it, you delete it.
+Nothing else in the game needs to change.
+
+Every list is a `Registry` (`src/core/registry.ts`). If two entries
+share an id, the game stops at once with a clear error message instead
+of quietly replacing one with the other.
+
+After any change, run `npm run build` and `npm test`. The tests check
+that new entries are complete (for example, a car with no paint colour
+fails the test).
+
+| I want to… | Edit this | What to add |
+|---|---|---|
+| Add a car, bus or truck | `src/data/vehicles.ts` | An entry with an id, rarity, `trafficWeight`, `parkWeight`, a speed range (m/s), paints, a price, and `build()` (draw it from toy shapes; copy a similar vehicle). |
+| Make a car rarer or faster | `src/data/vehicles.ts` | Change `trafficWeight` / `parkWeight` / `speed`. |
+| Take a vehicle off the streets | `src/data/vehicles.ts` | Set both weights to 0 (it stays in the game, for the shop), or delete the entry. |
+| Add a weather (fog, hail…) | `src/sim/weather.ts` | An entry with the odds by month/hour, sky greyness, sun, particles (`rain`/`snow`), ground effects (`wet`, `snow`, `flood`), the needs it speeds up, the rideshare surge and a news tip. The sky, effects, needs and news all pick it up automatically. |
+| Add something that runs every frame (a parade, fireworks, a street mini-game) | New file in `src/systems/`, then one import line in `src/systems/index.ts` | `SYSTEMS.add({ id, areaLoaded, update, tick, areaUnloaded })`. See `src/systems/weather-fx.ts` for a full example. If a system crashes, it's switched off and the rest of the game keeps going. |
+| Switch a system off | `src/systems/index.ts` | Delete its import line. |
+| Add a landmark | New file in `src/world/landmarks/`, then one import line in `src/world/landmarks/index.ts` | `LANDMARKS.add({ id, build(ctx) })`, plus a place in `src/data/places.ts`. |
+| Add clothes | `src/data/wardrobe.ts` | An entry in `CLOTHES`. |
+| Add a place (shop, bar, gym) | `src/data/places.ts` | Its block, side, slot, type, hours and actions. |
+| Add a building style | `src/world/nycgen/buildings.ts` | Add the style to `Style`, `STYLE_RULES`, `PAL` and `ZONE_MIX`, then add any special details in `emitDetailed()`. |
+| Add a street prop (bench, kiosk…) | `src/world/nycgen/props.ts` | A small function that draws it, called from `emitBlockProps()`. |
+| Change prices, rent, needs or balance numbers | `src/core/constants.ts` | Change the number. |
+
+## Testing a change quickly
+
+Run `npx vite preview --port 4173`, then open the game with these
+options in the address bar:
+
+- `?weather=snow` forces a weather. Use any weather id, such as
+  `heatwave` or `flood`.
+- `?quality=low` uses the cheap-phone settings. `medium` and `high`
+  also work.
+- `?clock=-6h` shifts the clock, for example to see daytime when it's
+  night.
+- `?qa=1` turns on the test hooks (`window.__nyc`).
+
+The test scripts are:
+
+- `node scripts/qa-smoke.mjs`: 11 automatic play checks.
+- `node scripts/qa-shots.mjs`: screenshots.
+- `Q=low node scripts/qa-perf.mjs`: triangle and draw-call counts.

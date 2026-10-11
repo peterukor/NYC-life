@@ -11,6 +11,7 @@ import { chargeBill } from './economy.ts';
 import { decayNeeds, expireMoodlets, addMoodlet } from './needs.ts';
 import { postDailyNews } from './news.ts';
 import type { GameState } from './types.ts';
+import { weatherFor } from './weather.ts';
 
 /**
  * Advance the simulation to "now". Call it every frame (cheap) or after
@@ -33,7 +34,8 @@ export function advanceTo(state: GameState, now = nowMs()): string | null {
     const h = Math.round(hours);
     summary = h >= 1 ? `You were away ${h} hour${h === 1 ? '' : 's'}. Life went on without you.` : null;
   } else {
-    decayNeeds(state, hours);
+    const t = nycTime(now);
+    decayNeeds(state, hours, 1, weatherFor(t.dateKey, t.hour));
   }
 
   expireMoodlets(state);

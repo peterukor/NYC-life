@@ -7,7 +7,7 @@
 // =====================================================================
 
 import * as THREE from 'three';
-import type { Weather } from '../sim/weather.ts';
+import { weatherDef, type Weather } from '../sim/weather.ts';
 
 interface Key {
   h: number;
@@ -63,13 +63,14 @@ export function skyAt(hourFloat: number, weather: Weather): SkyState {
   out.glow = a.glow + (b.glow - a.glow) * t;
 
   // Bad weather: greyer, darker, and the lights come on earlier.
-  if (weather === 'rain' || weather === 'storm' || weather === 'cloudy') {
+  const wd = weatherDef(weather);
+  out.sun *= wd.sun;
+  if (wd.grey > 0) {
     // Cartoon city: bad weather is moodier but never drab grey.
-    const k = weather === 'cloudy' ? 0.1 : weather === 'rain' ? 0.18 : 0.3;
+    const k = wd.grey;
     const lum = out.sky.getHSL({ h: 0, s: 0, l: 0 }).l;
     out.sky.lerp(grey.clone().multiplyScalar(Math.max(0.25, lum * 1.2)), k);
     out.fog.lerp(grey.clone().multiplyScalar(Math.max(0.3, lum * 1.25)), k);
-    out.sun *= 1 - k * 0.6;
     out.glow = Math.min(1, out.glow + k * 0.25);
   }
 

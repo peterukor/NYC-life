@@ -14,7 +14,7 @@ import { bus } from '../core/bus.ts';
 import { nowMs } from '../core/clock.ts';
 import { Rng } from '../core/rng.ts';
 import type { AreaId, GameState, NewsItem } from './types.ts';
-import { WEATHER_INFO, weatherFor } from './weather.ts';
+import { weatherDef, weatherFor } from './weather.ts';
 
 const KEEP = 40;
 
@@ -67,8 +67,8 @@ export function postNews(s: GameState, item: Omit<NewsItem, 'id' | 'at'> & { id?
 export function postDailyNews(s: GameState, dateKey: string): void {
   const rng = new Rng(`news-${dateKey}`);
   const w = weatherFor(dateKey, 9);
-  const wi = WEATHER_INFO[w];
-  postNews(s, { id: `w-${dateKey}`, scope: 'city', emoji: wi.emoji, headline: `Today in NYC: ${wi.label}${w === 'rain' || w === 'storm' ? ' — bring an umbrella, expect train delays' : ''}` });
+  const wi = weatherDef(w);
+  postNews(s, { id: `w-${dateKey}`, scope: 'city', emoji: wi.emoji, headline: `Today in NYC: ${wi.label}${wi.tip ? ` — ${wi.tip}` : ''}` });
   const [ce, ch] = rng.pick(CITY_POOL);
   postNews(s, { id: `c-${dateKey}`, scope: 'city', emoji: ce, headline: ch });
   for (const area of ['manhattan', 'brooklyn'] as AreaId[]) {
