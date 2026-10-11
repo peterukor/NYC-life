@@ -28,7 +28,7 @@ export class Engine {
   readonly camera: THREE.PerspectiveCamera;
   readonly controls: OrbitControls;
   readonly cityScene = new THREE.Scene();
-  readonly hemi = new THREE.HemisphereLight('#f4f8ff', '#9a8f7e', 0.9);
+  readonly hemi = new THREE.HemisphereLight('#f4f8ff', '#c2b59a', 0.9); // warm ground bounce: softer, sunnier shadows
   readonly sun = new THREE.DirectionalLight('#ffffff', 1.2);
   mode: ViewMode = 'city';
   /** Scene used when mode is 'interior' or 'transit'. */

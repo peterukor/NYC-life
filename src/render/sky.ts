@@ -25,7 +25,7 @@ const KEYS: Key[] = [
   { h: 5, sky: '#141b3a', fog: '#1d2445', sun: 0.08, hemi: 0.4, sunColor: '#a9b6ff', glow: 0.95 },
   { h: 6.5, sky: '#f2a07b', fog: '#e8b39a', sun: 0.6, hemi: 0.6, sunColor: '#ffb27a', glow: 0.5 },
   { h: 8, sky: '#9fd0f0', fog: '#c7e0ef', sun: 1.15, hemi: 0.85, sunColor: '#fff1d6', glow: 0.05 },
-  { h: 13, sky: '#7fc1ea', fog: '#bfdcee', sun: 1.35, hemi: 0.95, sunColor: '#ffffff', glow: 0 },
+  { h: 13, sky: '#7fc1ea', fog: '#c6e2f0', sun: 1.35, hemi: 0.95, sunColor: '#fff6e6', glow: 0 },
   { h: 17.5, sky: '#9cc6e6', fog: '#cfdde8', sun: 1.1, hemi: 0.85, sunColor: '#fff0d4', glow: 0.1 },
   { h: 19, sky: '#f08a5d', fog: '#e3a184', sun: 0.6, hemi: 0.6, sunColor: '#ff9a62', glow: 0.55 },
   { h: 20.2, sky: '#3b2f5c', fog: '#3f3a5e', sun: 0.18, hemi: 0.45, sunColor: '#c39bff', glow: 0.9 },

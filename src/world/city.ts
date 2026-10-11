@@ -306,6 +306,9 @@ export function buildCity(area: AreaId, opts: { trees: boolean; shadows?: boolea
       // Kerb + sidewalk slab under every block. (Street lamps, trees and
       // all the other street life come from the generator: nycgen/props.ts.)
       sidewalkGeo.box(b.minX, b.maxX, 0, 0.18, b.minZ, b.maxZ);
+      // The land inside the sidewalk is lawn, so the gaps between buildings
+      // read as green courtyards and gardens from the map, not bare paving.
+      if (kind === 'buildings') grassGeo.flat(inner.minX, inner.maxX, inner.minZ, inner.maxZ, 0.185, 4);
       void zone;
 
 

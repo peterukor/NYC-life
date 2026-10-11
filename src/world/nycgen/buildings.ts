@@ -66,11 +66,17 @@ const PAL: Record<Style, string[]> = {
   walkup: ['#d4593f', '#e07b4c', '#c44a3d', '#ea9d5d', '#d88f6b', '#b85a44', '#f0b47c', '#f3cfa3', '#e46a5e', '#9bc3a0'],
   prewar: ['#f2e8d3', '#eadcc0', '#f6ecda', '#e2cda8', '#f5dcc7', '#e9d6b9', '#d8e3ea'],
   modern: ['#ffffff', '#f8c4b0', '#b4e2d3', '#ffe39e', '#c4d7ff', '#f6b4c8', '#d9c8ff', '#a7e3f0'],
-  glass: ['#eef3f8', '#c9d2dd', '#8fb7cc', '#e2c770', '#6f8296', '#b8e0ea'],
+  glass: ['#d6eef8', '#bfe3f2', '#9fd3e8', '#e2c770', '#a8c8f0', '#b8e8e0'],
   deco: ['#f3e6c9', '#ead7b0', '#efe0d0', '#e5d3c0'],
 };
 const AWNINGS = ['#e63946', '#2a9d8f', '#f4a261', '#3a86ff', '#8338ec', '#06a77d', '#ff006e', '#ffbe0b', '#1d3557'];
-const ROOFS = ['#7d828f', '#8f97a3', '#9b8f84', '#6f7684'];
+/**
+ * Roofs are what you see most from the map, so they carry the colour
+ * (cartoon-city style): warm terracotta, teal, slate blue, mint, sand,
+ * coral, plum, with a few soft greys so it never looks like confetti.
+ */
+const ROOFS = ['#d9764f', '#3fa7a0', '#5d7fb0', '#8fd0b0', '#e8c98f', '#ef8a7a', '#9b7cc9', '#a9a39b', '#c7c2bb', '#6fb6d9'];
+const GLASS_ROOFS = ['#e3eef5', '#cfe2ee', '#f2f6f9'];
 
 /** Height, width and look rules per style. */
 // Lots are wide on purpose (Peter, 2026-10-11: "space out the houses or make them bigger"):
@@ -124,7 +130,9 @@ export interface BlockPlan {
 export function planNycBlock(inner: Rect, zone: string, rng: Rng, nearHub: boolean, newId: () => number): BlockPlan {
   const D = inner.maxZ - inner.minZ;
   const mix = nearHub ? ZONE_MIX.tall.filter(([s]) => s !== 'walkup') : ZONE_MIX[zone] ?? ZONE_MIX.midrise;
-  const rowD = Math.min(19, D * 0.42);
+  // Row depth: brownstone blocks keep deep back yards; busier zones fill
+  // more of the block so the city reads dense from the map.
+  const rowD = zone === 'tall' ? Math.min(30, D * 0.46) : zone === 'midrise' ? Math.min(23, D * 0.44) : Math.min(19, D * 0.42);
   // A little randomness so blocks aren't perfectly straight rows: some
   // buildings sit back from the street, some are shallower, and now and
   // then a lot is left as a garden or a parking lot.
@@ -176,9 +184,9 @@ export function planNycBlock(inner: Rect, zone: string, rng: Rng, nearHub: boole
     const shop = lot.style !== 'brownstone' && (lot.style === 'walkup' ? rng.chance(0.85) : rng.chance(0.6));
     const roof: RoofKind =
       lot.style === 'walkup' || lot.style === 'prewar'
-        ? rng.pick(['tower', 'tower', 'garden', 'ac', 'plain', 'bar'] as RoofKind[])
+        ? rng.pick(['tower', 'tower', 'garden', 'garden', 'ac', 'plain', 'bar'] as RoofKind[])
         : lot.style === 'brownstone'
-          ? rng.pick(['plain', 'garden', 'solar', 'plain', 'ac'] as RoofKind[])
+          ? rng.pick(['plain', 'garden', 'garden', 'solar', 'ac'] as RoofKind[])
           : rng.pick(['ac', 'ac', 'garden', 'solar', 'bar'] as RoofKind[]);
     const height = tiers.reduce((h, t) => h + t.floors * rule.floorH, 0) + (lot.style === 'brownstone' ? 1.2 : 0) + (lot.style === 'deco' ? 14 : lot.style === 'glass' ? 6 : 2);
     return {
@@ -193,7 +201,7 @@ export function planNycBlock(inner: Rect, zone: string, rng: Rng, nearHub: boole
       tiers,
       color,
       trim: lot.style === 'prewar' || lot.style === 'deco' ? shade(color, 1.25) : lot.style === 'brownstone' ? shade(color, 0.7) : '#f4efe4',
-      roofColor: rng.pick(ROOFS),
+      roofColor: lot.style === 'glass' ? rng.pick(GLASS_ROOFS) : rng.pick(ROOFS),
       roof,
       shop,
       awning: shop && rng.chance(0.75) ? rng.pick(AWNINGS) : null,
@@ -515,6 +523,10 @@ export function emitSimple(b: CityMeshBuilder, p: BuildingPlan, rng: Rng): void 
     roofSlab(b, p, r, y, true);
   }
   if (p.roof === 'tower' && p.style !== 'glass' && p.style !== 'deco') waterTower(b, (r.minX + r.maxX) / 2 + rng.range(-1, 1), (r.minZ + r.maxZ) / 2, y, 1, true);
+  // Roof gardens show from far away too: a green patch with a path.
+  if (p.roof === 'garden' && r.maxX - r.minX > 5 && r.maxZ - r.minZ > 5) {
+    b.flat(r.minX + 0.8, r.maxX - 0.8, r.minZ + 0.8, r.maxZ - 0.8, y + 0.04, '#7cc56b', TILE.solid);
+  }
   if (p.style === 'deco') {
     const cx = (r.minX + r.maxX) / 2;
     const cz = (r.minZ + r.maxZ) / 2;

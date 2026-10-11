@@ -19,6 +19,48 @@
 
 import * as THREE from 'three';
 import { rectOnCorridor } from '../corridors.ts';
+
+/**
+ * Where to build on a block a corridor touches: the biggest part left
+ * after stepping its sides back (4 m at a time) from the road, or, when a
+ * road cuts through the middle (Broadway), the parts west and east of it.
+ * The per-building check below still drops anything left on the road.
+ */
+function offCorridor(area: Parameters<typeof rectOnCorridor>[0], r: { minX: number; maxX: number; minZ: number; maxZ: number }): { minX: number; maxX: number; minZ: number; maxZ: number }[] {
+  if (!rectOnCorridor(area, r, 1.5)) return [r];
+  let best = r;
+  let bestArea = 0;
+  const W = r.maxX - r.minX, D = r.maxZ - r.minZ;
+  // Try trimming each side (and pairs of sides) by growing amounts.
+  for (let k = 1; k <= 12; k++) {
+    const t = k * 4;
+    const tries = [
+      { ...r, minX: r.minX + t }, { ...r, maxX: r.maxX - t }, { ...r, minZ: r.minZ + t }, { ...r, maxZ: r.maxZ - t },
+      { ...r, minX: r.minX + t, minZ: r.minZ + t }, { ...r, maxX: r.maxX - t, minZ: r.minZ + t }, { ...r, minX: r.minX + t, maxZ: r.maxZ - t }, { ...r, maxX: r.maxX - t, maxZ: r.maxZ - t },
+    ];
+    for (const q of tries) {
+      const w = q.maxX - q.minX, d = q.maxZ - q.minZ;
+      if (w < 14 || d < 14 || w * d <= bestArea) continue;
+      if (!rectOnCorridor(area, q, 1.5)) {
+        best = q;
+        bestArea = w * d;
+      }
+    }
+  }
+  if (bestArea >= W * D * 0.3) return [best];
+  // A road through the middle (Broadway): split the block into the part
+  // west of the road and the part east of it, and build on both.
+  const xs: number[] = [];
+  for (let x = r.minX; x <= r.maxX; x += 2) {
+    for (let z = r.minZ; z <= r.maxZ; z += 4) if (rectOnCorridor(area, { minX: x, maxX: x, minZ: z, maxZ: z }, 1.5)) { xs.push(x); break; }
+  }
+  if (!xs.length) return [r];
+  const out: { minX: number; maxX: number; minZ: number; maxZ: number }[] = [];
+  const west = { ...r, maxX: Math.min(...xs) - 2 };
+  const east = { ...r, minX: Math.max(...xs) + 2 };
+  for (const q of [west, east]) if (q.maxX - q.minX >= 14) out.push(q);
+  return out.length ? out : [r];
+}
 import { Rng } from '../../core/rng.ts';
 import type { BlockKind, DistrictDef, Rect } from '../layout.ts';
 import { blockRect, SIDEWALK } from '../layout.ts';
@@ -84,7 +126,18 @@ export class CityBlocks {
         const kind = d.kind(c, r);
         if (kind === 'water') continue; // in the river: nothing to build
         const seed = `${d.seed}-nyc-${c}-${r}`;
-        const plan = kind === 'buildings' && !opts.skip(c, r) ? planNycBlock(inner, d.zone(c, r), new Rng(seed), opts.nearHub(c, r), () => this.fades.allocate()) : { buildings: [], yard: null };
+        // Where the ring highway clips the edge of a block, pull the block's
+        // building area back from the road instead of losing whole towers.
+        const parts = kind === 'buildings' ? offCorridor(d.id, inner) : [inner];
+        const plan: ReturnType<typeof planNycBlock> = { buildings: [], yard: null };
+        if (kind === 'buildings' && !opts.skip(c, r)) {
+          const prng = new Rng(seed);
+          for (const part of parts) {
+            const one = planNycBlock(part, d.zone(c, r), prng, opts.nearHub(c, r), () => this.fades.allocate());
+            plan.buildings.push(...one.buildings);
+            plan.yard ??= one.yard;
+          }
+        }
         // Nothing stands on Broadway or the ring highway (world/corridors.ts):
         // the road cuts the block into the wedges real Manhattan has.
         plan.buildings = plan.buildings.filter((p) => !rectOnCorridor(d.id, p.rect, 1.5));
