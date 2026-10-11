@@ -80,10 +80,17 @@ function resample(pts: XZ[], step: number, loop: boolean): XZ[] {
  * The ring road: the island's coastline pulled `inset` metres inland and
  * smoothed hard (the real coastline is full of piers).
  */
+/** The smoothed shore line of a ring (no piers), for the shallow-water band too. */
+export function smoothShore(ring: XZ[], step = 40): XZ[] {
+  return chaikin(resample(ring, step, true), true, 3);
+}
+
 function ringRoad(inset: number): XZ[] {
   const ring = outline('manhattan')[0];
   // Coarse, smoothed copy of the shore first, so the offset doesn't follow every pier.
-  const coarse = chaikin(resample(ring, 60, true), true, 3);
+  // Very coarse (one point every 130 m) and smoothed hard, so the road
+  // sweeps along the shore instead of zigzagging round every pier.
+  const coarse = chaikin(resample(ring, 130, true), true, 4);
   let area = 0;
   for (let i = 0; i < coarse.length; i++) {
     const a = coarse[i], b = coarse[(i + 1) % coarse.length];
@@ -91,13 +98,20 @@ function ringRoad(inset: number): XZ[] {
   }
   const sgn = Math.sign(area) || 1;
   const n = coarse.length;
+  // Normals from a wide window (±6 points) so tight notches can't fold the road.
   const off = coarse.map((p, i) => {
-    const a = coarse[(i - 2 + n) % n], b = coarse[(i + 2) % n];
+    const a = coarse[(i - 6 + n) % n], b = coarse[(i + 6) % n];
     const dx = b.x - a.x, dz = b.z - a.z;
     const l = Math.hypot(dx, dz) || 1;
     return { x: p.x + (-dz / l) * sgn * inset, z: p.z + (dx / l) * sgn * inset };
   });
-  return resample(chaikin(off, true, 2), 18, true);
+  // Relax: pull each point toward its neighbours' average (irons out kinks).
+  let relaxed = off;
+  for (let k = 0; k < 6; k++) relaxed = relaxed.map((p, i) => {
+    const a = relaxed[(i - 1 + n) % n], b = relaxed[(i + 1) % n];
+    return { x: p.x * 0.5 + (a.x + b.x) * 0.25, z: p.z * 0.5 + (a.z + b.z) * 0.25 };
+  });
+  return resample(chaikin(relaxed, true, 3), 18, true);
 }
 
 /** Brooklyn's diagonal avenues and the BQE (real points). */
@@ -140,7 +154,7 @@ export function corridors(): Corridor[] {
   if (cache) return cache;
   cache = [
     { id: 'broadway', name: 'Broadway', area: 'manhattan', width: 14, pts: resample(chaikin(ll(BROADWAY), false, 2), 14, false) },
-    { id: 'manhattanRing', name: 'West Side Hwy · FDR Drive', area: 'manhattan', width: 18, highway: true, loop: true, pts: ringRoad(30) },
+    { id: 'manhattanRing', name: 'West Side Hwy · FDR Drive', area: 'manhattan', width: 18, highway: true, loop: true, pts: ringRoad(42) },
     // Brooklyn Bridge approach on the Manhattan side (City Hall).
     { id: 'bbApproach', name: 'Brooklyn Bridge', area: 'manhattan', width: 16, highway: true, pts: ll([[40.7123, -74.0052], [40.7095, -74.001]]) },
     ...BK.map((c) => ({ id: c.id, name: c.name, area: 'brooklyn' as AreaId, width: c.width, highway: c.highway, pts: resample(chaikin(ll(c.pts), false, 2), 14, false) })),

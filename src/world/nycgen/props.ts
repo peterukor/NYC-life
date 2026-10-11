@@ -17,24 +17,27 @@ import type { BuildingPlan } from './buildings.ts';
 import { pickVehicle } from '../../data/vehicles.ts';
 import { vehicleGeometry } from '../vehicle-models.ts';
 
-const GREENS = ['#5cb85c', '#6cc66a', '#4fa857', '#7fd36d', '#3f9d52'];
+// The AI models' tree greens (yellow-green, sunny), so street trees match the blocks' own trees.
+const GREENS = ['#7fac2a', '#6f9a1e', '#8ab832', '#669322', '#93bd38'];
 // It's autumn in New York for part of the year: a few trees turn.
 const AUTUMN = ['#f2a541', '#e8743b', '#f6c453'];
 const METAL = '#3a3f47';
 
 /** A puffy cartoon tree: trunk + a cluster of soft balls, lighter on top. */
-export function tree(b: CityMeshBuilder, x: number, z: number, y: number, s: number, rng: Rng, autumn = 0.12): void {
+export function tree(b: CityMeshBuilder, x: number, z: number, y: number, s: number, rng: Rng, autumn = 0.05): void {
   const leaf = rng.chance(autumn) ? rng.pick(AUTUMN) : rng.pick(GREENS);
   const light = lighten(leaf, 1.18);
   b.cyl(x, z, y, y + 2.4 * s, 0.22 * s, 0.16 * s, '#7a5236', 6, false);
   b.blob(x, y + 3.3 * s, z, 1.55 * s, 1.25 * s, 1.55 * s, leaf);
   b.blob(x + 0.75 * s, y + 3.0 * s, z + 0.35 * s, 1.0 * s, 0.9 * s, 1.0 * s, leaf);
   b.blob(x - 0.2 * s, y + 4.1 * s, z - 0.2 * s, 1.05 * s, 0.85 * s, 1.05 * s, light);
+  // A fourth puff on the other side: the models' trees are round clusters.
+  b.blob(x - 0.7 * s, y + 3.1 * s, z + 0.45 * s, 0.9 * s, 0.85 * s, 0.9 * s, leaf);
 }
 
 /** A cheap one-ball tree for far away. */
 export function treeSimple(b: CityMeshBuilder, x: number, z: number, y: number, s: number, rng: Rng): void {
-  b.blobLow(x, y + 3.3 * s, z, 1.7 * s, 1.5 * s, 1.7 * s, rng.chance(0.12) ? rng.pick(AUTUMN) : rng.pick(GREENS));
+  b.blobLow(x, y + 3.3 * s, z, 1.7 * s, 1.5 * s, 1.7 * s, rng.chance(0.05) ? rng.pick(AUTUMN) : rng.pick(GREENS));
 }
 
 function lighten(hex: string, k: number): string {
@@ -54,11 +57,19 @@ export function parkedCar(b: CityMeshBuilder, x: number, z: number, along: 'x' |
   b.addBuilt(geo, x, 0, z, (along === 'x' ? Math.PI / 2 : 0) + facing);
 }
 
-/** NYC "cobra head" street light leaning over the road. */
+/**
+ * Classic black lantern street lamp, like the ones on the AI-made blocks
+ * (so the street and the blocks share one look). dx/dz is unused now but
+ * kept so callers don't change.
+ */
 function streetLamp(b: CityMeshBuilder, x: number, z: number, dx: number, dz: number): void {
-  b.cyl(x, z, 0.18, 7.2, 0.13, 0.09, '#2f4a3a', 6, false);
-  b.beam(x, 7.0, z, x + dx * 1.8, 7.5, z + dz * 1.8, 0.12, '#2f4a3a');
-  b.rounded(x + dx * 2.1, z + dz * 2.1, 7.25, Math.abs(dx) > 0 ? 1.0 : 0.5, 0.3, Math.abs(dz) > 0 ? 1.0 : 0.5, '#e9edf2');
+  void dx;
+  void dz;
+  b.cyl(x, z, 0.18, 0.7, 0.2, 0.24, '#24272c', 8, false); // base
+  b.cyl(x, z, 0.7, 4.4, 0.09, 0.11, '#24272c', 6, false); // post
+  b.cyl(x, z, 4.4, 4.55, 0.22, 0.16, '#24272c', 8); // collar
+  b.cyl(x, z, 4.55, 5.25, 0.26, 0.2, '#ffe8a8', 8); // warm glass lantern
+  b.cone(x, z, 5.25, 5.6, 0.34, '#24272c', 8); // cap
 }
 
 function hydrant(b: CityMeshBuilder, x: number, z: number): void {

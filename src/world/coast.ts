@@ -17,7 +17,7 @@ import { GROUND } from '../render/palette.ts';
 import * as THREE from 'three';
 import { Rng } from '../core/rng.ts';
 import { BOROUGHS, onLand, outline, unproject, type XZ } from './geo-proj.ts';
-import { onCorridor, rectOnCorridor } from './corridors.ts';
+import { onCorridor, rectOnCorridor, smoothShore } from './corridors.ts';
 import { blockRect, colAt, districtBounds, forSaleBlock, rowAt, SIDEWALK, type DistrictDef } from './layout.ts';
 
 type Track = <T extends { dispose(): void }>(x: T) => T;
@@ -121,7 +121,7 @@ export function buildCoast(d: DistrictDef, track: Track): Coast {
   const g = new THREE.Group();
   g.name = 'coast';
 
-  const water = new THREE.Mesh(track(new THREE.PlaneGeometry(16000, 16000)), track(new THREE.MeshPhongMaterial({ color: '#2f7fa8', shininess: 90, specular: new THREE.Color('#9fd3ff') })));
+  const water = new THREE.Mesh(track(new THREE.PlaneGeometry(16000, 16000)), track(new THREE.MeshPhongMaterial({ color: '#3aa3c8', shininess: 70, specular: new THREE.Color('#bfe9ff') }))); // bright cartoon-harbour turquoise (SimCity BuildIt look)
   water.rotation.x = -Math.PI / 2;
   water.position.set(1500, -0.6, 1500);
   water.name = 'water';
@@ -138,9 +138,43 @@ export function buildCoast(d: DistrictDef, track: Track): Coast {
   others.name = 'land-other-boroughs';
   g.add(others);
 
+  g.add(shallows(track));
   g.add(buildShore(d, track));
   g.add(buildLots(d, track));
   return { group: g, ground };
+}
+
+/**
+ * A band of light, shallow-looking water hugging every coastline (all five
+ * boroughs): the cartoon "beach water" ring city games have.
+ */
+function shallows(track: Track): THREE.Mesh {
+  const pos: number[] = [];
+  const W = 10;
+  for (const b of BOROUGHS) {
+    for (const raw of outline(b.id)) {
+      if (raw.length < 4) continue;
+      // Smoothed shore (piers and jags removed), so the band is a clean ribbon.
+      const ring = smoothShore(raw, 55);
+      const sgn = ringSign(ring);
+      const n = ring.length;
+      for (let i = 0; i < n; i++) {
+        const a = ring[i], c = ring[(i + 1) % n];
+        const dx = c.x - a.x, dz = c.z - a.z;
+        const l = Math.hypot(dx, dz) || 1;
+        // Outward normal (away from the land).
+        const ox = (dz / l) * sgn * W, oz = (-dx / l) * sgn * W;
+        const y = -0.45;
+        pos.push(a.x, y, a.z, a.x + ox, y, a.z + oz, c.x + ox, y, c.z + oz, a.x, y, a.z, c.x + ox, y, c.z + oz, c.x, y, c.z);
+      }
+    }
+  }
+  const geo = track(new THREE.BufferGeometry());
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geo.computeVertexNormals();
+  const m = new THREE.Mesh(geo, track(new THREE.MeshLambertMaterial({ color: '#7fd3df', side: THREE.DoubleSide })));
+  m.name = 'shallows';
+  return m;
 }
 
 export interface ShoreFeatures {
@@ -320,9 +354,9 @@ function buildShore(d: DistrictDef, track: Track): THREE.Group {
   // Shore trees: a puffy crown on a short trunk.
   const crown = new THREE.IcosahedronGeometry(3.2, 0).scale(1, 0.9, 1).translate(0, 6, 0);
   const trunk = new THREE.CylinderGeometry(0.35, 0.45, 4, 5).translate(0, 2, 0);
-  inst(crown, track(new THREE.MeshLambertMaterial({ color: '#5fae4f', flatShading: true })), trees, 'shore-trees');
+  inst(crown, track(new THREE.MeshLambertMaterial({ color: '#7fac2a', flatShading: true })), trees, 'shore-trees');
   inst(trunk, track(new THREE.MeshLambertMaterial({ color: '#6b4f3a' })), trees, 'shore-trunks');
-  inst(new THREE.IcosahedronGeometry(2.6, 0).translate(0, 1.6, 0), track(new THREE.MeshLambertMaterial({ color: '#3f7a34', flatShading: true })), bushes, 'shore-bushes');
+  inst(new THREE.IcosahedronGeometry(2.6, 0).translate(0, 1.6, 0), track(new THREE.MeshLambertMaterial({ color: '#5f8a14', flatShading: true })), bushes, 'shore-bushes');
   inst(new THREE.BoxGeometry(1, 1.4, 1).translate(0, 0.1, 0), track(new THREE.MeshLambertMaterial({ color: '#cfc6b6' })), piers, 'piers');
   inst(new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0), track(new THREE.MeshLambertMaterial({ color: '#f4f6f8' })), hulls, 'ferries');
   inst(new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0), track(new THREE.MeshLambertMaterial({ color: '#2f6fb3' })), cabins, 'ferry-cabins');
