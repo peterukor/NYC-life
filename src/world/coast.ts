@@ -379,7 +379,8 @@ function buildLots(d: DistrictDef, track: Track): THREE.Group {
   const signs: THREE.Matrix4[] = [];
   const c = new THREE.Color();
   for (const { x0, z0, x1, z1, grid } of lotsFor(d)) {
-    c.set(rng.pick(LOT_COLORS));
+    // Home-block plots are lawn (houses sit on them, world/ai-city.ts); outer lots keep the muted colours.
+    c.set(grid ? rng.pick(['#8ccf6b', '#93d473', '#86c965']) : rng.pick(LOT_COLORS));
     const y = grid ? 0.2 : 0.08; // grid lots sit on their sidewalk slab
     pos.push(x0, y, z0, x0, y, z1, x1, y, z1, x0, y, z0, x1, y, z1, x1, y, z0);
     for (let k = 0; k < 6; k++) col.push(c.r, c.g, c.b);

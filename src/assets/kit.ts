@@ -23,6 +23,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { mergeGeometries, mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { MeshoptSimplifier } from 'meshoptimizer/simplifier';
+import type { AiModel, AiModelName } from './ai-models.ts';
 
 export interface KitModel {
   name: string;
@@ -41,6 +42,8 @@ export interface Kits {
   buildings?: Map<string, KitModel>;
   props?: Map<string, KitModel>;
   cars?: Map<string, KitModel>;
+  /** AI-made houses and blocks (assets/ai-models.ts). */
+  ai?: Map<AiModelName, AiModel>;
 }
 
 let loader: GLTFLoader | null = null;

@@ -30,6 +30,7 @@ import { pondsFor } from '../data/parks.ts';
 import { corridorsIn } from './corridors.ts';
 import { plotsIn } from '../data/plots.ts';
 import { buildAdBoards, type AdBoards } from './ad-blocks.ts';
+import { buildAiCity, planAiCity } from './ai-city.ts';
 import { LANDMARKS } from './landmarks/index.ts';
 import { FULL_BLOCK_LANDMARKS } from '../data/places.ts';
 import { Toy } from './landmarks/toy.ts';
@@ -70,6 +71,9 @@ export interface BuiltCity {
   adSlots: AdSlot[];
   /** Rentable billboards on ad blocks and islands (data/plots.ts). */
   adBoards: AdBoards;
+  /** AI-made houses and blocks placed in this area. */
+  aiCounts: Record<string, number>;
+  aiSpots: { model: string; x: number; z: number }[];
   doors: DoorMarker[];
   /** Meshes you can tap to walk to (ground, sidewalks, plazas). */
   walkSurfaces: THREE.Object3D[];
@@ -393,10 +397,15 @@ export function buildCity(area: AreaId, opts: { trees: boolean; shadows?: boolea
     const bc = { x: (br.minX + br.maxX) / 2, z: (br.minZ + br.maxZ) / 2 };
     return Math.abs(bc.x - (hubRect.minX + hubRect.maxX) / 2) < d.blockW * 1.6 && Math.abs(bc.z - (hubRect.minZ + hubRect.maxZ) / 2) < d.blockD * 2.2;
   };
+  // AI-made street blocks and home-block houses (world/ai-city.ts): some
+  // street blocks are drawn with AI block models, so the generator skips them.
+  const aiPlan = planAiCity(d, opts.kits?.ai, new Set(places.map((p) => `${p.block[0]},${p.block[1]}`)));
+  const aiCity = buildAiCity(d, opts.kits?.ai, aiPlan, track, { shadows: !!opts.shadows });
+  group.add(aiCity.group);
   const nyc = new CityBlocks(d, {
     trees: opts.trees,
     shadows: !!opts.shadows,
-    skip: (c, r) => places.some((p) => FULL_BLOCK_LANDMARKS.has(p.id) && p.block[0] === c && p.block[1] === r),
+    skip: (c, r) => aiPlan.tileBlocks.has(`${c},${r}`) || places.some((p) => FULL_BLOCK_LANDMARKS.has(p.id) && p.block[0] === c && p.block[1] === r),
     nearHub,
     doors: doorSpots.map((x) => ({ x: x.door.x, z: x.door.z })),
     parkTrees: trees.map((t) => ({ x: t.x, z: t.z, y: t.y })),
@@ -541,7 +550,10 @@ export function buildCity(area: AreaId, opts: { trees: boolean; shadows?: boolea
     // Detailed blocks around the camera's focus; far stand-ins elsewhere.
     // Zoomed far out everything is small on screen, so the detailed
     // circle shrinks (cheap phones stay smooth).
-    nyc.update(focus, (cameraDistance > 220 ? 110 : cameraDistance > 120 ? 140 : cameraDistance > 50 ? 115 : 90) * detailScale);
+    const near = (cameraDistance > 220 ? 110 : cameraDistance > 120 ? 140 : cameraDistance > 50 ? 115 : 90) * detailScale;
+    nyc.update(focus, near);
+    // AI houses and blocks: full models in a slightly smaller circle (they're heavier).
+    aiCity.update(focus, near * 0.85);
   };
 
   return {
@@ -550,6 +562,8 @@ export function buildCity(area: AreaId, opts: { trees: boolean; shadows?: boolea
     nav,
     adSlots,
     adBoards,
+    aiCounts: aiCity.counts,
+    aiSpots: aiCity.spots,
     doors,
     walkSurfaces,
     get solids() {

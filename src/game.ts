@@ -47,6 +47,7 @@ import { AdManager } from './world/ads.ts';
 import { makeAvatar, type Avatar } from './world/avatar.ts';
 import { loadFolk, type FolkAnim, type FolkKit } from './world/folk.ts';
 import { kitNight, loadKits, type Kits } from './assets/kit.ts';
+import { loadAiModels } from './assets/ai-models.ts';
 import { buildCity, setNightGlow, type BuiltCity } from './world/city.ts';
 import { Crowd } from './world/crowd.ts';
 import { buildInterior, type Interior } from './world/interior.ts';
@@ -204,6 +205,9 @@ export class Game {
         controls.update();
       },
       /** The rentable billboards' centres (scripts/qa-*.mjs). */
+      /** AI houses / blocks placed in the loaded area (scripts/qa-*.mjs). */
+      aiCounts: () => this.city?.aiCounts ?? {},
+      aiSpots: () => this.city?.aiSpots ?? [],
       bigBoards: () => (this.city ? this.city.adBoards.boards : []),
       /** Open the rent sheet of a plot (scripts/qa-plots.mjs). */
       plot: (id: string) => PLOT_BY_ID[id] && openPlotPanel(PLOT_BY_ID[id]),
@@ -321,7 +325,8 @@ export class Game {
     // Cartoon model packs. Waits at most a few seconds: on a very slow
     // connection the game starts with simple shapes instead of hanging.
     const timeout = <T,>(p: Promise<T>, ms: number, fallback: T) => Promise.race([p, new Promise<T>((r) => window.setTimeout(() => r(fallback), ms))]);
-    const [kits, folk, furniture] = await Promise.all([timeout(loadKits(), 12000, {} as Kits), timeout(loadFolk().catch(() => null), 12000, null), timeout(loadFurnitureKit(), 12000, null)]);
+    const [kits, folk, furniture, ai] = await Promise.all([timeout(loadKits(), 12000, {} as Kits), timeout(loadFolk().catch(() => null), 12000, null), timeout(loadFurnitureKit(), 12000, null), timeout(loadAiModels(), 15000, new Map() as Awaited<ReturnType<typeof loadAiModels>>)]);
+    kits.ai = ai;
     this.furniture = furniture;
     this.kits = kits;
     this.folk = folk;

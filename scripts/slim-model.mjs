@@ -1,6 +1,9 @@
 // =====================================================================
 // slim-model.mjs — shrink an AI-generated (Tripo/Meshy) model for phones.
-//   node scripts/slim-model.mjs <in.glb> <out.glb> <targetTriangles> [error]
+//   node scripts/slim-model.mjs <in.glb> <out.glb> <targetTriangles|0> [error]
+// (0 = don't simplify, just pack: use after scripts/bake-model.py, which
+// simplifies properly. Simplifying AI models here directly scrambles
+// their texture below roughly 100k triangles.)
 // Keeps only the colour texture (1024px WebP), simplifies across the
 // texture seams AI models are full of, then quantizes + meshopt-packs it.
 // Example: a 61 MB, 1.86M-triangle Tripo block -> 0.6 MB, 30k triangles.
@@ -29,7 +32,7 @@ await MeshoptSimplifier.ready;
 // texture stretches a little at the edges, which a cartoon look hides).
 await doc.transform(weld());
 const ratio = Number(target) / count();
-for (const mesh of root.listMeshes()) {
+for (const mesh of Number(target) > 0 ? root.listMeshes() : []) {
   for (const prim of mesh.listPrimitives()) {
     const idx = prim.getIndices();
     const pos = prim.getAttribute('POSITION');
