@@ -104,7 +104,10 @@ How to add or change content: **`docs/ADDING-CONTENT.md`**.
 - **Real shapes.** All five boroughs are drawn from real city boundaries (`world/geo-proj.ts`, `data/geo/`).
   - Projection: Times Square is the origin, the map is turned 29°, and distances are compressed 5×.
 - **Playable grids sit on the real streets.**
-  - Manhattan covers 110th St down to 14th St, with Central Park running 59th → 110th.
+  - Manhattan covers 110th St down to the Battery, with Central Park running 59th → 110th. Shore blocks the river cuts are trimmed (`trimToLand`), not dropped.
+  - Below 14th St the east side (East Village, Lower East Side) is grass lots for sale (`forSaleBlock`).
+  - Roads off the grid live in `src/world/corridors.ts`: Broadway, the ring highway (West Side Hwy · FDR) and the Brooklyn Bridge approach. Buildings, traffic, nav, shore and the map all read them.
+  - Giant billboards (XL ad slots) stand beside the ring highway and on roofs, and are visible from the sky map.
   - Brooklyn covers DUMBO, Downtown and Fort Greene.
   - The rest of each borough is expandable land for sale.
 - **Places use real lat/lon** and are snapped to doors automatically.
@@ -119,7 +122,6 @@ How to add or change content: **`docs/ADDING-CONTENT.md`**.
 - **Next:**
   - Lot buying (a land registry on the server).
   - Open Queens, the Bronx and Staten Island the same way: add a district over their outline in `layout.ts`.
-  - Grow Manhattan downtown below 14th St.
 
 ## Balance notes (2026-10-11)
 - **Rent cycle.** One game day is 3 h 23 min, so "weekly" rent (7 game days) comes due about once per REAL day. Rents were therefore set as "what one day of play should cover": shared $180, studio $350, loft $900. Old saves are migrated to the new rents.

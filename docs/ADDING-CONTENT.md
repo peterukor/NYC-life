@@ -43,6 +43,7 @@ fails the test).
 | Add something you can do to a person (chat, flirt, rob…) | `src/sim/social.ts` | A `SOCIAL_ACTIONS` entry: `show(ctx)` and `run(ctx)` returning the text, what they say, and whether they fight or say yes to a date. Use `gain()` so repeating it gets weaker. |
 | Add personality quirks or date spots | `QUIRKS` in `src/sim/people.ts`, `DATE_SPOTS` in `src/sim/dates.ts` | A new entry. |
 | Change a borough's shape, or the projection | `scripts/build-geo.mjs` (real NYC boundaries in `scripts/geo-src/`) and `src/world/geo-proj.ts` | Re-run `node scripts/build-geo.mjs`. The 3D coast, the lots and both maps all follow it. |
+| Add a road off the grid (diagonal, highway, bridge approach) | `src/world/corridors.ts` | Add a `Corridor` with real lat/lon points. It gets paved, driven on and walked on, and buildings keep off it. |
 | Grow the playable streets | `src/world/layout.ts` | Change a district's `origin`, `cols` and `rows`. River blocks become `'water'` by themselves, and the borough beyond the grid stays as land for sale. |
 | Add a neighbourhood name to the maps | `src/data/neighborhoods.ts` | A name and a lat/lon. Keep it to 6–9 per borough. |
 | Add a phone app | `src/ui/phone-apps.ts` | `PHONE_APPS.add({ id, label, icon, bg, render, act })`. Buttons use `data-act="<id>.<what>"`. |
