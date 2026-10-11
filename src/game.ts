@@ -46,6 +46,9 @@ import { kitNight, loadKits, type Kits } from './assets/kit.ts';
 import { buildCity, setNightGlow, type BuiltCity } from './world/city.ts';
 import { Crowd } from './world/crowd.ts';
 import { buildInterior, type Interior } from './world/interior.ts';
+import { buildHome, type HomeInterior } from './world/home-interior.ts';
+import { loadFurnitureKit, type FurnitureKit } from './assets/furniture-kit.ts';
+import { layoutForPlace } from './data/homes.ts';
 import { DISTRICTS, crossStreets, blockRect } from './world/layout.ts';
 import { findPath, nearestWalkable } from './world/nav.ts';
 import { SystemRunner, type SystemContext } from './core/systems.ts';
@@ -77,6 +80,10 @@ export class Game {
   private interior: Interior | null = null;
   private transit: TransitScene | null = null;
   private interiorCamera = new THREE.PerspectiveCamera(48, 1, 0.1, 200);
+  /** Home furniture models (loaded at boot; null = use the simple room). */
+  private furniture: FurnitureKit | null = null;
+  /** The furniture piece being moved in move mode (home only). */
+  private moving: { uid: string; bar: HTMLElement } | null = null;
 
   private path: { x: number; z: number }[] = [];
   /** Place to open when the player reaches its door. */
@@ -111,7 +118,7 @@ export class Game {
       mode: () => this.engine.mode,
       openObject: (id: string) => {
         const o = this.interior?.objects.find((x) => x.id === id);
-        if (o) this.openObjectSheet(o.label, o.emoji, o.actions);
+        if (o) this.openObjectSheet(o.label, o.emoji, o.actions, this.interior && 'floors' in this.interior ? o.id : undefined);
         return !!o;
       },
       openPlace: (id: string) => this.openPlace(PLACE_BY_ID[id]),
@@ -156,6 +163,12 @@ export class Game {
         controls.update();
         this.followCamera = false;
         return true;
+      },
+      /** Jump straight inside a place (for screenshots of interiors). */
+      enterPlace: (id: string) => {
+        const p = PLACE_BY_ID[id];
+        if (p) this.enterInterior(p, false);
+        return !!p;
       },
       /** Try on clothes without saving (for screenshots). */
       /** Force an activity animation on the player (null = back to normal). */
@@ -206,7 +219,8 @@ export class Game {
     // Cartoon model packs. Waits at most a few seconds: on a very slow
     // connection the game starts with simple shapes instead of hanging.
     const timeout = <T,>(p: Promise<T>, ms: number, fallback: T) => Promise.race([p, new Promise<T>((r) => window.setTimeout(() => r(fallback), ms))]);
-    const [kits, folk] = await Promise.all([timeout(loadKits(), 12000, {} as Kits), timeout(loadFolk().catch(() => null), 12000, null)]);
+    const [kits, folk, furniture] = await Promise.all([timeout(loadKits(), 12000, {} as Kits), timeout(loadFolk().catch(() => null), 12000, null), timeout(loadFurnitureKit(), 12000, null)]);
+    this.furniture = furniture;
     this.kits = kits;
     this.folk = folk;
     const loaded = loadGame();
@@ -453,6 +467,13 @@ export class Game {
   private onTap(x: number, y: number): void {
     if (!this.started || this.busy || this.overlayClose) return;
     sfx.tap();
+    if (this.engine.mode === 'interior' && this.interior && this.moving) {
+      // Move mode: tap the floor to put the piece there.
+      const home = this.interior as HomeInterior;
+      const hit = this.engine.pick(x, y, home.floors, this.interiorCamera);
+      if (hit) home.moveItem(this.moving.uid, hit.point.x, hit.point.z);
+      return;
+    }
     if (this.engine.mode === 'interior' && this.interior) {
       const hit = this.engine.pick(x, y, this.interior.objects.map((o) => o.mesh), this.interiorCamera);
       const id = hit?.object.userData.objectId as string | undefined;
@@ -460,7 +481,7 @@ export class Game {
       if (obj) {
         this.player.root.position.copy(obj.stand);
         this.player.root.lookAt(obj.mesh.getWorldPosition(new THREE.Vector3()).setY(0));
-        this.openObjectSheet(obj.label, obj.emoji, obj.actions);
+        this.openObjectSheet(obj.label, obj.emoji, obj.actions, 'floors' in this.interior ? obj.id : undefined);
       }
       return;
     }
@@ -599,7 +620,7 @@ export class Game {
     return `<div class="actions">${extra}${cards}</div>`;
   }
 
-  private openObjectSheet(label: string, emoji: string, actionIds: string[]): void {
+  private openObjectSheet(label: string, emoji: string, actionIds: string[], movableId?: string): void {
     const place = this.state.location.placeId ? PLACE_BY_ID[this.state.location.placeId] : null;
     const open = place ? isOpen(place, nycTime().hour) : true;
     // Bodegas sell prepaid phones when yours is gone.
@@ -612,7 +633,10 @@ export class Game {
       emoji,
       title: label,
       sub: place ? esc(place.name) : undefined,
-      body: workBtn + (actionIds.length || phoneOffer ? this.actionGrid(actionIds, open, phoneOffer) : `<p class="blurb">${isOffice ? 'This is a workplace. Apply for the job on your phone, then come back for shifts.' : 'Nothing to do here right now.'}</p>`),
+      body:
+        workBtn +
+        (actionIds.length || phoneOffer ? this.actionGrid(actionIds, open, phoneOffer) : `<p class="blurb">${isOffice ? 'This is a workplace. Apply for the job on your phone, then come back for shifts.' : movableId ? 'Just for looks — but it makes the place feel like home.' : 'Nothing to do here right now.'}</p>`) +
+        (movableId ? '<button class="btn block" style="margin-top:10px" data-act="move-furniture">✋ Move this</button>' : ''),
     });
     onAct(sheet.body, (act, el) => {
       sheet.close();
@@ -622,8 +646,47 @@ export class Game {
         return this.save();
       }
       if (act === 'work') return void this.goToWork();
+      if (act === 'move-furniture' && movableId) return this.startMoving(movableId);
       if (act.startsWith('do:')) void this.runAction(act.slice(3), el);
     });
+  }
+
+  // ===================================================================
+  // Moving furniture (home only)
+  // ===================================================================
+
+  /** Pick up a piece: tap the floor to place it, turn it, then Done. */
+  private startMoving(uid: string): void {
+    const home = this.interior as HomeInterior | null;
+    if (!home || !('floors' in home)) return;
+    this.stopMoving(false);
+    const bar = html(`<div class="move-bar"><span>Tap the floor to place it</span><button class="btn" data-mv="turn">↻ Turn</button><button class="btn primary" data-mv="done">✓ Done</button></div>`);
+    root().appendChild(bar);
+    bar.querySelector('[data-mv="turn"]')!.addEventListener('click', (e) => {
+      e.stopPropagation();
+      home.rotateItem(uid);
+    });
+    bar.querySelector('[data-mv="done"]')!.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.stopMoving(true);
+    });
+    home.highlight(uid);
+    this.moving = { uid, bar };
+  }
+
+  /** Leave move mode; `keep` saves the new arrangement for this home. */
+  private stopMoving(keep: boolean): void {
+    if (!this.moving) return;
+    this.moving.bar.remove();
+    const home = this.interior as HomeInterior | null;
+    home?.highlight?.(null);
+    this.moving = null;
+    const placeId = this.state.location.placeId;
+    if (keep && home && 'items' in home && placeId) {
+      this.state.homes[placeId] = home.items.map((i) => ({ ...i }));
+      this.save();
+      toast('Saved your new layout', { icon: '🛋️', tone: 'good', ms: 1800 });
+    }
   }
 
   private moveHome(place: PlaceDef): void {
@@ -641,7 +704,12 @@ export class Game {
   private enterInterior(place: PlaceDef, animate: boolean): void {
     const go = () => {
       this.interior?.dispose();
-      this.interior = buildInterior(place, place.actions);
+      this.stopMoving(false);
+      if (place.interior === 'apartment' && this.furniture) {
+        // Sims-style home: its own floor plan, real furniture, saved arrangement.
+        const layout = layoutForPlace(place.id);
+        this.interior = buildHome(place, layout, this.state.homes[place.id] ?? layout.furniture, this.furniture);
+      } else this.interior = buildInterior(place, place.actions);
       this.interior.scene.add(this.player.root);
       this.player.root.position.copy(this.interior.spawn);
       this.player.root.rotation.set(0, Math.PI, 0);
@@ -678,7 +746,7 @@ export class Game {
     const aspect = el.clientWidth / Math.max(1, el.clientHeight);
     cam.fov = aspect < 0.8 ? 62 : 48;
     cam.aspect = aspect;
-    const roomHalfWidth = 7.2;
+    const roomHalfWidth = this.interior?.halfWidth ?? 7.2;
     const hFov = 2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(cam.fov) / 2) * aspect);
     const dist = Math.max(15, roomHalfWidth / Math.tan(hFov / 2));
     cam.position.set(0, dist * 0.72, dist * 0.7);
@@ -689,6 +757,7 @@ export class Game {
 
   private leaveInterior(): void {
     if (!this.interior) return;
+    this.stopMoving(true);
     const placeId = this.state.location.placeId;
     fade(true);
     window.setTimeout(() => {

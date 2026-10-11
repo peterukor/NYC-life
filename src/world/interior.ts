@@ -31,6 +31,8 @@ export interface Interior {
   /** Where the camera looks and where the player starts. */
   focus: THREE.Vector3;
   spawn: THREE.Vector3;
+  /** Half the room's width (metres), so the camera can frame it on any screen. */
+  halfWidth?: number;
   /** Show an ad on the TV (apartment only) for a few seconds. */
   playTvAd?: () => void;
   update: (dt: number) => void;

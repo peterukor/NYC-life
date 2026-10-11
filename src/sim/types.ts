@@ -128,6 +128,8 @@ export interface GameState {
   };
 
   events: { lastFiredAt: number; cooldowns: Record<string, number> };
+  /** Each home's furniture arrangement, by home place id (see data/homes.ts). */
+  homes: Record<string, { uid: string; item: string; x: number; z: number; rot: number }[]>;
   news: NewsItem[];
   tutorialStep: number;
   settings: { quality: 'auto' | 'low' | 'medium' | 'high'; sound: boolean };

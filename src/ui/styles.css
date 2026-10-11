@@ -310,3 +310,12 @@ a { color: var(--info); }
 .map-pin.loud svg, .map-pin.loud .pin-ico { animation: pin-bob 1.6s ease-in-out infinite; }
 @keyframes pin-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
 @media (prefers-reduced-motion: reduce) { .map-pin.loud svg, .map-pin.loud .pin-ico { animation: none; } }
+
+/* Move-furniture bar (home move mode). Sits above the dock. */
+.move-bar {
+  position: absolute; left: 50%; bottom: calc(176px + env(safe-area-inset-bottom)); transform: translateX(-50%);
+  display: flex; align-items: center; gap: 8px; padding: 8px 8px 8px 14px; z-index: 5;
+  background: #fff; border: var(--line); border-radius: 18px; box-shadow: var(--drop); white-space: nowrap;
+  pointer-events: auto; font-size: 13px;
+}
+.move-bar .btn { padding: 8px 12px; }

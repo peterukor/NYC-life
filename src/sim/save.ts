@@ -60,5 +60,6 @@ function migrate(data: GameState): GameState | null {
   data.news ??= [];
   data.events ??= { lastFiredAt: Date.now(), cooldowns: {} };
   data.settings ??= { quality: 'auto', sound: true };
+  data.homes ??= {};
   return data;
 }

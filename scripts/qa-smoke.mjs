@@ -60,10 +60,10 @@ await wait(2500);
 await shot('02-apartment');
 check('starts inside the apartment', (await nyc(() => window.__nyc.mode())) === 'interior');
 
-// ---- Eat from the kitchen.
+// ---- Eat from the fridge (the home's furniture ids come from data/homes.ts).
 let s = await state();
 const hungerBefore = s.needs.hunger;
-await nyc(() => window.__nyc.openObject('kitchen'));
+await nyc(() => window.__nyc.openObject('fridge'));
 await wait(500);
 await shot('03-kitchen-sheet');
 await click('[data-act="do:snack"]');

@@ -20,7 +20,7 @@ export interface Goal {
 const did = (s: GameState, tag: string) => Object.keys(s.stats.actionsDone).some((id) => ACTIONS[id]?.tags.includes(tag));
 
 export const GOALS: Goal[] = [
-  { title: 'Eat something', hint: 'Tap the kitchen in your apartment', reward: 500, done: (s) => did(s, 'eat') },
+  { title: 'Eat something', hint: 'Tap the fridge or the stove at home', reward: 500, done: (s) => did(s, 'eat') },
   { title: 'Freshen up', hint: 'Tap the shower', reward: 500, done: (s) => did(s, 'bathe') },
   { title: 'Get a job', hint: 'Phone → Jobs → Apply', reward: 1_000, done: (s) => !!s.job || s.stats.actionsDone['__shift'] > 0 },
   { title: 'Step outside', hint: 'Tap “Leave”, then tap the street to walk', reward: 500, done: (s) => s.location.placeId === null || s.stats.placesVisited.length > 1 },

@@ -75,3 +75,26 @@ test('every pin source uses a known pin kind', () => {
   assert.ok(PIN_SOURCES.size > 0);
   for (const k of ['home', 'work', 'sale', 'landmark']) assert.ok(ids.has(k), `missing pin kind ${k}`);
 });
+
+import { FURNITURE } from '../src/data/furniture.ts';
+import { HOME_LAYOUTS, HOME_LAYOUT_FOR } from '../src/data/homes.ts';
+import { PLACE_BY_ID } from '../src/data/places.ts';
+
+test('home layouts only use real furniture, inside the walls, with unique ids', () => {
+  for (const l of HOME_LAYOUTS.all()) {
+    const uids = new Set<string>();
+    for (const f of l.furniture) {
+      assert.ok(FURNITURE.has(f.item), `${l.id}: unknown furniture ${f.item}`);
+      assert.ok(Math.abs(f.x) <= l.width / 2 && Math.abs(f.z) <= l.depth / 2, `${l.id}: ${f.uid} is outside the home`);
+      assert.ok(!uids.has(f.uid), `${l.id}: duplicate uid ${f.uid}`);
+      uids.add(f.uid);
+    }
+    // Every home needs the basics.
+    const has = (a: string) => l.furniture.some((f) => FURNITURE.get(f.item)!.actions.includes(a));
+    for (const a of ['sleep', 'snack', 'shower', 'toilet']) assert.ok(has(a), `${l.id} has nowhere to ${a}`);
+  }
+  for (const [placeId, layoutId] of Object.entries(HOME_LAYOUT_FOR)) {
+    assert.ok(PLACE_BY_ID[placeId], `unknown home place ${placeId}`);
+    assert.ok(HOME_LAYOUTS.has(layoutId), `unknown layout ${layoutId}`);
+  }
+});

@@ -76,6 +76,7 @@ export function newLife(opts: NewLifeOptions): GameState {
     phone: { ok: true },
     stats: { actionsDone: {}, placesVisited: [home.id], eventsSeen: {}, scamsFallenFor: 0, scamsSpotted: 0, earnedToday: 0, dayKey: today },
     events: { lastFiredAt: now, cooldowns: {} },
+    homes: {},
     news: [],
     tutorialStep: 0,
     settings: { quality: 'auto', sound: true },
