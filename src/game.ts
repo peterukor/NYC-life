@@ -68,6 +68,8 @@ export class Game {
   private player: Avatar;
   /** Cartoon model packs (empty if they couldn't load: simple shapes are used). */
   private kits: Kits = {};
+  /** False while a test hook has pointed the camera somewhere else. */
+  private followCamera = true;
   private folk: FolkKit | null = null;
   private hud!: Hud;
   private interior: Interior | null = null;
@@ -136,6 +138,20 @@ export class Game {
         }
         camera.position.copy(controls.target).add(offset);
         controls.update();
+      },
+      /** Point the camera at a place (loads its area if needed) — for screenshots. */
+      viewPlace: (id: string, d = 120, y = 30) => {
+        const place = PLACE_BY_ID[id];
+        if (!place) return false;
+        if (!this.city || this.city.area !== place.area) this.loadArea(place.area);
+        const door = doorOf(place);
+        const { camera, controls } = this.engine;
+        controls.maxDistance = Math.max(CAMERA.maxDistance, d * 2);
+        controls.target.set(door.x - door.faceX * 30, y, door.z - door.faceZ * 30);
+        camera.position.set(controls.target.x + d * 0.55, controls.target.y + d * 0.35, controls.target.z + d * 0.75);
+        controls.update();
+        this.followCamera = false;
+        return true;
       },
       /** Try on clothes without saving (for screenshots). */
       /** Force an activity animation on the player (null = back to normal). */
@@ -368,6 +384,7 @@ export class Game {
     this.player.animate(speed, dt);
     this.player.setDetail(this.engine.camera.position.distanceTo(this.engine.controls.target));
     // Camera follows the player, keeping whatever angle and zoom you chose.
+    if (!this.followCamera) return;
     const target = this.engine.controls.target;
     const before = target.clone();
     target.lerp(new THREE.Vector3(p.x, 2, p.z), Math.min(1, dt * 6));

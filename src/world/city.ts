@@ -16,7 +16,7 @@
 import * as THREE from 'three';
 import { CHUNK_SIZE } from '../core/constants.ts';
 import { Rng } from '../core/rng.ts';
-import { doorOf, placesIn, type PlaceDef } from '../data/places.ts';
+import { doorOf, placesIn } from '../data/places.ts';
 import type { AreaId } from '../sim/types.ts';
 import { comingSoonTexture, facadeTextures, signTexture, type FacadeStyle } from '../render/textures.ts';
 import { GeoBuilder } from './geo.ts';
@@ -24,6 +24,7 @@ import { avenueX, blockRect, districtBounds, DISTRICTS, SIDEWALK, streetZ, type 
 import { buildNavGrid, type NavGrid } from './nav.ts';
 import { kitMaterial, type Kits } from '../assets/kit.ts';
 import { KitBuildings, planBlock, type Placement } from './kitcity.ts';
+import { LANDMARKS } from './landmarks/index.ts';
 
 export type AdSize = 'S' | 'M' | 'L' | 'XL';
 
@@ -462,7 +463,13 @@ export function buildCity(area: AreaId, opts: { trees: boolean; shadows?: boolea
   instanced(new THREE.BoxGeometry(2.2, 0.5, 0.7).translate(0, 0.45, 0), benchMat, benches);
 
   // --------------------------------------------------------- landmarks
-  for (const p of places) addLandmark(p, d, group, track);
+  // Cartoon landmarks come from their own registry (world/landmarks/).
+  for (const p of places) {
+    const lm = LANDMARKS.get(p.id);
+    if (!lm) continue;
+    const bl = blockRect(d, p.block[0], p.block[1]);
+    lm.build({ place: p, district: d, block: bl, inner: { minX: bl.minX + SIDEWALK, maxX: bl.maxX - SIDEWALK, minZ: bl.minZ + SIDEWALK, maxZ: bl.maxZ - SIDEWALK }, group, track });
+  }
 
   // --------------------------------------------------------- storefronts & doors
   const awningMat = new Map<string, THREE.MeshLambertMaterial>();
@@ -700,98 +707,4 @@ function addSubwayEntrance(parent: THREE.Group, track: Track, x: number, z: numb
   g.position.set(x, 0.18, z);
   g.rotation.y = facing;
   parent.add(g);
-}
-
-/** Hand-modelled (but very light) landmarks. */
-function addLandmark(p: PlaceDef, d: DistrictDef, group: THREE.Group, track: Track): void {
-  const b = blockRect(d, p.block[0], p.block[1]);
-  const inner = { minX: b.minX + SIDEWALK, maxX: b.maxX - SIDEWALK, minZ: b.minZ + SIDEWALK, maxZ: b.maxZ - SIDEWALK };
-  const cx = (inner.minX + inner.maxX) / 2;
-  const cz = (inner.minZ + inner.maxZ) / 2;
-
-  if (p.id === 'empireState') {
-    // Stepped Art Deco tower with a spire, sitting on its own block.
-    const mat = facadeMaterial('limestone');
-    const tiers: [number, number, number, number][] = [
-      // width, depth, y0, y1
-      [inner.maxX - inner.minX - 2, inner.maxZ - inner.minZ - 2, 0, 24],
-      [42, 26, 24, 150],
-      [30, 20, 150, 200],
-      [18, 14, 200, 222],
-      [9, 8, 222, 236],
-    ];
-    const geo = new GeoBuilder();
-    const tile = facadeTextures('limestone').tile;
-    for (const [w, dd, y0, y1] of tiers) geo.walls(cx - w / 2, cx + w / 2, cz - dd / 2, cz + dd / 2, y0, y1, tile);
-    const tower = new THREE.Mesh(track(geo.build()), mat);
-    tower.castShadow = true;
-    group.add(tower);
-    const roofs = new GeoBuilder();
-    for (const [w, dd, , y1] of tiers) roofs.flat(cx - w / 2, cx + w / 2, cz - dd / 2, cz + dd / 2, y1);
-    group.add(new THREE.Mesh(track(roofs.build()), track(new THREE.MeshLambertMaterial({ color: '#8f8a7e' }))));
-    const spire = new THREE.Mesh(track(new THREE.CylinderGeometry(0.4, 2.2, 40, 8)), track(new THREE.MeshLambertMaterial({ color: '#c9c3b5' })));
-    spire.position.set(cx, 256, cz);
-    group.add(spire);
-    // The famous coloured lights at the top.
-    const crown = new THREE.Mesh(track(new THREE.CylinderGeometry(4.6, 4.6, 12, 8, 1, true)), track(new THREE.MeshBasicMaterial({ color: '#ffcf56', toneMapped: false, side: THREE.DoubleSide })));
-    crown.position.set(cx, 230, cz);
-    crown.userData.landmarkLight = true;
-    group.add(crown);
-  }
-
-  if (p.id === 'brooklynBridge') {
-    // Two stone towers with twin gothic arches, a deck over the river and cable fans.
-    const stone = track(new THREE.MeshLambertMaterial({ color: '#b29f86' }));
-    const deckMat = track(new THREE.MeshLambertMaterial({ color: '#6d6a65' }));
-    const cable = track(new THREE.LineBasicMaterial({ color: '#d8d2c4' }));
-    const x = (b.minX + b.maxX) / 2;
-    const shore = streetZ(d, 0) - d.streetW / 2;
-    const span = 420;
-    const deck = new THREE.Mesh(track(new THREE.BoxGeometry(14, 1.2, span)), deckMat);
-    deck.position.set(x, 12, shore - span / 2 + 20);
-    group.add(deck);
-    const ramp = new THREE.Mesh(track(new THREE.BoxGeometry(14, 1.2, 60)), deckMat);
-    ramp.position.set(x, 6, shore + 18);
-    ramp.rotation.x = Math.atan2(12, 60);
-    group.add(ramp);
-    const towerZs = [shore - 60, shore - 330];
-    for (const tz of towerZs) {
-      const geo = new GeoBuilder();
-      geo.box(x - 11, x - 3.5, 0, 82, tz - 5, tz + 5);
-      geo.box(x + 3.5, x + 11, 0, 82, tz - 5, tz + 5);
-      geo.box(x - 11, x + 11, 50, 82, tz - 5, tz + 5);
-      geo.box(x - 11, x + 11, 0, 8, tz - 5, tz + 5);
-      const t = new THREE.Mesh(track(geo.build()), stone);
-      t.castShadow = true;
-      group.add(t);
-    }
-    // Main cables as gentle curves between the towers, plus suspenders.
-    const pts: THREE.Vector3[] = [];
-    for (const side of [-6.5, 6.5]) {
-      for (let i = 0; i <= 30; i++) {
-        const t = i / 30;
-        const z = towerZs[0] + (towerZs[1] - towerZs[0]) * t;
-        const y = 80 - 64 * 4 * t * (1 - t);
-        pts.push(new THREE.Vector3(x + side, y, z));
-        if (i > 0) pts.push(new THREE.Vector3(x + side, y, z));
-        if (i % 2 === 0) pts.push(new THREE.Vector3(x + side, y, z), new THREE.Vector3(x + side, 12.6, z));
-      }
-    }
-    const lineGeo = track(new THREE.BufferGeometry().setFromPoints(pts));
-    group.add(new THREE.LineSegments(lineGeo, cable));
-  }
-
-  if (p.id === 'atlanticArena') {
-    // A low rust-coloured arena with a sweeping canopy and a big screen.
-    const rust = track(new THREE.MeshLambertMaterial({ color: '#7a4a2e' }));
-    const body = new THREE.Mesh(track(new THREE.CylinderGeometry((inner.maxX - inner.minX) / 2, (inner.maxX - inner.minX) / 2 + 2, 26, 24)), rust);
-    body.scale.z = (inner.maxZ - inner.minZ) / (inner.maxX - inner.minX);
-    body.position.set(cx, 13, cz);
-    body.castShadow = true;
-    group.add(body);
-    const canopy = new THREE.Mesh(track(new THREE.CylinderGeometry(16, 16, 1.5, 20, 1, false, 0, Math.PI)), rust);
-    canopy.position.set(inner.minX - 2, 12, cz);
-    canopy.rotation.y = Math.PI / 2;
-    group.add(canopy);
-  }
 }
