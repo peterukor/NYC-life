@@ -11,13 +11,14 @@ import { clamp } from '../core/format.ts';
 import { nowMs } from '../core/clock.ts';
 import { NEED_KEYS, type GameState, type Moodlet, type NeedKey } from './types.ts';
 
+/** Need colours are New York subway line colours (each need is a "line bullet" in the HUD). */
 export const NEED_INFO: Record<NeedKey, { label: string; emoji: string; color: string }> = {
-  hunger: { label: 'Hunger', emoji: '🍕', color: '#f08a24' },
-  energy: { label: 'Energy', emoji: '⚡', color: '#2f80ed' },
-  fun: { label: 'Fun', emoji: '🎉', color: '#e2b007' },
-  social: { label: 'Social', emoji: '💬', color: '#e0457b' },
-  hygiene: { label: 'Hygiene', emoji: '🫧', color: '#14a3a3' },
-  bladder: { label: 'Bladder', emoji: '🚽', color: '#8a5cf6' },
+  hunger: { label: 'Hunger', emoji: '🍕', color: '#ff6319' },
+  energy: { label: 'Energy', emoji: '⚡', color: '#0039a6' },
+  fun: { label: 'Fun', emoji: '🎉', color: '#fccc0a' },
+  social: { label: 'Social', emoji: '💬', color: '#ee352e' },
+  hygiene: { label: 'Hygiene', emoji: '🫧', color: '#00933c' },
+  bladder: { label: 'Bladder', emoji: '🚽', color: '#b933ad' },
 };
 
 /**

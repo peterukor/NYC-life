@@ -1056,16 +1056,16 @@ export class Game {
     if (!this.hud) return;
     const s = this.state;
     const inside = this.engine.mode === 'interior' && !!s.location.placeId;
-    let where: string;
-    if (inside) where = `<b>${esc(PLACE_BY_ID[s.location.placeId!].name)}</b>`;
-    else if (this.engine.mode === 'transit') where = '<b>On the train</b>';
-    else where = `<b>${esc(DISTRICTS[s.location.area].name)}</b> · ${esc(crossStreets(DISTRICTS[s.location.area], this.player.root.position.x, this.player.root.position.z))}`;
+    let where: { area: string; place?: string; streets?: string[] };
+    if (inside) where = { area: DISTRICTS[s.location.area].name, place: PLACE_BY_ID[s.location.placeId!].name };
+    else if (this.engine.mode === 'transit') where = { area: 'Subway', place: 'On the train' };
+    else where = { area: DISTRICTS[s.location.area].name, streets: crossStreets(DISTRICTS[s.location.area], this.player.root.position.x, this.player.root.position.z).split(' & ') };
     const blocker = s.job ? shiftBlocker(s) : 'none';
     const goal = currentGoal(s);
     this.hud.update(s, where, {
       inside,
       canWork: !!s.job && !blocker && !this.busy,
-      workLabel: s.job ? `Go to work · ${money(CAREER_BY_ID[s.job.careerId].ladder[Math.min(s.job.level, 4)].pay)}` : '',
+      workLabel: s.job ? `Work a shift for ${money(CAREER_BY_ID[s.job.careerId].ladder[Math.min(s.job.level, 4)].pay)}` : '',
       goal: goal ? { title: goal.title, hint: goal.hint } : null,
     });
     void force;

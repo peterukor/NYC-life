@@ -113,10 +113,10 @@ check('back on the street', (await nyc(() => window.__nyc.mode())) === 'city');
 const before = (await state()).location;
 // Pick a spot on the street that isn't a door, then really tap it.
 let spot = null;
-for (const [fx, fy] of [[0.25, 0.5], [0.7, 0.55], [0.5, 0.4], [0.3, 0.65], [0.75, 0.35]]) {
+for (const [fx, fy] of [[0.25, 0.5], [0.7, 0.55], [0.5, 0.4], [0.3, 0.65], [0.75, 0.35], [0.5, 0.6], [0.2, 0.7], [0.8, 0.7], [0.5, 0.75], [0.35, 0.45]]) {
   const p = [Math.round(width * fx), Math.round(height * fy)];
   const w = await nyc((x, y) => window.__nyc.whatsAt(x, y), p[0], p[1]);
-  if (!w.door && w.ground) { spot = p; break; }
+  if (!w.door && (w.ground === 'ground' || w.ground === 'sidewalks')) { spot = p; break; }
 }
 await page.touchscreen.tap(spot[0], spot[1]);
 await wait(2500);

@@ -74,10 +74,10 @@ export function openMap(opts: MapOptions): () => void {
     const d = DISTRICTS[area];
     const w = canvas.clientWidth;
     const h = canvas.clientHeight;
-    g.fillStyle = '#20252c';
+    g.fillStyle = '#e8eefc'; // streets
     g.fillRect(0, 0, w, h);
     // Water.
-    g.fillStyle = '#1d4e6b';
+    g.fillStyle = '#7fd0ff';
     if (d.water.side === 'west') g.fillRect(0, 0, sx(avenueX(d, 0) - d.avenueW / 2 - 6), h);
     else g.fillRect(0, 0, w, sy(streetZ(d, 0) - d.streetW / 2 - 6));
     // Blocks.
@@ -85,12 +85,15 @@ export function openMap(opts: MapOptions): () => void {
       for (let r = 0; r < d.rows; r++) {
         const b = blockRect(d, c, r);
         const kind = d.kind(c, r);
-        g.fillStyle = kind === 'park' ? '#3f7d4e' : kind === 'plaza' ? '#b8364d' : kind === 'vacant' ? '#6b5a44' : d.zone(c, r) === 'tall' ? '#4a5260' : '#3c424c';
+        g.fillStyle = kind === 'park' ? '#7ed37a' : kind === 'plaza' ? '#ffc629' : kind === 'vacant' ? '#f4d29c' : d.zone(c, r) === 'tall' ? '#cdc4ff' : d.zone(c, r) === 'brownstone' ? '#f6c3a4' : '#ffd3e2';
+        g.strokeStyle = '#1c2340';
+        g.lineWidth = 2;
         roundRect(g, sx(b.minX), sy(b.minZ), (b.maxX - b.minX) * scale, (b.maxZ - b.minZ) * scale, Math.min(6, 2 * scale));
+        g.stroke();
         if (kind === 'vacant') {
           g.save();
           g.clip();
-          g.strokeStyle = 'rgba(244,162,97,0.6)';
+          g.strokeStyle = 'rgba(28,35,64,0.25)';
           g.lineWidth = 2;
           for (let k = -200; k < 400; k += 10) {
             g.beginPath();
@@ -104,8 +107,8 @@ export function openMap(opts: MapOptions): () => void {
     }
     // Street names when zoomed in.
     if (scale > 1.4) {
-      g.fillStyle = 'rgba(255,255,255,0.45)';
-      g.font = '600 11px system-ui, sans-serif';
+      g.fillStyle = 'rgba(28,35,64,0.55)';
+      g.font = '800 11px Nunito, system-ui, sans-serif';
       g.textAlign = 'center';
       d.avenueNames.forEach((n, i) => {
         g.save();
@@ -118,15 +121,15 @@ export function openMap(opts: MapOptions): () => void {
       d.streetNames.forEach((n, j) => g.fillText(n, sx(avenueX(d, 0)) + 6, sy(streetZ(d, j)) + 4));
     }
     // Area title + water label.
-    g.fillStyle = 'rgba(255,255,255,0.85)';
-    g.font = '900 18px system-ui, sans-serif';
+    g.fillStyle = '#1c2340';
+    g.font = '400 24px "Lilita One", system-ui, sans-serif';
     g.textAlign = 'left';
-    g.fillText(d.name, 14, 26);
-    g.font = '600 12px system-ui, sans-serif';
-    g.fillStyle = 'rgba(255,255,255,0.55)';
-    g.fillText(d.tagline, 14, 44);
-    g.fillStyle = 'rgba(160,210,240,0.7)';
-    g.font = 'italic 600 13px system-ui, sans-serif';
+    g.fillText(d.name, 14, 30);
+    g.font = '700 12px Nunito, system-ui, sans-serif';
+    g.fillStyle = '#545c7a';
+    g.fillText(d.tagline, 14, 48);
+    g.fillStyle = '#0b5f8a';
+    g.font = '800 13px Nunito, system-ui, sans-serif';
     if (d.water.side === 'west') g.fillText(d.water.label, 12, h - 60);
     else g.fillText(d.water.label, w / 2 - 40, Math.max(64, sy(streetZ(d, 0)) - 30));
 
@@ -137,21 +140,24 @@ export function openMap(opts: MapOptions): () => void {
       const x = sx(door.x);
       const y = sy(door.z);
       const open = isOpen(p, opts.hour);
-      g.fillStyle = open ? '#ffffff' : '#8b8f97';
+      g.fillStyle = open ? '#ffffff' : '#c9cfe0';
+      g.strokeStyle = '#1c2340';
+      g.lineWidth = 2.5;
       g.beginPath();
       g.arc(x, y, 15, 0, Math.PI * 2);
       g.fill();
+      g.stroke();
       g.font = '18px system-ui, "Apple Color Emoji", "Segoe UI Emoji", sans-serif';
       g.textAlign = 'center';
       g.textBaseline = 'middle';
       g.fillText(p.emoji, x, y + 1);
       if (showLabels) {
-        g.font = '700 11px system-ui, sans-serif';
+        g.font = '800 11px Nunito, system-ui, sans-serif';
         const label = p.name.length > 22 ? `${p.name.slice(0, 21)}…` : p.name;
         const tw = g.measureText(label).width + 10;
-        g.fillStyle = 'rgba(10,12,16,0.85)';
+        g.fillStyle = '#1c2340';
         roundRect(g, x - tw / 2, y + 18, tw, 17, 6);
-        g.fillStyle = open ? '#fff' : '#9a9ea6';
+        g.fillStyle = open ? '#fff' : '#c9cfe0';
         g.fillText(label, x, y + 27);
       }
       g.textBaseline = 'alphabetic';
@@ -161,12 +167,12 @@ export function openMap(opts: MapOptions): () => void {
     if (opts.player.area === area) {
       const x = sx(opts.player.x);
       const y = sy(opts.player.z);
-      g.fillStyle = 'rgba(255,212,0,0.25)';
+      g.fillStyle = 'rgba(255,198,41,0.45)';
       g.beginPath();
       g.arc(x, y, 20, 0, Math.PI * 2);
       g.fill();
-      g.fillStyle = '#ffd400';
-      g.strokeStyle = '#111';
+      g.fillStyle = '#ffc629';
+      g.strokeStyle = '#1c2340';
       g.lineWidth = 3;
       g.beginPath();
       g.arc(x, y, 8, 0, Math.PI * 2);
