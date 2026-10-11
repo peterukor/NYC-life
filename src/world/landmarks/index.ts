@@ -23,3 +23,6 @@ import './barclays.ts';
 import './central-park.ts';
 import './park-mall.ts';
 import './funland.ts';
+import './chrysler.ts';
+import './flatiron.ts';
+import './liberty.ts';

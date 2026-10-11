@@ -153,14 +153,14 @@ export class Game {
         controls.update();
       },
       /** Point the camera at a place (loads its area if needed) — for screenshots. */
-      viewPlace: (id: string, d = 120, y = 30) => {
+      viewPlace: (id: string, d = 120, y = 30, ox = 0) => {
         const place = PLACE_BY_ID[id];
         if (!place) return false;
         if (!this.city || this.city.area !== place.area) this.loadArea(place.area);
         const door = doorOf(place);
         const { camera, controls } = this.engine;
         controls.maxDistance = Math.max(CAMERA.maxDistance, d * 2);
-        controls.target.set(door.x - door.faceX * 30, y, door.z - door.faceZ * 30);
+        controls.target.set(door.x - door.faceX * 30 + ox, y, door.z - door.faceZ * 30);
         camera.position.set(controls.target.x + d * 0.55, controls.target.y + d * 0.35, controls.target.z + d * 0.75);
         controls.update();
         this.followCamera = false;

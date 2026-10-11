@@ -26,6 +26,7 @@ import { kitMaterial, type Kits } from '../assets/kit.ts';
 import { CityBlocks } from './nycgen/city-blocks.ts';
 import { groundTextures } from './nycgen/atlas.ts';
 import { LANDMARKS } from './landmarks/index.ts';
+import { Toy } from './landmarks/toy.ts';
 
 export type AdSize = 'S' | 'M' | 'L' | 'XL';
 
@@ -100,7 +101,7 @@ export function setNightGlow(v: number): void {
 }
 
 /** Landmarks that occupy their whole block (no generated buildings there). */
-const FULL_BLOCK_LANDMARKS = new Set(['empireState', 'atlanticArena', 'parkMall']);
+const FULL_BLOCK_LANDMARKS = new Set(['empireState', 'atlanticArena', 'parkMall', 'chrysler', 'flatiron']);
 
 // ---------------------------------------------------------------------
 
@@ -556,22 +557,62 @@ function addHub(d: DistrictDef, group: THREE.Group, slots: AdSlot[], track: Trac
   // A tall screen tower at the north end, like One Times Square.
   // It stands at the south end of the plaza and faces north up the square.
   const towerZ = zMax - 9;
-  const tower = new THREE.Mesh(track(new THREE.BoxGeometry(16, 70, 12)), facadeMaterial('limestone'));
-  tower.position.set(cx, 35, towerZ);
-  tower.castShadow = true;
-  group.add(tower);
+  {
+    // Cartoon One Times Square: a slim tower wrapped in screen frames,
+    // with the New Year's Eve ball on a pole at the top.
+    const toy = new Toy();
+    toy.block(16, 70, 12, cx, 0, towerZ, '#3b3f4a', 0.04);
+    for (let y = 8; y < 66; y += 12) toy.block(16.8, 1.1, 12.8, cx, y, towerZ, '#ffd23f', 0.4); // lit frame bands
+    toy.block(17, 2, 13, cx, 70, towerZ, '#e9ecf2', 0.3);
+    toy.cyl(0.35, 0.45, 12, cx, 72, towerZ, '#c9ced6', 8);
+    toy.sphere(2.6, cx, 85.5, towerZ, '#d9f1ff');
+    // Little coloured dots on the ball (its famous crystal panels).
+    for (let i = 0; i < 10; i++) {
+      const a = (i / 10) * Math.PI * 2;
+      toy.sphere(0.55, cx + Math.cos(a) * 2.5, 85.5 + Math.sin(i * 1.7) * 1.2, towerZ + Math.sin(a) * 2.5, ['#ff5fa2', '#4ecdc4', '#ffd23f', '#9b5de5'][i % 4]);
+    }
+    const mesh = toy.build('landmark-one-times-square');
+    group.add(mesh);
+  }
   solids.push({ minX: cx - 8, maxX: cx + 8, minZ: towerZ - 6, maxZ: towerZ + 6 });
   addAdSlot(slots, group, d.id, 'XL', 'hub', 15, 22, new THREE.Vector3(cx, 30, towerZ - 6.2), new THREE.Vector3(0, 0, -1), chunkFor(cx, towerZ), track);
   addAdSlot(slots, group, d.id, 'L', 'hub', 15, 9, new THREE.Vector3(cx, 52, towerZ - 6.2), new THREE.Vector3(0, 0, -1), chunkFor(cx, towerZ), track);
 
   if (d.id === 'manhattan') {
-    // The red glass steps (simplified): a stair of glowing red slabs.
-    const stepMat = track(new THREE.MeshBasicMaterial({ color: '#d7263d', toneMapped: false }));
-    for (let i = 0; i < 9; i++) {
-      const step = new THREE.Mesh(track(new THREE.BoxGeometry(16, 0.45, 1.6)), stepMat);
-      step.position.set(cx, 0.4 + i * 0.45, cz - 4 + i * 1.6);
-      group.add(step);
+    // The TKTS red steps: a glowing red grandstand with white step edges,
+    // the ticket booth tucked underneath, and a few seats on top.
+    const stepMat = track(new THREE.MeshBasicMaterial({ color: '#e0283f', toneMapped: false }));
+    const edgeMat = track(new THREE.MeshBasicMaterial({ color: '#ffe3e7', toneMapped: false }));
+    for (let i = 0; i < 10; i++) {
+      const step = new THREE.Mesh(track(new THREE.BoxGeometry(18, 0.5, 1.6)), stepMat);
+      step.position.set(cx, 0.45 + i * 0.5, cz - 4 + i * 1.6);
+      const edge = new THREE.Mesh(track(new THREE.BoxGeometry(18.1, 0.08, 0.12)), edgeMat);
+      edge.position.set(cx, 0.72 + i * 0.5, cz - 4.78 + i * 1.6);
+      group.add(step, edge);
     }
+    // The pedestrian plaza: bright red-and-blue painted zones, café
+    // seating with umbrellas and flower planters, so it feels busy.
+    const plaza = new Toy();
+    for (let z = zMin + 14; z < zMax - 22; z += 26) {
+      plaza.block(22, 0.06, 10, cx, 0.2, z, '#3b5bdb', 0.02);
+      plaza.block(10, 0.07, 6, cx - 9, 0.2, z + 9, '#e0283f', 0.02);
+      for (let k = 0; k < 4; k++) {
+        const tx = cx - 7 + k * 4.6;
+        plaza.cyl(0.6, 0.6, 0.9, tx, 0.26, z, '#f4f1ea', 10);
+        plaza.cyl(0.06, 0.06, 2.3, tx, 0.26, z, '#cccccc', 4);
+        plaza.add(new THREE.ConeGeometry(1.6, 0.7, 8).translate(tx, 2.6, z), ['#e0283f', '#ffd23f', '#ffffff', '#3b5bdb'][k]);
+      }
+      for (const px of [b.minX + 6, b.maxX - 6]) {
+        plaza.block(2.4, 0.9, 2.4, px, 0.2, z + 4, '#8a5a3b', 0.25);
+        for (let k = 0; k < 4; k++) plaza.sphere(0.55, px + (k % 2 ? 0.5 : -0.5), 1.4, z + 4 + (k < 2 ? 0.5 : -0.5), ['#ff6b9a', '#ffd166', '#5cb85c', '#c77dff'][k]);
+      }
+    }
+    group.add(plaza.build('times-square-plaza'));
+    const booth = new Toy();
+    booth.block(8, 3, 4, cx, 0.2, cz + 13, '#f4f1ea', 0.2);
+    booth.block(8.6, 0.6, 4.6, cx, 3.2, cz + 13, '#e0283f', 0.3);
+    booth.block(6, 1.4, 0.3, cx, 1.2, cz + 15.05, '#7fb3e6', 0.2);
+    group.add(booth.build('tkts-booth'));
   }
   // Light poles with banners give the plaza its own skyline.
   const poleMat = track(new THREE.MeshLambertMaterial({ color: '#30343b' }));

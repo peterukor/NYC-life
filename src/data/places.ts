@@ -131,6 +131,27 @@ export const PLACES: PlaceDef[] = [
     landmark: { description: 'The 843-acre park in the middle of Manhattan, designed by Olmsted and Vaux.', officialSite: 'https://www.centralparknyc.org/', siteLabel: 'centralparknyc.org' },
   },
   {
+    id: 'chrysler', area: 'manhattan', name: 'Chrysler Building', emoji: '🏢', type: 'landmark',
+    blurb: 'The shiny Art Deco crown everyone secretly likes best. The lobby is a museum of marble and chrome.',
+    block: [5, 8], side: 'W', slot: 1, hours: [8, 18], interior: 'none', color: '#9aa8b8',
+    actions: ['photoSelfie'],
+    landmark: { description: 'The 1930 Art Deco skyscraper at Lexington Avenue and 42nd Street, famous for its steel crown.', officialSite: 'https://www.nyc.gov/site/lpc/index.page', siteLabel: 'NYC Landmarks Preservation' },
+  },
+  {
+    id: 'flatiron', area: 'manhattan', name: 'Flatiron Building', emoji: '📐', type: 'landmark',
+    blurb: 'The wedge-shaped 1902 tower where Broadway meets Fifth. Everyone takes the same photo. You will too.',
+    block: [3, 11], side: 'N', slot: 1, interior: 'none', color: '#d9c39b',
+    actions: ['photoSelfie'],
+    landmark: { description: 'The triangular 1902 skyscraper at Fifth Avenue, Broadway and 23rd Street.', officialSite: 'https://www.nyc.gov/site/lpc/index.page', siteLabel: 'NYC Landmarks Preservation' },
+  },
+  {
+    id: 'statueOfLiberty', area: 'manhattan', name: 'Statue of Liberty', emoji: '🗽', type: 'landmark',
+    blurb: 'Lady Liberty, out in the harbor. Wave from the pier, or squint at her torch at night.',
+    block: [0, 9], side: 'W', slot: 2, interior: 'none', color: '#7fcdb4',
+    actions: ['photoSelfie'],
+    landmark: { description: 'The 1886 copper statue on Liberty Island in New York Harbor, a gift from France.', officialSite: 'https://www.nps.gov/stli/', siteLabel: 'nps.gov/stli' },
+  },
+  {
     id: 'parkMall', area: 'manhattan', name: 'Central Park Galleria', emoji: '🛍️', type: 'landmark',
     blurb: 'Glass-roofed mall on the park: sneakers, fashion, a food hall and very nice bathrooms.',
     block: [5, 1], side: 'W', slot: 1, hours: [10, 22], interior: 'none', color: '#ff5fa2',
