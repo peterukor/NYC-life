@@ -90,7 +90,7 @@ export interface GangState {
   crew: string | null;
   rank: number;
   respect: Record<string, number>;
-  /** Blocks that changed hands: "area:c,r" → crew id. */
+  /** Blocks that changed hands: turfKey() → crew id. */
   turf?: Record<string, string>;
   /** Last game day you did something for your crew. */
   lastActive?: string;
@@ -101,6 +101,16 @@ export const newGangState = (): GangState => ({ crew: null, rank: 0, respect: {}
 // ---------------------------------------------------------------------
 // Turf
 // ---------------------------------------------------------------------
+
+/**
+ * Saved key of a block: its street lines, not its column/row number, so
+ * it still points at the same block when the playable grid grows. (Old
+ * "area:c,r" keys from before simply stop matching: turf resets.)
+ */
+export function turfKey(area: AreaId, c: number, r: number): string {
+  const d = DISTRICTS[area];
+  return `${area}@${d.xs[c]},${d.zs[r]}`;
+}
 
 const inBox = (lat: number, lon: number, b: [number, number, number, number]) => lat >= b[0] && lat <= b[2] && lon >= b[1] && lon <= b[3];
 
@@ -137,7 +147,7 @@ export function baseBlock(crew: CrewDef): { c: number; r: number } | null {
 /** Who owns block (c, r) right now (taking blocks changes this). */
 export function ownerOf(s: GameState, area: AreaId, c: number, r: number): CrewDef | null {
   if (SAFE_AREAS.includes(area)) return null;
-  const id = s.gang.turf?.[`${area}:${c},${r}`];
+  const id = s.gang.turf?.[turfKey(area, c, r)];
   if (id) return CREWS.get(id) ?? null;
   return defaultOwner(area, c, r);
 }
@@ -337,7 +347,7 @@ export function doMission(s: GameState, id: string, area: AreaId, x: number, z: 
   // Take a block.
   const b = blockAt(DISTRICTS[area], x, z)!;
   if (fight(s, owner!)) {
-    (s.gang.turf ??= {})[`${area}:${b.c},${b.r}`] = mine.id;
+    (s.gang.turf ??= {})[turfKey(area, b.c, b.r)] = mine.id;
     changeRespect(s, owner!.id, -25);
     changeRespect(s, mine.id, 12);
     s.paths.rep.crime = (s.paths.rep.crime ?? 0) + 15;
@@ -363,7 +373,7 @@ export function runGangDay(s: GameState, today: string): string | null {
     const lost = blocks.filter((t) => defaultOwner(crew.area, t.c, t.r)?.id === crew.id);
     const target = (lost.length ? lost : blocks)[Math.floor(Math.random() * (lost.length || blocks.length))];
     if (lost.length || Math.random() < 0.3) {
-      (s.gang.turf ??= {})[`${crew.area}:${target.c},${target.r}`] = crew.id;
+      (s.gang.turf ??= {})[turfKey(crew.area, target.c, target.r)] = crew.id;
       if (target.crew.id === s.gang.crew) notes.push(`${crew.emoji} ${crew.name} took one of your crew’s blocks.`);
     }
   }

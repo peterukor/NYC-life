@@ -122,7 +122,7 @@ export const PLOT_OVERRIDES: Record<string, { kind?: 'ad' | 'home' | 'buildings'
 /** How many random ad blocks / extra home lots each area gets. */
 const PICKS: Record<AreaId, { ads: number; harlemLots: number; lots: number }> = {
   manhattan: { ads: 20, harlemLots: 0.3, lots: 6 },
-  brooklyn: { ads: 0, harlemLots: 0, lots: 0 }, // Brooklyn gets its plots when its streets are redone
+  brooklyn: { ads: 12, harlemLots: 0, lots: 10 },
 };
 
 // ---------------------------------------------------------------- building the list

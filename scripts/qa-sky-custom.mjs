@@ -1,5 +1,5 @@
 // QA: sky-map views of any real places.
-//   VIEWS='[["name",lat,lon,dist],...]' node scripts/qa-sky-custom.mjs → test-results/sky-<name>.png
+//   AREA=brooklyn (optional) VIEWS='[["name",lat,lon,dist],...]' node scripts/qa-sky-custom.mjs → test-results/sky-<name>.png
 import puppeteer from 'puppeteer-core';
 import { mkdirSync } from 'node:fs';
 mkdirSync('test-results', { recursive: true });
@@ -19,6 +19,19 @@ await page.$eval('#ob-go', (el) => el.click());
 await wait(2500);
 await page.$eval('[data-nav="leave"]', (el) => el.click());
 await wait(2000);
+if (process.env.AREA === 'brooklyn') {
+  // Take the subway to Brooklyn first (answer any on-board event).
+  await page.evaluate(() => window.__nyc.travel('fortGreenePark'));
+  await wait(600);
+  await page.$eval('.sheet [data-act="subway"]', (el) => el.click());
+  for (let i = 0; i < 80; i++) {
+    if (await page.$('.modal .choice')) await page.$eval('.modal .choice', (el) => el.click());
+    if (await page.$('.modal [data-act="ok"]')) await page.$eval('.modal [data-act="ok"]', (el) => el.click());
+    if (await page.evaluate(() => window.__nyc.mode() === 'city' && window.__nyc.state().location.area === 'brooklyn')) break;
+    await wait(500);
+  }
+  await wait(2500);
+}
 await page.$eval('[data-nav="map"]', (el) => el.click());
 await wait(1500);
 const views = JSON.parse(process.env.VIEWS);

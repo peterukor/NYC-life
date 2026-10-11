@@ -100,6 +100,18 @@ function ringRoad(inset: number): XZ[] {
   return resample(chaikin(off, true, 2), 18, true);
 }
 
+/** Brooklyn's diagonal avenues and the BQE (real points). */
+const BK: { id: string; name: string; width: number; highway?: boolean; pts: [number, number][] }[] = [
+  { id: 'flatbush', name: 'Flatbush Ave', width: 15, pts: [[40.699, -73.987], [40.6905, -73.9825], [40.6846, -73.9776], [40.6795, -73.9745], [40.674, -73.9705], [40.663, -73.9625]] },
+  { id: 'atlantic', name: 'Atlantic Ave', width: 15, pts: [[40.6905, -73.9985], [40.6868, -73.9905], [40.6838, -73.9778], [40.682, -73.96], [40.679, -73.94]] },
+  { id: 'fulton', name: 'Fulton St', width: 13, pts: [[40.6927, -73.9897], [40.688, -73.98], [40.684, -73.97], [40.681, -73.955], [40.68, -73.94]] },
+  { id: 'bkBroadway', name: 'Broadway', width: 14, pts: [[40.7105, -73.9655], [40.704, -73.95], [40.6965, -73.935], [40.693, -73.928]] },
+  { id: 'myrtle', name: 'Myrtle Ave', width: 13, pts: [[40.6935, -73.985], [40.6935, -73.97], [40.6945, -73.955], [40.6965, -73.935]] },
+  { id: 'bedford', name: 'Bedford Ave', width: 13, pts: [[40.722, -73.955], [40.71, -73.9615], [40.695, -73.956], [40.68, -73.953]] },
+  { id: 'easternPkwy', name: 'Eastern Pkwy', width: 16, pts: [[40.6735, -73.97], [40.671, -73.96], [40.669, -73.945], [40.668, -73.93]] },
+  { id: 'bqe', name: 'BQE', width: 18, highway: true, pts: [[40.7035, -73.993], [40.699, -73.984], [40.6985, -73.97], [40.701, -73.956], [40.708, -73.951], [40.717, -73.948], [40.725, -73.945]] },
+];
+
 let cache: Corridor[] | null = null;
 
 export function corridors(): Corridor[] {
@@ -109,6 +121,7 @@ export function corridors(): Corridor[] {
     { id: 'manhattanRing', name: 'West Side Hwy · FDR Drive', area: 'manhattan', width: 18, highway: true, loop: true, pts: ringRoad(30) },
     // Brooklyn Bridge approach on the Manhattan side (City Hall).
     { id: 'bbApproach', name: 'Brooklyn Bridge', area: 'manhattan', width: 16, highway: true, pts: ll([[40.7123, -74.0052], [40.7095, -74.001]]) },
+    ...BK.map((c) => ({ id: c.id, name: c.name, area: 'brooklyn' as AreaId, width: c.width, highway: c.highway, pts: resample(chaikin(ll(c.pts), false, 2), 14, false) })),
   ];
   return cache;
 }

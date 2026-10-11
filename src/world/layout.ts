@@ -22,7 +22,7 @@
 // =====================================================================
 
 import type { AreaId } from '../sim/types.ts';
-import { boroughBounds, onLand as onAnyLand, outline, pointInRing, project, type BoroughId, type XZ } from './geo-proj.ts';
+import { boroughBounds, onLand as onAnyLand, outline, pointInRing, project, unproject, type BoroughId, type XZ } from './geo-proj.ts';
 import { Rng } from '../core/rng.ts';
 
 export type Zone = 'tall' | 'midrise' | 'brownstone' | 'waterfront';
@@ -141,10 +141,10 @@ interface GridSpec {
   r1: number;
 }
 
-function gridFor(borough: BoroughId, anchor: { x: number; z: number }, play: { minX: number; maxX: number; minZ: number; maxZ: number }, seed: string): GridSpec {
+function gridFor(borough: BoroughId, anchor: { x: number; z: number }, play: { minX: number; maxX: number; minZ: number; maxZ: number }, seed: string, colRange = COL_RANGE, rowRange = ROW_RANGE): GridSpec {
   const bb = boroughBounds(borough);
-  const allXs = lines(anchor.x, bb.minX - 200, bb.maxX + 200, COL_RANGE, `${seed}-x`);
-  const allZs = lines(anchor.z, bb.minZ - 200, bb.maxZ + 200, ROW_RANGE, `${seed}-z`);
+  const allXs = lines(anchor.x, bb.minX - 200, bb.maxX + 200, colRange, `${seed}-x`);
+  const allZs = lines(anchor.z, bb.minZ - 200, bb.maxZ + 200, rowRange, `${seed}-z`);
   const near = (arr: number[], v: number) => arr.reduce((bi, a, i) => (Math.abs(a - v) < Math.abs(arr[bi] - v) ? i : bi), 0);
   return { borough, allXs, allZs, c0: near(allXs, play.minX), c1: near(allXs, play.maxX), r0: near(allZs, play.minZ), r1: near(allZs, play.maxZ) };
 }
@@ -208,7 +208,7 @@ function cellOf(arr: number[], v: number): number {
  * Seeded joins: close a street (long block) or an avenue (wide block) now
  * and then, never next to another join and never on special blocks.
  */
-function makeJoins(cols: number, rows: number, seed: string, ok: (c: number, r: number) => boolean) {
+function makeJoins(cols: number, rows: number, seed: string, ok: (c: number, r: number) => boolean, rate = { s: 0.13, e: 0.08 }) {
   const rng = new Rng(seed);
   const S = new Set<string>();
   const E = new Set<string>();
@@ -217,10 +217,10 @@ function makeJoins(cols: number, rows: number, seed: string, ok: (c: number, r: 
     for (let r = 0; r < rows; r++) {
       if (used.has(`${c},${r}`) || !ok(c, r)) continue;
       const roll = rng.next();
-      if (roll < 0.13 && r + 1 < rows && ok(c, r + 1) && !used.has(`${c},${r + 1}`)) {
+      if (roll < rate.s && r + 1 < rows && ok(c, r + 1) && !used.has(`${c},${r + 1}`)) {
         S.add(`${c},${r}`);
         used.add(`${c},${r}`).add(`${c},${r + 1}`);
-      } else if (roll > 0.92 && c + 1 < cols && ok(c + 1, r) && !used.has(`${c + 1},${r}`)) {
+      } else if (roll > 1 - rate.e && c + 1 < cols && ok(c + 1, r) && !used.has(`${c + 1},${r}`)) {
         E.add(`${c},${r}`);
         used.add(`${c},${r}`).add(`${c + 1},${r}`);
       }
@@ -282,6 +282,8 @@ function district(base: Omit<DistrictDef, 'origin' | 'trimmed' | 'setKind' | 'xs
   kindAt: (x: number, z: number, c: number, r: number) => BlockKind;
   /** Where the hub (Times Square / Atlantic Plaza) is. */
   hubAt: { x: number; z: number; name: string };
+  /** How often streets / avenues are closed into long or wide blocks. */
+  joinRate?: { s: number; e: number };
 }): DistrictDef {
   const g = base.grid;
   const xs = g.allXs.slice(g.c0, g.c1 + 1);
@@ -305,7 +307,7 @@ function district(base: Omit<DistrictDef, 'origin' | 'trimmed' | 'setKind' | 'xs
   );
   // The hub and the block north of it are the bright plaza.
   if (kinds[hub.c]?.[hub.r] && kinds[hub.c][hub.r] !== 'water') kinds[hub.c][hub.r] = 'plaza';
-  const joins = makeJoins(cols, rows, `${base.seed}-joins`, (c, r) => kinds[c][r] === 'buildings' && !trims[c][r] && !(c === hub.c && Math.abs(r - hub.r) <= 1));
+  const joins = makeJoins(cols, rows, `${base.seed}-joins`, (c, r) => kinds[c][r] === 'buildings' && !trims[c][r] && !(c === hub.c && Math.abs(r - hub.r) <= 1), base.joinRate);
   return {
     ...base,
     origin: { x: xs[0], z: zs[0] },
@@ -408,6 +410,22 @@ const BK_STREETS: [string, [number, number], [number, number]][] = [
   ['Water St', [40.7035, -73.993], [40.703, -73.98]],
   ['Washington Ave', [40.696, -73.967], [40.68, -73.964]],
   ['Smith St', [40.6895, -73.9895], [40.678, -73.9945]],
+  ['Bedford Ave', [40.722, -73.955], [40.68, -73.953]],
+  ['Broadway', [40.7105, -73.9655], [40.693, -73.928]],
+  ['Metropolitan Ave', [40.7145, -73.963], [40.7135, -73.935]],
+  ['Grand St', [40.7155, -73.962], [40.712, -73.94]],
+  ['Flushing Ave', [40.698, -73.975], [40.7005, -73.93]],
+  ['Gates Ave', [40.686, -73.965], [40.6885, -73.93]],
+  ['Nostrand Ave', [40.698, -73.951], [40.665, -73.95]],
+  ['Classon Ave', [40.698, -73.961], [40.672, -73.958]],
+  ['Franklin Ave', [40.7, -73.9575], [40.668, -73.957]],
+  ['Kent Ave', [40.722, -73.962], [40.699, -73.968]],
+  ['Lafayette Ave', [40.6875, -73.976], [40.69, -73.935]],
+  ['7th Ave', [40.678, -73.973], [40.66, -73.985]],
+  ['5th Ave', [40.684, -73.977], [40.664, -73.99]],
+  ['Union St', [40.677, -73.995], [40.672, -73.97]],
+  ['Eastern Pkwy', [40.6735, -73.97], [40.668, -73.93]],
+  ['Bergen St', [40.6855, -73.995], [40.677, -73.94]],
 ];
 const BK_LINES = BK_STREETS.map(([n, a, b]) => ({ n, a: project(a[0], a[1]), b: project(b[0], b[1]) }));
 function bkNames(x: number, z: number): [string, string] {
@@ -421,14 +439,23 @@ function bkNames(x: number, z: number): [string, string] {
 }
 
 const B_FG_PARK = project(40.6913, -73.9757);
+const B_MCCARREN = project(40.7206, -73.9513);
 const B_HUB = project(40.6845, -73.978);
+/** Prospect Park: blocks whose centre is in this lat/lon box. */
+const inProspectPark = (lat: number, lon: number) => lat > 40.652 && lat < 40.6715 && lon > -73.9795 && lon < -73.962;
 
 const BROOKLYN = district({
   id: 'brooklyn',
   name: 'Brooklyn',
-  tagline: 'DUMBO · Downtown · Fort Greene',
+  tagline: 'Williamsburg · DUMBO · Downtown · Park Slope · Bed-Stuy',
   borough: 'brooklyn',
-  grid: playable(gridFor('brooklyn', { x: 480, z: 980 }, { minX: 470, maxX: 1150, minZ: 975, maxZ: 1600 }, 'brooklyn-grid-v3'), BROOKLYN_GRID),
+  // Brooklyn is less regular than Manhattan (Peter, 2026-10-11): the block
+  // sizes vary more, more streets are closed into odd long blocks, and a
+  // web of diagonal avenues cuts across the grid (world/corridors.ts).
+  // Playable from Greenpoint/Williamsburg down to Prospect Park, and east
+  // to Bed-Stuy.
+  grid: playable(gridFor('brooklyn', { x: 480, z: 980 }, { minX: 470, maxX: 1520, minZ: 520, maxZ: 1880 }, 'brooklyn-grid-v4', [104, 214], [52, 124]), BROOKLYN_GRID),
+  joinRate: { s: 0.2, e: 0.12 },
   blockW: 150,
   blockD: 70,
   avenueW: AVE_W,
@@ -439,14 +466,16 @@ const BROOKLYN = district({
     const d = BROOKLYN;
     const x = (d.xs[c] + d.xs[c + 1]) / 2;
     const z = (d.zs[r] + d.zs[r + 1]) / 2;
-    if (z < 1110) return 'waterfront'; // DUMBO / Vinegar Hill warehouses
-    if (x > 560 && x < 760 && z > 1200 && z < 1380) return 'tall'; // Downtown Brooklyn
-    return 'brownstone'; // Brooklyn Heights, Fort Greene, Boerum Hill, Clinton Hill
+    if (z < 1110 && x < 760) return 'waterfront'; // DUMBO / Vinegar Hill warehouses
+    if (z < 900 && x < 900) return x < 760 ? 'waterfront' : 'midrise'; // Williamsburg waterfront towers & lofts
+    if (x > 560 && x < 1000 && z > 1200 && z < 1420) return 'tall'; // Downtown Brooklyn & Barclays
+    return 'brownstone'; // Brooklyn Heights, Fort Greene, Park Slope, Bed-Stuy
   },
   kindAt: (x, z, c, r) => {
-    void x;
-    void z;
-    if (cellOf(BROOKLYN_GRID.xs, B_FG_PARK.x) === c && cellOf(BROOKLYN_GRID.zs, B_FG_PARK.z) === r) return 'park';
+    const inBlock = (p: { x: number; z: number }) => cellOf(BROOKLYN_GRID.xs, p.x) === c && cellOf(BROOKLYN_GRID.zs, p.z) === r;
+    if (inBlock(B_FG_PARK) || inBlock(B_MCCARREN)) return 'park';
+    const ll = unproject(x, z);
+    if (inProspectPark(ll.lat, ll.lon)) return 'park';
     return 'buildings';
   },
   hubAt: { x: B_HUB.x, z: B_HUB.z, name: 'Atlantic Plaza' },
