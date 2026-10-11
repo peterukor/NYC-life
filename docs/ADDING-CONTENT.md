@@ -23,6 +23,7 @@ fails the test).
 | Switch a system off | `src/systems/index.ts` | Delete its import line. |
 | Change how NPCs behave (where they go, when, how fast) | `src/data/crowd-brain.ts` | Edit `NEXT_STOP` (where people go after each kind of place), `timeBias` (time of day), `CROWD_DENSITY` (how busy each hour is). |
 | Add a type of NPC (jogger, shopper…) | `src/data/crowd-brain.ts` | An entry in `PERSONALITIES`: its share of the crowd, which stops it loves or avoids, its walking speed and how long it lingers. |
+| Add a kind of map pin (party, breaking news, friend…) | `src/data/pins.ts` | A `PIN_KINDS` entry (colour, priority, whether it may bounce, zoom rules) and a `PIN_SOURCES` entry (a function returning today's pins). The pin system only ever shows `MAX_PINS` (4) at once, merges overlapping pins and lets only one bounce. Never raise MAX_PINS without a good reason: pins must not overwhelm the screen. |
 | Add a landmark | New file in `src/world/landmarks/`, then one import line in `src/world/landmarks/index.ts` | `LANDMARKS.add({ id, build(ctx) })`, plus a place in `src/data/places.ts`. |
 | Add clothes | `src/data/wardrobe.ts` | An entry in `CLOTHES`. |
 | Add a place (shop, bar, gym) | `src/data/places.ts` | Its block, side, slot, type, hours and actions. |

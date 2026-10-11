@@ -6,3 +6,4 @@
 
 import './weather-fx.ts';
 import './traffic-system.ts';
+import './pins.ts';

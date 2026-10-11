@@ -253,6 +253,10 @@ export class Game {
     });
     this.started = true;
     document.querySelector('.loading')?.classList.add('done');
+    bus.on('pin:tap', (e) => {
+      const p = PLACE_BY_ID[e.placeId];
+      if (p) this.openPlace(p);
+    });
     bus.on('money:changed', (e) => {
       if (e.delta > 0 && e.delta >= 500) sfx.cash();
     });
@@ -286,6 +290,12 @@ export class Game {
     this.systems.areaLoaded(this.systemContext());
     this.ads = new AdManager(this.city.adSlots, q.tier);
     bus.emit('area:changed', { area });
+  }
+
+  /** Switch between the city, an interior and the subway view (tells listeners). */
+  private setMode(mode: 'city' | 'interior' | 'transit'): void {
+    this.engine.mode = mode;
+    bus.emit('view:mode', { mode });
   }
 
   /** What plug-in systems get to see (core/systems.ts). */
@@ -638,7 +648,7 @@ export class Game {
       this.fitInteriorCamera();
       this.engine.altScene = this.interior.scene;
       this.engine.altCamera = this.interiorCamera;
-      this.engine.mode = 'interior';
+      this.setMode('interior');
       this.state.location.placeId = place.id;
       this.state.location.area = place.area;
       const door = doorOf(place);
@@ -685,7 +695,7 @@ export class Game {
       this.interior?.dispose();
       this.interior = null;
       this.engine.cityScene.add(this.player.root);
-      this.engine.mode = 'city';
+      this.setMode('city');
       this.engine.altScene = null;
       this.state.location.placeId = null;
       this.placePlayerAtLocation();
@@ -909,7 +919,7 @@ export class Game {
     this.transit = buildSubwayRide(this.engine.renderer.domElement.clientWidth / this.engine.renderer.domElement.clientHeight);
     this.engine.altScene = this.transit.scene;
     this.engine.altCamera = this.transit.camera;
-    this.engine.mode = 'transit';
+    this.setMode('transit');
     fade(false);
     const rideUi = html(`<div class="ride-ui"><span class="chip">🚇 To ${DISTRICTS[area].name}</span><button class="chip" data-act="skip">Skip ⏭</button></div>`);
     root().appendChild(rideUi);
@@ -936,7 +946,7 @@ export class Game {
     this.state.location = { area, placeId: null, x: sd.x, z: sd.z };
     if (!this.state.stats.placesVisited.includes(station.id)) this.state.stats.placesVisited.push(station.id);
     this.engine.cityScene.add(this.player.root);
-    this.engine.mode = 'city';
+    this.setMode('city');
     this.engine.altScene = null;
     this.placePlayerAtLocation();
     fade(false);
@@ -972,7 +982,7 @@ export class Game {
         this.interior?.dispose();
         this.interior = null;
         this.engine.cityScene.add(this.player.root);
-        this.engine.mode = 'city';
+        this.setMode('city');
         this.engine.altScene = null;
       }
       if (!this.city || this.city.area !== place.area) this.loadArea(place.area);

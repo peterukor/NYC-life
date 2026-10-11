@@ -67,3 +67,11 @@ test('every vehicle is complete', () => {
   // Buses and fire engines never park at the kerb.
   for (let i = 0; i < 200; i++) assert.notEqual(pickVehicle(Math.random, 'parkWeight').id, 'bus');
 });
+
+import { PIN_KINDS, PIN_SOURCES } from '../src/data/pins.ts';
+
+test('every pin source uses a known pin kind', () => {
+  const ids = new Set(PIN_KINDS.all().map((k) => k.id));
+  assert.ok(PIN_SOURCES.size > 0);
+  for (const k of ['home', 'work', 'sale', 'landmark']) assert.ok(ids.has(k), `missing pin kind ${k}`);
+});

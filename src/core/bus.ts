@@ -27,6 +27,8 @@ export interface GameEvents {
   'action:finished': { actionId: string };
   'event:fired': { eventId: string };
   'news:posted': { id: string };
+  'pin:tap': { placeId: string };
+  'view:mode': { mode: 'city' | 'interior' | 'transit' };
   'job:changed': { careerId: string | null };
   'shift:finished': { pay: number };
   'save:loaded': Record<string, never>;

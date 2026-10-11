@@ -281,3 +281,32 @@ a { color: var(--info); }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
+
+/* ------------------------------------------------------------------
+   Map pins (systems/pins.ts): small teardrops over the 3D city.
+   Calm by default: slightly see-through, one bounces at most.
+   ------------------------------------------------------------------ */
+.pin-layer { position: absolute; inset: 0; pointer-events: none; z-index: 1; overflow: hidden; }
+.map-pin {
+  position: absolute; left: 0; top: 0; width: 30px; height: 40px; margin: -40px 0 0 -15px;
+  padding: 0; border: 0; background: none; pointer-events: auto; cursor: pointer;
+  opacity: 0.88; filter: drop-shadow(0 2px 0 rgba(28, 35, 64, 0.35));
+  transition: opacity 0.2s;
+}
+.map-pin svg { width: 100%; height: 100%; display: block; }
+.map-pin .pin-ico { position: absolute; left: 0; right: 0; top: 7px; font-size: 13px; line-height: 18px; text-align: center; }
+.map-pin .pin-more {
+  position: absolute; right: -8px; top: -4px; min-width: 18px; height: 18px; padding: 0 4px;
+  border-radius: 9px; background: var(--ink); color: #fff; font-size: 11px; line-height: 18px;
+}
+.map-pin .pin-label {
+  position: absolute; left: 50%; bottom: 44px; transform: translateX(-50%) scale(0.9); transform-origin: bottom center;
+  white-space: nowrap; max-width: 220px; overflow: hidden; text-overflow: ellipsis;
+  background: #fff; color: var(--ink); border: var(--line-thin); border-radius: 12px; padding: 4px 10px;
+  font-size: 12px; box-shadow: var(--drop-sm); opacity: 0; pointer-events: none; transition: opacity 0.15s, transform 0.15s;
+}
+.map-pin.open { opacity: 1; z-index: 2; }
+.map-pin.open .pin-label { opacity: 1; transform: translateX(-50%) scale(1); }
+.map-pin.loud svg, .map-pin.loud .pin-ico { animation: pin-bob 1.6s ease-in-out infinite; }
+@keyframes pin-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+@media (prefers-reduced-motion: reduce) { .map-pin.loud svg, .map-pin.loud .pin-ico { animation: none; } }
