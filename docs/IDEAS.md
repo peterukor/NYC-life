@@ -67,6 +67,8 @@ These are Peter's requests (2026-10-11) plus ideas for making the game fun for 1
 
 ## 4. Suggested build order (cheap → expensive)
 
+Status 2026-10-11: items 1–5 are DONE (NPC memory and fights, Speak loud, dates, Contacts and texting, daily city events). Next is 6, the server.
+
 1. NPC memory + mean/kind + fight back.
 2. Speak loud (local only).
 3. Dates (NPCs).
