@@ -11,6 +11,7 @@
 //   • tryLevelUp: checks rep + checklist and promotes you.
 // =====================================================================
 
+import { coolBonus } from './garage.ts';
 import { arrest } from './jail.ts';
 import { nowMs } from '../core/clock.ts';
 import { Rng } from '../core/rng.ts';
@@ -123,7 +124,9 @@ export function onPathAction(s: GameState, actionId: string, risk = 0): { rep: n
   const base = p.rep[actionId] ?? 0;
   const lvl = pathLevel(s, id);
   const repeatPenalty = counts[actionId] > 20 ? 0.6 : 1;
-  const gained = base > 0 ? Math.max(1, Math.round(base * repeatPenalty * (1.6 / (1 + lvl * 0.35)))) : 0;
+  // Fame comes faster when you look the part (Cool meter, sim/garage.ts).
+  const cool = id === 'celebrity' ? coolBonus(s) : 1;
+  const gained = base > 0 ? Math.max(1, Math.round(base * repeatPenalty * cool * (1.6 / (1 + lvl * 0.35)))) : 0;
   if (gained) {
     s.paths.rep[id] = (s.paths.rep[id] ?? 0) + gained;
     const today = realDay();

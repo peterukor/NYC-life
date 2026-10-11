@@ -23,4 +23,7 @@ for (let i = 0; i < 9; i++) {
 }
 await wait(600);
 await page.screenshot({ path: 'test-results/map-zoomed.png' });
+await page.$eval('.map [data-act="gang"]', (el) => el.click());
+await wait(400);
+await page.screenshot({ path: 'test-results/map-gangs.png' });
 await browser.close();

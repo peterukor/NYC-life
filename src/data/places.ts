@@ -52,6 +52,11 @@ export const PLACES: PlaceDef[] = [
     block: [1, 5], side: 'S', slot: 1, interior: 'apartment', actions: [], color: '#c0583b', rent: 65_000,
   },
   {
+    id: 'shelter', area: 'manhattan', name: 'Hope House Shelter', emoji: '🛏️', type: 'home',
+    blurb: 'Free bunk, hot meals, strict curfew. Everyone here is on their way back up.',
+    block: [0, 6], side: 'S', slot: 1, interior: 'apartment', actions: [], color: '#5b7c99', rent: 0,
+  },
+  {
     id: 'bodegaHk', area: 'manhattan', name: 'Kings Deli & Grocery', emoji: '🏪', type: 'food',
     blurb: 'Open 24/7. The cat runs the place. Best chopped cheese on Ninth.',
     block: [1, 6], side: 'S', slot: 2, interior: 'bodega', color: '#e8b923',

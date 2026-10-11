@@ -25,6 +25,8 @@ import { BUSINESS_TYPES } from '../data/businesses.ts';
 import { businessValue, buyBusiness, candidates, fire, hire, TAX } from '../sim/business.ts';
 import { PATHS } from '../data/paths.ts';
 import { joinPath, leavePath, levelBlockers, levelTasks, pathLevel, pathTitle, taskProgress, tryLevelUp } from '../sim/paths.ts';
+import { PHONE_APPS, type PhoneAppCtx } from './phone-apps.ts';
+import { bankruptcyBlocker, DEBT } from '../sim/debt.ts';
 import { buyStock, dayChange, netWorth, portfolioValue, priceOf, recentPrices, sellStock, TRADE_FEE } from '../sim/market.ts';
 
 export interface PhoneHost {
@@ -73,7 +75,7 @@ export function openPhone(host: PhoneHost, startApp?: string): () => void {
         <div class="phone-time">${clockLabel(t).replace(/ (AM|PM)/, '')}</div>
         <div class="phone-date">${new Date(`${t.dateKey}T12:00:00Z`).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'UTC' })} · New York · ${w.emoji} ${w.label}</div>
         ${s.phone.ok ? '' : `<div class="card" style="margin-bottom:14px;background:rgba(255,69,58,.15)"><h3>📵 Your phone is gone</h3><p>${esc(s.phone.lostReason ?? 'Lost')}. Most apps are locked until you get it back.</p><button class="btn primary block" style="margin-top:10px" data-act="app:recover">Get it back</button></div>`}
-        <div class="apps">${APPS.map((a) => `<button class="app" data-act="app:${a.id}" ${a.needsPhone && !s.phone.ok ? 'aria-disabled="true" disabled' : ''}><span class="icon" style="background:${a.bg}">${a.icon}</span>${a.label}</button>`).join('')}</div>
+        <div class="apps">${[...APPS, ...PHONE_APPS.where((a) => !a.hidden).sort((a, b) => (a.order ?? 100) - (b.order ?? 100))].map((a) => `<button class="app" data-act="app:${a.id}" ${a.needsPhone && !s.phone.ok ? 'aria-disabled="true" disabled' : ''}><span class="icon" style="background:${a.bg}">${a.icon}</span>${a.label}</button>`).join('')}</div>
       </div>`;
   };
 
@@ -112,6 +114,7 @@ export function openPhone(host: PhoneHost, startApp?: string): () => void {
           <button class="btn" data-act="dep:5000">Deposit $50</button><button class="btn" data-act="dep:all">Deposit all</button>
           <button class="btn" data-act="wd:5000">Withdraw $50</button><button class="btn" data-act="wd:20000">Withdraw $200</button>
         </div>
+        ${s.debt ? `<div class="card" style="border:2px solid var(--bad)"><h3>📞 In collections: ${money(s.debt.owed)}</h3><p>Unpaid bills since ${esc(s.debt.since)}. Collectors take ${Math.round(DEBT.dailyGrab * 100)}% a day from your cash and bank, and add interest when they can’t.</p><button class="btn primary block" style="margin-top:10px" data-act="debt.pay">Pay off what I can</button>${bankruptcyBlocker(s) ? `<p class="sub" style="margin-top:8px">${esc(bankruptcyBlocker(s)!)}</p>` : `<button class="btn block" style="margin-top:8px;color:var(--bad)" data-act="debt.ask">File for bankruptcy…</button>`}</div>` : ''}
         ${s.loan ? `<div class="card"><h3>🎓 Student loan</h3><p>${money(s.loan.owed)} left · ${money(s.loan.weekly)} taken every week automatically.</p></div>` : ''}
         ${s.home.weeklyRent ? `<div class="card"><h3>🏠 Rent</h3><p>${money(s.home.weeklyRent)} every week (cash first, then bank).</p></div>` : `<div class="card"><h3>🏠 Rent</h3><p>Paid by Dad. Must be nice.</p></div>`}
         <h3 style="margin:16px 0 8px;font-size:15px">History</h3>
@@ -248,10 +251,34 @@ export function openPhone(host: PhoneHost, startApp?: string): () => void {
 
   let newsTab: ((t: string) => void) | null = null;
 
+  // Plug-in apps (ui/phone-apps.ts).
+  const ctx: PhoneAppCtx = { s, host, close: () => close() };
+  const openRegistered = (id: string) => {
+    const app = PHONE_APPS.get(id);
+    if (!app) return home();
+    const r = app.render(ctx);
+    page(r.title, r.body);
+  };
+
   onAct(el, (act) => {
     if (act === 'close') return close();
     if (act === 'home') return home();
-    if (act.startsWith('app:')) return apps[act.slice(4)]?.();
+    if (act.startsWith('app:')) {
+      const id = act.slice(4);
+      if (apps[id]) return apps[id]();
+      return openRegistered(id);
+    }
+    // Acts from plug-in apps look like "cars.buy:metroSedan".
+    const dot = act.indexOf('.');
+    if (dot > 0 && PHONE_APPS.has(act.slice(0, dot))) {
+      const app = PHONE_APPS.require(act.slice(0, dot));
+      const r = app.act?.(act.slice(dot + 1), ctx);
+      host.save();
+      host.refresh();
+      if (r === 'close') return close();
+      if (typeof r === 'string') return apps[r] ? apps[r]() : openRegistered(r);
+      return openRegistered(app.id);
+    }
     if (act.startsWith('ntab:')) return newsTab?.(act.slice(5));
     if (act.startsWith('hire:')) {
       const id = act.slice(5);
@@ -353,6 +380,7 @@ export function openPhone(host: PhoneHost, startApp?: string): () => void {
   });
 
   if (startApp && apps[startApp]) apps[startApp]();
+  else if (startApp && PHONE_APPS.has(startApp)) openRegistered(startApp);
   else home();
   return close;
 }

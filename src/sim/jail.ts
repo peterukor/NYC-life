@@ -41,6 +41,8 @@ export interface JailState {
   bail: number;
   /** Already tried a lawyer this stay. */
   lawyered?: boolean;
+  /** When each activity was last done (real ms): one per 2 game hours, so it can't be farmed. */
+  last?: Record<string, number>;
 }
 
 export interface JailActivity {
@@ -143,6 +145,9 @@ export function callLawyer(s: GameState): string {
 export function doJailActivity(s: GameState, id: string): string {
   const a = JAIL_ACTIVITIES.find((x) => x.id === id);
   if (!a || !inJail(s)) return '';
+  const last = (s.jail!.last ??= {});
+  if (nowMs() - (last[id] ?? 0) < gameMinutesToRealMs(120)) return 'Not again yet. The guards are watching.';
+  last[id] = nowMs();
   applyNeeds(s, a.needs);
   return a.run(s);
 }

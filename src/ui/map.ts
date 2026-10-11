@@ -16,6 +16,8 @@ import { doorOf, placesIn, isOpen } from '../data/places.ts';
 import type { AreaId } from '../sim/types.ts';
 import { avenueX, blockRect, districtBounds, DISTRICTS, streetZ } from '../world/layout.ts';
 import { html, onAct, root } from './dom.ts';
+import { drawBase, drawCompass, drawHoods } from './map-art.ts';
+import { CREWS, crewOfBlock } from '../sim/gangs.ts';
 
 const BOROUGHS: { id: AreaId | 'queens' | 'bronx' | 'si'; label: string; ready: boolean }[] = [
   { id: 'manhattan', label: 'Manhattan', ready: true },
@@ -39,6 +41,7 @@ export function openMap(opts: MapOptions): () => void {
     <div class="map" role="dialog" aria-label="City map">
       <div class="map-top">
         <div class="seg" data-tabs>${BOROUGHS.map((b) => `<button data-act="tab:${b.id}" class="${b.id === area ? 'on' : ''}" ${b.ready ? '' : 'aria-disabled="true" title="Coming soon"'}>${b.label}${b.ready ? '' : ' 🚧'}</button>`).join('')}</div>
+        <button class="btn" data-act="gang" aria-pressed="false" title="Show crew turf">🧢</button>
         <button class="btn" data-act="close" aria-label="Close map">✕</button>
       </div>
       <canvas></canvas>
@@ -134,67 +137,44 @@ export function openMap(opts: MapOptions): () => void {
     g.restore();
   };
 
+  /** Gang view: each crew's turf tinted in its colour, with its badge. */
+  let gangView = false;
+  function drawGangs(d: (typeof DISTRICTS)[AreaId]): void {
+    const seen = new Map<string, { x: number; y: number; n: number }>();
+    for (let c = 0; c < d.cols; c++) {
+      for (let r = 0; r < d.rows; r++) {
+        const crew = crewOfBlock(area, c, r);
+        if (!crew) continue;
+        const b = blockRect(d, c, r);
+        g.fillStyle = `${crew.color}55`;
+        g.fillRect(sx(b.minX) - d.avenueW * scale * 0.5, sy(b.minZ) - d.streetW * scale * 0.5, (b.maxX - b.minX + d.avenueW) * scale, (b.maxZ - b.minZ + d.streetW) * scale);
+        const m = seen.get(crew.id) ?? { x: 0, y: 0, n: 0 };
+        m.x += sx((b.minX + b.maxX) / 2);
+        m.y += sy((b.minZ + b.maxZ) / 2);
+        m.n++;
+        seen.set(crew.id, m);
+      }
+    }
+    for (const [id, m] of seen) {
+      const crew = CREWS.require(id);
+      const x = m.x / m.n;
+      const y = m.y / m.n;
+      g.textAlign = 'center';
+      g.font = '22px system-ui, "Apple Color Emoji", "Segoe UI Emoji", sans-serif';
+      g.fillText(crew.emoji, x, y - 8);
+      halo(crew.name, x, y + 14, '900 13px Nunito, system-ui, sans-serif', crew.color);
+    }
+  }
+
   function draw(): void {
     const d = DISTRICTS[area];
     const w = canvas.clientWidth;
     const h = canvas.clientHeight;
-    // Land and streets: soft Apple-Maps neutrals.
-    g.fillStyle = '#f3f0ea';
-    g.fillRect(0, 0, w, h);
-    // Water.
-    g.fillStyle = '#a7d8f5';
-    if (d.water.side === 'west') g.fillRect(0, 0, sx(avenueX(d, 0) - d.avenueW / 2 - 6), h);
-    else g.fillRect(0, 0, w, sy(streetZ(d, 0) - d.streetW / 2 - 6));
-    // Roads: white with a soft edge (avenues wider than streets).
-    const b0 = districtBounds(d, 0);
-    g.strokeStyle = '#dcd7cd';
-    g.lineCap = 'butt';
-    for (let i = 0; i <= d.cols; i++) {
-      g.lineWidth = d.avenueW * scale + 2;
-      g.beginPath();
-      g.moveTo(sx(avenueX(d, i)), sy(b0.minZ));
-      g.lineTo(sx(avenueX(d, i)), sy(b0.maxZ));
-      g.stroke();
-    }
-    for (let j = 0; j <= d.rows; j++) {
-      g.lineWidth = d.streetW * scale + 2;
-      g.beginPath();
-      g.moveTo(sx(b0.minX), sy(streetZ(d, j)));
-      g.lineTo(sx(b0.maxX), sy(streetZ(d, j)));
-      g.stroke();
-    }
-    // Blocks: light warm grey; parks green; plazas a soft yellow; empty land hatched.
-    for (let c = 0; c < d.cols; c++) {
-      for (let r = 0; r < d.rows; r++) {
-        const b = blockRect(d, c, r);
-        const kind = d.kind(c, r);
-        g.fillStyle = kind === 'park' ? '#bfe3a5' : kind === 'plaza' ? '#fbe7a1' : kind === 'vacant' ? '#ece4d4' : d.zone(c, r) === 'tall' ? '#e4e1ea' : '#ebe5dc';
-        roundRect(g, sx(b.minX), sy(b.minZ), (b.maxX - b.minX) * scale, (b.maxZ - b.minZ) * scale, Math.min(5, 2 * scale));
-        if (kind === 'vacant') {
-          g.save();
-          g.clip();
-          g.strokeStyle = 'rgba(120,105,80,0.18)';
-          g.lineWidth = 2;
-          for (let k = -200; k < 400; k += 10) {
-            g.beginPath();
-            g.moveTo(sx(b.minX) + k, sy(b.minZ));
-            g.lineTo(sx(b.minX) + k + 60, sy(b.maxZ));
-            g.stroke();
-          }
-          g.restore();
-        }
-        // A few soft building footprints when zoomed in, so blocks don't look empty.
-        if (kind === 'buildings' && scale > 1.6) {
-          g.fillStyle = 'rgba(160,150,135,0.18)';
-          const n = 4;
-          for (let k = 0; k < n; k++) {
-            const bx = b.minX + 5 + k * ((b.maxX - b.minX - 10) / n);
-            roundRect(g, sx(bx), sy(b.minZ + 5), ((b.maxX - b.minX - 10) / n - 2) * scale, (b.maxZ - b.minZ - 10) * 0.42 * scale, 2);
-            roundRect(g, sx(bx), sy(b.maxZ - 5 - (b.maxZ - b.minZ - 10) * 0.42), ((b.maxX - b.minX - 10) / n - 2) * scale, (b.maxZ - b.minZ - 10) * 0.42 * scale, 2);
-          }
-        }
-      }
-    }
+    // The illustrated base map: coast, waves, piers, little buildings,
+    // parks with trees and paths (ui/map-art.ts).
+    const view = { sx, sy, scale, w, h };
+    drawBase(g, d, view);
+    if (gangView) drawGangs(d);
     // Subway lines and stations.
     const lw = Math.max(3, Math.min(7, 3 * scale));
     for (const line of LINES[area]) {
@@ -253,6 +233,8 @@ export function openMap(opts: MapOptions): () => void {
       const leftX = Math.max(sx(avenueX(d, 0)) + 60, 90);
       d.streetNames.forEach((n, j) => halo(n, leftX, sy(streetZ(d, j)) + 4, '700 11px Nunito, system-ui, sans-serif', '#6b7088'));
     }
+    drawHoods(g, d, view);
+    drawCompass(g, w - 30, 92);
     // Area title + water label.
     g.textAlign = 'left';
     halo(d.name, 14, 30, '400 24px "Lilita One", system-ui, sans-serif', '#1c2340');
@@ -382,6 +364,13 @@ export function openMap(opts: MapOptions): () => void {
 
   onAct(el, (act) => {
     if (act === 'close') return void close();
+    if (act === 'gang') {
+      gangView = !gangView;
+      el.querySelector('[data-act="gang"]')!.setAttribute('aria-pressed', String(gangView));
+      el.querySelector<HTMLElement>('[data-act="gang"]')!.classList.toggle('primary', gangView);
+      el.querySelector('.map-legend')!.textContent = gangView ? 'Gang view: coloured blocks are crew turf. Careful who you walk past.' : 'Tap a place to go there · pinch to zoom';
+      return draw();
+    }
     if (act.startsWith('tab:')) {
       const id = act.slice(4) as AreaId;
       if (id !== 'manhattan' && id !== 'brooklyn') return;
@@ -405,15 +394,4 @@ export function openMap(opts: MapOptions): () => void {
     opts.onClose();
   }
   return close;
-}
-
-function roundRect(g: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number): void {
-  g.beginPath();
-  g.moveTo(x + r, y);
-  g.arcTo(x + w, y, x + w, y + h, r);
-  g.arcTo(x + w, y + h, x, y + h, r);
-  g.arcTo(x, y + h, x, y, r);
-  g.arcTo(x, y, x + w, y, r);
-  g.closePath();
-  g.fill();
 }

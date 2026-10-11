@@ -65,6 +65,11 @@ import { DISTRICTS, crossStreets, blockRect } from './world/layout.ts';
 import { findPath, nearestWalkable } from './world/nav.ts';
 import { SystemRunner, type SystemContext } from './core/systems.ts';
 import './systems/index.ts';
+import './sim/gang-events.ts';
+import { syncJail } from './ui/jail.ts';
+import { arrest } from './sim/jail.ts';
+import { driveTrip, drivingCar, GARAGE, licenceSuspended } from './sim/garage.ts';
+import './ui/phone-apps.ts';
 import { buildSubwayRide, type TransitScene } from './world/transit.ts';
 import { sfx, setSoundEnabled } from './ui/audio.ts';
 import { closeSheet, fade, html, isSheetOpen, onAct, openModal, openSheet, progressBar, root, toast, wait } from './ui/dom.ts';
@@ -176,6 +181,8 @@ export class Game {
         this.followCamera = false;
         return true;
       },
+      /** Lock the player up for `hours` game hours (tests the jail screen). */
+      jail: (hours = 6) => arrest(this.state, 'caught in the act', hours, 40_000),
       /** Line up every vehicle on a white floor for a screenshot (scripts/qa-cars.mjs). */
       carShow: (ids?: string[], cols = 4) => {
         const scene = new THREE.Scene();
@@ -465,6 +472,7 @@ export class Game {
       this.transit.update(dt);
     }
 
+    if (this.started) this.syncCar();
     if (this.started) {
       this.hudTimer += dt;
       if (this.hudTimer > 0.25) {
@@ -486,7 +494,8 @@ export class Game {
         this.path.shift();
         if (!this.path.length) this.arrived();
       } else {
-        const step = Math.min(dist, WALK_SPEED * dt);
+        const walk = WALK_SPEED * (this.state.garage.driving ? GARAGE.driveSpeed : 1);
+        const step = Math.min(dist, walk * dt);
         p.x += (dx / dist) * step;
         p.z += (dz / dist) * step;
         speed = WALK_SPEED;
@@ -623,7 +632,7 @@ export class Game {
       : '';
     const actions = !canGoIn ? this.actionGrid(place.actions, open) : '';
     const rentable = place.type === 'home' && !isHome
-      ? `<div class="card"><h3>For rent: ${money(place.rent ?? 0)} / week</h3><p>Moving here makes it your home. Rent is charged weekly from your cash, then your bank.</p><button class="btn primary block" style="margin-top:10px" data-act="move">Move in</button></div>`
+      ? `<div class="card"><h3>${place.rent ? `For rent: ${money(place.rent)} / week` : 'Free bed'}</h3><p>${place.rent ? 'Moving here makes it your home. Rent is charged weekly from your cash, then your bank.' : 'No rent. No privacy either. Somewhere to land while you get back up.'}</p><button class="btn primary block" style="margin-top:10px" data-act="move">Move in</button></div>`
       : '';
     const station = place.type === 'station' ? `<div class="stack" style="margin-bottom:12px">${(['manhattan', 'brooklyn'] as AreaId[]).filter((a) => a !== place.area).map((a) => `<button class="btn primary block" data-act="train:${a}">🚇 Take the train to ${DISTRICTS[a].name} · ${money(SUBWAY_FARE)}</button>`).join('')}</div>` : '';
     const sheet = openSheet({
@@ -1075,6 +1084,8 @@ export class Game {
       body: `<p class="blurb">${esc(place.blurb)}</p>
         <div class="travel">
           ${same ? `<button class="opt" data-act="walk"><span style="font-size:24px">🚶</span><span class="grow"><b>Walk</b><small>about ${walkMin} min</small></span><span class="cost">Free</span></button>` : ''}
+          ${s.garage.cars.length ? `<button class="opt" data-act="drive"><span style="font-size:24px">🚗</span><span class="grow"><b>Drive there</b><small>your own car${licenceSuspended(s) ? ' · ⚠️ licence suspended' : ''}</small></span><span class="cost">${money(GARAGE.tripCost)}</span></button>
+          <button class="opt" data-act="floor"><span style="font-size:24px">🏎️</span><span class="grow"><b>Floor it</b><small>twice as fast · fun · risk of a ticket</small></span><span class="cost">${money(GARAGE.tripCost)}</span></button>` : ''}
           <button class="opt" data-act="subway"><span style="font-size:24px">🚇</span><span class="grow"><b>Subway</b><small>${same ? 'a couple of stops' : `to ${DISTRICTS[place.area].name}`}</small></span><span class="cost">${money(SUBWAY_FARE)}</span></button>
           <button class="opt" data-act="ride" ${s.phone.ok ? '' : 'disabled aria-disabled="true"'}><span style="font-size:24px">🚗</span><span class="grow"><b>Rideshare</b><small>${s.phone.ok ? `${ride.minutes} min${ride.surge > 1 ? ` · ⚡ surge ×${ride.surge.toFixed(1)}` : ''}` : 'needs your phone'}</small></span><span class="cost">${money(ride.cost)}</span></button>
           <button class="opt" data-act="lux" ${s.phone.ok ? '' : 'disabled aria-disabled="true"'}><span style="font-size:24px">🖤</span><span class="grow"><b>Rideshare Black</b><small>leather seats, bottled water</small></span><span class="cost">${money(lux.cost)}</span></button>
@@ -1086,6 +1097,8 @@ export class Game {
         if (this.engine.mode === 'interior') this.leaveInterior();
         window.setTimeout(() => this.walkToPlace(place.id), this.engine.mode === 'interior' ? 400 : 0);
       }
+      if (act === 'drive') this.driveTo(place.id, false);
+      if (act === 'floor') this.driveTo(place.id, true);
       if (act === 'subway') void this.rideTrain(place.area, place.id);
       if (act === 'ride') this.rideshare(place.id, false);
       if (act === 'lux') this.rideshare(place.id, true);
@@ -1331,6 +1344,75 @@ export class Game {
       goal: goal ? { title: goal.title, hint: goal.hint } : null,
     });
     void force;
+    syncJail(s, () => {
+      this.save();
+      this.refreshHud();
+    });
+  }
+
+  /** Your own car, drawn where you are while you drive (sim/garage.ts). */
+  private carMesh: THREE.Mesh | null = null;
+  private carKey = '';
+  private syncCar(): void {
+    const car = this.state ? drivingCar(this.state) : null;
+    const key = car ? `${car.model}|${car.paint}` : '';
+    if (key !== this.carKey) {
+      if (this.carMesh) this.carMesh.removeFromParent();
+      this.carMesh = null;
+      this.carKey = key;
+      const v = car ? VEHICLES.get(car.model) : undefined;
+      if (v && car) {
+        this.carMesh = new THREE.Mesh(vehicleGeometry(v, car.paint), vehicleMaterial());
+        this.carMesh.name = 'my-car';
+        this.engine.cityScene.add(this.carMesh);
+      }
+    }
+    this.player.root.visible = !this.carMesh || this.engine.mode !== 'city';
+    if (this.carMesh) {
+      this.carMesh.position.set(this.player.root.position.x, 0, this.player.root.position.z);
+      this.carMesh.rotation.y = this.player.root.rotation.y;
+    }
+  }
+
+  /** Drive your own car to a place. floorIt = speeding (faster, fun, risky). */
+  private driveTo(placeId: string, floorIt: boolean): void {
+    if (this.busy) return;
+    const s = this.state;
+    const place = PLACE_BY_ID[placeId];
+    if (!s.garage.driving) s.garage.driving = s.garage.cars[0]?.uid ?? null;
+    const car = drivingCar(s);
+    if (!car) return toast('You don’t own a car. Phone → Cars.', { icon: '🚗', tone: 'bad' });
+    const t = nycTime();
+    const r = driveTrip(s, floorIt, weatherFor(t.dateKey, t.hour));
+    closeSheet();
+    if (r.stopped) {
+      sfx.bad();
+      for (const line of r.lines) toast(line, { tone: 'bad', ms: 5500 });
+      this.save();
+      this.refreshHud(true);
+      return;
+    }
+    this.busy = true;
+    const v = VEHICLES.get(car.model);
+    fade(true, floorIt ? '🏎️ Flooring it…' : `🚗 Driving your ${v?.name ?? 'car'}`, `To ${place.name}${place.area !== s.location.area ? ' — over the bridge' : ''}`);
+    window.setTimeout(() => {
+      if (this.engine.mode === 'interior') {
+        this.interior?.dispose();
+        this.interior = null;
+        this.engine.cityScene.add(this.player.root);
+        this.setMode('city');
+        this.engine.altScene = null;
+      }
+      if (!this.city || this.city.area !== place.area) this.loadArea(place.area);
+      const d = doorOf(place);
+      this.state.location = { area: place.area, placeId: null, x: d.x, z: d.z };
+      this.placePlayerAtLocation();
+      fade(false);
+      this.busy = false;
+      for (const line of r.lines) toast(line, { tone: r.tone, ms: 5000 });
+      this.save();
+      window.setTimeout(() => this.openPlace(place), 400);
+    }, floorIt ? 1100 : 1800);
   }
 
   private save(): void {

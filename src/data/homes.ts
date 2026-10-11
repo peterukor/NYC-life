@@ -187,10 +187,44 @@ HOME_LAYOUTS.add(
       { uid: 'closet', item: 'closet', x: -5.6, z: -0.6, rot: H },
     ],
   },
+  {
+    // The city shelter: a dorm of single beds, lockers, a shared table
+    // and a bathroom. Where you land after bankruptcy (sim/debt.ts).
+    id: 'shelter',
+    name: 'Shelter dorm',
+    width: 12,
+    depth: 9,
+    wallColor: '#dfe6ee',
+    rooms: [
+      { label: 'Dorm', rect: [-6, -4.5, 2.5, 4.5], floor: '#b9c4cf' },
+      { label: 'Washroom', rect: [2.5, -4.5, 6, 0], floor: '#c4e2e6' },
+      { label: 'Common', rect: [2.5, 0, 6, 4.5], floor: '#cfc6b8' },
+    ],
+    walls: [
+      { a: [2.5, -4.5], b: [2.5, 0], gaps: [[2.8, 3.9]] },
+      { a: [2.5, 0], b: [6, 0], gaps: [[1.0, 2.2]] },
+    ],
+    furniture: [
+      { uid: 'bed', item: 'bedSingle', x: -5.0, z: -2.8, rot: 0 },
+      { uid: 'bed2', item: 'bedSingle', x: -2.6, z: -2.8, rot: 0 },
+      { uid: 'bed3', item: 'bedSingle', x: -0.2, z: -2.8, rot: 0 },
+      { uid: 'bed4', item: 'bedSingle', x: -5.0, z: 2.6, rot: PI },
+      { uid: 'bed5', item: 'bedSingle', x: -2.6, z: 2.6, rot: PI },
+      { uid: 'closet', item: 'closet', x: 1.9, z: -3.9, rot: 0 },
+      { uid: 'toilet', item: 'toilet', x: 5.4, z: -3.6, rot: -H },
+      { uid: 'shower', item: 'shower', x: 5.3, z: -1.0, rot: -H },
+      { uid: 'bsink', item: 'bathSink', x: 3.2, z: -4.0, rot: 0 },
+      { uid: 'dining', item: 'diningTable', x: 4.3, z: 2.4, rot: 0 },
+      { uid: 'fridge', item: 'fridge', x: 5.5, z: 4.0, rot: -H },
+      { uid: 'tv', item: 'tvVintage', x: 3.0, z: 4.1, rot: PI },
+      { uid: 'trash', item: 'trashcan', x: 0.4, z: 4.1, rot: 0 },
+      { uid: 'plant', item: 'plant', x: 1.9, z: 0.4, rot: 0 },
+    ],
+  },
 );
 
 /** Which floor plan each home place uses. */
-export const HOME_LAYOUT_FOR: Record<string, string> = { hkStudio: 'studio', wburgLoft: 'loft', sharedApt: 'shared' };
+export const HOME_LAYOUT_FOR: Record<string, string> = { hkStudio: 'studio', wburgLoft: 'loft', sharedApt: 'shared', shelter: 'shelter' };
 
 export function layoutForPlace(placeId: string): HomeLayout {
   return HOME_LAYOUTS.get(HOME_LAYOUT_FOR[placeId]) ?? HOME_LAYOUTS.require('studio');
