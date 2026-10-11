@@ -10,6 +10,7 @@
 import { SAVE_KEY, SAVE_VERSION } from '../core/constants.ts';
 import { STARTER_ITEMS } from '../data/wardrobe.ts';
 import { newPathsState } from './paths.ts';
+import { newBusinessState } from './business.ts';
 import type { GameState } from './types.ts';
 
 function storage(): Storage | null {
@@ -66,6 +67,7 @@ function migrate(data: GameState): GameState | null {
   data.auto ??= { on: false, routine: [], since: 0 };
   data.portfolio ??= {};
   data.paths ??= newPathsState();
+  data.business ??= newBusinessState();
   // Saves from before owned clothes: you own the free items plus what you wear.
   if (!data.wardrobe) {
     const l = data.profile.look;

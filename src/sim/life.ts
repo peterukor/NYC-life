@@ -13,6 +13,7 @@ import { postDailyNews } from './news.ts';
 import type { GameState } from './types.ts';
 import { weatherFor } from './weather.ts';
 import { checkBlues, runAuto } from './auto.ts';
+import { runBusinessDay } from './business.ts';
 
 /**
  * Advance the simulation to "now". Call it every frame (cheap) or after
@@ -62,6 +63,9 @@ function rollDays(state: GameState): string | null {
     state.job.dayKey = today;
   }
   postDailyNews(state, today);
+  // Businesses: one run per new day (capped, so a long absence doesn't explode).
+  const biz = runBusinessDay(state, today);
+  if (biz) notes.push(biz);
 
   // ----- Rent: every 7 days from the move-in day -----
   if (state.home.weeklyRent > 0) {

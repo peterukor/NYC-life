@@ -86,7 +86,7 @@ export const WEEKLY_RENT = {
 export const LEDGER_KEEP = 60;
 
 /** Largest single change to money we accept (anti-bug guard). Server will enforce the real one. */
-export const MAX_SINGLE_TRANSACTION = 50_000_000; // $500,000
+export const MAX_SINGLE_TRANSACTION = 500_000_000; // $5,000,000 (businesses and investments are big)
 
 // ---------------------------------------------------------------------
 // Work

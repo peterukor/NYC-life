@@ -14,6 +14,9 @@
 import { nycTime } from '../core/clock.ts';
 import { Rng } from '../core/rng.ts';
 import { STOCKS, type StockDef } from '../data/stocks.ts';
+import { BUSINESS_TYPES } from '../data/businesses.ts';
+
+const BUSINESS_PRICE: Record<string, number> = Object.fromEntries(BUSINESS_TYPES.all().map((b) => [b.id, b.price]));
 import { changeMoney } from './economy.ts';
 import type { GameState } from './types.ts';
 
@@ -109,7 +112,8 @@ export function portfolioValue(s: GameState): number {
   return Object.entries(s.portfolio).reduce((sum, [id, h]) => sum + Math.round(h.shares * priceOf(id)), 0);
 }
 
-/** Net worth = cash + bank + investments − debts. (Businesses and assets join later.) */
+/** Net worth = cash + bank + investments + businesses − debts. */
 export function netWorth(s: GameState): number {
-  return s.money + s.bank + portfolioValue(s) - (s.loan?.owed ?? 0);
+  const biz = s.business?.owned.reduce((sum, b) => sum + Math.round((BUSINESS_PRICE[b.type] ?? 0) * 0.8), 0) ?? 0;
+  return s.money + s.bank + portfolioValue(s) + biz - (s.loan?.owed ?? 0);
 }

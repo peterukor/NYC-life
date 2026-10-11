@@ -21,6 +21,8 @@ import { HOUSE_ADS } from '../render/textures.ts';
 import type { AdStats } from '../world/ads.ts';
 import { html, onAct, root, toast } from './dom.ts';
 import { STOCKS } from '../data/stocks.ts';
+import { BUSINESS_TYPES } from '../data/businesses.ts';
+import { businessValue, buyBusiness, candidates, fire, hire, TAX } from '../sim/business.ts';
 import { PATHS } from '../data/paths.ts';
 import { joinPath, leavePath, levelBlockers, levelTasks, pathLevel, pathTitle, taskProgress, tryLevelUp } from '../sim/paths.ts';
 import { buyStock, dayChange, netWorth, portfolioValue, priceOf, recentPrices, sellStock, TRADE_FEE } from '../sim/market.ts';
@@ -46,6 +48,7 @@ const APPS = [
   { id: 'bank', label: 'Bank', icon: '🏦', bg: '#0b3d91', needsPhone: true },
   { id: 'stocks', label: 'Stocks', icon: '📈', bg: '#06a77d', needsPhone: true },
   { id: 'path', label: 'Life Path', icon: '🪜', bg: '#8338ec', needsPhone: false },
+  { id: 'biz', label: 'Business', icon: '🏪', bg: '#fb5607', needsPhone: true },
   { id: 'news', label: 'City News', icon: '📰', bg: '#e63946', needsPhone: false },
   { id: 'me', label: 'Me', icon: '🙂', bg: '#6d597a', needsPhone: false },
   { id: 'ads', label: 'Ad Center', icon: '📢', bg: '#f4a261', needsPhone: true },
@@ -140,6 +143,24 @@ export function openPhone(host: PhoneHost, startApp?: string): () => void {
         }).join('')}
         <button class="btn ${blockers.length ? '' : 'primary'} block" style="margin-top:10px" data-act="path:up" ${blockers.length ? 'disabled' : ''}>${blockers.length ? `Still needed: ${blockers.length}` : `⬆ Become ${esc(active.titles[lvl])}`}</button>`}
         <button class="btn ghost block" style="margin-top:10px" data-act="path:leave">Step away from this path (progress is kept)</button>`);
+    },
+    biz() {
+      const t = nycTime();
+      const board = candidates(t.dateKey);
+      const owned = s.business.owned;
+      page('Business', `
+        <div class="card"><p>Businesses worth</p><div class="big-number">${money(businessValue(s))}</div><p style="margin-top:6px">Tax is ${Math.round(TAX.rate * 100)}% of profit, every game day. Staff quality makes or breaks you.</p></div>
+        ${owned.map((b) => {
+          const bt = BUSINESS_TYPES.get(b.type)!;
+          return `<div class="card"><h3>${bt.emoji} ${esc(b.name)}</h3>
+            <p>${b.staff.length}/${bt.staff} staff${b.last ? ` · yesterday: ${money(b.last.revenue)} sales, ${b.last.profit >= 0 ? 'profit' : 'loss'} ${money(Math.abs(b.last.profit))}, tax ${money(b.last.tax)}` : ' · opens tomorrow'}</p>
+            ${b.staff.map((x) => `<div class="list-item"><div class="grow"><div class="title">${esc(x.name)}</div><div class="sub">Skill ${x.skill}/10 · ${money(x.wage)}/day</div></div><button class="btn" data-act="biz:fire:${b.uid}:${encodeURIComponent(x.name)}">Fire</button></div>`).join('')}
+            ${b.staff.length < bt.staff ? `<p class="sub" style="margin:8px 0 4px">Hire today:</p>${board.filter((c) => !b.staff.some((x) => x.name === c.name)).map((c) => `<div class="list-item"><div class="grow"><div class="title">${esc(c.name)}</div><div class="sub">Skill ${c.skill}/10 · ${money(c.wage)}/day</div></div><button class="btn primary" data-act="biz:hire:${b.uid}:${encodeURIComponent(c.name)}">Hire</button></div>`).join('')}` : ''}
+          </div>`;
+        }).join('')}
+        ${owned.length ? `<div class="card"><h3>🧾 Creative accounting</h3><p>Report only ${Math.round(TAX.fraudReports * 100)}% of profit and pay way less tax… until the IRS audits you. If they do, you pay it all back ×${TAX.penalty}.</p><button class="btn ${s.business.fraud ? 'primary' : ''} block" style="margin-top:8px" data-act="biz:fraud">${s.business.fraud ? '✅ Cooking the books (tap to stop)' : 'Start cooking the books'}</button></div>` : ''}
+        <h3 style="margin:14px 0 8px;font-size:15px">Buy a business</h3>
+        ${BUSINESS_TYPES.all().map((bt) => `<div class="list-item"><div style="font-size:24px">${bt.emoji}</div><div class="grow"><div class="title">${bt.name} · ${money(bt.price)}</div><div class="sub">${esc(bt.blurb)}<br>~${money(bt.revenue)}/day sales · ${bt.staff} staff</div></div><button class="btn ${s.money + s.bank >= bt.price ? 'primary' : ''}" data-act="biz:buy:${bt.id}" ${s.money + s.bank >= bt.price ? '' : 'disabled'}>Buy</button></div>`).join('')}`);
     },
     stocks() {
       const spark = (prices: number[]) => {
@@ -260,6 +281,22 @@ export function openPhone(host: PhoneHost, startApp?: string): () => void {
       host.save();
       host.refresh();
       return apps.bank();
+    }
+    if (act.startsWith('biz:')) {
+      const [, what, a, b] = act.split(':');
+      let err: string | null = null;
+      if (what === 'buy') err = buyBusiness(s, a);
+      if (what === 'hire') {
+        const who = candidates(nycTime().dateKey).find((c) => c.name === decodeURIComponent(b));
+        err = who ? hire(s, a, who) : 'They took another job.';
+      }
+      if (what === 'fire') fire(s, a, decodeURIComponent(b));
+      if (what === 'fraud') s.business.fraud = !s.business.fraud;
+      if (err) toast(err, { icon: '🏪', tone: 'bad' });
+      else if (what === 'buy') toast('It’s yours! Hire staff so it opens properly.', { icon: '🏪', tone: 'good' });
+      host.save();
+      host.refresh();
+      return apps.biz();
     }
     if (act.startsWith('path:')) {
       const [, what, id] = act.split(':');

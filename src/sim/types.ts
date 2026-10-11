@@ -100,6 +100,8 @@ export interface GameState {
   wardrobe: string[];
   /** Life paths (Crime Boss, CEO, Celebrity): see sim/paths.ts. */
   paths: import('./paths.ts').PathsState;
+  /** Businesses you own, staff, and tax status: see sim/business.ts. */
+  business: import('./business.ts').BusinessState;
   /** Investments: stock id → shares owned and what you paid in total (cents). */
   portfolio: Record<string, { shares: number; cost: number }>;
   /** Auto mode: the routine your character follows while you're away (sim/auto.ts). */

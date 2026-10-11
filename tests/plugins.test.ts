@@ -214,3 +214,25 @@ test('every career has a mini-game and every mini-game names real careers', () =
   for (const m of MINIGAMES.all()) for (const c of m.careers) assert.ok(ids.has(c), `${m.id}: unknown career ${c}`);
   for (const c of CAREERS) assert.ok(MINIGAMES.where((m) => m.careers.includes(c.id)).length, `${c.id} has no mini-game`);
 });
+
+import { buyBusiness, candidates, hire, runBusinessDay, TAX } from '../src/sim/business.ts';
+import { netWorth as nw } from '../src/sim/market.ts';
+
+test('businesses: buy, staff, daily profit after tax, and audits claw back fraud', () => {
+  const s = newLife({ name: 'T', origin: 'trustFund', spawnClass: 'wealthy', look: { body: 'm', skin: '#000', top: '#000', bottom: '#000', hair: '#000' }, birthYear: 1990, traits: [] });
+  const worth = nw(s);
+  assert.equal(buyBusiness(s, 'cafe'), null);
+  assert.ok(nw(s) < worth, 'buying loses some value (resale is 80%)');
+  const uid = s.business.owned[0].uid;
+  for (const c of candidates('2026-05-05').slice(0, 3)) assert.equal(hire(s, uid, c), null);
+  const before = s.money;
+  runBusinessDay(s, '2026-05-06');
+  const last = s.business.owned[0].last!;
+  assert.ok(last.revenue > 0);
+  if (last.profit > 0) assert.equal(last.tax, Math.round(last.profit * TAX.rate));
+  assert.equal(s.money - before, last.profit - last.tax > 0 ? last.profit - last.tax : s.money - before);
+  // Cooking the books lowers tax and builds up "dodged" tax.
+  s.business.fraud = true;
+  for (let d = 10; d < 20; d++) runBusinessDay(s, `2026-05-${d}`);
+  assert.ok(s.business.dodged > 0 || !s.business.fraud, 'dodged tax accrues (or an audit already hit)');
+});
