@@ -49,7 +49,7 @@ export const PLACES: PlaceDef[] = [
   {
     id: 'hkStudio', area: 'manhattan', name: 'Your Hell’s Kitchen studio', emoji: '🏠', type: 'home',
     blurb: 'Fourth-floor walk-up. Radiator clanks, but the location is unbeatable.',
-    block: [1, 5], side: 'S', slot: 1, interior: 'apartment', actions: [], color: '#c0583b', rent: 65_000,
+    block: [1, 5], side: 'S', slot: 1, interior: 'apartment', actions: [], color: '#c0583b', rent: 35_000,
   },
   {
     id: 'shelter', area: 'manhattan', name: 'Hope House Shelter', emoji: '🛏️', type: 'home',
@@ -200,12 +200,12 @@ export const PLACES: PlaceDef[] = [
   {
     id: 'wburgLoft', area: 'brooklyn', name: 'Fulton St loft (for rent)', emoji: '🏠', type: 'home',
     blurb: 'Big windows, exposed pipes, and a roof you’re technically not allowed on.',
-    block: [2, 1], side: 'S', slot: 1, interior: 'apartment', actions: [], color: '#5d6d7e', rent: 180_000,
+    block: [2, 1], side: 'S', slot: 1, interior: 'apartment', actions: [], color: '#5d6d7e', rent: 90_000,
   },
   {
     id: 'sharedApt', area: 'brooklyn', name: 'Room in a shared apartment', emoji: '🏠', type: 'home',
     blurb: 'Three roommates, one bathroom, great vibes (mostly).',
-    block: [0, 4], side: 'S', slot: 2, interior: 'apartment', actions: [], color: '#a0522d', rent: 32_000,
+    block: [0, 4], side: 'S', slot: 2, interior: 'apartment', actions: [], color: '#a0522d', rent: 18_000,
   },
   {
     id: 'theStoop', area: 'brooklyn', name: 'The Stoop', emoji: '🍸', type: 'nightlife',

@@ -75,11 +75,19 @@ export const SUBWAY_FARE = 290;
 /** Rideshare pricing: base fare + per 100 metres, times surge. */
 export const RIDESHARE = { base: 450, per100m: 35, minFare: 800, luxuryMultiplier: 2.4 } as const;
 
-/** Rent is charged once a week on the day of the week you moved in. */
+/**
+ * Rent is charged every 7 GAME days. With the fast clock (1 game day =
+ * GAME_DAY_REAL_MINUTES) that is about once per REAL day, so these are
+ * balanced as "what a day of real play should cover" (BALANCE NOTES in
+ * docs/HANDOFF.md): an entry-level job (~$90 a shift, 4 shifts per game
+ * day) covers a shared room after one short session and a studio after
+ * two; the loft is a mid-career goal. The real numbers live on each home
+ * place in data/places.ts (`rent`); these are the reference values.
+ */
 export const WEEKLY_RENT = {
-  shared: 32_000, // room in a shared Bushwick apartment
-  studio: 65_000, // Hell's Kitchen studio
-  loft: 180_000, // Williamsburg loft
+  shared: 18_000, // room in a shared apartment
+  studio: 35_000, // Hell's Kitchen studio
+  loft: 90_000, // Fulton St loft
 } as const;
 
 /** How many ledger lines we keep in the save (the Bank app shows them). */
@@ -98,7 +106,7 @@ export const SHIFT_SECONDS = 20;
 /** How long a shift reads on the game clock (the timer "skips" these hours). */
 export const SHIFT_GAME_HOURS = 4;
 
-/** Max paid shifts per real day, so the game rewards playing daily, not grinding. */
+/** Max paid shifts per GAME day (about 7 game days pass per real day), so play is rewarded without endless grinding. */
 export const MAX_SHIFTS_PER_DAY = 4;
 
 /** Shifts can only start between these New York hours. */

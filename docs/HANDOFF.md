@@ -41,7 +41,7 @@ How to add or change content: **`docs/ADDING-CONTENT.md`**.
 - **Landmarks:** cartoon Chrysler, Flatiron and Statue of Liberty, plus a real Times Square (One Times Square tower, TKTS steps, plaza seating).
 - **2D map:** Apple Maps transit style (`ui/map.ts`).
 - **☰ menu** (`ui/side-panel.ts`): HAPPENING NOW (at most 5 items) and shortcuts. Buttons are a registry.
-- **Event rarity tiers:** common to legendary (`RARITY` in `sim/events.ts`). Legendary events: a true inheritance and a fatal crash, which starts a new life.
+- **Event rarity tiers:** common to legendary (`RARITY` in `sim/events.ts`). Legendary events: a true inheritance and "the worst day" (hospital plus a big bill; players never die).
 - **Auto mode** (`sim/auto.ts`, `ui/auto-mode.ts`): the routine runs while you're away, it can't fill every bar, and staying on auto mode for 6 days puts you in a rut that 2 varied game days cure.
 - **Investing:** shared seeded market (`sim/market.ts`, `data/stocks.ts`), Phone → Stocks, `netWorth()`. `marketMood()` is the recession seam.
 - **Spawn classes:** pick poor, middle, upper or wealthy at the start (`CLASSES` in `sim/state.ts`).
@@ -52,9 +52,47 @@ How to add or change content: **`docs/ADDING-CONTENT.md`**.
 - **Mini-games** (`data/minigames.ts`): "Play the shift" (Order Rush for every job) or skip.
 - **Businesses** (`data/businesses.ts`, `sim/business.ts`, Phone → Business): buy, hire and fire staff, 32% daily tax, creative accounting with audits.
 
+## Done 2026-10-11 (afternoon): Peter's "do 1–4" list
+- **Cars:**
+  - The boxy toy cars are gone. `world/car-shapes.ts` lofts smooth, curvy bodies with carved wheel arches, a glass cabin with a painted roof and pillars, round wheels and fitted lights.
+  - 17 cars for sale: 8 common, 4 premium, 3 exclusive, 2 very rare. Service vehicles (taxi, police, bus, ambulance, fire engine, delivery van) are built the same way.
+  - Two detail levels: parked cars and low-end phones use the cheap one.
+- **Players never die:**
+  - The legendary crash means hospital plus a bill.
+  - Whatever you can't pay goes to debt collectors (`sim/debt.ts`).
+  - Bank → File for bankruptcy wipes the debt and everything you own, and restarts you at Hope House Shelter with $20. There's a 30-day cooldown.
+- **Jail** (`sim/jail.ts`, `ui/jail.ts`):
+  - Busts on life paths, crew jobs gone wrong and driving on a suspended licence all lead to arrest.
+  - You can post bail or call a lawyer once.
+  - Jail activities are rate-limited.
+  - Repeat offenders get longer sentences.
+- **Your own car** (`sim/garage.ts`, Phone → Cars):
+  - Buy and sell (60% back).
+  - You drive in the street at 3.2× walking speed.
+  - "Drive there" and "Floor it" on every place. Floor it risks tickets, licence points and suspension, plus crashes in the wet.
+  - Cool meter: car, outfit and fame. Cool boosts Celebrity rep.
+- **Crews** (`sim/gangs.ts`, `sim/gang-events.ts`, Phone → Crews, Map → 🧢):
+  - Five fictional crews, each with turf.
+  - Respect is remembered.
+  - You can join a crew and rise through its ranks.
+  - Street events: getting caught lacking (hand it over, run, fight, call your crew, talk your way out), friendly nods, favours, turf wars.
+- **Map:** an illustrated look (`ui/map-art.ts`) with coast, waves, piers, boats, little shaded buildings, parks with trees and paths, neighbourhood names, a compass, and the gang view.
+- **Phone apps are plug-ins** (`ui/phone-apps.ts`).
+
+## Balance notes (2026-10-11)
+- **Rent cycle.** One game day is 3 h 23 min, so "weekly" rent (7 game days) comes due about once per REAL day. Rents were therefore set as "what one day of play should cover": shared $180, studio $350, loft $900. Old saves are migrated to the new rents.
+- **Pay.** Shifts are capped at 4 per GAME day, so a player who checks in 2–3 times a day can work about 8–12 shifts.
+  - Entry-level pay is about $90 a shift, so about $700–1,000 per real day.
+  - Top-of-ladder pay is $400–950 a shift.
+- **Cars** are now goals you can reach:
+  - common $4k–14k (about 1–2 weeks of entry-level play);
+  - premium $28k–48k;
+  - exclusive $90k–220k;
+  - very rare $650k and $1.4M.
+- **Hospital bills:** $300 (bruises), $900–1,500 (lost a fight), $2,500 (the legendary crash).
+
 ## Next steps, in order
-1. **Jail system:** busts and audits only fine you for now. Add jail time, gang territory and the "gang view" map overlay (DESIGN-SPEC).
-2. **Player cars:** buy from `VEHICLES` (prices exist), drive, Cool meter, speeding tickets, losing your licence.
+0. **Ideas and implementation plans** for sharing your number, speaking loud, dates, NPC memory, NPCs that fight back, and fun for 1–2 players: see **`docs/IDEAS.md`**. Suggested order is in its section 4.
 3. **Multiplayer server (Colyseus skill in repo):** player homes on blocks, visiting (follow home, shared address, spare key), friends pins, billionaire cap, recession and reset vote (seams: `marketMood()`, `sim/economy.ts`).
 4. **More mini-games** per job (the interface is ready).
 5. **Visual polish:** more building styles (warehouses for Brooklyn, a church), parks with paths, and interiors for shops and venues using the furniture kit.

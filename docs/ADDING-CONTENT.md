@@ -15,7 +15,7 @@ fails the test).
 
 | I want to… | Edit this | What to add |
 |---|---|---|
-| Add a car, bus or truck | `src/data/vehicles.ts` | An entry with an id, rarity, `trafficWeight`, `parkWeight`, a speed range (m/s), paints, a price, and `build()` (draw it from toy shapes; copy a similar vehicle). |
+| Add a car, bus or truck | `src/data/vehicles.ts` | Copy the closest car and change its numbers. Each entry has an id, a tier (`common`, `premium`, `exclusive`, `veryRare`), `trafficWeight`, `parkWeight`, a speed range (m/s), paints and a price. The shape is a `spec` for the smooth car builder (`src/world/car-shapes.ts`), plus optional `extras()` for spoilers, signs and fins. A `spec` gives the length and width, the body-top heights along the car (rear to front), the glass cabin (`from`, `to`, `roof`, pillars, glass colour), the wheels, rims, `round` (2 is egg-shaped, 5 is boxy) and `segs` (smoothness). Service vehicles get `service: true` and are never sold. Check your car with `IDS=myCar node scripts/qa-cars.mjs`. |
 | Make a car rarer or faster | `src/data/vehicles.ts` | Change `trafficWeight` / `parkWeight` / `speed`. |
 | Take a vehicle off the streets | `src/data/vehicles.ts` | Set both weights to 0 (it stays in the game, for the shop), or delete the entry. |
 | Add a weather (fog, hail…) | `src/sim/weather.ts` | An entry with the odds by month/hour, sky greyness, sun, particles (`rain`/`snow`), ground effects (`wet`, `snow`, `flood`), the needs it speeds up, the rideshare surge and a news tip. The sky, effects, needs and news all pick it up automatically. |
@@ -39,6 +39,10 @@ fails the test).
 | Add a place (shop, bar, gym) | `src/data/places.ts` | Its block, side, slot, type, hours and actions. |
 | Add a building style | `src/world/nycgen/buildings.ts` | Add the style to `Style`, `STYLE_RULES`, `PAL` and `ZONE_MIX`, then add any special details in `emitDetailed()`. |
 | Add a street prop (bench, kiosk…) | `src/world/nycgen/props.ts` | A small function that draws it, called from `emitBlockProps()`. |
+| Add a phone app | `src/ui/phone-apps.ts` | `PHONE_APPS.add({ id, label, icon, bg, render, act })`. Buttons use `data-act="<id>.<what>"`. |
+| Add or change a crew (gang) | `src/sim/gangs.ts` | A `CREWS` entry: name, colour, emoji, area, turf block rectangles, muscle and temper. The street events in `src/sim/gang-events.ts` and the map's gang view pick it up. |
+| Tune jail, debt, cars or tickets | `JAIL` in `src/sim/jail.ts`, `DEBT` in `src/sim/debt.ts`, `GARAGE` in `src/sim/garage.ts` | Change the number. |
+| Change how the 2D map is painted | `src/ui/map-art.ts` | Roof palettes (`ROOFS`), neighbourhood names (`HOODS`), and the coast, park and plaza painters. |
 | Change prices, rent, needs or balance numbers | `src/core/constants.ts` | Change the number. |
 | Make game days longer or shorter | `src/core/constants.ts` | `GAME_DAY_REAL_MINUTES` (203 = 3 h 23 min; 1440 = real time). |
 
@@ -61,3 +65,6 @@ The test scripts are:
 - `node scripts/qa-smoke.mjs`: 11 automatic play checks.
 - `node scripts/qa-shots.mjs`: screenshots.
 - `Q=low node scripts/qa-perf.mjs`: triangle and draw-call counts.
+- `node scripts/qa-cars.mjs`: every car lined up. Use `IDS=a,b` to show only some.
+- `node scripts/qa-map.mjs`: the map, zoomed in and with gang view.
+- `node scripts/qa-systems.mjs`: the Cars app, driving, the Crews app and the jail screen.

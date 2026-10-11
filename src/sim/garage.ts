@@ -35,9 +35,9 @@ export const GARAGE = {
   /** Share of the price you get back when selling. */
   resale: 0.6,
   /** Gas + tolls per trip (cents). */
-  tripCost: 400,
+  tripCost: 300,
   /** Speeding ticket. */
-  ticketFine: 18_000,
+  ticketFine: 12_000,
   ticketPoints: 3,
   /** Chance of a ticket each time you floor it. */
   ticketOdds: 0.22,

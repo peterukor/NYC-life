@@ -7,6 +7,7 @@
 // format changes, so players never lose progress after an update.
 // =====================================================================
 
+import { PLACE_BY_ID } from '../data/places.ts';
 import { newGarageState } from './garage.ts';
 import { newGangState } from './gangs.ts';
 import { SAVE_KEY, SAVE_VERSION } from '../core/constants.ts';
@@ -75,6 +76,10 @@ function migrate(data: GameState): GameState | null {
   data.jail ??= null;
   data.garage ??= newGarageState();
   data.gang ??= newGangState();
+  // Balance pass (2026-10-11): rents were rescaled. Paying tenants follow the
+  // listing's current rent; homes paid by family (0) stay free.
+  const listing = data.home ? PLACE_BY_ID[data.home.placeId] : undefined;
+  if (listing && data.home.weeklyRent > 0 && listing.rent !== undefined) data.home.weeklyRent = listing.rent;
   // Saves from before owned clothes: you own the free items plus what you wear.
   if (!data.wardrobe) {
     const l = data.profile.look;

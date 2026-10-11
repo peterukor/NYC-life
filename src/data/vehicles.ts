@@ -97,37 +97,37 @@ VEHICLES.add(
   // =================== COMMON (8) ===================
   {
     id: 'metroSedan', name: 'Metro Sedan', rarity: 'common', blurb: 'Sensible, reliable, beige personality. Gets you there.',
-    trafficWeight: 5, parkWeight: 6, speed: [7, 11], price: 2_400_000,
+    trafficWeight: 5, parkWeight: 6, speed: [7, 11], price: 800_000,
     paints: ['#3a86ff', '#e63946', '#ffffff', '#2a9d8f', '#c0c7d1', '#1d3557', '#343a40'],
     spec: SEDAN,
   },
   {
     id: 'pipHatch', name: 'Pip Hatchback', rarity: 'common', blurb: 'Small, peppy, parks anywhere. The New Yorker’s friend.',
-    trafficWeight: 4, parkWeight: 6, speed: [7, 11], price: 1_800_000,
+    trafficWeight: 4, parkWeight: 6, speed: [7, 11], price: 600_000,
     paints: ['#f4a261', '#8ecae6', '#ffd166', '#06a77d', '#ffffff', '#e76f51'],
     spec: { length: 3.7, width: 1.86, wheelR: 0.37, wheels: [0.18, 0.81], segs: 12, top: H([[0, 1.0], [0.1, 1.05], [0.6, 1.0], [0.85, 0.9], [1, 0.8]]), cabin: { from: 0.06, to: 0.7, roof: 0.7, roofFrom: 0.14, roofTo: 0.62, pillars: [0.45] } },
   },
   {
     id: 'bumble', name: 'Bumble Micro', rarity: 'common', blurb: 'A bubble on wheels. Fits in a bike lane (don’t).',
-    trafficWeight: 2, parkWeight: 3, speed: [6, 9], price: 1_200_000,
+    trafficWeight: 2, parkWeight: 3, speed: [6, 9], price: 400_000,
     paints: ['#ffd166', '#ff8fab', '#80ed99', '#a0c4ff', '#ffffff'],
     spec: { length: 2.9, width: 1.7, wheelR: 0.34, wheels: [0.2, 0.8], round: 2.4, endRound: 0.6, segs: 12, top: H([[0, 0.92], [0.5, 1.0], [1, 0.86]]), cabin: { from: 0.12, to: 0.8, roof: 0.72, roofFrom: 0.35, roofTo: 0.6, width: 0.9 } },
   },
   {
     id: 'trailSuv', name: 'Trail SUV', rarity: 'common', blurb: 'Built for mountains, used for Costco.',
-    trafficWeight: 3, parkWeight: 4, speed: [7, 10], price: 3_800_000,
+    trafficWeight: 3, parkWeight: 4, speed: [7, 10], price: 1_300_000,
     paints: ['#343a40', '#ffffff', '#6c757d', '#1d3557', '#8d0801', '#3d5a40'],
     spec: { length: 4.6, width: 2.05, wheelR: 0.44, wheels: [0.18, 0.8], round: 3.6, segs: 12, top: H([[0, 1.3], [0.1, 1.36], [0.7, 1.3], [0.88, 1.22], [1, 1.1]]), bottom: H([[0, 0.42], [1, 0.42]]), trim: { color: '#3d424a', below: 0.6 }, cabin: { from: 0.07, to: 0.72, roof: 0.7, roofFrom: 0.12, roofTo: 0.66, pillars: [0.42, 0.75] } },
   },
   {
     id: 'famVan', name: 'Family Minivan', rarity: 'common', blurb: 'Sliding doors. Snack crumbs. Pure love.',
-    trafficWeight: 2, parkWeight: 3, speed: [7, 10], price: 3_200_000,
+    trafficWeight: 2, parkWeight: 3, speed: [7, 10], price: 1_100_000,
     paints: ['#c0c7d1', '#ffffff', '#264653', '#9d0208', '#e9c46a'],
     spec: { length: 4.9, width: 2.0, wheelR: 0.4, wheels: [0.17, 0.82], round: 3.6, segs: 12, top: H([[0, 1.18], [0.78, 1.15], [0.92, 1.0], [1, 0.86]]), cabin: { from: 0.05, to: 0.86, roof: 0.85, roofFrom: 0.06, roofTo: 0.72, pillars: [0.32, 0.62] } },
   },
   {
     id: 'pickup', name: 'Workhorse Pickup', rarity: 'common', blurb: 'Hauls lumber, couches and your friend’s whole apartment.',
-    trafficWeight: 1.5, parkWeight: 2, speed: [7, 11], price: 4_200_000,
+    trafficWeight: 1.5, parkWeight: 2, speed: [7, 11], price: 1_400_000,
     paints: ['#e63946', '#264653', '#e9c46a', '#ffffff', '#343a40'],
     spec: { length: 5.1, width: 2.05, wheelR: 0.45, wheels: [0.18, 0.8], round: 3.8, segs: 12, top: H([[0, 1.24], [0.6, 1.24], [0.84, 1.18], [1, 1.06]]), bottom: H([[0, 0.45], [1, 0.45]]), trim: { color: '#3d424a', below: 0.62 }, cabin: { from: 0.42, to: 0.78, roof: 0.74, roofFrom: 0.12, roofTo: 0.7 } },
     extras: (b, _p, f) => {
@@ -138,13 +138,13 @@ VEHICLES.add(
   },
   {
     id: 'sprout', name: 'Sprout EV', rarity: 'common', blurb: 'Quiet as a library. Smug as a podcast.',
-    trafficWeight: 2.5, parkWeight: 3, speed: [8, 12], price: 2_900_000,
+    trafficWeight: 2.5, parkWeight: 3, speed: [8, 12], price: 950_000,
     paints: ['#80ed99', '#ffffff', '#a0c4ff', '#ffadad', '#bdb2ff'],
     spec: { length: 3.9, width: 1.88, wheelR: 0.36, wheels: [0.19, 0.81], round: 2.6, endRound: 0.6, segs: 12, top: H([[0, 0.95], [0.5, 1.0], [1, 0.84]]), cabin: { from: 0.1, to: 0.8, roof: 0.68, roofFrom: 0.35, roofTo: 0.56, roofColor: '#1f2937' } },
   },
   {
     id: 'wagon', name: 'Boxer Wagon', rarity: 'common', blurb: 'Room for the dog, the stroller and the drama.',
-    trafficWeight: 1.5, parkWeight: 3, speed: [7, 10], price: 2_600_000,
+    trafficWeight: 1.5, parkWeight: 3, speed: [7, 10], price: 850_000,
     paints: ['#6d597a', '#b5838d', '#2a9d8f', '#ffffff', '#3d405b'],
     spec: { length: 4.7, width: 1.9, wheelR: 0.38, wheels: [0.18, 0.8], round: 3.4, segs: 12, top: H([[0, 1.0], [0.7, 1.0], [0.88, 0.92], [1, 0.82]]), cabin: { from: 0.05, to: 0.72, roof: 0.62, roofFrom: 0.08, roofTo: 0.68, pillars: [0.32, 0.6] } },
   },
@@ -152,25 +152,25 @@ VEHICLES.add(
   // =================== PREMIUM (4) ===================
   {
     id: 'aurora', name: 'Aurora Luxury Sedan', rarity: 'premium', blurb: 'Leather that smells like money. Rides like a cloud.',
-    trafficWeight: 0.8, parkWeight: 0.8, speed: [9, 13], price: 9_500_000,
+    trafficWeight: 0.8, parkWeight: 0.8, speed: [9, 13], price: 3_800_000,
     paints: ['#111827', '#f8f9fa', '#5c677d', '#7f1d1d', '#1e3a5f'],
     spec: { length: 5.1, width: 2.0, wheelR: 0.41, wheels: [0.18, 0.79], segs: 16, slices: 9, round: 3.2, top: H([[0, 0.98], [0.15, 1.04], [0.35, 1.06], [0.7, 1.02], [0.9, 0.93], [1, 0.8]]), trim: { color: '#c9d1db', below: 0.5 }, rim: CHROME, cabin: { from: 0.24, to: 0.72, roof: 0.6, roofFrom: 0.36, roofTo: 0.66, pillars: [0.55], glass: DARK_GLASS } },
   },
   {
     id: 'summit', name: 'Summit Luxury SUV', rarity: 'premium', blurb: 'Tinted windows. Heated everything. Pretends it’s a tank.',
-    trafficWeight: 0.8, parkWeight: 0.8, speed: [9, 12], price: 12_000_000,
+    trafficWeight: 0.8, parkWeight: 0.8, speed: [9, 12], price: 4_800_000,
     paints: ['#111827', '#f8f9fa', '#374151', '#0b3d2e'],
     spec: { length: 5.0, width: 2.12, wheelR: 0.47, wheels: [0.18, 0.8], segs: 16, slices: 9, round: 3.4, top: H([[0, 1.36], [0.12, 1.42], [0.7, 1.37], [0.88, 1.27], [1, 1.12]]), bottom: H([[0, 0.45], [1, 0.45]]), trim: { color: '#1f2329', below: 0.62 }, rim: '#e5e7eb', cabin: { from: 0.09, to: 0.72, roof: 0.68, roofFrom: 0.14, roofTo: 0.68, pillars: [0.45], glass: DARK_GLASS } },
   },
   {
     id: 'voltGt', name: 'Volt GT', rarity: 'premium', blurb: 'Electric fastback. 0–60 before you finish saying “zero”.',
-    trafficWeight: 0.7, parkWeight: 0.6, speed: [11, 15], price: 8_000_000,
+    trafficWeight: 0.7, parkWeight: 0.6, speed: [11, 15], price: 3_200_000,
     paints: ['#e5e7eb', '#dc2626', '#2563eb', '#111827'],
     spec: { length: 4.8, width: 2.0, wheelR: 0.4, wheels: [0.19, 0.8], segs: 16, slices: 9, round: 2.8, endRound: 0.55, top: H([[0, 0.92], [0.2, 0.97], [0.6, 0.95], [0.85, 0.82], [1, 0.7]]), rim: '#9ca3af', cabin: { from: 0.12, to: 0.7, roof: 0.56, roofFrom: 0.45, roofTo: 0.6, roofColor: '#1b1f27', glass: DARK_GLASS } },
   },
   {
     id: 'roadster', name: 'Breeze Roadster', rarity: 'premium', blurb: 'Roof down, sunglasses on, hair ruined.',
-    trafficWeight: 0.6, parkWeight: 0.5, speed: [11, 15], price: 7_500_000,
+    trafficWeight: 0.6, parkWeight: 0.5, speed: [11, 15], price: 2_800_000,
     paints: ['#e63946', '#ffbe0b', '#f8f9fa', '#06d6a0', '#3a86ff'],
     spec: { length: 4.2, width: 1.9, wheelR: 0.38, wheels: [0.19, 0.8], segs: 16, slices: 8, round: 2.8, top: H([[0, 0.9], [0.3, 0.93], [0.65, 0.9], [0.9, 0.8], [1, 0.7]]), rim: CHROME },
     extras: (b, _p, f) => {
@@ -188,7 +188,7 @@ VEHICLES.add(
   // =================== EXCLUSIVE (3) ===================
   {
     id: 'stallion', name: 'Stallion V8', rarity: 'exclusive', blurb: 'Loud. Proud. Wakes up the whole block at 2 a.m.',
-    trafficWeight: 0.25, parkWeight: 0.2, speed: [12, 16], price: 22_000_000,
+    trafficWeight: 0.25, parkWeight: 0.2, speed: [12, 16], price: 9_000_000,
     paints: ['#ff7b00', '#d00000', '#1d1d1d', '#ffd60a', '#0077b6'],
     spec: { length: 4.8, width: 2.06, wheelR: 0.43, wheels: [0.19, 0.8], wheelW: 0.5, segs: 16, slices: 9, round: 3.6, top: H([[0, 1.02], [0.1, 1.07], [0.4, 1.02], [0.7, 1.0], [0.92, 0.98], [1, 0.88]]), rim: '#2b2d31', cabin: { from: 0.28, to: 0.66, roof: 0.5, roofFrom: 0.32, roofTo: 0.58, roofColor: '#15171c', glass: DARK_GLASS } },
     extras: (b, _p, f) => {
@@ -198,7 +198,7 @@ VEHICLES.add(
   },
   {
     id: 'fang', name: 'Fang Supercar', rarity: 'exclusive', blurb: 'Doors go up. Price goes up. Everyone looks.',
-    trafficWeight: 0.2, parkWeight: 0.15, speed: [13, 18], price: 45_000_000,
+    trafficWeight: 0.2, parkWeight: 0.15, speed: [13, 18], price: 22_000_000,
     paints: ['#a7c957', '#ff006e', '#ffbe0b', '#f8f9fa', '#3a0ca3'],
     spec: { length: 4.6, width: 2.12, wheelR: 0.41, wheels: [0.2, 0.8], wheelW: 0.5, segs: 18, slices: 10, round: 2.6, endRound: 0.5, top: H([[0, 0.94], [0.15, 0.98], [0.5, 0.86], [0.8, 0.68], [1, 0.55]]), bottom: H([[0, 0.24], [1, 0.22]]), rim: '#111111', cabin: { from: 0.26, to: 0.72, roof: 0.44, roofFrom: 0.45, roofTo: 0.6, roofColor: '#121212', glass: '#1d2636' } },
     extras: (b, paint, f) => {
@@ -209,7 +209,7 @@ VEHICLES.add(
   },
   {
     id: 'monarch', name: 'Monarch Stretch Limo', rarity: 'exclusive', blurb: 'Prom night, every night. Comes with a mini bar.',
-    trafficWeight: 0.15, parkWeight: 0.1, speed: [7, 10], price: 30_000_000,
+    trafficWeight: 0.15, parkWeight: 0.1, speed: [7, 10], price: 14_000_000,
     paints: ['#111111', '#f8f9fa'],
     spec: { length: 7.8, width: 2.05, wheelR: 0.4, wheels: [0.12, 0.88], segs: 14, slices: 12, round: 3.4, top: H([[0, 1.0], [0.08, 1.04], [0.85, 1.02], [0.94, 0.92], [1, 0.82]]), trim: { color: '#c9d1db', below: 0.52 }, rim: CHROME, cabin: { from: 0.1, to: 0.82, roof: 0.56, roofFrom: 0.06, roofTo: 0.9, pillars: [0.25, 0.45, 0.65, 0.82], glass: DARK_GLASS } },
   },
@@ -217,7 +217,7 @@ VEHICLES.add(
   // =================== VERY RARE (2) ===================
   {
     id: 'halo', name: 'Halo Hypercar', rarity: 'veryRare', blurb: 'Seven of them exist. Gold wheels. Sounds like a jet.',
-    trafficWeight: 0.04, parkWeight: 0.02, speed: [14, 19], price: 250_000_000,
+    trafficWeight: 0.04, parkWeight: 0.02, speed: [14, 19], price: 140_000_000,
     paints: ['#f8f9fa', '#0b132b', '#c1121f', '#00b4d8'],
     spec: { length: 4.7, width: 2.16, wheelR: 0.42, wheels: [0.2, 0.8], wheelW: 0.52, segs: 20, slices: 12, round: 2.4, endRound: 0.6, top: H([[0, 0.9], [0.12, 0.98], [0.4, 0.86], [0.75, 0.62], [1, 0.48]]), bottom: H([[0, 0.24], [1, 0.22]]), rim: '#f2c14e', cabin: { from: 0.3, to: 0.7, roof: 0.42, roofFrom: 0.5, roofTo: 0.58, roofColor: '#141a26', glass: '#141a26' } },
     extras: (b, _p, f) => {
@@ -227,7 +227,7 @@ VEHICLES.add(
   },
   {
     id: 'cloud57', name: 'Cloud ’57 Classic', rarity: 'veryRare', blurb: 'Tail fins, whitewalls, chrome everywhere. A museum on wheels.',
-    trafficWeight: 0.05, parkWeight: 0.04, speed: [8, 11], price: 120_000_000,
+    trafficWeight: 0.05, parkWeight: 0.04, speed: [8, 11], price: 65_000_000,
     paints: ['#4ecdc4', '#ff6b6b', '#f7d794', '#9bf6ff'],
     spec: { length: 5.4, width: 2.05, wheelR: 0.4, wheels: [0.2, 0.8], segs: 18, slices: 11, round: 3.0, top: H([[0, 1.0], [0.06, 1.08], [0.25, 1.0], [0.7, 0.98], [0.9, 0.95], [1, 0.84]]), trim: { color: '#e0e5ec', below: 0.55 }, rim: '#f6f6f6', cabin: { from: 0.3, to: 0.66, roof: 0.56, roofFrom: 0.25, roofTo: 0.65, roofColor: '#f5ebe0' } },
     extras: (b, paint, f) => {
