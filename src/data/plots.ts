@@ -58,11 +58,13 @@ export interface Plot {
 // ---------------------------------------------------------------- prices (USD)
 /** Ad units: price per WEEK for one unit, and for the whole block (all 4). */
 export const AD_PRICES: Record<PriceTier, { unit: number; block: number }> = {
-  harlem: { unit: 5, block: 16 },
-  uptown: { unit: 10, block: 32 },
-  downtown: { unit: 10, block: 32 },
-  brooklyn: { unit: 8, block: 26 },
-  midtown: { unit: 20, block: 65 },
+  // Peter, 2026-10-11: one unit $59.99 a week, a whole block $219.99 a week,
+  // everywhere for now. Change a tier here to price an area differently.
+  harlem: { unit: 59.99, block: 219.99 },
+  uptown: { unit: 59.99, block: 219.99 },
+  downtown: { unit: 59.99, block: 219.99 },
+  brooklyn: { unit: 59.99, block: 219.99 },
+  midtown: { unit: 59.99, block: 219.99 },
 };
 export const AD_MAX_WEEKS = 26; // 6 months
 export const AD_UNITS = 4;
@@ -162,12 +164,18 @@ function build(): Plot[] {
       }
     }
     free.sort((a, b) => hash01(`${a.id}-ad`) - hash01(`${b.id}-ad`));
-    // 1. Ad blocks: spread out (at least 190 m apart).
+    // 1. Ad blocks: spread out (at least 190 m apart). Every other pick
+    // brings its next-door block along when it's free, so there are pairs
+    // side by side that a renter of both can MERGE into one giant board.
     const ads: typeof free = [];
+    const freeAt = new Map(free.map((f) => [`${f.c},${f.r}`, f]));
     for (const f of free) {
       if (ads.length >= pick.ads) break;
       if (ads.some((a) => Math.hypot(a.x - f.x, a.z - f.z) < 190)) continue;
       ads.push(f);
+      if (ads.length % 2 === 0 || ads.length >= pick.ads) continue;
+      const mate = [freeAt.get(`${f.c + 1},${f.r}`), freeAt.get(`${f.c - 1},${f.r}`), freeAt.get(`${f.c},${f.r + 1}`), freeAt.get(`${f.c},${f.r - 1}`)].find((m) => m && !ads.includes(m));
+      if (mate) ads.push(mate);
     }
     for (const a of ads) d.setKind(a.c, a.r, 'ads');
     // 2. Home lots: a share of Harlem's blocks, plus a few anywhere else
@@ -231,6 +239,17 @@ export function plotsIn(area: AreaId): Plot[] {
 /** The plot on block (c, r), if any. */
 export function plotAtBlock(area: AreaId, c: number, r: number): Plot | undefined {
   return PLOTS.find((p) => p.area === area && p.block && p.block[0] === c && p.block[1] === r);
+}
+
+/**
+ * Plots of the same kind right next door (sharing a street). Someone who
+ * rents two side by side can MERGE them: one giant billboard across both
+ * ad blocks, or one big estate across two lots.
+ */
+export function neighbourPlots(p: Plot): Plot[] {
+  if (!p.block) return [];
+  const [c, r] = p.block;
+  return PLOTS.filter((q) => q !== p && q.kind === p.kind && q.area === p.area && q.block && Math.abs(q.block[0] - c) + Math.abs(q.block[1] - r) === 1);
 }
 
 /** Which ad unit (0 NW, 1 NE, 2 SW, 3 SE) a point on an ad block is in. */

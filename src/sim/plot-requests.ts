@@ -19,6 +19,8 @@ export interface PlotRequest {
   house?: string;
   months?: number;
   message?: string;
+  /** Rent this plot together with the one next door and merge them (data/plots.ts neighbourPlots). */
+  mergeWith?: string;
   /** Has the player attached an ad picture? (the picture itself is uploaded with payment) */
   hasImage?: boolean;
   totalUsd: number;
