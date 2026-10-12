@@ -133,8 +133,6 @@ export function openMap3D(o: Map3DOptions): Map3D {
 
   return {
     update(camera, w, h, camDist) {
-      // Zoomed all the way out: show the whole city (flat map).
-      if (camDist > 1420) return o.onWholeCity();
       // Far out, plot cards shrink to one line.
       for (const c of cards) c.classList.toggle('compact', camDist > 750);
       for (const it of items) {

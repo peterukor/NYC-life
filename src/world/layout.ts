@@ -115,10 +115,20 @@ function onLand(borough: BoroughId, x: number, z: number): boolean {
 // (seeded, so it's the same every time), and here and there a street or an
 // avenue is closed to make a long or wide block. Fewer, larger blocks fill
 // more of the map.
-const AVE_W = 14;
-const ST_W = 13;
-const COL_RANGE: [number, number] = [128, 196]; // avenue-to-avenue
-const ROW_RANGE: [number, number] = [62, 104]; // street-to-street
+// SCALED UP (Peter, 2026-10-12): bigger, chunkier blocks with bigger
+// buildings, the cartoon way (SimCity BuildIt / Supercell). Blocks are
+// 1.6× deeper (north–south) and 1.1× wider, so each holds about 1.8× the
+// land, there are about half as many, and they're deep enough for two
+// rows of houses with gardens. Width grows less because the island is
+// narrow: much wider and Manhattan would be only three blocks across.
+// Roads get only a little wider, so the city reads as blocks, not streets.
+export const BLOCK_SCALE = { x: 1.1, z: 1.6 };
+const AVE_W = 17;
+const ST_W = 16;
+const SX = (r: [number, number]): [number, number] => [Math.round(r[0] * BLOCK_SCALE.x), Math.round(r[1] * BLOCK_SCALE.x)];
+const SZ = (r: [number, number]): [number, number] => [Math.round(r[0] * BLOCK_SCALE.z), Math.round(r[1] * BLOCK_SCALE.z)];
+const COL_RANGE: [number, number] = SX([128, 196]); // avenue-to-avenue
+const ROW_RANGE: [number, number] = SZ([62, 104]); // street-to-street
 
 /** Street lines from an anchor outwards both ways, with seeded uneven gaps. */
 function lines(anchor: number, from: number, to: number, range: [number, number], seed: string): number[] {
@@ -165,7 +175,7 @@ function cellOnLand(borough: BoroughId, xs: number[], zs: number[], c: number, r
  */
 function trimToLand(borough: BoroughId, full: { minX: number; maxX: number; minZ: number; maxZ: number }): { minX: number; maxX: number; minZ: number; maxZ: number } | null {
   const r = { ...full };
-  const STEP = 6, MIN_W = 46, MIN_D = 34, PAD = 4;
+  const STEP = 6, MIN_W = 60, MIN_D = 46, PAD = 4;
   const N = 5;
   for (let guard = 0; guard < 80; guard++) {
     // Count the water samples near each side of the rect (+ a small shore pad).
@@ -454,7 +464,7 @@ const BROOKLYN = district({
   // web of diagonal avenues cuts across the grid (world/corridors.ts).
   // Playable from Greenpoint/Williamsburg down to Prospect Park, and east
   // to Bed-Stuy.
-  grid: playable(gridFor('brooklyn', { x: 480, z: 980 }, { minX: 470, maxX: 1520, minZ: 520, maxZ: 1880 }, 'brooklyn-grid-v4', [104, 214], [52, 124]), BROOKLYN_GRID),
+  grid: playable(gridFor('brooklyn', { x: 480, z: 980 }, { minX: 470, maxX: 1520, minZ: 520, maxZ: 1880 }, 'brooklyn-grid-v4', SX([104, 214]), SZ([52, 124])), BROOKLYN_GRID),
   joinRate: { s: 0.2, e: 0.12 },
   blockW: 150,
   blockD: 70,
@@ -522,7 +532,7 @@ const BRONX = district({
   // The Bronx grid is the least regular yet: wide spread of block sizes,
   // lots of closed streets, and the Concourse, Fordham Rd, Southern Blvd,
   // the Deegan and the Cross Bronx cutting across (world/corridors.ts).
-  grid: playable(gridFor('bronx', { x: 180, z: -1860 }, { minX: -10, maxX: 900, minZ: -2960, maxZ: -1440 }, 'bronx-grid-v1', [100, 220], [55, 130]), BRONX_GRID),
+  grid: playable(gridFor('bronx', { x: 180, z: -1860 }, { minX: -10, maxX: 900, minZ: -2960, maxZ: -1440 }, 'bronx-grid-v1', SX([100, 220]), SZ([55, 130])), BRONX_GRID),
   joinRate: { s: 0.22, e: 0.14 },
   blockW: 150,
   blockD: 70,
@@ -590,7 +600,7 @@ const QUEENS = district({
   // Queens: LIC towers by the river, Astoria and Sunnyside row houses,
   // Jackson Heights. Irregular blocks plus Queens Blvd, Northern Blvd and
   // friends cutting across (world/corridors.ts).
-  grid: playable(gridFor('queens', { x: 700, z: -100 }, { minX: 520, maxX: 1700, minZ: -1000, maxZ: 150 }, 'queens-grid-v1', [104, 210], [55, 125]), QUEENS_GRID),
+  grid: playable(gridFor('queens', { x: 700, z: -100 }, { minX: 520, maxX: 1700, minZ: -1000, maxZ: 150 }, 'queens-grid-v1', SX([104, 210]), SZ([55, 125])), QUEENS_GRID),
   joinRate: { s: 0.2, e: 0.12 },
   blockW: 150,
   blockD: 70,
