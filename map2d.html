@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>NYC Life Manhattan Map</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&display=swap">
+<style>
+  /* A map you hold in your hand: the whole screen is the map, a few toy-like buttons float on it. */
+  :root {
+    --sea: #7cc8ec;
+    --ink: #34405a;
+    --chip: #ffffff;
+    --chip-edge: #34405a;
+    --muted: #6a7489;
+    --font: "Baloo 2", "Trebuchet MS", system-ui, sans-serif;
+    color-scheme: light;
+  }
+  html, body { height: 100%; margin: 0; background: var(--sea); overflow: hidden; }
+  #map { position: fixed; inset: 0; width: 100%; height: 100%; touch-action: none; display: block; }
+  .bar { position: fixed; top: calc(12px + env(safe-area-inset-top, 0px)); left: 12px; right: 12px; display: flex; gap: 8px; align-items: flex-start; pointer-events: none; }
+  .title { pointer-events: auto; background: var(--chip); border: 2.5px solid var(--chip-edge); border-radius: 14px; padding: 4px 12px 2px; font: 800 18px/1.15 var(--font); color: var(--ink); box-shadow: 0 3px 0 var(--chip-edge); }
+  .title small { display: block; font-weight: 600; font-size: 12px; color: var(--muted); }
+  .zoom { position: fixed; right: 12px; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: 8px; }
+  .zoom button { width: 46px; height: 46px; border-radius: 50%; border: 2.5px solid var(--chip-edge); background: var(--chip); color: var(--ink); font: 800 24px/1 var(--font); box-shadow: 0 3px 0 var(--chip-edge); cursor: pointer; }
+  .zoom button:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--chip-edge); }
+  .zoom button:focus-visible { outline: 3px solid #f6d35b; outline-offset: 2px; }
+  #info { position: fixed; left: 12px; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); background: var(--chip); border: 2.5px solid var(--chip-edge); border-radius: 14px; padding: 6px 12px 4px; font: 600 14px/1.25 var(--font); color: var(--ink); box-shadow: 0 3px 0 var(--chip-edge); max-width: calc(100% - 100px); }
+  #info b { display: block; font-weight: 800; font-size: 17px; }
+  #info span { color: var(--muted); }
+</style>
+</head>
+<body>
+<canvas id="map" aria-label="Map of Manhattan"></canvas>
+<div class="bar"><div class="title">Manhattan<small>Drag to move · pinch to zoom · tap a block</small></div></div>
+<div id="info" hidden></div>
+<div class="zoom"><button id="zin" aria-label="Zoom in">+</button><button id="zout" aria-label="Zoom out">−</button></div>
+<script type="module" src="/src/map2d/viewer.ts"></script>
+</body>
+</html>

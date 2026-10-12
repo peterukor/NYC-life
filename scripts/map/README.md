@@ -10,7 +10,14 @@ checked before the next:
    between roads (so shore blocks follow the water); small and odd-shaped
    ones are merged into a neighbour. Parks are traced and get a drive round
    them. Manhattan: 43 blocks. Brooklyn: 71.
-3. Houses, trees, street lights… (next)
+3. **Buildings, lawns, trees, lamps, crossings** — `build-city.py <borough>`:
+   a 16 m lot grid inside each block's sidewalk; a building is made only of
+   whole cells that sit completely inside the block (nothing over a road
+   or the water), smaller where a big one doesn't fit, lawn and trees in
+   everything left over. Styles by neighbourhood (towers, apartments,
+   brownstone rows). Drawn by `src/map2d/render.ts` (cartoon 2D, three-
+   quarter view); look around with `map2d.html`:
+   `npx vite build --config vite.map2d.config.ts && node scripts/qa-map2d.mjs`.
 4. Player and NPCs (later)
 
 Files:
