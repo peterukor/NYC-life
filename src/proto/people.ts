@@ -268,7 +268,10 @@ export function makeTraffic(count: number): { group: THREE.Group; update: (dt: n
     const axis: 'x' | 'z' = i % 2 ? 'x' : 'z';
     const dir: 1 | -1 = i % 4 < 2 ? 1 : -1;
     // Roads that run the whole way (not through Central Park).
-    const roads = axis === 'x' ? [...Array(ROWS + 1).keys()].filter((r) => !(isPark(1, r - 1) && isPark(1, r))) : [0, 1, 3, 4];
+    const roads =
+      axis === 'x'
+        ? [...Array(ROWS + 1).keys()].filter((r) => ![...Array(COLS).keys()].some((c) => isPark(c, r - 1) && isPark(c, r)))
+        : [...Array(COLS + 1).keys()].filter((c) => ![...Array(ROWS).keys()].some((r) => isPark(c - 1, r) && isPark(c, r)));
     const road = roads[(i * 7 + 1) % roads.length];
     const centre = road * (axis === 'x' ? PITCH_Z : PITCH_X) + ROAD / 2;
     // Right-hand traffic: eastbound (+x) keeps to the south side (+z), etc.

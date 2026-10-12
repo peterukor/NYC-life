@@ -1,9 +1,11 @@
 // =====================================================================
 // plan.ts — the layout of Manhattan on the 2.5D map.
 //
-// Manhattan is one continuous street grid, 4 blocks wide, made of six
-// neighbourhoods of 4 x 4 blocks stacked north to south (Harlem at the
-// top, the Financial District at the southern tip). Water on the west
+// Manhattan is one continuous street grid made of six neighbourhoods of
+// 4 x 4 blocks, laid out 2 across x 3 down so the borough is a compact
+// near-square (8 x 12 blocks): Harlem and Upper Manhattan & Central Park
+// at the top, Midtown and Chelsea & the Village in the middle, SoHo &
+// Tribeca and the Financial District at the bottom. Water on the west
 // (Hudson), east (East River) and south (the harbour).
 //
 // Every block is the same size: 90 m east-west x 60 m north-south, with
@@ -23,7 +25,7 @@ import type { PriceTier } from '../data/plots.ts';
 export const CELL_W = 90;
 export const CELL_D = 60;
 export const ROAD = 16;
-export const COLS = 4;
+export const COLS = 8;
 export const PITCH_X = CELL_W + ROAD;
 export const PITCH_Z = CELL_D + ROAD;
 /** Waterfront walkway width beyond the outer roads. */
@@ -100,8 +102,11 @@ const CP: Block = { kind: 'park', name: 'Central Park' };
 
 export interface Hood {
   name: string;
+  /** One line about the place, shown on its map label. */
+  tagline: string;
   tier: PriceTier;
-  /** First row (north) of its 4 rows. */
+  /** First column (west) and row (north) of its 4 x 4 blocks. */
+  col0: number;
   row0: number;
   blocks: Block[][];
 }
@@ -109,7 +114,9 @@ export interface Hood {
 export const HOODS: Hood[] = [
   {
     name: 'Harlem',
+    tagline: 'Brownstones, soul food & the Apollo',
     tier: 'harlem',
+    col0: 0,
     row0: 0,
     blocks: [
       [homes("Strivers' Row", 'town'), rect('block-harlem-r90', 'Lenox Avenue', 'Shops'), ads('Ad block · 125th St', ['SKYLINE SODA', null]), homes('Sugar Hill Cottages', 'tiny')],
@@ -120,8 +127,10 @@ export const HOODS: Hood[] = [
   },
   {
     name: 'Upper Manhattan & Central Park',
+    tagline: 'Mansions, museums & the park',
     tier: 'uptown',
-    row0: 4,
+    col0: 4,
+    row0: 0,
     blocks: [
       [homes('Riverside Mansions', 'mansion'), CP, CP, homes('Fifth Avenue Villas', 'villa')],
       [rect('block-rowhouses-r270', 'Upper West Side', 'Apartments'), CP, CP, sq('sq-midtown-r90', 'Museum Mile', 'Offices')],
@@ -131,8 +140,10 @@ export const HOODS: Hood[] = [
   },
   {
     name: 'Midtown',
+    tagline: 'Times Square, towers & bright lights',
     tier: 'midtown',
-    row0: 8,
+    col0: 0,
+    row0: 4,
     blocks: [
       [rect('block-midtown-r90', 'Rockefeller Plaza', 'Offices'), ads('Times Square Ads', ['BIG APPLE PIZZA', 'SKYLINE SODA']), mark('Times Square'), rect('block-mixed-r270', 'Broadway Shops', 'Shops')],
       [ads('Ad block · 42nd St'), mark('Empire State Building'), sq('sq-midtown-r0', 'Bryant Park Towers', 'Offices', 'subway'), homes('Sutton Place Mansions', 'mansion')],
@@ -142,8 +153,10 @@ export const HOODS: Hood[] = [
   },
   {
     name: 'Chelsea & the Village',
+    tagline: 'Townhouses, cafés & Washington Square',
     tier: 'downtown',
-    row0: 12,
+    col0: 4,
+    row0: 4,
     blocks: [
       [rect('block-rowhouses-r90', 'Chelsea Rows', 'Apartments'), homes('West Chelsea Townhouses', 'town'), ads('Ad block · 23rd St'), rect('block-mixed-r90', 'Union Square Shops', 'Shops')],
       [play('High Line Playground'), mark('Washington Square Arch'), sq('sq-soho-r0', 'Bleecker Street', 'Shops', 'subway'), homes('East Village Cottages', 'tiny')],
@@ -153,8 +166,10 @@ export const HOODS: Hood[] = [
   },
   {
     name: 'SoHo & Tribeca',
+    tagline: 'Lofts, boutiques & Canal Street',
     tier: 'downtown',
-    row0: 16,
+    col0: 0,
+    row0: 8,
     blocks: [
       [rect('block-soho-r0', 'SoHo Lofts', 'Shops'), homes('Tribeca Villas', 'villa'), ads('Ad block · Canal St', [null, 'METRO KICKS']), sq('sq-mixed-r0', 'Chinatown Market', 'Shops', 'subway')],
       [ads('Ad block · Spring St', ['BIG APPLE PIZZA', null]), rect('block-mixed-r270', 'Broadway Boutiques', 'Shops'), homes('Little Italy Homes', 'mix3'), rect('block-rowhouses-r270', 'Lower East Side', 'Apartments')],
@@ -164,8 +179,10 @@ export const HOODS: Hood[] = [
   },
   {
     name: 'Financial District',
+    tagline: 'Wall Street, One WTC & the harbour',
     tier: 'downtown',
-    row0: 20,
+    col0: 4,
+    row0: 8,
     blocks: [
       [sq('sq-fidi-r0', 'Liberty Street', 'Offices'), ads('Ad block · Cortlandt St', ['BROOKLYN BEANS', null]), homes('Greenwich Street Homes', 'mix1'), sq('sq-mixed-r0', 'Fulton Street', 'Shops', 'subway')],
       [mark('One World Trade Center'), rect('block-midtown-r270', 'Vesey Towers', 'Offices'), sq('sq-soho-r0', 'John Street Lofts', 'Apartments'), homes('Gold Street Townhouses', 'town')],
@@ -175,7 +192,7 @@ export const HOODS: Hood[] = [
   },
 ];
 
-export const ROWS = HOODS.length * 4;
+export const ROWS = 12;
 /** The whole street grid, outer roads included. */
 export const GRID_W = COLS * PITCH_X + ROAD;
 export const GRID_D = ROWS * PITCH_Z + ROAD;
@@ -184,12 +201,31 @@ export const GRID_D = ROWS * PITCH_Z + ROAD;
 export const cellX = (c: number) => ROAD + c * PITCH_X;
 export const cellZ = (r: number) => ROAD + r * PITCH_Z;
 
+/** The neighbourhood a block belongs to. */
+export const hoodOf = (c: number, r: number): Hood =>
+  HOODS.find((h) => c >= h.col0 && c < h.col0 + 4 && r >= h.row0 && r < h.row0 + 4) ?? HOODS[0];
 export function blockAt(c: number, r: number): Block {
-  const h = HOODS[Math.floor(r / 4)];
-  return h.blocks[r - h.row0][c];
+  const h = hoodOf(c, r);
+  return h.blocks[r - h.row0][c - h.col0];
 }
-export const hoodOfRow = (r: number): Hood => HOODS[Math.max(0, Math.min(HOODS.length - 1, Math.floor(r / 4)))];
-export const hoodAtZ = (z: number): Hood => hoodOfRow(Math.floor((z - ROAD / 2) / PITCH_Z));
+/** The neighbourhood under a ground point (nearest one if on a road or the water). */
+export const hoodAt = (x: number, z: number): Hood => {
+  const c = Math.max(0, Math.min(COLS - 1, Math.floor((x - ROAD / 2) / PITCH_X)));
+  const r = Math.max(0, Math.min(ROWS - 1, Math.floor((z - ROAD / 2) / PITCH_Z)));
+  return hoodOf(c, r);
+};
+
+/** Central Park's outline (its blocks plus the roads between them). */
+export function parkBounds(): { x0: number; z0: number; x1: number; z1: number } | null {
+  let c0 = COLS, c1 = -1, r0 = ROWS, r1 = -1;
+  for (let r = 0; r < ROWS; r++)
+    for (let c = 0; c < COLS; c++)
+      if (isPark(c, r)) {
+        c0 = Math.min(c0, c); c1 = Math.max(c1, c); r0 = Math.min(r0, r); r1 = Math.max(r1, r);
+      }
+  if (c1 < 0) return null;
+  return { x0: cellX(c0), z0: cellZ(r0), x1: cellX(c1) + CELL_W, z1: cellZ(r1) + CELL_D };
+}
 
 /** Is this block part of Central Park (one big park with no roads inside)? */
 export const isPark = (c: number, r: number) => c >= 0 && r >= 0 && c < COLS && r < ROWS && blockAt(c, r).kind === 'park';

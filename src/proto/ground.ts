@@ -14,7 +14,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { AD_PRICES, type PriceTier } from '../data/plots.ts';
 import {
-  CELL_D, CELL_W, COLS, GRID_D, GRID_W, PITCH_X, PITCH_Z, PROMENADE, ROAD, ROWS, SPACE_D, SPACE_W, STRIP, blockAt, cellX, cellZ, hoodOfRow, isPark,
+  CELL_D, CELL_W, COLS, GRID_D, GRID_W, PITCH_X, PITCH_Z, PROMENADE, ROAD, ROWS, SPACE_D, SPACE_W, STRIP, blockAt, cellX, cellZ, hoodOf, isPark, parkBounds,
   type Block, type Side,
 } from './plan.ts';
 
@@ -221,7 +221,7 @@ export function buildGround(): GroundBuild {
   const P = PROMENADE;
 
   // ---- the Bronx side (north): land under the clouds
-  b.rect(-P - 300, -700, GRID_W + P + 300, 0, -0.02, C.grass);
+  b.rect(-P - 2000, -3000, GRID_W + P + 1200, 0, -0.02, C.grass);
 
   // ---- asphalt under the whole grid (fills hairline gaps between road pictures)
   b.rect(0, 0, GRID_W, GRID_D, -0.4, C.asphalt);
@@ -262,7 +262,7 @@ export function buildGround(): GroundBuild {
       const x0 = cellX(c);
       const z0 = cellZ(r);
       b.box(x0, 0, z0, x0 + CELL_W, KERB_H, z0 + CELL_D, C.pave, C.paveSide);
-      blockContent(blk, hoodOfRow(r).tier, x0, z0, b, group, props, sprites);
+      blockContent(blk, hoodOf(c, r).tier, x0, z0, b, group, props, sprites);
     }
   }
   centralPark(b, group, props, sprites);
@@ -291,8 +291,8 @@ export function buildGround(): GroundBuild {
     }
   });
   ripples.wrapS = ripples.wrapT = THREE.RepeatWrapping;
-  ripples.repeat.set(90, 90);
-  const water = new THREE.Mesh(new THREE.PlaneGeometry(5000, 5000), new THREE.MeshBasicMaterial({ map: ripples }));
+  ripples.repeat.set(250, 250);
+  const water = new THREE.Mesh(new THREE.PlaneGeometry(14000, 14000), new THREE.MeshBasicMaterial({ map: ripples }));
   water.rotation.x = -Math.PI / 2;
   water.position.set(GRID_W / 2, -1.6, GRID_D / 2);
   group.add(water);
@@ -318,14 +318,9 @@ export function buildGround(): GroundBuild {
 
 /** Central Park: one big lawn over its blocks and the roads between them. */
 function centralPark(b: BoxBatch, group: THREE.Group, props: PropSet, sprites: Placement[]): void {
-  let c0 = COLS, c1 = -1, r0 = ROWS, r1 = -1;
-  for (let r = 0; r < ROWS; r++)
-    for (let c = 0; c < COLS; c++)
-      if (isPark(c, r)) {
-        c0 = Math.min(c0, c); c1 = Math.max(c1, c); r0 = Math.min(r0, r); r1 = Math.max(r1, r);
-      }
-  if (c1 < 0) return;
-  const x0 = cellX(c0), x1 = cellX(c1) + CELL_W, z0 = cellZ(r0), z1 = cellZ(r1) + CELL_D;
+  const pb = parkBounds();
+  if (!pb) return;
+  const { x0, x1, z0, z1 } = pb;
   const y = KERB_H;
   b.box(x0, 0, z0, x1, y, z1, C.pave, C.paveSide);
   b.box(x0 + 3, y, z0 + 3, x1 - 3, y + 0.6, z1 - 3, C.stone, C.stoneSide); // low stone wall

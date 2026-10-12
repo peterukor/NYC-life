@@ -16,7 +16,7 @@ import { HOUSES, homeWeekly, AD_PRICES } from '../data/plots.ts';
 import { buildGround, buildProps, textTexture } from './ground.ts';
 import { PEOPLE_SCALE, Walker, makeStroller, makeTraffic } from './people.ts';
 import {
-  CELL_D, CELL_W, COLS, GRID_D, GRID_W, HOODS, PITCH_Z, ROAD, STRIP, blockAt, cellAt, cellX, cellZ, hoodAtZ, hoodOfRow, houseAt,
+  CELL_D, CELL_W, COLS, GRID_D, GRID_W, HOODS, PITCH_Z, ROAD, STRIP, blockAt, cellAt, cellX, cellZ, hoodAt, hoodOf, houseAt, parkBounds, PITCH_X,
   type Block, type HouseKind,
 } from './plan.ts';
 import { SpriteWorld, cameraQuaternion } from './sprites.ts';
@@ -25,7 +25,8 @@ import { CAM_DIR, CAM_DISTANCE, CAM_FAR, CAM_NEAR, SUN_FROM } from './view.ts';
 
 const HOUSE_ID: Record<HouseKind, 'tiny' | 'townhouse' | 'modern' | 'mansion'> = { tiny: 'tiny', townhouse: 'townhouse', villa: 'modern', mansion: 'mansion' };
 const ZOOM_MIN = 70;
-const ZOOM_MAX = 2300;
+/** Minimum value of the furthest zoom (see zoomMax). */
+const ZOOM_MAX = 1100;
 /** Zoomed out past this, the map shows neighbourhood names and small pictures. */
 const OVERVIEW = 520;
 
@@ -50,8 +51,8 @@ export async function startProto(stage: HTMLElement, ui: HTMLElement): Promise<v
   const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, CAM_NEAR, CAM_FAR);
   camera.quaternion.copy(cameraQuaternion());
   // Start in the Financial District, on the sidewalk by Zuccotti Playground.
-  const fidi = HOODS.length - 1;
-  const target = new THREE.Vector3(cellX(1) + CELL_W - 10, 0, cellZ(fidi * 4 + 2) - 2.2);
+  const fidi = HOODS.find((h) => h.name === 'Financial District')!;
+  const target = new THREE.Vector3(cellX(fidi.col0 + 1) + CELL_W - 10, 0, cellZ(fidi.row0 + 2) - 2.2);
   let viewH = 120;
 
   // ---- lights for the live 3D parts, matched to the Blender sun
@@ -136,11 +137,11 @@ export async function startProto(stage: HTMLElement, ui: HTMLElement): Promise<v
   ui.insertAdjacentHTML(
     'beforeend',
     `<div class="pt-top"><div class="pt-pill"><b id="pt-hood">Financial District</b><span>Manhattan</span></div>
-       <div class="pt-right"><div class="pt-row2"><button class="pt-btn" id="pt-map" aria-label="New York map">🗺 NYC</button><button class="pt-btn" id="pt-q">HD</button></div><div class="pt-stats" id="pt-stats">…</div></div></div>
+       <div class="pt-right"><div class="pt-row2"><button class="pt-btn" id="pt-map" aria-label="Map of New York">🗺 Map</button><button class="pt-btn" id="pt-q">HD</button></div><div class="pt-stats" id="pt-stats">…</div></div></div>
      <div class="pt-zoom"><button class="pt-btn" id="pt-in" aria-label="Zoom in">＋</button><button class="pt-btn" id="pt-out" aria-label="Zoom out">－</button></div>
      <button class="pt-btn pt-me" id="pt-me" aria-label="Find me">◎</button>
      <div class="pt-sheet" id="pt-sheet" hidden></div>
-     <div class="pt-hint" id="pt-hint">Drag to move · pinch to zoom out over Manhattan · tap a house or block</div>`,
+     <div class="pt-hint" id="pt-hint">Drag to move · pinch to zoom · tap a house or block · 🗺 Map for all of New York</div>`,
   );
   const sheet = ui.querySelector<HTMLDivElement>('#pt-sheet')!;
   const stats = ui.querySelector<HTMLDivElement>('#pt-stats')!;
@@ -154,13 +155,14 @@ export async function startProto(stage: HTMLElement, ui: HTMLElement): Promise<v
   };
   let follow = true;
   /** A smooth camera flight in progress (tap on the overview, or "find me"). */
-  let fly: { x: number; z: number; h: number } | null = null;
+  let fly: { x: number; z: number; h: number; t: number } | null = null;
   ui.querySelector<HTMLButtonElement>('#pt-me')!.onclick = () => {
-    fly = { x: player.pos.x, z: player.pos.z, h: 120 };
+    fly = { x: player.pos.x, z: player.pos.z, h: 120, t: 0 };
   };
   const openWorld = () =>
     openTreasureMap(ui, () => {
-      fly = { x: player.pos.x, z: player.pos.z, h: 160 };
+      pts.clear();
+      fly = { x: player.pos.x, z: player.pos.z, h: 160, t: 0 };
     });
   ui.querySelector<HTMLButtonElement>('#pt-map')!.onclick = openWorld;
   ui.querySelector<HTMLButtonElement>('#pt-in')!.onclick = () => setZoom(viewH / 1.6);
@@ -186,10 +188,13 @@ export async function startProto(stage: HTMLElement, ui: HTMLElement): Promise<v
     camera.position.copy(target).addScaledVector(CAM_DIR, CAM_DISTANCE);
     camera.updateMatrixWorld();
   };
+  /** Furthest zoom: just enough to see all of Manhattan across the screen. */
+  const zoomMax = () => {
+    const aspect = (stage.clientWidth || 1) / (stage.clientHeight || 1);
+    return Math.max(ZOOM_MAX, ((GRID_W + GRID_D) * 0.74) / aspect);
+  };
   const setZoom = (h: number) => {
-    // Pulling out past the whole borough opens the map of New York.
-    if (h > ZOOM_MAX * 1.12 && viewH >= ZOOM_MAX - 1 && !fly) openWorld();
-    viewH = THREE.MathUtils.clamp(h, ZOOM_MIN, ZOOM_MAX);
+    viewH = THREE.MathUtils.clamp(h, ZOOM_MIN, zoomMax());
     resize();
   };
 
@@ -209,6 +214,7 @@ export async function startProto(stage: HTMLElement, ui: HTMLElement): Promise<v
   let pinchH = viewH;
   const el = renderer.domElement;
   el.addEventListener('pointerdown', (e) => {
+    if (e.isPrimary) pts.clear(); // a new first finger: nothing else can still be down
     el.setPointerCapture(e.pointerId);
     pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (pts.size === 1) {
@@ -252,7 +258,11 @@ export async function startProto(stage: HTMLElement, ui: HTMLElement): Promise<v
     if (p && pts.size === 0 && moved < 8 && performance.now() - downAt < 450) tap(p.x, p.y);
   };
   el.addEventListener('pointerup', up);
-  el.addEventListener('pointercancel', (e) => pts.delete(e.pointerId));
+  // Forget a finger whenever the browser stops telling us about it (it
+  // lifted over a menu, the map opened, the app lost focus...). A stale
+  // finger would make every later touch look like a pinch.
+  for (const ev of ['pointercancel', 'lostpointercapture', 'pointerleave'] as const) el.addEventListener(ev, (e) => pts.delete((e as PointerEvent).pointerId));
+  window.addEventListener('blur', () => pts.clear());
   el.addEventListener(
     'wheel',
     (e) => {
@@ -272,7 +282,7 @@ export async function startProto(stage: HTMLElement, ui: HTMLElement): Promise<v
     // Zoomed far out: tapping flies you down to that spot.
     if (viewH > OVERVIEW) {
       follow = false;
-      fly = { x: g.x, z: g.z, h: 160 };
+      fly = { x: THREE.MathUtils.clamp(g.x, 0, GRID_W), z: THREE.MathUtils.clamp(g.z, 0, GRID_D), h: 160, t: 0 };
       return;
     }
     player.walkTo(g.x, g.z);
@@ -287,16 +297,19 @@ export async function startProto(stage: HTMLElement, ui: HTMLElement): Promise<v
     const blk = blockAt(cell.c, cell.r);
     const x0 = cellX(cell.c);
     const z0 = cellZ(cell.r);
-    showSheet(blk, cell.r, g.x - x0, g.z - z0);
+    showSheet(blk, cell.c, cell.r, g.x - x0, g.z - z0);
     if (blk.kind === 'homes') {
       const h = houseAt(blk.houses, g.x - x0, g.z - z0);
       if (h) showHighlight(x0 + (h.c * CELL_W) / 8, z0 + (h.r * CELL_D) / 2, (h.w * CELL_W) / 8, (h.h * CELL_D) / 2);
-    } else if (blk.kind === 'park') showHighlight(cellX(1), cellZ(4), cellX(2) + CELL_W - cellX(1), cellZ(7) + CELL_D - cellZ(4));
+    } else if (blk.kind === 'park') {
+      const pb = parkBounds()!;
+      showHighlight(pb.x0, pb.z0, pb.x1 - pb.x0, pb.z1 - pb.z0);
+    }
     else showHighlight(x0, z0, CELL_W, CELL_D);
   };
 
-  const showSheet = (blk: Block, r: number, lx: number, lz: number) => {
-    const hood = hoodOfRow(r);
+  const showSheet = (blk: Block, c: number, r: number, lx: number, lz: number) => {
+    const hood = hoodOf(c, r);
     let title = blk.name;
     let body = '';
     if (blk.kind === 'rect' || blk.kind === 'square') {
@@ -362,7 +375,8 @@ export async function startProto(stage: HTMLElement, ui: HTMLElement): Promise<v
       target.x += (fly.x - target.x) * k;
       target.z += (fly.z - target.z) * k;
       setZoom(Math.exp(Math.log(viewH) + (Math.log(fly.h) - Math.log(viewH)) * k));
-      if (Math.hypot(fly.x - target.x, fly.z - target.z) < 2 && Math.abs(viewH - fly.h) < 2) {
+      fly.t += dt;
+      if ((Math.hypot(fly.x - target.x, fly.z - target.z) < 2 && Math.abs(viewH - fly.h) < 2) || fly.t > 2.5) {
         fly = null;
         follow = Math.hypot(player.pos.x - target.x, player.pos.z - target.z) < 30;
       }
@@ -373,7 +387,7 @@ export async function startProto(stage: HTMLElement, ui: HTMLElement): Promise<v
     placeCamera();
     const overview = viewH > OVERVIEW;
     for (const l of labels) l.visible = overview;
-    hoodPill.textContent = hoodAtZ(target.z).name;
+    hoodPill.textContent = hoodAt(target.x, target.z).name;
     streamT -= dt;
     if (streamT <= 0) {
       streamT = 0.4;
@@ -419,22 +433,48 @@ export async function startProto(stage: HTMLElement, ui: HTMLElement): Promise<v
   };
 }
 
-/** Big neighbourhood names, shown when zoomed far out. */
+/** Neighbourhood names, shown when zoomed far out: a name plate with a one-line tagline. */
 function addHoodLabels(scene: THREE.Scene): THREE.Sprite[] {
+  const ICON: Record<string, string> = {
+    Harlem: '🎷',
+    'Upper Manhattan & Central Park': '🌳',
+    Midtown: '🌆',
+    'Chelsea & the Village': '☕',
+    'SoHo & Tribeca': '🛍️',
+    'Financial District': '🏦',
+  };
   return HOODS.map((h) => {
-    const t = textTexture(1024, 200, (g) => {
-      g.fillStyle = 'rgba(255,255,255,0.94)';
+    const W = 900, H = 230;
+    const t = textTexture(W, H, (g) => {
+      g.shadowColor = 'rgba(0,0,0,0.25)';
+      g.shadowBlur = 18;
+      g.shadowOffsetY = 6;
+      g.fillStyle = '#ffffff';
       g.beginPath();
-      g.roundRect(10, 10, 1004, 180, 90);
+      g.roundRect(20, 20, W - 40, H - 50, 40);
       g.fill();
+      g.shadowColor = 'transparent';
+      // coloured icon badge
       g.fillStyle = '#1d3557';
-      g.font = '900 84px system-ui, sans-serif';
+      g.beginPath();
+      g.arc(110, 20 + (H - 50) / 2, 62, 0, Math.PI * 2);
+      g.fill();
+      g.font = '64px system-ui, sans-serif';
       g.textAlign = 'center';
-      g.fillText(h.name, 512, 128, 940);
+      g.textBaseline = 'middle';
+      g.fillText(ICON[h.name] ?? '📍', 110, 22 + (H - 50) / 2);
+      g.textAlign = 'left';
+      g.textBaseline = 'alphabetic';
+      g.fillStyle = '#1d3557';
+      g.font = '900 64px system-ui, sans-serif';
+      g.fillText(h.name, 196, 108, W - 240);
+      g.fillStyle = '#6b7280';
+      g.font = '600 36px system-ui, sans-serif';
+      g.fillText(h.tagline, 198, 160, W - 240);
     });
     const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, depthTest: false, transparent: true }));
-    s.scale.set(300, 58.6, 1);
-    s.position.set(GRID_W / 2, 120, cellZ(h.row0) + (4 * PITCH_Z - ROAD) / 2);
+    s.scale.set(330, 84, 1);
+    s.position.set(cellX(h.col0) + (4 * PITCH_X - ROAD) / 2, 90, cellZ(h.row0) + (4 * PITCH_Z - ROAD) / 2);
     s.renderOrder = 30;
     s.visible = false;
     scene.add(s);

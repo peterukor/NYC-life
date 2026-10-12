@@ -33,6 +33,6 @@ export const SUN_FROM = (() => {
 })();
 
 /** Camera distance from its target (orthographic, so it only affects clipping). */
-export const CAM_DISTANCE = 1500;
+export const CAM_DISTANCE = 4000;
 export const CAM_NEAR = 1;
-export const CAM_FAR = 3200;
+export const CAM_FAR = 9000;
