@@ -112,10 +112,10 @@ export const HOODS: Hood[] = [
     tier: 'harlem',
     row0: 0,
     blocks: [
-      [homes("Strivers' Row", 'town'), rect('block-harlem-r90', 'Lenox Avenue', 'Shops'), ads('Ad block · 125th St'), homes('Sugar Hill Cottages', 'tiny')],
+      [homes("Strivers' Row", 'town'), rect('block-harlem-r90', 'Lenox Avenue', 'Shops'), ads('Ad block · 125th St', ['SKYLINE SODA', null]), homes('Sugar Hill Cottages', 'tiny')],
       [mark('Apollo Theater'), rect('block-rowhouses-r90', 'Harlem Brownstones', 'Apartments'), homes('Mount Morris Homes', 'mix2'), rect('block-harlem-r270', '125th Street Shops', 'Shops')],
       [play('Marcus Garvey Playground'), homes('Hamilton Terrace', 'tiny'), sq('sq-walkups-r0', 'Convent Avenue Walk-ups', 'Apartments', 'subway'), ads('Ad block · Malcolm X Blvd')],
-      [homes('Riverside Villas', 'villa'), gym('Harlem Gym & Pool'), homes('Lenox Townhouses', 'town'), ads('Ad block · 116th St')],
+      [homes('Riverside Villas', 'villa'), gym('Harlem Gym & Pool'), homes('Lenox Townhouses', 'town'), ads('Ad block · 116th St', [null, 'METRO KICKS'])],
     ],
   },
   {
@@ -126,7 +126,7 @@ export const HOODS: Hood[] = [
       [homes('Riverside Mansions', 'mansion'), CP, CP, homes('Fifth Avenue Villas', 'villa')],
       [rect('block-rowhouses-r270', 'Upper West Side', 'Apartments'), CP, CP, sq('sq-midtown-r90', 'Museum Mile', 'Offices')],
       [ads('Ad block · Columbus Ave'), CP, CP, homes('Park Avenue Mansions', 'mansion')],
-      [homes('West 72nd Street Homes', 'mix1'), CP, CP, ads('Ad block · Madison Ave')],
+      [homes('West 72nd Street Homes', 'mix1'), CP, CP, ads('Ad block · Madison Ave', ['EMPIRE FITNESS', null])],
     ],
   },
   {
@@ -134,9 +134,9 @@ export const HOODS: Hood[] = [
     tier: 'midtown',
     row0: 8,
     blocks: [
-      [rect('block-midtown-r90', 'Rockefeller Plaza', 'Offices'), ads('Times Square Ads'), mark('Times Square'), rect('block-mixed-r270', 'Broadway Shops', 'Shops')],
+      [rect('block-midtown-r90', 'Rockefeller Plaza', 'Offices'), ads('Times Square Ads', ['BIG APPLE PIZZA', 'SKYLINE SODA']), mark('Times Square'), rect('block-mixed-r270', 'Broadway Shops', 'Shops')],
       [ads('Ad block · 42nd St'), mark('Empire State Building'), sq('sq-midtown-r0', 'Bryant Park Towers', 'Offices', 'subway'), homes('Sutton Place Mansions', 'mansion')],
-      [rect('block-midtown-r270', "Hell's Kitchen Towers", 'Offices'), play('Bryant Park'), sq('sq-fidi-r90', 'Grand Central Offices', 'Offices'), ads('Ad block · Lexington Ave')],
+      [rect('block-midtown-r270', "Hell's Kitchen Towers", 'Offices'), play('Bryant Park'), sq('sq-fidi-r90', 'Grand Central Offices', 'Offices'), ads('Ad block · Lexington Ave', [null, 'LIBERTY TAXI'])],
       [homes('Murray Hill Villas', 'villa'), gym('Midtown Gym & Pool'), rect('block-soho-r180', 'Herald Square Shops', 'Shops'), homes('Kips Bay Homes', 'mix1')],
     ],
   },
@@ -147,7 +147,7 @@ export const HOODS: Hood[] = [
     blocks: [
       [rect('block-rowhouses-r90', 'Chelsea Rows', 'Apartments'), homes('West Chelsea Townhouses', 'town'), ads('Ad block · 23rd St'), rect('block-mixed-r90', 'Union Square Shops', 'Shops')],
       [play('High Line Playground'), mark('Washington Square Arch'), sq('sq-soho-r0', 'Bleecker Street', 'Shops', 'subway'), homes('East Village Cottages', 'tiny')],
-      [homes('West Village Homes', 'mix2'), ads('Ad block · 14th St'), rect('block-harlem-r270', 'St Marks Place', 'Shops'), gym('Village Gym & Pool')],
+      [homes('West Village Homes', 'mix2'), ads('Ad block · 14th St', ['BROOKLYN BEANS', null]), rect('block-harlem-r270', 'St Marks Place', 'Shops'), gym('Village Gym & Pool')],
       [sq('sq-walkups-r90', 'Greenwich Walk-ups', 'Apartments'), homes('Bedford Street Townhouses', 'town'), rect('block-soho-r0', 'Astor Place', 'Shops'), ads('Ad block · Houston St')],
     ],
   },
@@ -156,10 +156,10 @@ export const HOODS: Hood[] = [
     tier: 'downtown',
     row0: 16,
     blocks: [
-      [rect('block-soho-r0', 'SoHo Lofts', 'Shops'), homes('Tribeca Villas', 'villa'), ads('Ad block · Canal St'), sq('sq-mixed-r0', 'Chinatown Market', 'Shops', 'subway')],
+      [rect('block-soho-r0', 'SoHo Lofts', 'Shops'), homes('Tribeca Villas', 'villa'), ads('Ad block · Canal St', [null, 'METRO KICKS']), sq('sq-mixed-r0', 'Chinatown Market', 'Shops', 'subway')],
       [ads('Ad block · Spring St', ['BIG APPLE PIZZA', null]), rect('block-mixed-r270', 'Broadway Boutiques', 'Shops'), homes('Little Italy Homes', 'mix3'), rect('block-rowhouses-r270', 'Lower East Side', 'Apartments')],
       [homes('Tribeca Mansions', 'mansion'), play('Hudson Square Playground'), sq('sq-soho-r0', 'Mercer Street', 'Apartments'), homes('Orchard Street Townhouses', 'town')],
-      [rect('block-harlem-r90', 'Canal Street Shops', 'Shops'), gym('SoHo Gym & Pool'), ads('Ad block · Lafayette St'), homes('Mulberry Cottages', 'tiny')],
+      [rect('block-harlem-r90', 'Canal Street Shops', 'Shops'), gym('SoHo Gym & Pool'), ads('Ad block · Lafayette St', ['LIBERTY TAXI', null]), homes('Mulberry Cottages', 'tiny')],
     ],
   },
   {
@@ -167,7 +167,7 @@ export const HOODS: Hood[] = [
     tier: 'downtown',
     row0: 20,
     blocks: [
-      [sq('sq-fidi-r0', 'Liberty Street', 'Offices'), ads('Ad block · Cortlandt St'), homes('Greenwich Street Homes', 'mix1'), sq('sq-mixed-r0', 'Fulton Street', 'Shops', 'subway')],
+      [sq('sq-fidi-r0', 'Liberty Street', 'Offices'), ads('Ad block · Cortlandt St', ['BROOKLYN BEANS', null]), homes('Greenwich Street Homes', 'mix1'), sq('sq-mixed-r0', 'Fulton Street', 'Shops', 'subway')],
       [mark('One World Trade Center'), rect('block-midtown-r270', 'Vesey Towers', 'Offices'), sq('sq-soho-r0', 'John Street Lofts', 'Apartments'), homes('Gold Street Townhouses', 'town')],
       [ads('Ad block · Rector St'), play('Zuccotti Playground'), gym('Downtown Gym & Pool'), homes('Pearl Street Villas', 'villa')],
       [mark('Wall Street · Stock Exchange'), sq('sq-walkups-r0', 'Stone Street Walk-ups', 'Apartments'), homes('Water Street Cottages', 'tiny'), ads('Ad block · Battery Pl')],

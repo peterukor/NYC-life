@@ -138,12 +138,28 @@ function signTexture(title: string, sub: string, bg: string, fg = '#ffffff'): TH
   });
 }
 
+/** Made-up sample advertisers, so the ad blocks show what a rented half looks like. */
+export const SAMPLE_ADS: Record<string, { bg: string; bg2: string; line: string }> = {
+  'BIG APPLE PIZZA': { bg: '#e63946', bg2: '#f4a261', line: 'Open late · $1 slices' },
+  'SKYLINE SODA': { bg: '#3a86ff', bg2: '#8ecae6', line: 'Taste the city' },
+  'BROOKLYN BEANS': { bg: '#6d4c41', bg2: '#bc8a5f', line: 'Coffee roasted daily' },
+  'EMPIRE FITNESS': { bg: '#2a9d8f', bg2: '#80ed99', line: 'First week free' },
+  'METRO KICKS': { bg: '#8338ec', bg2: '#ff70a6', line: 'New drops every Friday' },
+  'LIBERTY TAXI': { bg: '#f5b700', bg2: '#ffd166', line: 'Anywhere in 5 boroughs' },
+};
+
 function adTexture(side: 'LEFT' | 'RIGHT', rented: string | null, price: number): THREE.CanvasTexture {
   // The panel lies flat. The text is drawn turned 45° and stretched 2x
   // tall, so from the fixed camera it reads straight and upright, like
   // a sticker on the screen (the trick Clash of Clans uses for decals).
+  const look = rented ? (SAMPLE_ADS[rented] ?? SAMPLE_ADS['BIG APPLE PIZZA']) : null;
   return textTexture(512, 680, (g) => {
-    g.fillStyle = rented ? '#e63946' : '#fffaf0';
+    if (look) {
+      const grd = g.createLinearGradient(0, 0, 512, 680);
+      grd.addColorStop(0, look.bg);
+      grd.addColorStop(1, look.bg2);
+      g.fillStyle = grd;
+    } else g.fillStyle = '#fffaf0';
     g.fillRect(0, 0, 512, 680);
     if (!rented) {
       g.strokeStyle = '#f5b700';
@@ -163,7 +179,7 @@ function adTexture(side: 'LEFT' | 'RIGHT', rented: string | null, price: number)
       g.font = '900 54px system-ui, sans-serif';
       g.fillText(rented, 0, -26, 560);
       g.font = '700 26px system-ui, sans-serif';
-      g.fillText('Open late · Fulton St', 0, 22, 520);
+      g.fillText(look!.line, 0, 22, 520);
     } else {
       g.fillStyle = '#1d3557';
       g.font = '900 64px system-ui, sans-serif';
@@ -318,8 +334,31 @@ function centralPark(b: BoxBatch, group: THREE.Group, props: PropSet, sprites: P
   // The lake (like the Reservoir), with a stone rim.
   const lx0 = x0 + 34, lx1 = x1 - 34, lz0 = z0 + 70, lz1 = z0 + 150;
   b.box(lx0 - 2, y, lz0 - 2, lx1 + 2, y + 0.8, lz1 + 2, C.stone, C.stoneSide);
-  b.rect(lx0, lz0, lx1, lz1, y + 0.81, C.water);
+  // Lake water with the same gentle ripples as the rivers.
+  const lakeTex = textTexture(256, 256, (g) => {
+    g.fillStyle = C.water;
+    g.fillRect(0, 0, 256, 256);
+    g.strokeStyle = 'rgba(255,255,255,0.25)';
+    g.lineWidth = 3;
+    g.lineCap = 'round';
+    for (let i = 0; i < 22; i++) {
+      const x = (i * 83) % 256;
+      const yy = (i * 47) % 256;
+      g.beginPath();
+      g.moveTo(x, yy);
+      g.quadraticCurveTo(x + 10, yy - 5, x + 22, yy);
+      g.stroke();
+    }
+  });
+  lakeTex.wrapS = lakeTex.wrapT = THREE.RepeatWrapping;
+  lakeTex.repeat.set((lx1 - lx0) / 18, (lz1 - lz0) / 18);
+  const lake = new THREE.Mesh(new THREE.PlaneGeometry(lx1 - lx0, lz1 - lz0).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: lakeTex }));
+  lake.position.set((lx0 + lx1) / 2, y + 0.81, (lz0 + lz1) / 2);
+  group.add(lake);
   b.rect(lx0, lz0, lx1, lz0 + 3, y + 0.82, C.shallows);
+  b.rect(lx0, lz0, lx0 + 3, lz1, y + 0.82, C.shallows);
+  // A little boathouse jetty.
+  b.box(lx0 + 20, y, lz1 - 10, lx0 + 24, y + 1.0, lz1 + 2, '#c8a27a', '#9c7a56');
   // Winding-looking paths: a loop drive and cross paths.
   const pathY = y + 0.62;
   const w = 3.5;
@@ -391,7 +430,7 @@ function blockContent(blk: Block, tier: PriceTier, x0: number, z0: number, b: Bo
         [mid + 0.6, x1 - SW, 'RIGHT', blk.rented[1]],
       ];
       for (const [a, c, side, rented] of halves) {
-        b.box(a, y, z0 + SW, c, y + 0.35, z1 - SW, rented ? '#c0392b' : '#f5b700', rented ? '#8e2a20' : '#c99400');
+        b.box(a, y, z0 + SW, c, y + 0.35, z1 - SW, rented ? '#ffffff' : '#f5b700', rented ? '#d0d4da' : '#c99400');
         const tex = adTexture(side, rented, price);
         const panel = new THREE.Mesh(new THREE.PlaneGeometry(c - a - 1.6, CELL_D - 2 * SW - 1.6), new THREE.MeshBasicMaterial({ map: tex }));
         panel.rotation.x = -Math.PI / 2;

@@ -1,0 +1,13 @@
+import puppeteer from 'puppeteer-core';
+const browser = await puppeteer.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', headless: true, args: ['--no-sandbox', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
+const page = await browser.newPage();
+await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 2 });
+const errors = []; page.on('pageerror', (e) => errors.push(e.message));
+await page.goto('http://localhost:4173/?proto', { waitUntil: 'load' });
+await page.waitForFunction(() => window.__proto, { timeout: 60000 });
+await new Promise((r) => setTimeout(r, 2000));
+await page.click('#pt-map');
+await new Promise((r) => setTimeout(r, 1200));
+await page.screenshot({ path: 'test-results/proto-treasure.png' });
+console.log('errors', errors);
+await browser.close();

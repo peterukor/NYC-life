@@ -20,6 +20,7 @@ import {
   type Block, type HouseKind,
 } from './plan.ts';
 import { SpriteWorld, cameraQuaternion } from './sprites.ts';
+import { openTreasureMap } from './treasure.ts';
 import { CAM_DIR, CAM_DISTANCE, CAM_FAR, CAM_NEAR, SUN_FROM } from './view.ts';
 
 const HOUSE_ID: Record<HouseKind, 'tiny' | 'townhouse' | 'modern' | 'mansion'> = { tiny: 'tiny', townhouse: 'townhouse', villa: 'modern', mansion: 'mansion' };
@@ -135,7 +136,7 @@ export async function startProto(stage: HTMLElement, ui: HTMLElement): Promise<v
   ui.insertAdjacentHTML(
     'beforeend',
     `<div class="pt-top"><div class="pt-pill"><b id="pt-hood">Financial District</b><span>Manhattan</span></div>
-       <div class="pt-right"><button class="pt-btn" id="pt-q">HD</button><div class="pt-stats" id="pt-stats">…</div></div></div>
+       <div class="pt-right"><div class="pt-row2"><button class="pt-btn" id="pt-map" aria-label="New York map">🗺 NYC</button><button class="pt-btn" id="pt-q">HD</button></div><div class="pt-stats" id="pt-stats">…</div></div></div>
      <div class="pt-zoom"><button class="pt-btn" id="pt-in" aria-label="Zoom in">＋</button><button class="pt-btn" id="pt-out" aria-label="Zoom out">－</button></div>
      <button class="pt-btn pt-me" id="pt-me" aria-label="Find me">◎</button>
      <div class="pt-sheet" id="pt-sheet" hidden></div>
@@ -157,6 +158,11 @@ export async function startProto(stage: HTMLElement, ui: HTMLElement): Promise<v
   ui.querySelector<HTMLButtonElement>('#pt-me')!.onclick = () => {
     fly = { x: player.pos.x, z: player.pos.z, h: 120 };
   };
+  const openWorld = () =>
+    openTreasureMap(ui, () => {
+      fly = { x: player.pos.x, z: player.pos.z, h: 160 };
+    });
+  ui.querySelector<HTMLButtonElement>('#pt-map')!.onclick = openWorld;
   ui.querySelector<HTMLButtonElement>('#pt-in')!.onclick = () => setZoom(viewH / 1.6);
   ui.querySelector<HTMLButtonElement>('#pt-out')!.onclick = () => setZoom(viewH * 1.6);
 
@@ -181,6 +187,8 @@ export async function startProto(stage: HTMLElement, ui: HTMLElement): Promise<v
     camera.updateMatrixWorld();
   };
   const setZoom = (h: number) => {
+    // Pulling out past the whole borough opens the map of New York.
+    if (h > ZOOM_MAX * 1.12 && viewH >= ZOOM_MAX - 1 && !fly) openWorld();
     viewH = THREE.MathUtils.clamp(h, ZOOM_MIN, ZOOM_MAX);
     resize();
   };
@@ -298,7 +306,7 @@ export async function startProto(stage: HTMLElement, ui: HTMLElement): Promise<v
     if (blk.kind === 'ads') {
       const p = AD_PRICES[hood.tier];
       const half = lx < CELL_W / 2 ? 0 : 1;
-      body = `<p>${half ? 'Right' : 'Left'} half: ${blk.rented[half] ? `<b>rented</b> (${blk.rented[half]})` : '<b>free</b>'}</p>
+      body = `<p>${half ? 'Right' : 'Left'} half: ${blk.rented[half] ? `<b>sample ad</b> (${blk.rented[half]}, made up)` : '<b>free</b>'}</p>
               <div class="pt-row"><span>One half</span><b>$${p.unit}/wk</b></div><div class="pt-row"><span>Whole block</span><b>$${p.block}/wk</b></div>
               <p class="pt-small">Real money · weekly · up to 26 weeks</p>`;
     }
@@ -477,6 +485,7 @@ function injectStyles(): void {
   .pt-pill b{font-size:17px;color:#1d3557}.pt-pill span{font-size:12px;color:#6b7280}
   .pt-right{display:flex;flex-direction:column;align-items:flex-end;gap:6px;pointer-events:auto}
   .pt-btn{border:0;background:#fff;color:#1d3557;font-weight:800;border-radius:14px;padding:8px 12px;box-shadow:0 4px 14px rgba(0,0,0,.15);font-size:14px}
+  .pt-row2{display:flex;gap:6px}
   .pt-stats{background:rgba(0,0,0,.55);color:#fff;font:600 11px ui-monospace,monospace;padding:3px 8px;border-radius:8px}
   .pt-zoom{position:fixed;right:12px;bottom:calc(76px + env(safe-area-inset-bottom));z-index:5;display:flex;flex-direction:column;gap:8px}
   .pt-zoom .pt-btn{width:48px;height:44px;font-size:22px;padding:0}
