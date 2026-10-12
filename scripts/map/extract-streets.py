@@ -11,7 +11,7 @@ handful of major roads and smooths them. Output: scripts/map/src/streets.json
 
   git clone --depth 1 https://github.com/kjhealy/nycstreets /tmp/nycstreets
   pip install rdata pyproj
-  python3 scripts/map/extract-streets.py /tmp/nycstreets/data/nyc_streets_sf.rda
+  python3 scripts/map/extract-streets.py /tmp/nycstreets/data/nyc_streets_sf.rda [borough]
 """
 import json, math, sys, warnings, pathlib
 import rdata
@@ -21,7 +21,9 @@ warnings.filterwarnings('ignore')
 HERE = pathlib.Path(__file__).parent
 p = rdata.parser.parse_file(sys.argv[1])
 d = rdata.conversion.convert(p, default_encoding='utf8')['nyc_streets_sf']
-m = d[d['boroughcod'].astype(str).str.strip() == '1']  # Manhattan
+BORO = {'manhattan': '1', 'bronx': '2', 'brooklyn': '3', 'queens': '4', 'statenIsland': '5'}
+which = sys.argv[2] if len(sys.argv) > 2 else 'manhattan'
+m = d[d['boroughcod'].astype(str).str.strip() == BORO[which]]
 t = Transformer.from_crs('EPSG:2263', 'EPSG:4326', always_xy=True)  # NY Long Island ftUS -> lat/lon
 
 O = (40.758, -73.9855)
@@ -45,5 +47,6 @@ for _, r in m.iterrows():
         out.setdefault(name, {'rw': int(r['rw_type']), 'segs': []})['segs'].append([proj(x, y) for x, y in zip(lon, lat)])
 
 (HERE / 'src').mkdir(exist_ok=True)
-json.dump(out, open(HERE / 'src' / 'streets-all.json', 'w'))
+name = 'streets-all.json' if which == 'manhattan' else f'streets-{which}.json'
+json.dump(out, open(HERE / 'src' / name, 'w'))
 print(len(out), 'street names')

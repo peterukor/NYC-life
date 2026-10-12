@@ -1,20 +1,22 @@
 """
-preview-manhattan.py — draw src/data/map/manhattan.json as a flat map so
+preview-borough.py — draw src/data/map/<borough>.json as a flat map so
 the roads and blocks can be checked by eye: the whole island, plus close-ups
 of every stretch of shore (where roads used to go wrong).
 
-  python3 scripts/map/preview-manhattan.py      -> test-results/map/*.png
+  python3 scripts/map/preview-borough.py manhattan   -> test-results/map/*.png
 Options: --real  also draw the real streets faintly underneath.
 """
 import json, pathlib, sys
 from PIL import Image, ImageDraw, ImageFont
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
-M = json.load(open(ROOT / 'src' / 'data' / 'map' / 'manhattan.json'))
+ARGS = [a for a in sys.argv[1:] if not a.startswith('--')]
+B = ARGS[0] if ARGS else 'manhattan'
+M = json.load(open(ROOT / 'src' / 'data' / 'map' / f'{B}.json'))
 OUT = ROOT / 'test-results' / 'map'
 OUT.mkdir(parents=True, exist_ok=True)
 REAL = '--real' in sys.argv
-STREETS = json.load(open(ROOT / 'scripts' / 'map' / 'src' / 'streets-all.json')) if REAL else {}
+STREETS = json.load(open(ROOT / 'scripts' / 'map' / 'src' / ('streets-all.json' if B == 'manhattan' else f'streets-{B}.json'))) if REAL else {}
 
 WATER, LAND, SHORE, ROAD, BLOCK, PARK, PLAZA, LINE = '#8cc8ec', '#cfe7a8', '#b6dc8a', '#6f7480', '#f2e6cf', '#8fd27a', '#e7d3b0', '#ffffff'
 try:
@@ -52,9 +54,12 @@ def render(name, box, sc, labels=True):
     for pz in M['plazas']:
         d.polygon([P(p) for p in pz['poly']], fill=PLAZA, outline='#c9b48e')
     for b in M['blocks']:
-        d.polygon([P(p) for p in b['poly']], fill=PARK if b['kind'] == 'park' else BLOCK, outline='#d8c7a3')
+        if b.get('holes'):
+            holed([[b['poly']] + b['holes']], PARK if b['kind'] == 'park' else BLOCK)
+        else:
+            d.polygon([P(p) for p in b['poly']], fill=PARK if b['kind'] == 'park' else BLOCK, outline='#d8c7a3')
     # Dashed centre lines.
-    for r in M['roads'] + [{'pts': M['shoreRoad']['pts']}]:
+    for r in M['roads'] + [{'pts': l} for l in M['shoreRoad']['loops']]:
         pts = r['pts']
         for i in range(len(pts) - 1):
             if i % 2 == 0:
@@ -67,13 +72,19 @@ def render(name, box, sc, labels=True):
     return im
 
 
-bb = [min(p[0] for p in M['land'][0]) - 30, min(p[1] for p in M['land'][0]) - 30, max(p[0] for p in M['land'][0]) + 30, max(p[1] for p in M['land'][0]) + 30]
-render('manhattan-whole', bb, 0.42)
-# Close-ups down the island (every shore included), 1.1 px per metre.
-z = bb[1]
-i = 0
-while z < bb[3]:
-    render(f'manhattan-part-{i:02d}', (bb[0], z, bb[2], z + 700), 0.75)
-    z += 650
-    i += 1
+allp = [p for poly in M['land'] for p in poly]
+bb = [min(p[0] for p in allp) - 30, min(p[1] for p in allp) - 30, max(p[0] for p in allp) + 30, max(p[1] for p in allp) + 30]
+if __name__ == '__main__':
+    render(f'{B}-whole', bb, 0.42 if B == 'manhattan' else 0.25)
+    # Close-ups in tiles (every shore included).
+    T = 700 if B == 'manhattan' else 900
+    i = 0
+    z = bb[1]
+    while z < bb[3]:
+        x = bb[0]
+        while x < bb[2]:
+            render(f'{B}-part-{i:02d}', (x, z, min(bb[2], x + (bb[2] - bb[0] if B == 'manhattan' else T)), z + T), 0.75)
+            i += 1
+            x += bb[2] - bb[0] if B == 'manhattan' else T - 50
+        z += T - 50
 print('wrote', OUT)
