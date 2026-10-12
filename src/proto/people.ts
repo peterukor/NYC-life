@@ -18,7 +18,8 @@ import { KERB_H } from './ground.ts';
 
 /** People are drawn a bit bigger than life so they read at map zoom (like Clash of Clans troops). */
 export const PEOPLE_SCALE = 2.4;
-const INSET = 1.3; // walking line inside the block edge
+// Walking line: on the road pictures' sidewalks, 2.2 m out from the block edge.
+const INSET = -2.2;
 
 // ---- the sidewalk graph
 interface Node {
@@ -175,18 +176,10 @@ export class Walker {
       r.y += diff * Math.min(1, dt * 12);
       if (step >= len) this.path.shift();
     }
-    // Kerb height on blocks, road level on crosswalks.
-    p.y = onBlock(p.x, p.z) ? KERB_H : 0.02;
+    p.y = KERB_H; // sidewalk height (crosswalks are close enough to it)
     this.avatar.animate(moved / Math.max(dt, 1e-4) / PEOPLE_SCALE, dt);
     if (!this.path.length && moved > 0 && this.onArrive) this.onArrive();
   }
-}
-
-function onBlock(x: number, z: number): boolean {
-  const c = Math.floor((x - ROAD) / PITCH_X);
-  const r = Math.floor((z - ROAD) / PITCH_Z);
-  if (c < 0 || r < 0 || c >= COLS || r >= ROWS) return true;
-  return x - cellX(c) <= CELL_W && z - cellZ(r) <= CELL_D;
 }
 
 export function randomLook(seed: number): Look {
@@ -252,11 +245,11 @@ export function makeTraffic(count: number): { group: THREE.Group; update: (dt: n
     const road = (i * 3 + 1) % roads;
     const centre = road * (axis === 'x' ? PITCH_Z : PITCH_X) + ROAD / 2;
     // Right-hand traffic: eastbound (+x) keeps to the south side (+z), etc.
-    const lane = axis === 'x' ? centre + dir * 3.6 : centre - dir * 3.6;
+    const lane = axis === 'x' ? centre + dir * 2.1 : centre - dir * 2.1;
     const tint = new THREE.Color(CAR_COLORS[i % CAR_COLORS.length]);
     const mat = new THREE.MeshLambertMaterial({ vertexColors: true, color: tint });
     const mesh = new THREE.Mesh(geo, mat);
-    mesh.scale.setScalar(1.25);
+    mesh.scale.setScalar(0.95);
     group.add(mesh);
     cars.push({ mesh, axis, dir, lane, at: ((i * 97) % 400) - 20, speed: 9 + (i % 3) * 2 });
   }

@@ -27,6 +27,17 @@ JOBS=(
   "house-townhouse|townhouse-model.glb|21|28|0 180|12|1.15"
   "house-villa|villa-model.glb|21|54|0|12|1.25"
   "house-mansion|mansion-model.glb|42|54|0|12|1.25"
+  # Square blocks (60 x 60 m) stand beside a 30 m plaza or subway strip.
+  "square-mixed|square-mixed-model.glb|60|60|0 180|12|1.1"
+  "square-soho|square-soho-model.glb|60|60|0 180|12|1.1"
+  "square-midtown|square-midtown-model.glb|60|60|0 180|12|1.1"
+  "gym|square-gym-and-pool.glb|60|60|0|12|1.15"
+  "playground|rectangle-playground-model.glb|90|60|0 180|12|1.25"
+  "subway|subway-model.glb|10|10|0 90|12|1.1"
+  # Street pieces (run scripts/sprite-top.py on them afterwards).
+  "road-ns|road-model.glb|16|60|0|12|1.4"
+  "road-ew|road-model.glb|46|16.6|90|12|1.25"
+  "intersection|intersection.glb|16|16|0|12|1.1"
 )
 
 for job in "${JOBS[@]}"; do
@@ -34,6 +45,7 @@ for job in "${JOBS[@]}"; do
   [ -n "$only" ] && [ "$only" != "$name" ] && continue
   for r in $rots; do
     out="$OUT/$name-r$r"
+    case $name in road-*|intersection) out="$OUT/$name";; esac
     echo "== $out"
     python3 scripts/render-sprite.py "$SRC/$file" "$out" "$fw" "$fd" "$r" "$px" 32 "$st" 2>&1 | grep -E "footprint|done|Error|Traceback"
   done

@@ -36,13 +36,21 @@ export interface HomePlot {
 /** Spaces a house takes: across x deep. Villas and mansions use both rows. */
 export const HOUSE_SIZE: Record<HouseKind, [number, number]> = { tiny: [1, 1], townhouse: [2, 1], villa: [2, 2], mansion: [4, 2] };
 
+/**
+ * A square picture (60 x 60 m) stands on the east part of a block; the
+ * 30 m strip left over on the west is a small plaza, or a subway entrance.
+ */
+export type Side = 'plaza' | 'subway';
+/** Width of that strip. */
+export const STRIP = CELL_W - CELL_D;
+
 export type Block =
-  | { kind: 'model'; sprite: string; name: string; use: 'Offices' | 'Shops' | 'Apartments' }
+  | { kind: 'model'; sprite: string; name: string; use: 'Offices' | 'Shops' | 'Apartments'; side?: Side }
   | { kind: 'homes'; name: string; plots: HomePlot[] }
   | { kind: 'ads'; name: string; rented: [string | null, string | null] }
   | { kind: 'lot'; name: string }
-  | { kind: 'park'; name: string }
-  | { kind: 'gym'; name: string }
+  | { kind: 'park'; name: string; sprite?: string }
+  | { kind: 'gym'; name: string; sprite?: string; side?: Side }
   | { kind: 'landmark'; name: string };
 
 /** A home block: the houses at (column, row); every other space is an empty plot. */
@@ -63,18 +71,18 @@ export const DOWNTOWN: Block[][] = [
     { kind: 'model', sprite: 'block-fidi-r90', name: 'Liberty Street', use: 'Offices' },
     { kind: 'ads', name: 'Ad block · Cortlandt St', rented: [null, null] },
     homes('Greenwich Homes', [[0, 0, 'mansion'], [4, 0, 'villa'], [6, 0, 'townhouse'], [6, 1, 'tiny'], [7, 1, 'tiny']]),
-    { kind: 'model', sprite: 'block-mixed-r270', name: 'Fulton Shops', use: 'Shops' },
+    { kind: 'model', sprite: 'square-mixed-r0', name: 'Fulton Street', use: 'Shops', side: 'subway' },
   ],
   [
     { kind: 'landmark', name: 'One World Trade Center' },
     { kind: 'model', sprite: 'block-midtown-r270', name: 'Vesey Towers', use: 'Offices' },
-    { kind: 'model', sprite: 'block-rowhouses-r90', name: 'John Street Rows', use: 'Apartments' },
+    { kind: 'model', sprite: 'square-soho-r0', name: 'John Street Lofts', use: 'Apartments', side: 'plaza' },
     { kind: 'lot', name: 'Empty lot · Gold St' },
   ],
   [
     { kind: 'ads', name: 'Ad block · Rector St', rented: ['BIG APPLE PIZZA', null] },
-    { kind: 'park', name: 'Zuccotti Park' },
-    { kind: 'gym', name: 'Downtown Gym & Pool' },
+    { kind: 'park', name: 'Zuccotti Playground', sprite: 'playground-r0' },
+    { kind: 'gym', name: 'Downtown Gym & Pool', sprite: 'gym-r0', side: 'plaza' },
     homes('Pearl Street Homes', [[0, 0, 'villa'], [2, 0, 'tiny'], [4, 0, 'tiny'], [5, 0, 'tiny'], [2, 1, 'townhouse'], [4, 1, 'tiny'], [6, 1, 'townhouse']]),
   ],
   [

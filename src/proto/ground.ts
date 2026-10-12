@@ -15,8 +15,8 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { AD_PRICES } from '../data/plots.ts';
 import {
-  CELL_D, CELL_W, COLS, DOWNTOWN, GRID_D, GRID_W, PITCH_X, PITCH_Z, PROMENADE, ROAD, ROWS, SPACE_D, SPACE_W, cellX, cellZ,
-  type Block,
+  CELL_D, CELL_W, COLS, DOWNTOWN, GRID_D, GRID_W, PROMENADE, ROWS, SPACE_D, SPACE_W, STRIP, cellX, cellZ,
+  type Block, type Side,
 } from './plan.ts';
 
 // ---- colours (matched to the lit building pictures)
@@ -90,6 +90,7 @@ class BoxBatch {
 // ---- small lit 3D things (trees, lamps, posts): instanced, lit like the pictures
 export interface PropSet {
   trees: { x: number; z: number; s: number }[];
+  rocks: { x: number; z: number; s: number }[];
   lamps: { x: number; z: number }[];
   posts: { x: number; z: number; h: number; color: string }[];
 }
@@ -186,35 +187,18 @@ export interface GroundBuild {
 export function buildGround(): GroundBuild {
   const group = new THREE.Group();
   const b = new BoxBatch();
-  const props: PropSet = { trees: [], lamps: [], posts: [] };
+  const props: PropSet = { trees: [], lamps: [], posts: [], rocks: [] };
 
   // ---- land beyond the grid (north and east: hidden under clouds)
   b.rect(-PROMENADE, -400, GRID_W + 400, 0, -0.02, C.grass);
   b.rect(GRID_W, 0, GRID_W + 400, GRID_D + PROMENADE, -0.02, C.grass);
 
   // ---- asphalt over the whole grid; blocks sit on top
-  b.rect(0, 0, GRID_W, GRID_D, 0, C.asphalt);
+  b.rect(0, 0, GRID_W, GRID_D, -0.4, C.asphalt);
 
-  // ---- lane lines and crosswalks
-  const DASH = 3.2;
-  for (let r = 0; r <= ROWS; r++) {
-    const z0 = r * PITCH_Z; // horizontal road from z0 to z0 + ROAD
-    for (let c = 0; c < COLS; c++) {
-      const xa = cellX(c);
-      const xb = xa + CELL_W;
-      zebra(b, xa + 1, xb - 1, z0, z0 + ROAD, 'x');
-      for (let x = xa + 7; x + DASH < xb - 6; x += DASH * 2) b.rect(x, z0 + ROAD / 2 - 0.2, x + DASH, z0 + ROAD / 2 + 0.2, 0.02, C.lane);
-    }
-  }
-  for (let c = 0; c <= COLS; c++) {
-    const x0 = c * PITCH_X;
-    for (let r = 0; r < ROWS; r++) {
-      const za = cellZ(r);
-      const zb = za + CELL_D;
-      zebra(b, x0, x0 + ROAD, za + 1, zb - 1, 'z');
-      for (let z = za + 7; z + DASH < zb - 6; z += DASH * 2) b.rect(x0 + ROAD / 2 - 0.2, z, x0 + ROAD / 2 + 0.2, z + DASH, 0.02, C.lane);
-    }
-  }
+  // Lane lines, crosswalks and street lamps come with Peter's road and
+  // intersection pictures (placed in main.ts); the asphalt above only
+  // fills any hairline gaps between them.
 
   // ---- waterfront: promenade on the west and south, sea wall, water
   b.box(-PROMENADE, -2.2, 0, 0, KERB_H, GRID_D + PROMENADE, C.promenade, C.stoneSide);
@@ -226,9 +210,9 @@ export function buildGround(): GroundBuild {
   for (let z = 6; z < GRID_D + PROMENADE - 2; z += 2.4) props.posts.push({ x: -PROMENADE + 0.6, z, h: 1.1, color: C.rail });
   for (let x = -PROMENADE + 1; x < GRID_W; x += 2.4) props.posts.push({ x, z: GRID_D + PROMENADE - 0.6, h: 1.1, color: C.rail });
   for (let z = 10; z < GRID_D; z += 18) props.trees.push({ x: -PROMENADE / 2 - 1, z, s: 1 });
+  for (let z = 37; z < GRID_D; z += 72) props.rocks.push({ x: -PROMENADE + 3, z, s: 0.9 });
+  for (let x = 46; x < GRID_W; x += 90) props.rocks.push({ x, z: GRID_D + PROMENADE - 3, s: 0.9 });
   for (let x = 4; x < GRID_W; x += 18) props.trees.push({ x, z: GRID_D + PROMENADE / 2 + 1, s: 1 });
-  for (let z = 19; z < GRID_D; z += 36) props.lamps.push({ x: -2.2, z });
-  for (let x = 13; x < GRID_W; x += 36) props.lamps.push({ x, z: GRID_D + 2.2 });
 
   // ---- blocks
   for (let r = 0; r < ROWS; r++) {
@@ -238,8 +222,6 @@ export function buildGround(): GroundBuild {
       // The sidewalk slab (its edge is the kerb).
       b.box(x0, 0, z0, x0 + CELL_W, KERB_H, z0 + CELL_D, C.pave, C.paveSide);
       blockContent(DOWNTOWN[r][c], x0, z0, b, group, props);
-      // Street lamps on the sidewalk corners facing the road.
-      props.lamps.push({ x: x0 + 1.4, z: z0 + 1.4 }, { x: x0 + CELL_W - 1.4, z: z0 + CELL_D - 1.4 });
     }
   }
 
@@ -285,23 +267,6 @@ export function buildGround(): GroundBuild {
   };
 }
 
-/** Crosswalk stripes across a road, at both ends of a block side. */
-function zebra(b: BoxBatch, x0: number, x1: number, z0: number, z1: number, along: 'x' | 'z'): void {
-  const W = 0.6;
-  const GAP = 0.65;
-  const LEN = 3.2;
-  if (along === 'x') {
-    // Road runs east-west between z0 and z1; crosswalks at the west and east ends.
-    for (const xs of [x0, x1 - LEN]) {
-      for (let z = z0 + 1; z + W < z1 - 0.8; z += W + GAP) b.rect(xs, z, xs + LEN, z + W, 0.02, C.lane);
-    }
-  } else {
-    for (const zs of [z0, z1 - LEN]) {
-      for (let x = x0 + 1; x + W < x1 - 0.8; x += W + GAP) b.rect(x, zs, x + W, zs + LEN, 0.02, C.lane);
-    }
-  }
-}
-
 const SW = 3; // sidewalk width on coded blocks
 
 function blockContent(blk: Block, x0: number, z0: number, b: BoxBatch, group: THREE.Group, props: PropSet): void {
@@ -314,6 +279,7 @@ function blockContent(blk: Block, x0: number, z0: number, b: BoxBatch, group: TH
   const iz1 = z1 - SW;
   switch (blk.kind) {
     case 'model':
+      if (blk.side) strip(blk.side, x0, z0, b, props);
       return; // the picture brings its own ground
     case 'ads': {
       const mid = (x0 + x1) / 2;
@@ -338,10 +304,13 @@ function blockContent(blk: Block, x0: number, z0: number, b: BoxBatch, group: TH
       b.rect(ix0 + 12, iz0 + 8, ix0 + 30, iz0 + 20, y + 0.06, C.dirt);
       b.rect(ix1 - 26, iz1 - 18, ix1 - 10, iz1 - 9, y + 0.06, C.dirt);
       fence(props, ix0 + 0.5, iz0 + 0.5, ix1 - 0.5, iz1 - 0.5, '#8a6a48', 1.3, 2.5);
+      props.rocks.push({ x: ix0 + 20, z: iz0 + 13, s: 1 }, { x: ix1 - 18, z: iz1 - 14, s: 1.2 }, { x: ix1 - 10, z: iz0 + 10, s: 1 });
+      props.trees.push({ x: ix0 + 6, z: iz0 + 6, s: 0.9 });
       group.add(signBoard(x0 + CELL_W / 2, z1 - 6, 14, 7, 2.2, signTexture('FOR LEASE', 'Tap to rent this lot', '#2a9d8f')));
       return;
     }
     case 'park': {
+      if (blk.sprite) return; // Peter's playground picture
       b.box(ix0, y, iz0, ix1, y + 0.08, iz1, C.grass);
       const cx = (x0 + x1) / 2;
       const cz = (z0 + z1) / 2;
@@ -362,6 +331,10 @@ function blockContent(blk: Block, x0: number, z0: number, b: BoxBatch, group: TH
       return;
     }
     case 'gym': {
+      if (blk.sprite) {
+        if (blk.side) strip(blk.side, x0, z0, b, props);
+        return;
+      }
       b.box(ix0, y, iz0, ix1, y + 0.1, iz1, C.deck);
       const px0 = ix0 + 10;
       const px1 = ix1 - 22;
@@ -410,6 +383,20 @@ function blockContent(blk: Block, x0: number, z0: number, b: BoxBatch, group: TH
       }
       return;
     }
+  }
+}
+
+/** The 30 m strip beside a square picture: a small plaza with trees (the subway picture goes on top in main.ts). */
+function strip(side: Side, x0: number, z0: number, b: BoxBatch, props: PropSet): void {
+  const y = KERB_H;
+  b.rect(x0 + 1, z0 + 1, x0 + STRIP - 1, z0 + CELL_D - 1, y + 0.02, C.promenade);
+  // a grass bed with trees along the back
+  b.box(x0 + 4, y, z0 + 4, x0 + STRIP - 4, y + 0.4, z0 + 14, C.grass, C.paveSide);
+  props.trees.push({ x: x0 + 9, z: z0 + 9, s: 1.1 }, { x: x0 + STRIP - 9, z: z0 + 9, s: 1 });
+  if (side === 'subway') props.trees.push({ x: x0 + 5, z: z0 + CELL_D - 6, s: 0.9 }, { x: x0 + STRIP - 5, z: z0 + CELL_D - 6, s: 0.9 });
+  if (side === 'plaza') {
+    b.box(x0 + 4, y, z0 + CELL_D - 14, x0 + STRIP - 4, y + 0.4, z0 + CELL_D - 4, C.grass, C.paveSide);
+    props.trees.push({ x: x0 + 10, z: z0 + CELL_D - 9, s: 1 }, { x: x0 + STRIP - 10, z: z0 + CELL_D - 9, s: 1.15 });
   }
 }
 

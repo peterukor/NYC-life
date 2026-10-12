@@ -25,6 +25,8 @@ export interface SpriteMeta {
   depthRange: number;
   foot: [number, number];
   height: number;
+  /** Height of the picture's walkable top surface at its centre (road tiles), if measured. */
+  top?: number;
 }
 
 export interface SpriteAsset {
@@ -98,6 +100,7 @@ const frag = /* glsl */ `
   uniform float near;
   uniform float far;
   uniform float opacity;
+  uniform float dscale;
   varying vec2 vUv;
   varying float vDist;
   void main() {
@@ -107,17 +110,42 @@ const frag = /* glsl */ `
     float q = (floor(d.r * 255.0 + 0.5) * 256.0 + floor(d.g * 255.0 + 0.5)) / 65535.0;
     // Metres from the camera; nudged 0.25 m closer so the picture's own
     // ground (shadows, pavement) never flickers against the 3D ground.
-    float dist = vDist + q * 2.0 * range - range - 0.25;
+    float dist = vDist + (q * 2.0 * range - range) * dscale - 0.25;
     gl_FragDepth = clamp((dist - near) / (far - near), 0.0, 1.0);
     gl_FragColor = vec4(c.rgb, c.a * opacity);
   }
 `;
 
 /** A building picture standing at (x, z) on the ground. */
-export function makeSpriteMesh(a: SpriteAsset, x: number, z: number): THREE.Mesh {
+const shared = new Map<string, { geo: THREE.BufferGeometry; mat: THREE.ShaderMaterial }>();
+
+/** scale: draw the picture bigger or smaller than photographed (depth is scaled to match). */
+export function makeSpriteMesh(a: SpriteAsset, x: number, z: number, scale = 1): THREE.Mesh {
+  const key = `${a.name}@${scale}`;
+  let s = shared.get(key);
+  if (!s) {
+    s = { geo: spriteGeometry(a), mat: spriteMaterial(a) };
+    s.mat.uniforms.dscale.value = scale;
+    shared.set(key, s);
+  }
+  const mesh = new THREE.Mesh(s.geo, s.mat);
+  mesh.scale.setScalar(scale);
+  // Sink pictures whose own ground is raised (road tiles) so it sits at y = 0.
+  mesh.position.set(x, -(a.meta.top ?? 0) * scale, z);
+  // Face the camera: same orientation as the camera itself.
+  mesh.quaternion.copy(cameraQuaternion());
+  mesh.userData.sprite = a.name;
+  return mesh;
+}
+
+function spriteGeometry(a: SpriteAsset): THREE.BufferGeometry {
   const geo = new THREE.PlaneGeometry(a.meta.w, a.meta.h);
   geo.translate(a.meta.cx, a.meta.cy, 0);
-  const mat = new THREE.ShaderMaterial({
+  return geo;
+}
+
+function spriteMaterial(a: SpriteAsset): THREE.ShaderMaterial {
+  return new THREE.ShaderMaterial({
     uniforms: {
       map: { value: a.map },
       depthMap: { value: a.depth },
@@ -125,6 +153,7 @@ export function makeSpriteMesh(a: SpriteAsset, x: number, z: number): THREE.Mesh
       near: { value: CAM_NEAR },
       far: { value: CAM_FAR },
       opacity: { value: 1 },
+      dscale: { value: 1 },
     },
     vertexShader: vert,
     fragmentShader: frag,
@@ -132,12 +161,6 @@ export function makeSpriteMesh(a: SpriteAsset, x: number, z: number): THREE.Mesh
     depthWrite: true,
     depthTest: true,
   });
-  const mesh = new THREE.Mesh(geo, mat);
-  mesh.position.set(x, 0, z);
-  // Face the camera: same orientation as the camera itself.
-  mesh.quaternion.copy(cameraQuaternion());
-  mesh.userData.sprite = a.name;
-  return mesh;
 }
 
 let q: THREE.Quaternion | null = null;

@@ -15,7 +15,7 @@ import { HOUSES, homeWeekly, AD_PRICES } from '../data/plots.ts';
 import { buildGround, buildProps, textTexture } from './ground.ts';
 import { PEOPLE_SCALE, Walker, makeStroller, makeTraffic } from './people.ts';
 import {
-  CELL_D, CELL_W, COLS, DOWNTOWN, GRID_D, GRID_W, ROWS, SPACE_D, SPACE_W, cellAt, cellX, cellZ, plotAt, type Block, type HouseKind,
+  CELL_D, CELL_W, COLS, DOWNTOWN, GRID_D, GRID_W, PITCH_X, PITCH_Z, ROAD, ROWS, SPACE_D, SPACE_W, STRIP, cellAt, cellX, cellZ, plotAt, type Block, type HouseKind, type Side,
 } from './plan.ts';
 import { cameraQuaternion, loadSprite, makeSpriteMesh } from './sprites.ts';
 import { CAM_DIR, CAM_DISTANCE, CAM_FAR, CAM_NEAR, SUN_FROM } from './view.ts';
@@ -55,22 +55,42 @@ export async function startProto(stage: HTMLElement, ui: HTMLElement): Promise<v
   // ---- ground, props, buildings
   const ground = buildGround();
   scene.add(ground.group);
-  scene.add(buildProps(ground.props));
   addClouds(scene);
 
   const spriteJobs: Promise<void>[] = [];
-  const place = (name: string, x: number, z: number) =>
+  const place = (name: string, x: number, z: number, scale = 1) =>
     spriteJobs.push(
       loadSprite(name)
-        .then((a) => void scene.add(makeSpriteMesh(a, x, z)))
+        .then((a) => void scene.add(makeSpriteMesh(a, x, z, scale)))
         .catch((e) => console.warn('[proto] sprite', name, e)),
     );
+  // Trees and rocks are pictures of Peter's models (falls back to coded trees if missing).
+  const TREES = ['prop-tree', 'prop-cherry', 'prop-tree'];
+  ground.props.trees.forEach((t, i) => place(TREES[i % TREES.length], t.x, t.z, t.s * 1.5));
+  ground.props.rocks.forEach((rk, i) => place(['prop-rock', 'prop-mossy-rock', 'prop-outcrop'][i % 3], rk.x, rk.z, rk.s * 1.3));
+  scene.add(buildProps({ ...ground.props, trees: [] }));
+
+  // Peter's road and intersection pictures, sunk so their road surface is at ground level.
+  for (let r = 0; r <= ROWS; r++) {
+    for (let c = 0; c <= COLS; c++) {
+      const ix = c * PITCH_X + ROAD / 2;
+      const iz = r * PITCH_Z + ROAD / 2;
+      place('intersection', ix, iz);
+      if (c < COLS) for (const k of [0.25, 0.75]) place('road-ew', cellX(c) + CELL_W * k, iz);
+      if (r < ROWS) place('road-ns', ix, cellZ(r) + CELL_D / 2);
+    }
+  }
   for (let r = 0; r < ROWS; r++) {
     for (let c = 0; c < COLS; c++) {
       const blk = DOWNTOWN[r][c];
       const x0 = cellX(c);
       const z0 = cellZ(r);
-      if (blk.kind === 'model') place(blk.sprite, x0 + CELL_W / 2, z0 + CELL_D / 2);
+      // A square picture stands east of its 30 m side strip; a full one fills the block.
+      const at = (side?: Side) => (side ? x0 + STRIP + CELL_D / 2 : x0 + CELL_W / 2);
+      if (blk.kind === 'model') place(blk.sprite, at(blk.side), z0 + CELL_D / 2);
+      if (blk.kind === 'gym' && blk.sprite) place(blk.sprite, at(blk.side), z0 + CELL_D / 2);
+      if (blk.kind === 'park' && blk.sprite) place(blk.sprite, x0 + CELL_W / 2, z0 + CELL_D / 2);
+      if ((blk.kind === 'model' || blk.kind === 'gym') && blk.side === 'subway') place('subway-r0', x0 + STRIP / 2, z0 + CELL_D / 2 + 6, 1.6);
       if (blk.kind === 'homes') {
         for (const p of blk.plots) {
           if (!p.house) continue;
@@ -254,8 +274,9 @@ export async function startProto(stage: HTMLElement, ui: HTMLElement): Promise<v
       }
     }
     if (blk.kind === 'lot') body = '<p>Empty lot. Peter can auction it or turn it into homes or ads.</p>';
-    if (blk.kind === 'park') body = '<p>Benches, trees and a fountain. Relax here to restore energy.</p>';
-    if (blk.kind === 'gym') body = '<p>Work out and swim. The 3D building is coming.</p>';
+    if (blk.kind === 'park') body = '<p>Swings, slides and a basketball court. Hang out here to restore energy.</p>';
+    if ((blk.kind === 'model' || blk.kind === 'gym') && blk.side === 'subway' && lx < STRIP) body = '<p>🚇 Subway: take the train to another borough (coming soon).</p>';
+    if (blk.kind === 'gym') body = '<p>Work out to build fitness, then cool off in the pool.</p>';
     if (blk.kind === 'landmark') body = '<p>Landmark model coming soon.</p>';
     sheet.innerHTML = `<button class="pt-x" aria-label="Close">✕</button><h3>${blk.name}</h3>${body}`;
     sheet.hidden = false;
@@ -314,25 +335,13 @@ export async function startProto(stage: HTMLElement, ui: HTMLElement): Promise<v
 
 /** Fluffy clouds over the parts of the map that are still "coming soon". */
 function addClouds(scene: THREE.Scene): void {
-  const tex = textTexture(512, 320, (g) => {
-    const blobs = [
-      [150, 210, 110], [260, 170, 135], [370, 205, 105], [210, 240, 90], [320, 245, 95], [430, 240, 70], [90, 250, 70],
-    ];
-    for (const [x, y, r] of blobs) {
-      const grd = g.createRadialGradient(x - r * 0.3, y - r * 0.4, r * 0.1, x, y, r);
-      grd.addColorStop(0, '#ffffff');
-      grd.addColorStop(0.75, '#f3f6fb');
-      grd.addColorStop(1, 'rgba(225,233,245,0)');
-      g.fillStyle = grd;
-      g.beginPath();
-      g.arc(x, y, r, 0, Math.PI * 2);
-      g.fill();
-    }
-  });
+  // Peter's painted cloud.
+  const tex = new THREE.TextureLoader().load(`${import.meta.env.BASE_URL}proto/cloud.webp`);
+  tex.colorSpace = THREE.SRGBColorSpace;
   const mat = new THREE.SpriteMaterial({ map: tex, depthWrite: false, transparent: true });
   const put = (x: number, z: number, s: number) => {
     const c = new THREE.Sprite(mat);
-    c.scale.set(s, s * 0.625, 1);
+    c.scale.set(s * 1.3, s * 0.43, 1);
     c.position.set(x, 18, z);
     scene.add(c);
   };
