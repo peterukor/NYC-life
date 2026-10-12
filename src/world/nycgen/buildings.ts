@@ -28,6 +28,7 @@ import type { Rng } from '../../core/rng.ts';
 import type { Rect } from '../layout.ts';
 import { TILE } from './atlas.ts';
 import type { CityMeshBuilder } from './builder.ts';
+import { emitHouseDetailed, emitHouseSimple, type HouseSpec } from './houses.ts';
 
 export type Style = 'brownstone' | 'walkup' | 'prewar' | 'modern' | 'glass' | 'deco';
 export type Face = 'n' | 's';
@@ -56,6 +57,8 @@ export interface BuildingPlan {
   awning: string | null;
   fireEscape: boolean;
   seed: number;
+  /** Set for the pre-built houses of a home block (nycgen/houses.ts). */
+  house?: HouseSpec;
 }
 
 // ---------------------------------------------------------------------
@@ -75,13 +78,17 @@ const ROOFS = ['#7d828f', '#8f97a3', '#9b8f84', '#6f7684'];
 /** Height, width and look rules per style. */
 // Lots are wide on purpose (Peter, 2026-10-11: "space out the houses or make them bigger"):
 // fewer, chunkier buildings read better from the sky map and cost less on phones.
+// Scaled up with the blocks (Peter, 2026-10-12: "bigger blocks and bigger
+// houses"): footprints ×1.3 and storeys ×1.15 over the 2026-10-11 numbers.
+const W = (a: number, b: number): [number, number] => [Math.round(a * 1.3), Math.round(b * 1.3)];
+const FH = 1.15;
 const STYLE_RULES: Record<Style, { floors: [number, number]; floorH: number; width: [number, number]; bay: number; tile: number; ground: number }> = {
-  brownstone: { floors: [3, 4], floorH: 3.3, width: [13, 17], bay: 2.4, tile: TILE.brownstoneWindow, ground: TILE.brownstoneWindow },
-  walkup: { floors: [4, 6], floorH: 3.2, width: [20, 28], bay: 2.6, tile: TILE.brickWindow, ground: TILE.storefront },
-  prewar: { floors: [7, 14], floorH: 3.3, width: [23, 32], bay: 3.0, tile: TILE.prewarWindow, ground: TILE.storefront },
-  modern: { floors: [5, 12], floorH: 3.2, width: [16, 22], bay: 3.4, tile: TILE.ribbon, ground: TILE.storefront },
-  glass: { floors: [18, 40], floorH: 3.5, width: [28, 42], bay: 3.0, tile: TILE.glass, ground: TILE.storefront },
-  deco: { floors: [20, 34], floorH: 3.4, width: [28, 38], bay: 3.0, tile: TILE.officeWindow, ground: TILE.storefront },
+  brownstone: { floors: [3, 4], floorH: 3.3 * FH, width: W(13, 17), bay: 2.4 * FH, tile: TILE.brownstoneWindow, ground: TILE.brownstoneWindow },
+  walkup: { floors: [4, 6], floorH: 3.2 * FH, width: W(20, 28), bay: 2.6 * FH, tile: TILE.brickWindow, ground: TILE.storefront },
+  prewar: { floors: [7, 14], floorH: 3.3 * FH, width: W(23, 32), bay: 3.0 * FH, tile: TILE.prewarWindow, ground: TILE.storefront },
+  modern: { floors: [5, 12], floorH: 3.2 * FH, width: W(16, 22), bay: 3.4 * FH, tile: TILE.ribbon, ground: TILE.storefront },
+  glass: { floors: [18, 40], floorH: 3.5 * FH, width: W(28, 42), bay: 3.0 * FH, tile: TILE.glass, ground: TILE.storefront },
+  deco: { floors: [20, 34], floorH: 3.4 * FH, width: W(28, 38), bay: 3.0 * FH, tile: TILE.officeWindow, ground: TILE.storefront },
 };
 
 /** Which styles each neighbourhood type is made of (with weights). */
@@ -124,7 +131,7 @@ export interface BlockPlan {
 export function planNycBlock(inner: Rect, zone: string, rng: Rng, nearHub: boolean, newId: () => number): BlockPlan {
   const D = inner.maxZ - inner.minZ;
   const mix = nearHub ? ZONE_MIX.tall.filter(([s]) => s !== 'walkup') : ZONE_MIX[zone] ?? ZONE_MIX.midrise;
-  const rowD = Math.min(19, D * 0.42);
+  const rowD = Math.min(40, D * 0.4); // deep blocks (2026-10-12): deeper rows, smaller yard
   // A little randomness so blocks aren't perfectly straight rows: some
   // buildings sit back from the street, some are shallower, and now and
   // then a lot is left as a garden or a parking lot.
@@ -138,14 +145,14 @@ export function planNycBlock(inner: Rect, zone: string, rng: Rng, nearHub: boole
   const lotsFor = (allowFull: boolean): Lot[] => {
     const lots: Lot[] = [];
     let x = inner.minX;
-    while (x < inner.maxX - 3) {
+    while (x < inner.maxX - 4) {
       let style = weighted(rng, mix);
       const full = allowFull && (style === 'glass' || style === 'deco');
       if (!allowFull && (style === 'glass' || style === 'deco')) style = 'prewar';
       const [w0, w1] = STYLE_RULES[style].width;
       let w = rng.range(w0, w1);
       // Don't leave a sliver at the end of the row: stretch the last lot.
-      if (inner.maxX - (x + w) < 6) w = inner.maxX - x;
+      if (inner.maxX - (x + w) < 8) w = inner.maxX - x;
       w = Math.min(w, inner.maxX - x);
       lots.push({ x0: x, x1: x + w, style, full });
       x += w;
@@ -445,6 +452,7 @@ function ledge(b: CityMeshBuilder, p: BuildingPlan, r: Rect, y: number, depth: n
 
 /** Full detail (near the camera). */
 export function emitDetailed(b: CityMeshBuilder, p: BuildingPlan, rng: Rng): void {
+  if (p.house) return emitHouseDetailed(b, p, rng);
   b.bid = p.id;
   const rule = STYLE_RULES[p.style];
   let y = p.style === 'brownstone' ? 0.0 : 0;
@@ -505,6 +513,7 @@ export function emitDetailed(b: CityMeshBuilder, p: BuildingPlan, rng: Rng): voi
 /** Cheap version for far away: textured boxes + water tower silhouette. */
 export function emitSimple(b: CityMeshBuilder, p: BuildingPlan, rng: Rng): void {
   b.bid = p.id;
+  if (p.house) return emitHouseSimple(b, p, rng);
   const rule = STYLE_RULES[p.style];
   let y = 0;
   let r = p.rect;

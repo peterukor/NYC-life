@@ -379,6 +379,9 @@ function buildLots(d: DistrictDef, track: Track): THREE.Group {
   const signs: THREE.Matrix4[] = [];
   const c = new THREE.Color();
   for (const { x0, z0, x1, z1, grid } of lotsFor(d)) {
+    // Home blocks on the street grid have their houses built already
+    // (nycgen/houses.ts): no bare lot or sign there.
+    if (grid) continue;
     c.set(rng.pick(LOT_COLORS));
     const y = grid ? 0.2 : 0.08; // grid lots sit on their sidewalk slab
     pos.push(x0, y, z0, x0, y, z1, x1, y, z1, x0, y, z0, x1, y, z1, x1, y, z0);

@@ -153,11 +153,19 @@ export const CROWD_RADIUS = 170;
 export const CAMERA = { minDistance: 16, maxDistance: 520, startDistance: 60 } as const;
 
 /**
+ * The sky map's furthest zoom (metres from the ground point it looks at):
+ * about two neighbourhoods on a phone (Peter, 2026-10-12). Zoomed further
+ * the 3D city turns into grey noise and gets heavy for cheap phones; the
+ * 🗺️ City button opens the flat map of the whole city instead.
+ */
+export const MAP_MAX_DISTANCE = 900;
+
+/**
  * Player travel speed on foot, metres per second. Faster than a real walk
  * so short trips don't drag; the character plays a light jog at this
  * speed (see world/folk.ts → Actor.move). Long trips: take the subway.
  */
-export const WALK_SPEED = 5;
+export const WALK_SPEED = 6.5; // was 5: blocks got bigger (2026-10-12)
 
 /** Billboards: how long each ad shows before the next one rotates in (seconds). */
 export const AD_ROTATE_SECONDS = 15;

@@ -26,6 +26,8 @@ import { BuildingFades, cityMaterial } from './atlas.ts';
 import { CityMeshBuilder } from './builder.ts';
 import { emitDetailed, emitSimple, planNycBlock, type BuildingPlan } from './buildings.ts';
 import { emitBlockProps, tree, treeSimple } from './props.ts';
+import { planHomeBlock } from './houses.ts';
+import { homeTemplate, plotLand } from '../../data/plot-picks.ts';
 
 interface BlockEntry {
   c: number;
@@ -84,10 +86,16 @@ export class CityBlocks {
         const kind = d.kind(c, r);
         if (kind === 'water') continue; // in the river: nothing to build
         const seed = `${d.seed}-nyc-${c}-${r}`;
-        const plan = kind === 'buildings' && !opts.skip(c, r) ? planNycBlock(inner, d.zone(c, r), new Rng(seed), opts.nearHub(c, r), () => this.fades.allocate()) : { buildings: [], yard: null };
+        const plan =
+          kind === 'buildings' && !opts.skip(c, r)
+            ? planNycBlock(inner, d.zone(c, r), new Rng(seed), opts.nearHub(c, r), () => this.fades.allocate())
+            : kind === 'lot'
+              ? // Home blocks: the houses are already built (nycgen/houses.ts).
+                { buildings: planHomeBlock(plotLand(d, c, r) ?? inner, homeTemplate(d, c, r), new Rng(`${seed}-homes`), () => this.fades.allocate()), yard: null }
+              : { buildings: [], yard: null };
         // Nothing stands on Broadway or the ring highway (world/corridors.ts):
         // the road cuts the block into the wedges real Manhattan has.
-        plan.buildings = plan.buildings.filter((p) => !rectOnCorridor(d.id, p.rect, 1.5));
+        plan.buildings = plan.buildings.filter((p) => !rectOnCorridor(d.id, p.house ? p.house.lot : p.rect, p.house ? 0 : 1.5));
         this.blocks.push({ c, r, key: `${c},${r}`, rect, inner, kind, buildings: plan.buildings, yard: plan.yard, farId: this.fades.allocate(), near: null, parkTrees: (opts.parkTrees ?? []).filter((t) => t.x >= rect.minX - d.avenueW / 2 - 1 && t.x < rect.maxX + d.avenueW / 2 + 1 && t.z >= rect.minZ - d.streetW / 2 - 1 && t.z < rect.maxZ + d.streetW / 2 + 1), lastUsed: 0, seed });
       }
     }

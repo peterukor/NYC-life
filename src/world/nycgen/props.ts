@@ -237,6 +237,7 @@ export function emitBlockProps(bld: CityMeshBuilder, o: PropOptions, rng: Rng): 
   }
 
   // ---- shopfront life: café tables, fruit stands, scaffolding
+  if (o.kind !== 'buildings') return;
   let scaffolds = rng.chance(0.4) ? 1 : 0;
   for (const p of o.buildings) {
     const out = p.front === 's' ? 1 : -1;

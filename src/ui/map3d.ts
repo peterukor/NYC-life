@@ -98,7 +98,7 @@ export function openMap3D(o: Map3DOptions): Map3D {
         ? `🏝️ ${esc(pl.name)}<small>FOR RENT · $${islandWeekly(pl.islandPrice ?? 0).toFixed(2)}/wk</small>`
         : pl.kind === 'ad'
           ? `📢 AD SPACE<small>left & right halves · from $${AD_PRICES[pl.tier].unit}/wk</small>`
-          : '🏠 Lot for rent';
+          : '🏠 Homes for rent';
     const card = html(`<button class="m3-plot ${pl.kind === 'island' ? 'island' : pl.kind === 'home' ? 'lot' : ''}" data-act="plot:${esc(pl.id)}"><span>${label}</span></button>`);
     layer.appendChild(card);
     if (pl.kind !== 'home') cards.push(card);
@@ -133,8 +133,6 @@ export function openMap3D(o: Map3DOptions): Map3D {
 
   return {
     update(camera, w, h, camDist) {
-      // Zoomed all the way out: show the whole city (flat map).
-      if (camDist > 1420) return o.onWholeCity();
       // Far out, plot cards shrink to one line.
       for (const c of cards) c.classList.toggle('compact', camDist > 750);
       for (const it of items) {
