@@ -19,7 +19,6 @@
 import type { AreaId } from '../sim/types.ts';
 import { DISTRICTS, blockRect, SIDEWALK } from '../world/layout.ts';
 import { project } from '../world/geo-proj.ts';
-import { pickPlotBlocks } from './plot-picks.ts';
 
 export type InteriorKind = 'apartment' | 'bodega' | 'pizza' | 'cafe' | 'bar' | 'club' | 'office' | 'gym' | 'comedy' | 'none';
 
@@ -394,12 +393,6 @@ function resolvePlaces(raw: RawPlace[]): PlaceDef[] {
   }
   return raw.map((p) => out.get(p.id)!);
 }
-
-// Ad blocks and home blocks are picked first (data/plot-picks.ts), around
-// the real addresses of every place, so places snap to the blocks left.
-// Only whole-block landmarks hold on to their block; every other place
-// moves to the nearest free block (blocks are big, so it's a short walk).
-pickPlotBlocks(RAW.filter((p) => FULL_BLOCK_LANDMARKS.has(p.id)).flatMap((p) => [p.at, ...(p.model ? [p.model] : [])].map(([la, lo]) => ({ area: p.area, ...project(la, lo) }))));
 
 export const PLACES: PlaceDef[] = resolvePlaces(RAW);
 

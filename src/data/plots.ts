@@ -27,11 +27,11 @@
 // =====================================================================
 
 import type { AreaId } from '../sim/types.ts';
-import { blockRect, crossStreets, DISTRICTS, manhattanStreetAt, SIDEWALK, type BlockKind, type DistrictDef } from '../world/layout.ts';
+import { blockRect, crossStreets, DISTRICTS, manhattanStreetAt, type BlockKind, type DistrictDef } from '../world/layout.ts';
 import { outline, pointInRing, project, type BoroughId, type XZ } from '../world/geo-proj.ts';
-import { PLACES } from './places.ts';
+import { FULL_BLOCK_LANDMARKS, PLACES } from './places.ts';
 import { lotsFor } from '../world/coast.ts';
-import { hoodAt, plotLand } from './plot-picks.ts';
+import { rectOnCorridor } from '../world/corridors.ts';
 
 export type PlotKind = 'ad' | 'home' | 'island';
 /** Location decides the price. */
@@ -142,42 +142,77 @@ export const PLOT_OVERRIDES: Record<string, { kind?: 'ad' | 'home' | 'buildings'
   // 'manhattan:-56,-226': { kind: 'ad', auction: true },
 };
 
+/** How many random ad blocks / extra home lots each area gets. */
+const PICKS: Record<AreaId, { ads: number; harlemLots: number; lots: number }> = {
+  manhattan: { ads: 20, harlemLots: 0.3, lots: 6 },
+  brooklyn: { ads: 12, harlemLots: 0, lots: 10 },
+  bronx: { ads: 10, harlemLots: 0, lots: 10 },
+  queens: { ads: 10, harlemLots: 0, lots: 10 },
+};
+
 // ---------------------------------------------------------------- building the list
 export const blockId = (d: DistrictDef, c: number, r: number) => `${d.id}:${d.xs[c]},${d.zs[r]}`;
 
-function tierAt(d: DistrictDef, x: number, z: number): PriceTier {
+function tierAt(d: DistrictDef, z: number): PriceTier {
   if (d.id === 'bronx') return 'bronx';
   if (d.id === 'queens') return 'queens';
   if (d.id !== 'manhattan') return 'brooklyn';
-  // Manhattan prices follow the neighbourhood (data/plot-picks.ts hoodAt).
-  const hood = hoodAt(d, x, z);
-  if (hood && HOOD_TIER[hood]) return HOOD_TIER[hood];
-  if (z > 500) return 'downtown';
   const n = manhattanStreetAt(z);
+  if (z > 500) return 'downtown';
   if (n > 110) return 'harlem';
-  return n >= 30 && n <= 59 ? 'midtown' : 'uptown';
+  if (n >= 30 && n <= 59) return 'midtown';
+  return 'uptown';
 }
 
-/** Manhattan neighbourhood → price tier (AD_PRICES, TIER_MULT). */
-const HOOD_TIER: Record<string, PriceTier> = {
-  Harlem: 'harlem',
-  'Upper West Side': 'uptown',
-  'Upper East Side': 'uptown',
-  'Hell’s Kitchen': 'midtown',
-  Midtown: 'midtown',
-  'Hudson Yards': 'midtown',
-  Chelsea: 'downtown',
-  'Greenwich Village': 'downtown',
-  'Financial District': 'downtown',
-};
+/** A stable 0..1 number per block id (the "random" order of picks). */
+function hash01(s: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
+  return ((h >>> 0) % 100000) / 100000;
+}
 
 function build(): Plot[] {
   const out: Plot[] = [];
   for (const d of Object.values(DISTRICTS)) {
-    // Ad blocks and home blocks were picked by neighbourhood before the
-    // places were placed (data/plot-picks.ts). Places keep their blocks.
+    const pick = PICKS[d.id];
+    // Blocks we must not touch: anything with a place on it, the hub and
+    // its neighbours, whole-block landmarks.
     const busy = new Set(PLACES.filter((p) => p.area === d.id).map((p) => `${p.block[0]},${p.block[1]}`));
-    // Admin overrides win.
+    for (const p of PLACES) if (p.area === d.id && FULL_BLOCK_LANDMARKS.has(p.id)) busy.add(`${p.block[0]},${p.block[1]}`);
+    const free: { c: number; r: number; id: string; x: number; z: number }[] = [];
+    for (let c = 0; c < d.cols; c++) {
+      for (let r = 0; r < d.rows; r++) {
+        if (d.kind(c, r) !== 'buildings' || busy.has(`${c},${r}`)) continue;
+        if (Math.abs(c - d.hub.c) <= 1 && Math.abs(r - d.hub.r) <= 1) continue;
+        const b = blockRect(d, c, r);
+        // Keep ad blocks and lots off Broadway and the highway.
+        if (rectOnCorridor(d.id, { minX: b.minX + 6, maxX: b.maxX - 6, minZ: b.minZ + 6, maxZ: b.maxZ - 6 })) continue;
+        free.push({ c, r, id: blockId(d, c, r), x: (b.minX + b.maxX) / 2, z: (b.minZ + b.maxZ) / 2 });
+      }
+    }
+    free.sort((a, b) => hash01(`${a.id}-ad`) - hash01(`${b.id}-ad`));
+    // 1. Ad blocks: spread out (at least 190 m apart). Every other pick
+    // brings its next-door block along when it's free, so there are pairs
+    // side by side that a renter of both can MERGE into one giant board.
+    const ads: typeof free = [];
+    const freeAt = new Map(free.map((f) => [`${f.c},${f.r}`, f]));
+    for (const f of free) {
+      if (ads.length >= pick.ads) break;
+      if (ads.some((a) => Math.hypot(a.x - f.x, a.z - f.z) < 190)) continue;
+      ads.push(f);
+      if (ads.length % 2 === 0 || ads.length >= pick.ads) continue;
+      const mate = [freeAt.get(`${f.c + 1},${f.r}`), freeAt.get(`${f.c - 1},${f.r}`), freeAt.get(`${f.c},${f.r + 1}`), freeAt.get(`${f.c},${f.r - 1}`)].find((m) => m && !ads.includes(m));
+      if (mate) ads.push(mate);
+    }
+    for (const a of ads) d.setKind(a.c, a.r, 'ads');
+    // 2. Home lots: a share of Harlem's blocks, plus a few anywhere else
+    // (picked in a fixed shuffled order, so it's the same every time).
+    const left = free.filter((f) => d.kind(f.c, f.r) === 'buildings').sort((x, y) => hash01(`${x.id}-lot`) - hash01(`${y.id}-lot`));
+    const isHarlem = (f: (typeof free)[number]) => d.id === 'manhattan' && manhattanStreetAt(f.z) > 110;
+    const harlem = left.filter(isHarlem);
+    for (const f of harlem.slice(0, Math.max(pick.harlemLots ? 4 : 0, Math.round(harlem.length * pick.harlemLots)))) d.setKind(f.c, f.r, 'lot');
+    for (const f of left.filter((f) => !isHarlem(f)).slice(0, pick.lots)) d.setKind(f.c, f.r, 'lot');
+    // 3. Admin overrides win.
     for (let c = 0; c < d.cols; c++) {
       for (let r = 0; r < d.rows; r++) {
         const o = PLOT_OVERRIDES[blockId(d, c, r)];
@@ -185,18 +220,15 @@ function build(): Plot[] {
         d.setKind(c, r, ({ ad: 'ads', home: 'lot', buildings: 'buildings' } as Record<string, BlockKind>)[o.kind]);
       }
     }
-    // The plot list: every ad block and every home block.
+    // 4. The plot list: every ad block and every grid lot.
     for (let c = 0; c < d.cols; c++) {
       for (let r = 0; r < d.rows; r++) {
         const k = d.kind(c, r);
         if (k !== 'ads' && k !== 'lot') continue;
-        // The land kept clear of Broadway and the highway (data/plot-picks.ts),
-        // plus its sidewalk ring, like a block rect.
-        const land = plotLand(d, c, r);
-        const rect = land ? { minX: land.minX - SIDEWALK, maxX: land.maxX + SIDEWALK, minZ: land.minZ - SIDEWALK, maxZ: land.maxZ + SIDEWALK } : blockRect(d, c, r);
+        const rect = blockRect(d, c, r);
         const center = { x: (rect.minX + rect.maxX) / 2, z: (rect.minZ + rect.maxZ) / 2 };
         const id = blockId(d, c, r);
-        out.push({ id, kind: k === 'ads' ? 'ad' : 'home', area: d.id, borough: d.borough, name: crossStreets(d, center.x, center.z), block: [c, r], rect, center, tier: tierAt(d, center.x, center.z), auction: PLOT_OVERRIDES[id]?.auction });
+        out.push({ id, kind: k === 'ads' ? 'ad' : 'home', area: d.id, borough: d.borough, name: crossStreets(d, center.x, center.z), block: [c, r], rect, center, tier: tierAt(d, center.z), auction: PLOT_OVERRIDES[id]?.auction });
       }
     }
   }
@@ -207,7 +239,7 @@ function build(): Plot[] {
       const rect = { minX: l.x0, maxX: l.x1, minZ: l.z0, maxZ: l.z1 };
       const center = { x: (l.x0 + l.x1) / 2, z: (l.z0 + l.z1) / 2 };
       const id = `${d.id}:lot:${Math.round(l.x0)},${Math.round(l.z0)}`;
-      out.push({ id, kind: 'home', area: d.id, borough: d.borough, name: crossStreets(d, center.x, center.z), rect, center, tier: tierAt(d, center.x, center.z), auction: PLOT_OVERRIDES[id]?.auction });
+      out.push({ id, kind: 'home', area: d.id, borough: d.borough, name: crossStreets(d, center.x, center.z), rect, center, tier: tierAt(d, center.z), auction: PLOT_OVERRIDES[id]?.auction });
     }
   }
   // 6. Islands.

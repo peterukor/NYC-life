@@ -23,7 +23,7 @@ import { VEHICLES } from './data/vehicles.ts';
 import { vehicleGeometry, vehicleMaterial } from './world/vehicle-models.ts';
 import { bus } from './core/bus.ts';
 import { isRushHour, nowMs, nycTime } from './core/clock.ts';
-import { MAP_MAX_DISTANCE, DETAIL_RADIUS, RIDESHARE, SUBWAY_FARE, WALK_SPEED, SHIFT_GAME_HOURS, SHIFT_SECONDS, DIRECTOR_TICK_SECONDS, CAMERA } from './core/constants.ts';
+import { DETAIL_RADIUS, RIDESHARE, SUBWAY_FARE, WALK_SPEED, SHIFT_GAME_HOURS, SHIFT_SECONDS, DIRECTOR_TICK_SECONDS, CAMERA } from './core/constants.ts';
 import { esc, money } from './core/format.ts';
 import { ACTIONS, actionLock } from './data/actions.ts';
 import { CAREER_BY_ID } from './data/careers.ts';
@@ -1169,7 +1169,7 @@ export class Game {
     // Lift the camera into the sky over where you are.
     this.engine.mode = 'city';
     this.followCamera = false;
-    Object.assign(controls, { minDistance: 70, maxDistance: MAP_MAX_DISTANCE, minPolarAngle: 0.15, maxPolarAngle: 1.05, enablePan: true, screenSpacePanning: false });
+    Object.assign(controls, { minDistance: 70, maxDistance: 1500, minPolarAngle: 0.15, maxPolarAngle: 1.05, enablePan: true, screenSpacePanning: false });
     controls.touches = { ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY_ROTATE };
     controls.mouseButtons = { LEFT: THREE.MOUSE.PAN, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.ROTATE };
     fog.near = 1400;
