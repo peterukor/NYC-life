@@ -24,6 +24,12 @@ async function start(): Promise<void> {
     ui.innerHTML = '<div class="modal-wrap"><div class="modal"><div class="big">🗽</div><h2>Your browser can’t show 3D</h2><p>NYC Life needs WebGL. Try the latest Chrome, Safari or Firefox, or turn on hardware acceleration in your browser settings.</p></div></div>';
     return;
   }
+  if (new URLSearchParams(location.search).has('proto') || (window as unknown as { NYC_PROTO?: boolean }).NYC_PROTO) {
+    // Test build of the 2.5D map (see src/proto/main.ts).
+    const { startProto } = await import('./proto/main.ts');
+    await startProto(document.getElementById('stage')!, ui);
+    return;
+  }
   const game = new Game(document.getElementById('stage')!);
   await game.boot();
 }
