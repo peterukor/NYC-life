@@ -18,7 +18,7 @@ for (const [name, x, z, s] of shots) {
   await page.evaluate((a, b, c) => window.__map2d.view(a, b, c), x, z, s);
   await new Promise((r) => setTimeout(r, 400));
   await page.screenshot({ path: `test-results/map2d/${name}.png` });
-  console.log(name, Date.now() - t0, 'ms');
+  console.log(name, Date.now() - t0, 'ms', JSON.stringify(await page.evaluate(() => window.__map2d.stats?.())));
 }
 console.log('errors:', errors.join('\n') || 'none');
 await browser.close();

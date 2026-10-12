@@ -115,6 +115,8 @@ function hash(a: number, b: number): number {
 }
 
 export class MapRenderer {
+  /** Colours that change with the time of day (map2d/daylight.ts). */
+  palette = { water: C.water };
   private ground: { path: Path2D; fill?: string; stroke?: string; width?: number; rule?: CanvasFillRule; box: Box; dash?: number[]; cap?: CanvasLineCap }[] = [];
   private things: Thing[] = [];
   readonly bounds: Box;
@@ -404,16 +406,28 @@ export class MapRenderer {
 
   // ------------------------------------------------------------ drawing
   /**
-   * Draw the map with the camera centred on (camX, camZ) at `s` pixels per
-   * metre. `dpr` = device pixel ratio of the canvas.
+   * Draw one layer of the map with the camera centred on (camX, camZ) at
+   * `s` pixels per metre (dpr = device pixel ratio of the canvas).
+   *   'ground' — water, land, roads, blocks, lawns (opaque);
+   *   'upper'  — buildings, trees, lamps, back to front (transparent).
+   * Moving things (cars, people) are drawn between the two, so they slip
+   * behind tall buildings the way they should.
    */
-  draw(g: CanvasRenderingContext2D, W: number, H: number, camX: number, camZ: number, s: number, dpr: number): void {
+  drawLayer(g: CanvasRenderingContext2D, layer: 'ground' | 'upper', W: number, H: number, camX: number, camZ: number, s: number, dpr: number): void {
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
-    g.fillStyle = C.water;
-    g.fillRect(0, 0, W, H);
+    if (layer === 'ground') {
+      g.fillStyle = this.palette.water;
+      g.fillRect(0, 0, W, H);
+    } else {
+      g.clearRect(0, 0, W, H);
+    }
     const view: Box = { x0: camX - W / 2 / s, z0: camZ - H / 2 / s, x1: camX + W / 2 / s, z1: camZ + H / 2 / s };
     const on = (b: Box) => b.x1 >= view.x0 && b.x0 <= view.x1 && b.z1 >= view.z0 && b.z0 <= view.z1;
     g.setTransform(dpr * s, 0, 0, dpr * s, dpr * (W / 2 - camX * s), dpr * (H / 2 - camZ * s));
+    if (layer === 'upper') {
+      for (const t of this.things) if (on(t.box)) t.draw(g, s);
+      return;
+    }
     // Little waves on the water (fixed to the world, so they pan with it).
     if (s > 0.25) {
       g.strokeStyle = C.wave;
@@ -440,7 +454,6 @@ export class MapRenderer {
       }
       if (it.stroke) {
         g.strokeStyle = it.stroke;
-        g.lineWidth = it.width ?? 1;
         g.setLineDash(it.dash ?? []);
         g.lineJoin = 'round';
         g.lineCap = it.cap ?? 'round';
@@ -450,8 +463,21 @@ export class MapRenderer {
       }
     }
     g.setLineDash([]);
+  }
+
+  /** Both layers in one go (for screenshots and simple pages). */
+  draw(g: CanvasRenderingContext2D, W: number, H: number, camX: number, camZ: number, s: number, dpr: number): void {
+    this.drawLayer(g, 'ground', W, H, camX, camZ, s, dpr);
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const view: Box = { x0: camX - W / 2 / s, z0: camZ - H / 2 / s, x1: camX + W / 2 / s, z1: camZ + H / 2 / s };
+    const on = (b: Box) => b.x1 >= view.x0 && b.x0 <= view.x1 && b.z1 >= view.z0 && b.z0 <= view.z1;
+    g.setTransform(dpr * s, 0, 0, dpr * s, dpr * (W / 2 - camX * s), dpr * (H / 2 - camZ * s));
     for (const t of this.things) if (on(t.box)) t.draw(g, s);
-    // Names, outlined so they read on anything.
+    this.drawLabels(g, W, H, camX, camZ, s, dpr);
+  }
+
+  /** Neighbourhood and park names, outlined so they read on anything; never two on top of each other. */
+  drawLabels(g: CanvasRenderingContext2D, W: number, H: number, camX: number, camZ: number, s: number, dpr: number): void {
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
     g.textAlign = 'center';
     g.textBaseline = 'middle';
@@ -462,7 +488,6 @@ export class MapRenderer {
       const sy = (l.z - camZ) * s + H / 2;
       if (sx < -200 || sx > W + 200 || sy < -40 || sy > H + 40) continue;
       g.font = `800 ${l.size}px "Baloo 2", "Trebuchet MS", system-ui, sans-serif`;
-      // Never two names on top of each other: the first one wins.
       const tw = g.measureText(l.text).width / 2 + 6;
       const r = { x0: sx - tw, z0: sy - l.size * 0.7, x1: sx + tw, z1: sy + l.size * 0.7 };
       if (placed.some((q) => r.x0 < q.x1 && r.x1 > q.x0 && r.z0 < q.z1 && r.z1 > q.z0)) continue;

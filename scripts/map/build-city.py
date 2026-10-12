@@ -365,6 +365,23 @@ for rings in M['waterfront']:
     for q in polys_of(poly):
         scatter(q, 15.0, rng, 2.6, 3.6, [0, 0, 1], edge=2.5)
 
+# ------------------------------------------------------------ paths for moving things
+# Sidewalk loops (people walk them) and boat lanes out on the water.
+walks = []
+for blk in M['blocks']:
+    poly = Polygon(blk['poly'], blk.get('holes', [])).buffer(0)
+    for q in polys_of(poly.buffer(-2.4, join_style=1)):
+        ring = q.exterior.simplify(0.8)
+        if ring.length > 60:
+            walks.append([[round(x, 1), round(z, 1)] for x, z in list(ring.coords)[:-1]])
+land_all = unary_union([Polygon(r) for r in M['land']])
+boat_lanes = []
+for d in (70, 150):
+    lane = land_all.buffer(d, join_style=1).buffer(-30, join_style=1).buffer(30, join_style=1)
+    for q in polys_of(lane):
+        ring = q.exterior.simplify(4)
+        boat_lanes.append([[round(x, 1), round(z, 1)] for x, z in list(ring.coords)[:-1]])
+
 # ------------------------------------------------------------ crosswalks
 # Zebra crossings on every road where it meets another, set back from the
 # junction. Each is a short line across the road (the renderer draws it
@@ -406,6 +423,8 @@ out = {
     'lakes': lakes,
     'paths': paths,
     'crossings': crossings,
+    'walks': walks,
+    'boatLanes': boat_lanes,
 }
 json.dump(out, open(ROOT / 'src' / 'data' / 'map' / f'{B}-city.json', 'w'), separators=(',', ':'))
 print(f'crossings {len(crossings)}  buildings {len(buildings)}  lawns {len(lawns)}  trees {len(trees)}  lamps {len(lamps)}  lakes {len(lakes)}  outside-check failures {check_fail}')

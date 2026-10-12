@@ -8,6 +8,7 @@ import base from '../data/map/manhattan.json';
 import city from '../data/map/manhattan-city.json';
 import { HOODS } from '../data/neighborhoods.ts';
 import { MapRenderer, type BaseMap, type CityLayer, type Label } from './render.ts';
+import { Life } from './life.ts';
 
 // Same projection as world/geo-proj.ts (kept local so this page stays small).
 function project(lat: number, lon: number): { x: number; z: number } {
@@ -40,7 +41,6 @@ let scale = 0.7;
 const MIN = 0.3; // about two neighbourhoods on a phone (Peter, 2026-10-12)
 const MAX = 4;
 let W = 0, H = 0, dpr = 1;
-let dirty = true;
 
 function resize(): void {
   dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -48,16 +48,77 @@ function resize(): void {
   H = canvas.clientHeight;
   canvas.width = Math.round(W * dpr);
   canvas.height = Math.round(H * dpr);
-  dirty = true;
 }
 window.addEventListener('resize', resize);
 resize();
 
-function frame(): void {
-  if (dirty) {
-    dirty = false;
-    map.draw(g, W, H, camX, camZ, scale, dpr);
+// ---- drawing: two cached layers with the moving city in between.
+// The still map (ground, then buildings and trees) is drawn into two
+// offscreen canvases a bit bigger than the screen. Every frame we just
+// copy those, with cars, people and boats between them and clouds on top.
+// The caches are redrawn only when you zoom (after the gesture settles)
+// or pan past their edge, so the moving bits stay smooth on phones.
+const life = new Life(B, city as never);
+const MARGIN = 0.35; // extra cache around the screen, per side
+const groundC = document.createElement('canvas');
+const upperC = document.createElement('canvas');
+const gg = groundC.getContext('2d', { alpha: false })!;
+const ug = upperC.getContext('2d')!;
+let cache = { x: 0, z: 0, s: 0, W: 0, H: 0, dpr: 0 };
+let lastZoomAt = 0;
+let stats = { frames: 0, rebuilds: 0, lastRebuildMs: 0, frameMs: 0 };
+
+function rebuild(): void {
+  const t0 = performance.now();
+  const CW = Math.round(W * (1 + 2 * MARGIN)), CH = Math.round(H * (1 + 2 * MARGIN));
+  for (const c of [groundC, upperC]) {
+    c.width = Math.round(CW * dpr);
+    c.height = Math.round(CH * dpr);
   }
+  map.drawLayer(gg, 'ground', CW, CH, camX, camZ, scale, dpr);
+  map.drawLayer(ug, 'upper', CW, CH, camX, camZ, scale, dpr);
+  cache = { x: camX, z: camZ, s: scale, W: CW, H: CH, dpr };
+  stats.rebuilds++;
+  stats.lastRebuildMs = performance.now() - t0;
+}
+
+/** Where the cache sits on screen right now (CSS px). */
+function cachePlace() {
+  const k = scale / cache.s;
+  return { k, ox: W / 2 + (cache.x - camX) * scale - (cache.W / 2) * k, oy: H / 2 + (cache.z - camZ) * scale - (cache.H / 2) * k };
+}
+
+function needRebuild(now: number): boolean {
+  if (!cache.s || cache.dpr !== dpr || cache.W !== Math.round(W * (1 + 2 * MARGIN)) || cache.H !== Math.round(H * (1 + 2 * MARGIN))) return true;
+  const { k, ox, oy } = cachePlace();
+  // Screen no longer covered: must redraw now.
+  if (ox > 0.5 || oy > 0.5 || ox + cache.W * k < W - 0.5 || oy + cache.H * k < H - 0.5) return true;
+  // Zoomed: redraw sharp once the fingers rest (or straight away if way off).
+  if (Math.abs(k - 1) > 0.001 && (now - lastZoomAt > 160 || k > 1.8 || k < 0.55)) return true;
+  return false;
+}
+
+let lastT = performance.now();
+function frame(now: number): void {
+  const dt = (now - lastT) / 1000;
+  lastT = now;
+  life.update(dt);
+  if (needRebuild(now)) rebuild();
+  const t0 = performance.now();
+  const { k, ox, oy } = cachePlace();
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.imageSmoothingEnabled = k !== 1;
+  g.drawImage(groundC, ox, oy, cache.W * k, cache.H * k);
+  const view = { x0: camX - W / 2 / scale, z0: camZ - H / 2 / scale, x1: camX + W / 2 / scale, z1: camZ + H / 2 / scale };
+  g.setTransform(dpr * scale, 0, 0, dpr * scale, dpr * (W / 2 - camX * scale), dpr * (H / 2 - camZ * scale));
+  life.drawStreet(g, view, scale, now / 1000);
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.drawImage(upperC, ox, oy, cache.W * k, cache.H * k);
+  g.setTransform(dpr * scale, 0, 0, dpr * scale, dpr * (W / 2 - camX * scale), dpr * (H / 2 - camZ * scale));
+  life.drawSky(g, view, scale);
+  map.drawLabels(g, W, H, camX, camZ, scale, dpr);
+  stats.frames++;
+  stats.frameMs = stats.frameMs * 0.9 + (performance.now() - t0) * 0.1;
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
@@ -75,8 +136,8 @@ function zoomAt(sx: number, sy: number, k: number): void {
   camX = wx - (sx - W / 2) / ns;
   camZ = wz - (sy - H / 2) / ns;
   scale = ns;
+  lastZoomAt = performance.now();
   clampCam();
-  dirty = true;
 }
 
 // ---- touch / mouse: one finger pans, two pinch
@@ -95,7 +156,6 @@ canvas.addEventListener('pointermove', (e) => {
     camZ -= (e.clientY - p.y) / scale;
     moved += Math.abs(e.clientX - p.x) + Math.abs(e.clientY - p.y);
     clampCam();
-    dirty = true;
   } else if (pts.size === 2) {
     const [a, b] = [...pts.entries()];
     const other = a[0] === e.pointerId ? b[1] : a[1];
@@ -152,7 +212,7 @@ function showBlock(x: number, z: number): void {
     camX = x;
     camZ = z;
     scale = s;
-    dirty = true;
   },
+  stats: () => stats,
   tap: (x: number, z: number) => showBlock(x, z),
 };
