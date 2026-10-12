@@ -268,48 +268,149 @@ all_roads = unary_union([streets, ring_poly]).intersection(land)
 
 # --------------------------------------------------------------- 4. blocks
 core = inner.buffer(-RING_W / 2, join_style=1)
-pieces = core.difference(streets)
-pieces = list(pieces.geoms) if isinstance(pieces, MultiPolygon) else [pieces]
-blocks, plazas = [], []
-for p in pieces:
-    r = p.buffer(-CORNER, join_style=1).buffer(CORNER, join_style=1)
-    if r.is_empty:
-        continue
-    for q in (r.geoms if isinstance(r, MultiPolygon) else [r]):
-        (blocks if q.area >= MIN_BLOCK else plazas).append(q)
-# North to south, then west to east, so ids read like a book.
-blocks.sort(key=lambda g: (round(g.centroid.y / 60), g.centroid.x))
+ring_poly = ring_line.buffer(RING_W / 2, join_style=1)
 # Central Park: the block holding the park's middle.
 CP = Point(30, -620)
+WIDTH = {s['id']: s['w'] for s in ROADS}
+# From here on a road may be in several pieces.
+parts = {k: [v] for k, v in lines.items()}
+
+
+def street_surface():
+    return unary_union([q.buffer(WIDTH[k] / 2, cap_style=1, join_style=1) for k, v in parts.items() for q in v])
+
+
+def make_blocks():
+    """Blocks = the land inside the shore road minus every road, corners rounded."""
+    out = []
+    pc = core.difference(street_surface())
+    for p in (pc.geoms if isinstance(pc, MultiPolygon) else [pc]):
+        r = p.buffer(-CORNER, join_style=1).buffer(CORNER, join_style=1)
+        out += [q for q in (r.geoms if isinstance(r, MultiPolygon) else [r]) if not r.is_empty and q.area > 50]
+    return out
+
+
+def compactness(g):
+    return 4 * math.pi * g.area / (g.length ** 2)
+
+
+def is_park_strip(g):
+    if g.contains(CP):
+        return True
+    r = g.minimum_rotated_rectangle
+    c = list(r.exterior.coords)
+    sd = sorted([math.dist(c[0], c[1]), math.dist(c[1], c[2])])
+    return sd[0] < 75 and sd[1] > 2.4 * sd[0] and g.centroid.x < -150
+
+
+def clean_parts():
+    """Cut back road pieces that lead nowhere; drop short leftover stubs."""
+    for _ in range(3):
+        for k in parts:
+            keep = []
+            for q in parts[k]:
+                others = unary_union([ring_line] + [o for kk, v in parts.items() for o in v if o is not q])
+                t = trim_dead(q, WIDTH[k], others)
+                ok = sum(Point(e).distance(others) < 5 for e in (t.coords[0], t.coords[-1]))
+                if t.length > 32 and ok == 2:
+                    keep.append(t)
+            parts[k] = keep
+
+
+# ---- 4b. merge small and odd-shaped blocks into a neighbour (Peter,
+# 2026-10-12: "merge the smaller irregular shaped blocks"): the stretch of
+# road between them is taken out, then the blocks are worked out again from
+# the roads that are left, so edges always match the roads exactly.
+MERGE_SMALL = 15000.0  # anything smaller merges
+MERGE_THIN = 0.45  # compactness below this (thin strips, wedges) merges …
+MERGE_THIN_MAX = 26000.0  # … if it isn't big
+MERGED_MAX = 90000.0  # never make a block bigger than this
+# Roads that are never cut by a merge (they're what makes it Manhattan),
+# unless the piece is a tiny sliver.
+KEEP = {'broadway', 'fifth', 'cpw', 's59', 's42', 's14', 's110', 's125', 'houston', 'canal'}
+
+
+def merge_once(pieces):
+    cands = [g for g in pieces if not is_park_strip(g) and (g.area < MERGE_SMALL or (compactness(g) < MERGE_THIN and g.area < MERGE_THIN_MAX))]
+    for a in sorted(cands, key=lambda g: g.area):
+        best = None
+        for b in pieces:
+            if b is a or is_park_strip(b) or a.distance(b) > 18 or a.area + b.area > MERGED_MAX:
+                continue
+            shared = a.buffer(10).intersection(b.buffer(10)).area
+            if shared < 300:
+                continue
+            u = unary_union([a, b])
+            strip = u.buffer(15, join_style=1).buffer(-15, join_style=1).difference(u)
+            hit = [(k, sum(q.intersection(strip.buffer(1)).length for q in v)) for k, v in parts.items()]
+            hit = [h for h in hit if h[1] > 1]
+            if not hit:
+                continue
+            road = max(hit, key=lambda h: h[1])[0]
+            if road in KEEP and a.area > 6000:
+                continue
+            if not best or shared > best[0]:
+                best = (shared, strip)
+        if best:
+            cut = best[1].buffer(2)
+            for k in parts:
+                nv = []
+                for q in parts[k]:
+                    d = q.difference(cut)
+                    nv += [g for g in (getattr(d, 'geoms', None) or [d]) if not g.is_empty and g.length > 1]
+                parts[k] = nv
+            return True
+    return False
+
+
+for _ in range(60):
+    if not merge_once(make_blocks()):
+        break
+    clean_parts()
+pieces = make_blocks()
+blocks = [g for g in pieces if g.area >= MIN_BLOCK]
+plazas = [g for g in pieces if g.area < MIN_BLOCK]
+lines = parts
+# Road surface from the final centre lines (round ends fill the corners).
+streets = street_surface()
+# Asphalt is everything inside the shore road's outer edge that isn't a
+# block or a plaza: no slivers of bare ground anywhere between roads.
+all_roads = inner.buffer(RING_W / 2, join_style=1).intersection(land).difference(unary_union(blocks + plazas))
+# North to south, then west to east, so ids read like a book.
+blocks.sort(key=lambda g: (round(g.centroid.y / 60), g.centroid.x))
 
 
 def kind_of(b):
-    if b.contains(CP):
-        return 'park'
-    # Long thin strips between Broadway and the Hudson (UWS, Harlem) are
-    # Riverside Park, as in real life.
-    r = b.minimum_rotated_rectangle
-    c = list(r.exterior.coords)
-    sides = sorted([math.dist(c[0], c[1]), math.dist(c[1], c[2])])
-    if sides[0] < 75 and sides[1] > 2.4 * sides[0] and b.centroid.x < -150:
-        return 'park'
-    return 'city'
+    # Central Park, and the long thin strips between Broadway and the
+    # Hudson (UWS, Harlem), which are Riverside Park as in real life.
+    return 'park' if is_park_strip(b) else 'city'
 waterfront = land.difference(inner.buffer(RING_W / 2, join_style=1))
 
 
+def ring(r):
+    return [[round(x, 1), round(z, 1)] for x, z in list(r.coords)[:-1]]
+
+
 def rnd(poly):
+    """Outer rings only (blocks, land: no holes)."""
     polys = poly.geoms if isinstance(poly, MultiPolygon) else [poly]
-    return [[[round(x, 1), round(z, 1)] for x, z in list(p.exterior.coords)[:-1]] for p in polys]
+    return [ring(p.exterior) for p in polys]
+
+
+def rnd_holes(poly):
+    """Each polygon as [outer, hole, hole…] (the road network is one big shape full of holes)."""
+    polys = poly.geoms if isinstance(poly, MultiPolygon) else [poly]
+    return [[ring(p.exterior)] + [ring(h) for h in p.interiors] for p in polys]
 
 
 out = {
     'about': 'Manhattan, layer 2: land, roads and blocks (scripts/map/build-manhattan.py). Game metres, x = east, z = south.',
     'land': rnd(land),
     'islands': [{'name': i['name'], 'poly': rnd(i['poly'])} for i in islands],
-    'waterfront': rnd(waterfront),
+    'waterfront': rnd_holes(waterfront),
     'shoreRoad': {'w': RING_W, 'pts': [[round(x, 1), round(z, 1)] for x, z in list(ring_line.coords)]},
-    'roads': [{'id': s['id'], 'name': s['name'], 'kind': s['kind'], 'w': s['w'], 'pts': [[round(x, 1), round(z, 1)] for x, z in lines[s['id']].coords]} for s in ROADS],
-    'roadSurface': rnd(all_roads),
+    'roads': [{'id': s['id'] + (f'-{i + 1}' if len(lines[s['id']]) > 1 else ''), 'name': s['name'], 'kind': s['kind'], 'w': s['w'], 'pts': [[round(x, 1), round(z, 1)] for x, z in part.coords]} for s in ROADS for i, part in enumerate(lines[s['id']])],
+    'roadSurface': rnd_holes(all_roads),
     'blocks': [{'id': f'm{i + 1}', 'kind': kind_of(b), 'area': round(b.area), 'center': [round(b.centroid.x, 1), round(b.centroid.y, 1)], 'poly': rnd(b)[0]} for i, b in enumerate(blocks)],
     'plazas': [{'poly': rnd(p)[0], 'area': round(p.area)} for p in plazas],
 }

@@ -34,10 +34,18 @@ def render(name, box, sc, labels=True):
     for isl in M['islands']:
         for poly in isl['poly']:
             d.polygon([P(p) for p in poly], fill=LAND)
-    for poly in M['waterfront']:
-        d.polygon([P(p) for p in poly], fill=SHORE)
-    for poly in M['roadSurface']:
-        d.polygon([P(p) for p in poly], fill=ROAD)
+    def holed(polys, color):
+        # Draw [outer, hole…] on a mask so the holes stay open.
+        mask = Image.new('L', im.size, 0)
+        md = ImageDraw.Draw(mask)
+        for rings in polys:
+            md.polygon([P(p) for p in rings[0]], fill=255)
+            for h in rings[1:]:
+                md.polygon([P(p) for p in h], fill=0)
+        im.paste(color, mask=mask)
+
+    holed(M['waterfront'], SHORE)
+    holed(M['roadSurface'], ROAD)
     for n, v in STREETS.items():
         for s in v['segs']:
             d.line([P(p) for p in s], fill='#a3a7af', width=1)
