@@ -32,10 +32,11 @@ samples = int(sys.argv[7]) if len(sys.argv) > 7 else 32
 # How much the model may be stretched (each way) to fill the footprint.
 STRETCH = float(sys.argv[8]) if len(sys.argv) > 8 else 1.0
 
-# The game camera: 30 degrees down, turned 45 degrees. MUST match src/proto/view.ts.
-EL, AZ = math.radians(30), math.radians(45)
+# The game camera: 30 degrees down, looking from the south-west (lower left)
+# towards the north-east, like The Sims. MUST match src/proto/view.ts.
+EL, AZ = math.radians(30), math.radians(-45)
 # The sun: same for everything. MUST match the light in src/proto/view.ts.
-SUN_ROT = (math.radians(35), 0.0, math.radians(-30))
+SUN_ROT = (math.radians(35), 0.0, math.radians(30))
 DEPTH_RANGE = 512.0  # depth stored as metres in [-512, 512] around the anchor
 
 bpy.ops.wm.read_factory_settings(use_empty=True)

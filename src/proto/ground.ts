@@ -1,27 +1,26 @@
 // =====================================================================
-// ground.ts — everything flat (or nearly flat) in the 2.5D map: roads,
-// lane lines, crosswalks, sidewalks with kerbs, lawns, the waterfront
-// promenade, the sea wall and the water. Plus the small coded things
-// on blocks that have no building picture yet: ad panels, empty lots,
-// the park, the gym pool, landmark building sites, home plots.
+// ground.ts — builds Manhattan: decides where every picture goes (roads,
+// blocks, houses, trees, rocks) and draws the flat coded parts: block
+// slabs, waterfront promenades, sea walls, water, Central Park's lawn,
+// lake and paths, ad panels and landmark building sites.
 //
 // The camera never turns, so only the faces it can see are built (tops,
-// east and south sides). Flat parts use plain colours (no lighting):
+// west and south sides). Flat parts use plain colours (no lighting):
 // the colours are picked from the building pictures so they match.
 // All the plain-coloured boxes are merged into ONE mesh (one draw call).
 // =====================================================================
 
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { AD_PRICES } from '../data/plots.ts';
+import { AD_PRICES, type PriceTier } from '../data/plots.ts';
 import {
-  CELL_D, CELL_W, COLS, DOWNTOWN, GRID_D, GRID_W, PROMENADE, ROWS, SPACE_D, SPACE_W, STRIP, cellX, cellZ,
+  CELL_D, CELL_W, COLS, GRID_D, GRID_W, PITCH_X, PITCH_Z, PROMENADE, ROAD, ROWS, SPACE_D, SPACE_W, STRIP, blockAt, cellX, cellZ, hoodOfRow, isPark,
   type Block, type Side,
 } from './plan.ts';
 
 // ---- colours (matched to the lit building pictures)
 export const C = {
-  asphalt: '#6a6977',
+  asphalt: '#8a838b', // matches the road pictures' asphalt
   asphaltSide: '#4d4c58',
   lane: '#f6f3ea',
   yellow: '#f5c842',
@@ -60,7 +59,7 @@ class BoxBatch {
     for (let i = 0; i < 6; i++) this.colr.push(k.r, k.g, k.b);
   }
 
-  /** Box from (x0, y0, z0) to (x1, y1, z1): top + the east and south sides. */
+  /** Box from (x0, y0, z0) to (x1, y1, z1): top + the west and south sides (the ones the camera sees). */
   box(x0: number, y0: number, z0: number, x1: number, y1: number, z1: number, top: string, side?: string): void {
     const t = col(top);
     const s = col(side ?? top);
@@ -68,7 +67,7 @@ class BoxBatch {
     this.quad([x0, y1, z1], [x1, y1, z1], [x1, y1, z0], [x0, y1, z0], t); // top (counter-clockwise from above)
     if (y1 - y0 > 0.001) {
       this.quad([x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1], s); // south
-      this.quad([x1, y0, z1], [x1, y0, z0], [x1, y1, z0], [x1, y1, z1], sE); // east
+      this.quad([x0, y0, z0], [x0, y0, z1], [x0, y1, z1], [x0, y1, z0], sE); // west
     }
   }
 
@@ -117,7 +116,7 @@ function signBoard(x: number, z: number, w: number, h: number, lift: number, tex
   post.position.y = (lift + 0.2) / 2;
   g.add(post);
   g.position.set(x, KERB_H, z);
-  g.rotation.y = Math.PI / 4; // face the camera (south-east)
+  g.rotation.y = -Math.PI / 4; // face the camera (south-west)
   return g;
 }
 
@@ -155,7 +154,7 @@ function adTexture(side: 'LEFT' | 'RIGHT', rented: string | null, price: number)
     }
     g.save();
     g.translate(256, 340);
-    g.rotate(-Math.PI / 4);
+    g.rotate(Math.PI / 4);
     g.scale(1, 2);
     g.textAlign = 'center';
     g.textBaseline = 'middle';
@@ -177,57 +176,89 @@ function adTexture(side: 'LEFT' | 'RIGHT', rented: string | null, price: number)
   });
 }
 
+/** A picture to place (see sprites.ts). */
+export interface Placement {
+  name: string;
+  x: number;
+  z: number;
+  scale?: number;
+}
+
 export interface GroundBuild {
   group: THREE.Group;
   props: PropSet;
+  /** Every picture on the map: blocks, houses, roads, trees, rocks. */
+  sprites: Placement[];
   /** Things to update each frame (water ripples). */
   tick: (t: number) => void;
 }
+
+/** Is road piece between these blocks inside Central Park (so not built)? */
+const parkBoth = (c1: number, r1: number, c2: number, r2: number) => isPark(c1, r1) && isPark(c2, r2);
 
 export function buildGround(): GroundBuild {
   const group = new THREE.Group();
   const b = new BoxBatch();
   const props: PropSet = { trees: [], lamps: [], posts: [], rocks: [] };
+  const sprites: Placement[] = [];
+  const tree = (x: number, z: number, s = 1) => props.trees.push({ x, z, s });
+  const P = PROMENADE;
 
-  // ---- land beyond the grid (north and east: hidden under clouds)
-  b.rect(-PROMENADE, -400, GRID_W + 400, 0, -0.02, C.grass);
-  b.rect(GRID_W, 0, GRID_W + 400, GRID_D + PROMENADE, -0.02, C.grass);
+  // ---- the Bronx side (north): land under the clouds
+  b.rect(-P - 300, -700, GRID_W + P + 300, 0, -0.02, C.grass);
 
-  // ---- asphalt over the whole grid; blocks sit on top
+  // ---- asphalt under the whole grid (fills hairline gaps between road pictures)
   b.rect(0, 0, GRID_W, GRID_D, -0.4, C.asphalt);
 
-  // Lane lines, crosswalks and street lamps come with Peter's road and
-  // intersection pictures (placed in main.ts); the asphalt above only
-  // fills any hairline gaps between them.
+  // ---- roads: Peter's road and intersection pictures
+  for (let r = 0; r <= ROWS; r++) {
+    for (let c = 0; c <= COLS; c++) {
+      const ix = c * PITCH_X + ROAD / 2;
+      const iz = r * PITCH_Z + ROAD / 2;
+      const inside = isPark(c - 1, r - 1) && isPark(c, r - 1) && isPark(c - 1, r) && isPark(c, r);
+      if (!inside) sprites.push({ name: 'intersection', x: ix, z: iz });
+      if (c < COLS && !parkBoth(c, r - 1, c, r)) for (const k of [0.25, 0.75]) sprites.push({ name: 'road-ew', x: cellX(c) + CELL_W * k, z: iz });
+      if (r < ROWS && !parkBoth(c - 1, r, c, r)) sprites.push({ name: 'road-ns', x: ix, z: cellZ(r) + CELL_D / 2 });
+    }
+  }
 
-  // ---- waterfront: promenade on the west and south, sea wall, water
-  b.box(-PROMENADE, -2.2, 0, 0, KERB_H, GRID_D + PROMENADE, C.promenade, C.stoneSide);
-  b.box(-PROMENADE, -2.2, GRID_D, GRID_W, KERB_H, GRID_D + PROMENADE, C.promenade, C.stoneSide);
-  b.box(GRID_W, -2.2, GRID_D, GRID_W + 400, -0.02, GRID_D + PROMENADE, C.grass, C.stoneSide);
-  // A stone edge band along the water.
-  b.rect(-PROMENADE, 0, -PROMENADE + 1.2, GRID_D + PROMENADE, KERB_H + 0.01, C.stone);
-  b.rect(-PROMENADE, GRID_D + PROMENADE - 1.2, GRID_W, GRID_D + PROMENADE, KERB_H + 0.01, C.stone);
-  for (let z = 6; z < GRID_D + PROMENADE - 2; z += 2.4) props.posts.push({ x: -PROMENADE + 0.6, z, h: 1.1, color: C.rail });
-  for (let x = -PROMENADE + 1; x < GRID_W; x += 2.4) props.posts.push({ x, z: GRID_D + PROMENADE - 0.6, h: 1.1, color: C.rail });
-  for (let z = 10; z < GRID_D; z += 18) props.trees.push({ x: -PROMENADE / 2 - 1, z, s: 1 });
-  for (let z = 37; z < GRID_D; z += 72) props.rocks.push({ x: -PROMENADE + 3, z, s: 0.9 });
-  for (let x = 46; x < GRID_W; x += 90) props.rocks.push({ x, z: GRID_D + PROMENADE - 3, s: 0.9 });
-  for (let x = 4; x < GRID_W; x += 18) props.trees.push({ x, z: GRID_D + PROMENADE / 2 + 1, s: 1 });
+  // ---- waterfront promenades: Hudson (west), East River (east), harbour (south)
+  b.box(-P, -2.2, 0, 0, KERB_H, GRID_D + P, C.promenade, C.stoneSide);
+  b.box(GRID_W, -2.2, 0, GRID_W + P, KERB_H, GRID_D + P, C.promenade, C.stoneSide);
+  b.box(-P, -2.2, GRID_D, GRID_W + P, KERB_H, GRID_D + P, C.promenade, C.stoneSide);
+  b.rect(-P, 0, -P + 1.2, GRID_D + P, KERB_H + 0.01, C.stone);
+  b.rect(GRID_W + P - 1.2, 0, GRID_W + P, GRID_D + P, KERB_H + 0.01, C.stone);
+  b.rect(-P, GRID_D + P - 1.2, GRID_W + P, GRID_D + P, KERB_H + 0.01, C.stone);
+  for (let z = 4; z < GRID_D + P - 1; z += 2.4) props.posts.push({ x: -P + 0.6, z, h: 1.1, color: C.rail }, { x: GRID_W + P - 0.6, z, h: 1.1, color: C.rail });
+  for (let x = -P + 1; x < GRID_W + P; x += 2.4) props.posts.push({ x, z: GRID_D + P - 0.6, h: 1.1, color: C.rail });
+  for (let z = 10; z < GRID_D; z += 19) {
+    tree(-P / 2 - 1, z, 1 + (z % 3) * 0.1);
+    tree(GRID_W + P / 2 + 1, z + 9, 1);
+  }
+  for (let x = 4; x < GRID_W; x += 19) tree(x, GRID_D + P / 2 + 1, 1);
+  for (let z = 47; z < GRID_D; z += 152) props.rocks.push({ x: -P + 3, z, s: 0.9 }, { x: GRID_W + P - 3, z: z + 70, s: 0.9 });
 
   // ---- blocks
   for (let r = 0; r < ROWS; r++) {
     for (let c = 0; c < COLS; c++) {
+      const blk = blockAt(c, r);
+      if (blk.kind === 'park') continue;
       const x0 = cellX(c);
       const z0 = cellZ(r);
-      // The sidewalk slab (its edge is the kerb).
       b.box(x0, 0, z0, x0 + CELL_W, KERB_H, z0 + CELL_D, C.pave, C.paveSide);
-      blockContent(DOWNTOWN[r][c], x0, z0, b, group, props);
+      blockContent(blk, hoodOfRow(r).tier, x0, z0, b, group, props, sprites);
     }
   }
+  centralPark(b, group, props, sprites);
 
   group.add(b.mesh());
 
-  // ---- water: one big plane, gently moving ripples
+  // Trees and rocks are pictures of Peter's models.
+  const TREES = ['prop-tree', 'prop-cherry', 'prop-tree'];
+  props.trees.forEach((t, i) => sprites.push({ name: TREES[i % TREES.length], x: t.x, z: t.z, scale: t.s * 1.5 }));
+  props.rocks.forEach((rk, i) => sprites.push({ name: ['prop-rock', 'prop-mossy-rock', 'prop-outcrop'][i % 3], x: rk.x, z: rk.z, scale: rk.s * 1.3 }));
+
+  // ---- water all round: one big plane, gently moving ripples
   const ripples = textTexture(256, 256, (g) => {
     g.fillStyle = C.water;
     g.fillRect(0, 0, 256, 256);
@@ -244,15 +275,16 @@ export function buildGround(): GroundBuild {
     }
   });
   ripples.wrapS = ripples.wrapT = THREE.RepeatWrapping;
-  ripples.repeat.set(30, 30);
-  const water = new THREE.Mesh(new THREE.PlaneGeometry(1600, 1600), new THREE.MeshBasicMaterial({ map: ripples }));
+  ripples.repeat.set(90, 90);
+  const water = new THREE.Mesh(new THREE.PlaneGeometry(5000, 5000), new THREE.MeshBasicMaterial({ map: ripples }));
   water.rotation.x = -Math.PI / 2;
-  water.position.set(GRID_W / 2 - 400, -1.6, GRID_D / 2 + 400);
+  water.position.set(GRID_W / 2, -1.6, GRID_D / 2);
   group.add(water);
-  // Lighter shallow water along the sea wall.
+  // Lighter shallow water along the sea walls.
   const sh = new BoxBatch();
-  sh.rect(-PROMENADE - 7, 0, -PROMENADE, GRID_D + PROMENADE + 7, -1.55, C.shallows);
-  sh.rect(-PROMENADE - 7, GRID_D + PROMENADE, GRID_W + 400, GRID_D + PROMENADE + 7, -1.55, C.shallows);
+  sh.rect(-P - 7, 0, -P, GRID_D + P + 7, -1.55, C.shallows);
+  sh.rect(GRID_W + P, 0, GRID_W + P + 7, GRID_D + P + 7, -1.55, C.shallows);
+  sh.rect(-P, GRID_D + P, GRID_W + P, GRID_D + P + 7, -1.55, C.shallows);
   const shMesh = sh.mesh();
   (shMesh.material as THREE.MeshBasicMaterial).transparent = true;
   (shMesh.material as THREE.MeshBasicMaterial).opacity = 0.55;
@@ -261,94 +293,115 @@ export function buildGround(): GroundBuild {
   return {
     group,
     props,
+    sprites,
     tick: (t) => {
       ripples.offset.set((t * 0.004) % 1, (t * 0.0025) % 1);
     },
   };
 }
 
-const SW = 3; // sidewalk width on coded blocks
+/** Central Park: one big lawn over its blocks and the roads between them. */
+function centralPark(b: BoxBatch, group: THREE.Group, props: PropSet, sprites: Placement[]): void {
+  let c0 = COLS, c1 = -1, r0 = ROWS, r1 = -1;
+  for (let r = 0; r < ROWS; r++)
+    for (let c = 0; c < COLS; c++)
+      if (isPark(c, r)) {
+        c0 = Math.min(c0, c); c1 = Math.max(c1, c); r0 = Math.min(r0, r); r1 = Math.max(r1, r);
+      }
+  if (c1 < 0) return;
+  const x0 = cellX(c0), x1 = cellX(c1) + CELL_W, z0 = cellZ(r0), z1 = cellZ(r1) + CELL_D;
+  const y = KERB_H;
+  b.box(x0, 0, z0, x1, y, z1, C.pave, C.paveSide);
+  b.box(x0 + 3, y, z0 + 3, x1 - 3, y + 0.6, z1 - 3, C.stone, C.stoneSide); // low stone wall
+  b.rect(x0 + 4, z0 + 4, x1 - 4, z1 - 4, y + 0.61, C.grass);
+  const cx = (x0 + x1) / 2;
+  // The lake (like the Reservoir), with a stone rim.
+  const lx0 = x0 + 34, lx1 = x1 - 34, lz0 = z0 + 70, lz1 = z0 + 150;
+  b.box(lx0 - 2, y, lz0 - 2, lx1 + 2, y + 0.8, lz1 + 2, C.stone, C.stoneSide);
+  b.rect(lx0, lz0, lx1, lz1, y + 0.81, C.water);
+  b.rect(lx0, lz0, lx1, lz0 + 3, y + 0.82, C.shallows);
+  // Winding-looking paths: a loop drive and cross paths.
+  const pathY = y + 0.62;
+  const w = 3.5;
+  b.rect(x0 + 14, z0 + 14, x1 - 14, z0 + 14 + w, pathY, C.promenade);
+  b.rect(x0 + 14, z1 - 14 - w, x1 - 14, z1 - 14, pathY, C.promenade);
+  b.rect(x0 + 14, z0 + 14, x0 + 14 + w, z1 - 14, pathY, C.promenade);
+  b.rect(x1 - 14 - w, z0 + 14, x1 - 14, z1 - 14, pathY, C.promenade);
+  b.rect(cx - w / 2, lz1 + 2, cx + w / 2, z1 - 14, pathY, C.promenade);
+  b.rect(x0 + 14, (lz1 + z1) / 2, x1 - 14, (lz1 + z1) / 2 + w, pathY, C.promenade);
+  // Bethesda-style fountain plaza.
+  const fz = (lz1 + z1) / 2 + w / 2;
+  b.box(cx - 11, y, fz - 9, cx + 11, y + 0.65, fz + 9, C.promenade);
+  b.box(cx - 5, y, fz - 5, cx + 5, y + 1.3, fz + 5, C.stone, C.stoneSide);
+  b.rect(cx - 4.2, fz - 4.2, cx + 4.2, fz + 4.2, y + 1.31, C.pool);
+  // A playground in the south-east corner.
+  sprites.push({ name: 'playground-r0', x: x1 - 14 - CELL_W / 2 + 4, z: z1 - 14 - CELL_D / 2 + 4, scale: 0.8 });
+  // Lots of trees (kept off the paths, lake and playground).
+  let k = 7;
+  const rnd = () => ((k = (k * 16807) % 2147483647) / 2147483647);
+  const clear = (x: number, z: number) => {
+    if (x > lx0 - 6 && x < lx1 + 6 && z > lz0 - 6 && z < lz1 + 6) return false;
+    if (Math.abs(x - cx) < 6 && z > lz1) return false;
+    if (Math.abs(z - fz) < 12 && Math.abs(x - cx) < 16) return false;
+    if (Math.abs(z - fz) < 5) return false;
+    if (x > x1 - 14 - CELL_W * 0.8 - 4 && z > z1 - 14 - CELL_D * 0.8 - 4) return false;
+    for (const e of [x0 + 14, x1 - 14]) if (Math.abs(x - e) < 5) return false;
+    for (const e of [z0 + 14, z1 - 14]) if (Math.abs(z - e) < 5) return false;
+    return true;
+  };
+  for (let i = 0; i < 260; i++) {
+    const x = x0 + 8 + rnd() * (x1 - x0 - 16);
+    const z = z0 + 8 + rnd() * (z1 - z0 - 16);
+    if (clear(x, z)) props.trees.push({ x, z, s: 0.9 + rnd() * 0.4 });
+  }
+  for (let i = 0; i < 14; i++) {
+    const x = x0 + 20 + rnd() * (x1 - x0 - 40);
+    const z = z0 + 20 + rnd() * (z1 - z0 - 40);
+    if (clear(x, z)) props.rocks.push({ x, z, s: 1 + rnd() * 0.6 });
+  }
+  group.add(signBoard(x0 + 30, z1 - 6, 28, 8, 2.4, signTexture('CENTRAL PARK', 'Relax · jog · picnic', '#2d6a4f')));
+}
 
-function blockContent(blk: Block, x0: number, z0: number, b: BoxBatch, group: THREE.Group, props: PropSet): void {
+function blockContent(blk: Block, tier: PriceTier, x0: number, z0: number, b: BoxBatch, group: THREE.Group, props: PropSet, sprites: Placement[]): void {
   const x1 = x0 + CELL_W;
   const z1 = z0 + CELL_D;
   const y = KERB_H;
-  const ix0 = x0 + SW;
-  const ix1 = x1 - SW;
-  const iz0 = z0 + SW;
-  const iz1 = z1 - SW;
+  const SW = 2;
   switch (blk.kind) {
-    case 'model':
-      if (blk.side) strip(blk.side, x0, z0, b, props);
-      return; // the picture brings its own ground
+    case 'rect':
+      sprites.push({ name: blk.sprite, x: x0 + CELL_W / 2, z: z0 + CELL_D / 2 });
+      return;
+    case 'square':
+    case 'gym':
+      sprites.push({ name: blk.kind === 'gym' ? 'sq-gym-r0' : blk.sprite, x: x0 + STRIP + CELL_D / 2, z: z0 + CELL_D / 2 });
+      strip(blk.side, x0, z0, b, props, sprites);
+      return;
+    case 'playground':
+      sprites.push({ name: 'playground-r0', x: x0 + CELL_W / 2, z: z0 + CELL_D / 2 });
+      return;
+    case 'homes':
+      // Every house fills its plot exactly (lawn, fence and all).
+      for (const h of blk.houses) sprites.push({ name: h.sprite, x: x0 + (h.c + h.w / 2) * SPACE_W, z: z0 + (h.r + h.h / 2) * SPACE_D });
+      return;
     case 'ads': {
       const mid = (x0 + x1) / 2;
-      const price = AD_PRICES.downtown.unit;
+      const price = AD_PRICES[tier].unit;
       const halves: [number, number, 'LEFT' | 'RIGHT', string | null][] = [
-        [ix0, mid - 0.6, 'LEFT', blk.rented[0]],
-        [mid + 0.6, ix1, 'RIGHT', blk.rented[1]],
+        [x0 + SW, mid - 0.6, 'LEFT', blk.rented[0]],
+        [mid + 0.6, x1 - SW, 'RIGHT', blk.rented[1]],
       ];
       for (const [a, c, side, rented] of halves) {
-        b.box(a, y, iz0, c, y + 0.35, iz1, rented ? '#c0392b' : '#f5b700', rented ? '#8e2a20' : '#c99400');
+        b.box(a, y, z0 + SW, c, y + 0.35, z1 - SW, rented ? '#c0392b' : '#f5b700', rented ? '#8e2a20' : '#c99400');
         const tex = adTexture(side, rented, price);
-        const panel = new THREE.Mesh(new THREE.PlaneGeometry(c - a - 1.6, iz1 - iz0 - 1.6), new THREE.MeshBasicMaterial({ map: tex }));
+        const panel = new THREE.Mesh(new THREE.PlaneGeometry(c - a - 1.6, CELL_D - 2 * SW - 1.6), new THREE.MeshBasicMaterial({ map: tex }));
         panel.rotation.x = -Math.PI / 2;
-        panel.position.set((a + c) / 2, y + 0.37, (iz0 + iz1) / 2);
+        panel.position.set((a + c) / 2, y + 0.37, (z0 + z1) / 2);
         group.add(panel);
       }
       return;
     }
-    case 'lot': {
-      b.box(ix0, y, iz0, ix1, y + 0.05, iz1, C.grassDark);
-      // patchy dirt
-      b.rect(ix0 + 12, iz0 + 8, ix0 + 30, iz0 + 20, y + 0.06, C.dirt);
-      b.rect(ix1 - 26, iz1 - 18, ix1 - 10, iz1 - 9, y + 0.06, C.dirt);
-      fence(props, ix0 + 0.5, iz0 + 0.5, ix1 - 0.5, iz1 - 0.5, '#8a6a48', 1.3, 2.5);
-      props.rocks.push({ x: ix0 + 20, z: iz0 + 13, s: 1 }, { x: ix1 - 18, z: iz1 - 14, s: 1.2 }, { x: ix1 - 10, z: iz0 + 10, s: 1 });
-      props.trees.push({ x: ix0 + 6, z: iz0 + 6, s: 0.9 });
-      group.add(signBoard(x0 + CELL_W / 2, z1 - 6, 14, 7, 2.2, signTexture('FOR LEASE', 'Tap to rent this lot', '#2a9d8f')));
-      return;
-    }
-    case 'park': {
-      if (blk.sprite) return; // Peter's playground picture
-      b.box(ix0, y, iz0, ix1, y + 0.08, iz1, C.grass);
-      const cx = (x0 + x1) / 2;
-      const cz = (z0 + z1) / 2;
-      b.rect(ix0, cz - 2, ix1, cz + 2, y + 0.09, C.promenade);
-      b.rect(cx - 2, iz0, cx + 2, iz1, y + 0.09, C.promenade);
-      b.box(cx - 7, y, cz - 7, cx + 7, y + 0.1, cz + 7, C.promenade);
-      b.box(cx - 4.5, y, cz - 4.5, cx + 4.5, y + 0.9, cz + 4.5, C.stone, C.stoneSide);
-      b.rect(cx - 3.8, cz - 3.8, cx + 3.8, cz + 3.8, y + 0.8, C.pool);
-      for (let i = 0; i < 18; i++) {
-        const a = i * 2.39996;
-        const tx = cx + Math.cos(a) * (14 + (i % 4) * 7);
-        const tz = cz + Math.sin(a) * (10 + (i % 3) * 6);
-        if (Math.abs(tx - cx) < 3 || Math.abs(tz - cz) < 3) continue;
-        if (tx < ix0 + 2 || tx > ix1 - 2 || tz < iz0 + 2 || tz > iz1 - 2) continue;
-        props.trees.push({ x: tx, z: tz, s: 0.9 + (i % 3) * 0.2 });
-      }
-      group.add(signBoard(ix0 + 8, iz1 - 3, 12, 4.5, 1.2, signTexture(blk.name.toUpperCase(), 'Park', '#2d6a4f')));
-      return;
-    }
-    case 'gym': {
-      if (blk.sprite) {
-        if (blk.side) strip(blk.side, x0, z0, b, props);
-        return;
-      }
-      b.box(ix0, y, iz0, ix1, y + 0.1, iz1, C.deck);
-      const px0 = ix0 + 10;
-      const px1 = ix1 - 22;
-      const pz0 = iz0 + 10;
-      const pz1 = iz1 - 10;
-      b.box(px0 - 1.2, y, pz0 - 1.2, px1 + 1.2, y + 0.25, pz1 + 1.2, C.poolEdge);
-      b.rect(px0, pz0, px1, pz1, y + 0.26, C.pool);
-      for (let i = 1; i < 6; i++) b.rect(px0, pz0 + ((pz1 - pz0) * i) / 6 - 0.15, px1, pz0 + ((pz1 - pz0) * i) / 6 + 0.15, y + 0.27, '#ffffff');
-      for (let i = 0; i < 6; i++) b.box(px0 + 2 + i * 6, y, iz1 - 6, px0 + 4.5 + i * 6, y + 0.6, iz1 - 2.5, '#ffffff', '#d8dde2');
-      fence(props, ix0 + 0.4, iz0 + 0.4, ix1 - 0.4, iz1 - 0.4, '#e7eef3', 1.1, 2);
-      group.add(signBoard(ix1 - 11, iz1 - 6, 14, 6, 2.5, signTexture('GYM & POOL', 'Building coming soon', '#3a86ff')));
-      return;
-    }
     case 'landmark': {
+      const ix0 = x0 + SW, ix1 = x1 - SW, iz0 = z0 + SW, iz1 = z1 - SW;
       b.box(ix0, y, iz0, ix1, y + 0.06, iz1, C.dirt);
       // blue site hoarding
       b.box(ix0, y, iz1 - 0.4, ix1, y + 2.6, iz1, C.hoarding, C.hoarding);
@@ -365,44 +418,31 @@ function blockContent(blk: Block, x0: number, z0: number, b: BoxBatch, group: TH
       group.add(signBoard((x0 + x1) / 2 + 8, iz1 - 6, 24, 8, 3, signTexture(blk.name.toUpperCase(), 'Landmark coming soon', '#1d3557')));
       return;
     }
-    case 'homes': {
-      // 8 spaces across, 2 rows deep. Houses are pictures (see main.ts);
-      // here: lawns, hedges between plots, FOR RENT signs on empty ones.
-      b.rect(ix0, iz0, ix1, iz1, y + 0.01, C.grass);
-      for (const p of blk.plots) {
-        const pa = ix0 + p.c * SPACE_W;
-        const pb = pa + p.w * SPACE_W;
-        const za = iz0 + p.r * SPACE_D;
-        const zb = za + p.h * SPACE_D;
-        if (!p.house) {
-          b.box(pa + 0.6, y, za + 0.6, pb - 0.6, y + 0.05, zb - 0.6, '#9fcb4f');
-          group.add(signBoard((pa + pb) / 2, p.r ? zb - 3 : za + 3.5, 6, 3, 0.9, signTexture('FOR RENT', 'Empty plot', '#e76f51')));
-        }
-        if (p.c + p.w < 8) b.box(pb - 0.25, y, za + 1, pb + 0.25, y + 0.9, zb - 1, C.hedge, '#4a7720');
-        if (p.r === 0 && p.h === 1) b.box(pa + 0.5, y, zb - 0.25, pb - 0.5, y + 0.9, zb + 0.25, C.hedge, '#4a7720');
-      }
+    case 'park':
       return;
-    }
   }
 }
 
-/** The 30 m strip beside a square picture: a small plaza with trees (the subway picture goes on top in main.ts). */
-function strip(side: Side, x0: number, z0: number, b: BoxBatch, props: PropSet): void {
+/** The 30 m strip beside a square picture: a small plaza with trees, or a subway entrance. */
+function strip(side: Side, x0: number, z0: number, b: BoxBatch, props: PropSet, sprites: Placement[]): void {
   const y = KERB_H;
-  b.rect(x0 + 1, z0 + 1, x0 + STRIP - 1, z0 + CELL_D - 1, y + 0.02, C.promenade);
-  // a grass bed with trees along the back
-  b.box(x0 + 4, y, z0 + 4, x0 + STRIP - 4, y + 0.4, z0 + 14, C.grass, C.paveSide);
-  props.trees.push({ x: x0 + 9, z: z0 + 9, s: 1.1 }, { x: x0 + STRIP - 9, z: z0 + 9, s: 1 });
-  if (side === 'subway') props.trees.push({ x: x0 + 5, z: z0 + CELL_D - 6, s: 0.9 }, { x: x0 + STRIP - 5, z: z0 + CELL_D - 6, s: 0.9 });
-  if (side === 'plaza') {
-    b.box(x0 + 4, y, z0 + CELL_D - 14, x0 + STRIP - 4, y + 0.4, z0 + CELL_D - 4, C.grass, C.paveSide);
-    props.trees.push({ x: x0 + 10, z: z0 + CELL_D - 9, s: 1 }, { x: x0 + STRIP - 10, z: z0 + CELL_D - 9, s: 1.15 });
+  const x1 = x0 + STRIP;
+  b.rect(x0 + 1, z0 + 1, x1 - 1, z0 + CELL_D - 1, y + 0.02, C.promenade);
+  // Planted beds with trees front and back.
+  const bed = (za: number, zb: number) => b.box(x0 + 3, y, za, x1 - 3, y + 0.45, zb, C.grass, C.paveSide);
+  bed(z0 + 3, z0 + 17);
+  props.trees.push({ x: x0 + 8, z: z0 + 8, s: 1.1 }, { x: x1 - 8, z: z0 + 11, s: 1 }, { x: x0 + STRIP / 2, z: z0 + 14, s: 0.8 });
+  if (side === 'subway') {
+    sprites.push({ name: 'subway-r0', x: x0 + STRIP / 2, z: z0 + CELL_D / 2 + 4, scale: 1.6 });
+    bed(z0 + CELL_D - 12, z0 + CELL_D - 3);
+    props.trees.push({ x: x0 + 8, z: z0 + CELL_D - 7, s: 0.9 }, { x: x1 - 8, z: z0 + CELL_D - 7, s: 0.9 });
+  } else {
+    bed(z0 + 24, z0 + 36);
+    bed(z0 + CELL_D - 17, z0 + CELL_D - 3);
+    props.trees.push({ x: x0 + 9, z: z0 + 30, s: 0.9 }, { x: x1 - 9, z: z0 + 30, s: 1 });
+    props.trees.push({ x: x0 + 8, z: z0 + CELL_D - 9, s: 1 }, { x: x1 - 8, z: z0 + CELL_D - 11, s: 1.15 }, { x: x0 + STRIP / 2, z: z0 + CELL_D - 5, s: 0.8 });
+    props.rocks.push({ x: x0 + STRIP / 2, z: z0 + 29, s: 0.7 });
   }
-}
-
-function fence(props: PropSet, x0: number, z0: number, x1: number, z1: number, color: string, h: number, step: number): void {
-  for (let x = x0; x <= x1; x += step) props.posts.push({ x, z: z0, h, color }, { x, z: z1, h, color });
-  for (let z = z0 + step; z < z1; z += step) props.posts.push({ x: x0, z, h, color }, { x: x1, z, h, color });
 }
 
 /** Trees, lamp posts and fence posts as three instanced meshes, lit like the pictures. */

@@ -13,7 +13,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import type { Look } from '../sim/types.ts';
 import { outfitDefaults } from '../data/wardrobe.ts';
 import { HAIR_COLORS, OUTFIT_COLORS, SKIN_TONES, makeAvatar, type Avatar } from '../world/avatar.ts';
-import { CELL_D, CELL_W, COLS, GRID_D, GRID_W, PITCH_X, PITCH_Z, ROAD, ROWS, cellX, cellZ } from './plan.ts';
+import { CELL_D, CELL_W, COLS, GRID_D, GRID_W, PITCH_X, PITCH_Z, ROAD, ROWS, cellX, cellZ, isPark } from './plan.ts';
 import { KERB_H } from './ground.ts';
 
 /** People are drawn a bit bigger than life so they read at map zoom (like Clash of Clans troops). */
@@ -189,16 +189,42 @@ export function randomLook(seed: number): Look {
 }
 
 /** A person who wanders from corner to corner forever. */
-export function makeStroller(seed: number): Walker {
-  const start = nodes[(seed * 37) % nodes.length];
-  const w = new Walker(randomLook(seed), start.x, start.z, 2.6 + (seed % 3) * 0.4);
-  let k = seed;
+/** The sidewalk corner nearest to a point. */
+function nearestNode(x: number, z: number): number {
+  let best = 0;
+  let bd = Infinity;
+  nodes.forEach((n, i) => {
+    const d = d2(x, z, n.x, n.z);
+    if (d < bd) {
+      bd = d;
+      best = i;
+    }
+  });
+  return best;
+}
+
+export interface Stroller extends Walker {
+  respawnNear: (x: number, z: number) => void;
+}
+
+/** A person who strolls from corner to neighbouring corner, around (x, z). */
+export function makeStroller(seed: number, x: number, z: number): Stroller {
+  let k = seed * 7919 + 13;
+  const rnd = () => ((k = (k * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
+  const pickNear = (px: number, pz: number) => nearestNode(px + (rnd() - 0.5) * 300, pz + (rnd() - 0.5) * 300);
+  let at = pickNear(x, z);
+  const w = new Walker(randomLook(seed), nodes[at].x, nodes[at].z, 2.6 + (seed % 3) * 0.4) as Stroller;
   const wander = () => {
-    k = (k * 1103515245 + 12345) & 0x7fffffff;
-    const n = nodes[k % nodes.length];
-    w.walkTo(n.x, n.z);
+    const next = nodes[at].next;
+    at = next[Math.floor(rnd() * next.length)];
+    w.walkTo(nodes[at].x, nodes[at].z);
   };
   w.onArrive = wander;
+  w.respawnNear = (px, pz) => {
+    at = pickNear(px, pz);
+    w.pos.set(nodes[at].x, KERB_H, nodes[at].z);
+    wander();
+  };
   wander();
   return w;
 }
@@ -241,8 +267,9 @@ export function makeTraffic(count: number): { group: THREE.Group; update: (dt: n
   for (let i = 0; i < count; i++) {
     const axis: 'x' | 'z' = i % 2 ? 'x' : 'z';
     const dir: 1 | -1 = i % 4 < 2 ? 1 : -1;
-    const roads = axis === 'x' ? ROWS + 1 : COLS + 1;
-    const road = (i * 3 + 1) % roads;
+    // Roads that run the whole way (not through Central Park).
+    const roads = axis === 'x' ? [...Array(ROWS + 1).keys()].filter((r) => !(isPark(1, r - 1) && isPark(1, r))) : [0, 1, 3, 4];
+    const road = roads[(i * 7 + 1) % roads.length];
     const centre = road * (axis === 'x' ? PITCH_Z : PITCH_X) + ROAD / 2;
     // Right-hand traffic: eastbound (+x) keeps to the south side (+z), etc.
     const lane = axis === 'x' ? centre + dir * 2.1 : centre - dir * 2.1;

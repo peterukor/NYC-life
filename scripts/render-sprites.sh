@@ -38,6 +38,17 @@ JOBS=(
   "road-ns|road-model.glb|16|60|0|12|1.4"
   "road-ew|road-model.glb|46|16.6|90|12|1.25"
   "intersection|intersection.glb|16|16|0|12|1.1"
+  # Lots, highlights and small props.
+  "lot-empty|empty-block-model.glb|90|60|90|12|1.25"
+  "lot-trees|empty-block-with-trees-model.glb|90|60|90|12|1.25"
+  "click-rect|rectangle-clickable.glb|90|60|90|12|1.3"
+  "click-square|square-clickable-model.glb|60|60|0|12|1.1"
+  "prop-tree|tree_3d_model.glb|7|7|0|16|1.0"
+  "prop-cherry|樱花树3d模型.glb|7|7|0|16|1.0"
+  "prop-palm|palm_tree_3d_model.glb|5|5|0|16|1.0"
+  "prop-rock|rock_boulder_3d_model.glb|3.5|3.5|0|16|1.0"
+  "prop-mossy-rock|mossy_rock_3d_model.glb|3.5|3.5|0|16|1.0"
+  "prop-outcrop|rocky_outcrop_3d_model.glb|6|6|0|16|1.0"
 )
 
 for job in "${JOBS[@]}"; do
@@ -45,8 +56,9 @@ for job in "${JOBS[@]}"; do
   [ -n "$only" ] && [ "$only" != "$name" ] && continue
   for r in $rots; do
     out="$OUT/$name-r$r"
-    case $name in road-*|intersection) out="$OUT/$name";; esac
+    case $name in road-*|intersection|prop-*|click-*) out="$OUT/$name";; esac
     echo "== $out"
     python3 scripts/render-sprite.py "$SRC/$file" "$out" "$fw" "$fd" "$r" "$px" 32 "$st" 2>&1 | grep -E "footprint|done|Error|Traceback"
+    case $name in road-*|intersection) python3 scripts/sprite-top.py "$out";; esac
   done
 done

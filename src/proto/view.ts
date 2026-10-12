@@ -11,9 +11,9 @@
 
 import * as THREE from 'three';
 
-/** Camera: 30° down, turned 45°, looking north-west from the south-east. */
+/** Camera: 30° down, looking north-east from the south-west (lower left, like The Sims). */
 export const CAM_ELEVATION = THREE.MathUtils.degToRad(30);
-export const CAM_AZIMUTH = THREE.MathUtils.degToRad(45);
+export const CAM_AZIMUTH = THREE.MathUtils.degToRad(-45);
 
 /** Unit vector from the looked-at point towards the camera. */
 export const CAM_DIR = new THREE.Vector3(
@@ -24,10 +24,10 @@ export const CAM_DIR = new THREE.Vector3(
 
 /**
  * Direction the sunlight comes FROM (unit vector). Blender's sun is
- * rotated (35°, 0, -30°); converted to three.js axes this is it.
+ * rotated (35°, 0, 30°); converted to three.js axes this is it.
  */
 export const SUN_FROM = (() => {
-  const e = new THREE.Euler(THREE.MathUtils.degToRad(35), 0, THREE.MathUtils.degToRad(-30), 'XYZ');
+  const e = new THREE.Euler(THREE.MathUtils.degToRad(35), 0, THREE.MathUtils.degToRad(30), 'XYZ');
   const travel = new THREE.Vector3(0, 0, -1).applyEuler(e); // Blender axes, z up
   return new THREE.Vector3(-travel.x, -travel.z, travel.y).normalize(); // to three.js, reversed
 })();
