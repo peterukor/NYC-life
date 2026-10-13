@@ -351,8 +351,165 @@ const TOYS: Record<string, (t: Toy) => void> = {
   },
 };
 
+
+// ---- the billionaire penthouse (Peter, 2026-10-13): same chunky toy
+// style, richer materials. Marble, walnut, brass, velvet.
+const MARBLE = '#f1eee8';
+const VEIN = '#cfc8bd';
+const WALNUT = '#5b3a29';
+const BRASS = '#d4af37';
+const VELVET = '#1f6f5c';
+const LINEN = '#f7f3ea';
+const INK = '#1d1d22';
+const STEEL = '#b9c0c9';
+
+const LUX: Record<string, (t: Toy) => void> = {
+  /** King bed: tall tufted headboard, thick mattress, white duvet, a folded throw and four pillows. Head at −z. */
+  toyKingBed(t) {
+    const W = 2.1, L = 2.3;
+    t.block(W + 0.1, 0.32, L, 0, 0, 0, WALNUT, 0.12); // platform
+    t.block(W, 0.3, L - 0.1, 0, 0.32, 0.03, LINEN, 0.3); // mattress
+    t.block(W + 0.04, 0.12, L - 0.55, 0, 0.6, 0.25, '#ffffff', 0.4); // duvet
+    t.block(W + 0.06, 0.08, 0.5, 0, 0.66, L / 2 - 0.45, '#6d5b8a', 0.35); // throw
+    t.block(W + 0.3, 1.25, 0.2, 0, 0, -L / 2, '#2c3e63', 0.25); // headboard
+    for (let i = 0; i < 4; i++) for (let j = 0; j < 2; j++) t.sphere(0.035, -0.75 + i * 0.5, 0.7 + j * 0.35, -L / 2 + 0.11, BRASS); // tufting buttons
+    for (const sx of [-0.55, 0.55]) {
+      t.block(0.7, 0.2, 0.36, sx, 0.62, -L / 2 + 0.32, '#ffffff', 0.5);
+      t.block(0.6, 0.18, 0.3, sx, 0.78, -L / 2 + 0.36, '#e8dcc4', 0.5);
+    }
+  },
+  /** L-shaped velvet sectional with brass legs and a couple of cushions. Faces +z, the L runs to the right. */
+  toyVelvetSectional(t) {
+    const W = 3.0, D = 1.0;
+    t.block(W, 0.3, D, 0, 0.08, 0, VELVET, 0.25);
+    t.block(1.0, 0.3, 1.0, W / 2 - 0.5, 0.08, D, VELVET, 0.25); // chaise
+    t.block(W, 0.5, 0.22, 0, 0.38, -D / 2 + 0.11, VELVET, 0.4); // back
+    t.block(0.22, 0.45, D, -W / 2 + 0.11, 0.38, 0, VELVET, 0.4); // left arm
+    for (let i = 0; i < 3; i++) t.block(W / 3 - 0.06, 0.14, D - 0.26, -W / 2 + (W / 3) * (i + 0.5), 0.38, 0.08, '#2a8a72', 0.5);
+    t.block(0.94, 0.14, 0.9, W / 2 - 0.5, 0.38, D, '#2a8a72', 0.5);
+    for (const [x, z] of [[-W / 2 + 0.1, -D / 2 + 0.1], [-W / 2 + 0.1, D / 2 - 0.1], [W / 2 - 0.1, -D / 2 + 0.1], [W / 2 - 0.1, D * 1.5 - 0.1], [W / 2 - 0.9, D * 1.5 - 0.1]]) t.cyl(0.03, 0.02, 0.08, x, 0, z, BRASS, 8);
+    t.add(new THREE.BoxGeometry(0.4, 0.38, 0.12).rotateZ(0.2).translate(-1.0, 0.68, -0.25), '#e9c46a');
+    t.add(new THREE.BoxGeometry(0.4, 0.38, 0.12).rotateZ(-0.15).translate(0.2, 0.68, -0.25), '#f4f1ea');
+  },
+  /** Walnut media console with a huge, thin TV on top. Faces +z. */
+  toyMediaWall(t) {
+    t.block(2.6, 0.45, 0.5, 0, 0.06, 0, WALNUT, 0.12);
+    for (let i = 0; i < 4; i++) t.block(0.6, 0.32, 0.01, -0.95 + i * 0.63, 0.12, 0.25, '#6b4632', 0.05); // doors
+    for (const sx of [-1.2, 1.2]) t.cyl(0.025, 0.02, 0.06, sx, 0, 0, BRASS, 8);
+    t.block(0.24, 0.04, 0.2, 0, 0.51, -0.02, INK, 0.2); // stand
+    t.block(0.05, 0.22, 0.05, 0, 0.55, -0.04, INK, 0.2);
+    t.block(2.1, 1.2, 0.05, 0, 0.72, -0.04, INK, 0.08); // the TV
+    t.block(0.32, 0.05, 0.24, -0.9, 0.51, 0.02, '#e8e8e8', 0.3); // console
+    t.cyl(0.07, 0.07, 0.03, 0.9, 0.51, 0.05, '#c9ced6', 16); // speaker puck
+  },
+  /** Six-burner pro range with a big steel hood. Against a wall, front +z. */
+  toyChefRange(t) {
+    t.block(1.2, 0.9, 0.7, 0, 0, 0, STEEL, 0.06);
+    t.block(1.2, 0.04, 0.7, 0, 0.9, 0, '#2b2d33', 0.05);
+    for (let i = 0; i < 3; i++) for (let j = 0; j < 2; j++) t.cyl(0.11, 0.11, 0.03, -0.38 + i * 0.38, 0.94, -0.15 + j * 0.3, INK, 14);
+    for (let i = 0; i < 6; i++) t.cyl(0.03, 0.03, 0.04, -0.45 + i * 0.18, 0.78, 0.36, '#e63946', 8); // red knobs
+    t.block(1.0, 0.5, 0.02, 0, 0.18, 0.355, '#9aa3ae', 0.05); // oven door
+    t.block(0.6, 0.04, 0.04, 0, 0.6, 0.38, CHROME, 0.4);
+    t.add(new THREE.CylinderGeometry(0.25, 0.65, 0.5, 4, 1).rotateY(Math.PI / 4).scale(1.3, 1, 0.75).translate(0, 1.95, -0.1), STEEL); // hood
+    t.block(0.35, 0.6, 0.3, 0, 2.2, -0.2, STEEL, 0.05);
+    t.cyl(0.12, 0.1, 0.12, 0.3, 0.97, 0.1, '#2b2d33', 12); // a pot
+  },
+  /** Tall double-door steel fridge with a wine column. Front +z. */
+  toyChefFridge(t) {
+    t.block(1.1, 2.1, 0.75, 0, 0, 0, STEEL, 0.05);
+    t.block(0.01, 2.0, 0.02, -0.02, 0.05, 0.375, '#8f98a3', 0.05);
+    for (const sx of [-0.12, 0.08]) t.block(0.03, 0.9, 0.05, sx, 0.9, 0.4, CHROME, 0.4);
+    t.block(0.42, 2.1, 0.75, 0.78, 0, 0, '#2b2d33', 0.05); // wine column
+    t.block(0.32, 1.8, 0.02, 0.78, 0.15, 0.38, '#3d5466', 0.1);
+    for (let i = 0; i < 6; i++) t.cyl(0.035, 0.035, 0.3, 0.78, 0.35 + i * 0.27, 0.25, i % 2 ? '#7f1d1d' : '#c9a227', 8);
+  },
+  /** Marble kitchen island with three brass stools. Long side faces +z. */
+  toyMarbleIsland(t) {
+    t.block(2.4, 0.88, 0.95, 0, 0, -0.1, WALNUT, 0.06);
+    t.block(2.55, 0.06, 1.1, 0, 0.88, -0.05, MARBLE, 0.1);
+    for (let i = 0; i < 5; i++) t.block(0.6 + (i % 2) * 0.3, 0.004, 0.02, -0.9 + i * 0.45, 0.942, -0.3 + (i % 3) * 0.2, VEIN, 0.1);
+    for (let i = 0; i < 3; i++) {
+      const x = -0.8 + i * 0.8;
+      t.cyl(0.02, 0.025, 0.65, x, 0, 0.75, BRASS, 8);
+      t.cyl(0.19, 0.19, 0.07, x, 0.65, 0.75, '#2c3e63', 16);
+    }
+    t.cyl(0.14, 0.1, 0.1, 0.6, 0.94, -0.1, '#ffffff', 16); // fruit bowl
+    for (const [x, c] of [[0.55, '#e9c46a'], [0.66, '#e63946'], [0.6, '#2d6a4f']] as const) t.sphere(0.045, x, 1.04, -0.12 + (x - 0.6), c);
+  },
+  /** Freestanding oval soaking tub with a brass floor tap. Front +z. */
+  toySoakingTub(t) {
+    t.add(new THREE.CylinderGeometry(0.85, 0.7, 0.62, 28, 1).scale(1, 1, 0.5).translate(0, 0.31, 0), PORCELAIN);
+    t.add(new THREE.CylinderGeometry(0.72, 0.6, 0.02, 28, 1).scale(1, 1, 0.48).translate(0, 0.55, 0), '#cfe7ee'); // water
+    t.cyl(0.025, 0.025, 1.0, 0.95, 0, 0, BRASS, 8);
+    t.add(new THREE.CylinderGeometry(0.02, 0.02, 0.3, 8).rotateZ(Math.PI / 2).translate(0.82, 1.0, 0), BRASS);
+    t.block(0.5, 0.06, 0.3, -0.2, 0.62, 0.0, '#ffffff', 0.4); // folded towel on the rim
+  },
+  /** Double vanity: two basins, a long mirror, brass taps. Against a wall, front +z. */
+  toyDoubleVanity(t) {
+    t.block(1.8, 0.85, 0.55, 0, 0, 0, WALNUT, 0.08);
+    t.block(1.9, 0.06, 0.6, 0, 0.85, 0, MARBLE, 0.1);
+    for (const sx of [-0.45, 0.45]) {
+      t.block(0.42, 0.02, 0.32, sx, 0.9, 0.06, '#ffffff', 0.4);
+      t.cyl(0.015, 0.015, 0.22, sx, 0.91, -0.2, BRASS, 8);
+    }
+    t.block(1.7, 0.9, 0.04, 0, 1.15, -0.27, '#d6e9f2', 0.1);
+    t.block(1.78, 0.04, 0.06, 0, 2.05, -0.26, BRASS, 0.2);
+  },
+  /** Baby grand piano, lid up, with its bench. Keys face +z. */
+  toyGrandPiano(t) {
+    t.add(new THREE.CylinderGeometry(0.9, 0.9, 0.32, 24, 1, false, 0, Math.PI).scale(0.85, 1, 1.2).rotateY(-Math.PI / 2).translate(0, 0.62, -0.25), INK);
+    t.block(1.5, 0.32, 0.55, 0, 0.62, 0.3, INK, 0.1);
+    t.block(1.3, 0.04, 0.16, 0, 0.8, 0.52, '#fdfdfb', 0.1); // keys
+    for (let i = 0; i < 12; i++) t.block(0.04, 0.03, 0.09, -0.6 + i * 0.11, 0.83, 0.48, INK, 0.1);
+    t.add(new THREE.BoxGeometry(1.4, 0.03, 1.5).translate(0, 0, -0.75).rotateX(0.55).translate(0, 0.95, 0.05), INK); // lid
+    for (const [x, z] of [[-0.65, 0.4], [0.65, 0.4], [0, -1.1]]) t.cyl(0.05, 0.04, 0.62, x, 0, z, INK, 8);
+    t.block(0.9, 0.08, 0.35, 0, 0.45, 1.0, INK, 0.2); // bench
+    for (const sx of [-0.38, 0.38]) t.block(0.06, 0.45, 0.3, sx, 0, 1.0, INK, 0.2);
+  },
+  /** A big abstract canvas in a brass frame. Hangs on a wall. */
+  toyArtwork(t) {
+    t.block(1.6, 1.1, 0.05, 0, 1.2, 0, BRASS, 0.05);
+    t.block(1.5, 1.0, 0.02, 0, 1.25, 0.025, '#f4efe6', 0.05);
+    t.block(0.7, 0.5, 0.01, -0.3, 1.55, 0.04, '#e76f51', 0.1);
+    t.block(0.5, 0.7, 0.01, 0.35, 1.35, 0.045, '#264653', 0.1);
+    t.cyl(0.18, 0.18, 0.01, 0.1, 1.5, 0.05, '#e9c46a', 20);
+  },
+  /** A wall of walnut wardrobe: four doors, brass handles, a mirror panel. Front +z. */
+  toyWardrobeWall(t) {
+    t.block(2.4, 2.2, 0.6, 0, 0, 0, WALNUT, 0.04);
+    for (let i = 0; i < 4; i++) {
+      const x = -0.9 + i * 0.6;
+      t.block(0.56, 2.1, 0.02, x, 0.05, 0.3, i === 2 ? '#d6e9f2' : '#6b4632', 0.04);
+      t.block(0.03, 0.4, 0.04, x + (i % 2 ? -0.22 : 0.22), 0.9, 0.33, BRASS, 0.4);
+    }
+  },
+  /** Executive desk: walnut top on brass legs, a leather chair, a slim monitor. Front +z, chair on the +z side. */
+  toyExecutiveDesk(t) {
+    t.block(1.8, 0.06, 0.85, 0, 0.74, -0.1, WALNUT, 0.1);
+    for (const sx of [-0.8, 0.8]) for (const sz of [-0.45, 0.25]) t.cyl(0.025, 0.025, 0.74, sx, 0, sz, BRASS, 8);
+    t.block(0.7, 0.42, 0.03, 0, 0.82, -0.38, INK, 0.1); // monitor
+    t.block(0.1, 0.1, 0.1, 0, 0.8, -0.38, INK, 0.2);
+    t.block(0.42, 0.02, 0.15, 0, 0.8, -0.1, '#e8e8e8', 0.3); // keyboard
+    lamp(t, -0.7, 0.8, -0.3, '#f6e7b8');
+    t.block(0.6, 0.12, 0.55, 0, 0.45, 0.55, '#5c3a24', 0.4); // chair seat
+    t.block(0.6, 0.7, 0.12, 0, 0.55, 0.85, '#5c3a24', 0.4); // chair back
+    t.cyl(0.04, 0.04, 0.42, 0, 0.03, 0.55, INK, 8);
+    t.cyl(0.28, 0.28, 0.04, 0, 0, 0.55, INK, 5);
+  },
+  /** Fiddle-leaf fig in a big ceramic pot. */
+  toyFiddleFig(t) {
+    t.cyl(0.22, 0.17, 0.42, 0, 0, 0, '#e9e4d8', 16);
+    t.cyl(0.03, 0.03, 1.2, 0, 0.4, 0, WOOD_DK, 6);
+    for (let i = 0; i < 9; i++) {
+      const a = i * 2.3, y = 0.9 + (i / 9) * 0.9;
+      t.add(new THREE.SphereGeometry(0.16, 8, 6).scale(1, 0.7, 0.35).rotateY(a).translate(Math.cos(a) * 0.2, y, Math.sin(a) * 0.2), i % 2 ? '#2d6a4f' : '#40916c');
+    }
+  },
+};
+Object.assign(TOYS, LUX);
+
 /** Pieces that hang on a wall: centred on their footprint but kept at their height. */
-const ON_WALL = new Set(['toyPosters', 'toyWindowAC']);
+const ON_WALL = new Set(['toyPosters', 'toyWindowAC', 'toyArtwork']);
 
 let cache: Map<string, THREE.BufferGeometry> | null = null;
 

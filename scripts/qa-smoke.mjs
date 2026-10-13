@@ -40,7 +40,7 @@ const click = async (sel) => { await page.waitForSelector(sel, { timeout: 10000 
 const nyc = (fn, ...args) => page.evaluate(fn, ...args);
 const state = () => nyc(() => window.__nyc.state());
 
-const q = ['qa=1', process.env.CLOCK ? `clock=${encodeURIComponent(process.env.CLOCK)}` : '', process.env.HOUR ? `hour=${process.env.HOUR}` : ''].filter(Boolean).join('&');
+const q = ['qa=1', `class=${process.env.CLASS ?? 'poor'}`, process.env.CLOCK ? `clock=${encodeURIComponent(process.env.CLOCK)}` : '', process.env.HOUR ? `hour=${process.env.HOUR}` : ''].filter(Boolean).join('&');
 await page.goto(`${base}?${q}`, { waitUntil: 'load' });
 await page.evaluate(() => localStorage.clear());
 await page.reload({ waitUntil: 'load' });
@@ -56,6 +56,9 @@ const ageErr = await page.$eval('#ob-err', (e) => e.textContent);
 check('age gate blocks under-21s', /21/.test(ageErr), ageErr);
 await page.select('#ob-year', '1996');
 await click('#ob-go');
+await wait(600);
+check('the class is revealed after creating your character', !!(await page.$('#ob-start')));
+await click('#ob-start');
 await wait(2500);
 await shot('02-apartment');
 check('starts inside the apartment', (await nyc(() => window.__nyc.mode())) === 'interior');

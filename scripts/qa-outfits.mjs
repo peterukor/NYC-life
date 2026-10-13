@@ -7,13 +7,15 @@ const errors = [];
 page.on('pageerror', (e) => errors.push(e.message));
 page.on('console', (m) => (m.type() === 'error' || m.type() === 'warning' ? errors.push(m.text()) : null));
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
-await page.goto('http://localhost:4173/?qa=1&hour=11', { waitUntil: 'load' });
+await page.goto('http://localhost:4173/?qa=1&class=poor&hour=11', { waitUntil: 'load' });
 await page.evaluate(() => localStorage.clear());
 await page.reload({ waitUntil: 'load' });
 await page.waitForSelector('#ob-year', { timeout: 30000 });
 await page.select('#ob-year', '1995');
 await page.type('#ob-name', 'Jack');
 await page.$eval('#ob-go', (el) => el.click());
+await page.waitForSelector('#ob-start', { timeout: 10000 });
+await page.$eval('#ob-start', (el) => el.click());
 await wait(2500);
 // A fitting room: the walk-up's hall, camera at eye level.
 await page.evaluate(() => window.__nyc.enterPlace('sharedApt'));

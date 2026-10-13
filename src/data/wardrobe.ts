@@ -33,7 +33,7 @@ export type Slot = 'hair' | 'top' | 'bottom' | 'shoes' | 'hat' | 'extra';
 export type Tier = 'plain' | 'premium' | 'exclusive';
 
 /** Social class you start life in (decides money, home and starting clothes). */
-export type SpawnClass = 'poor' | 'middle' | 'upper' | 'wealthy';
+export type SpawnClass = 'poor' | 'middle' | 'rich' | 'billionaire';
 
 interface Base {
   id: string;
@@ -196,8 +196,8 @@ export const STARTER_CLOSETS: Partial<Record<SpawnClass, string[]>> = {
 export const STARTING_WARDROBE: Record<SpawnClass, Record<Tier, number>> = {
   poor: { plain: 13, premium: 0, exclusive: 0 },
   middle: { plain: 6, premium: 2, exclusive: 0 },
-  upper: { plain: 10, premium: 5, exclusive: 1 },
-  wealthy: { plain: 0, premium: 15, exclusive: 5 },
+  rich: { plain: 8, premium: 8, exclusive: 2 },
+  billionaire: { plain: 2, premium: 12, exclusive: 5 },
 };
 
 /**

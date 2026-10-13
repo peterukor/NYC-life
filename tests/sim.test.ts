@@ -84,10 +84,11 @@ test('a week away charges rent and a loan payment', () => {
   assert.ok(s.loan!.owed < loanBefore, 'loan went down');
 });
 
-test('trust fund kids pay no rent', () => {
+test('rich starts have no student loan and pay their own (bigger) rent', () => {
   const s = fresh('trustFund');
-  assert.equal(s.home.weeklyRent, 0);
   assert.equal(s.loan, null);
+  assert.equal(s.home.placeId, 'uesApt');
+  assert.ok(s.home.weeklyRent > 0);
 });
 
 test('jobs: skill requirements block hiring, shifts pay and count', () => {

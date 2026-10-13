@@ -50,6 +50,8 @@ export interface PlaceDef {
   landmark?: { description: string; officialSite: string; siteLabel: string };
   /** For home listings: weekly rent in cents. */
   rent?: number;
+  /** What the weekly bill is called (default "Weekly rent"; the penthouse pays building fees). */
+  rentLabel?: string;
 }
 
 type RawPlace = Omit<PlaceDef, 'block' | 'side' | 'slot'>;
@@ -60,6 +62,18 @@ const RAW: RawPlace[] = [
     id: 'hkStudio', area: 'manhattan', name: 'Your Hell’s Kitchen studio', emoji: '🏠', type: 'home',
     blurb: 'Fourth-floor walk-up. Radiator clanks, but the location is unbeatable.',
     at: [40.7615, -73.9905], interior: 'apartment', actions: [], color: '#c0583b', rent: 35_000,
+  },
+  {
+    // The rich start (about 1 in 11): a doorman building on the Upper East Side.
+    id: 'uesApt', area: 'manhattan', name: 'Your Upper East Side two-bedroom', emoji: '🏛️', type: 'home',
+    blurb: 'Doorman, elevator, washer-dryer in the unit. The guest room is mostly for your stuff.',
+    at: [40.7745, -73.9565], interior: 'apartment', actions: [], color: '#1d3a8a', rent: 120_000,
+  },
+  {
+    // The billionaire start (1 in 100): a full floor on Billionaires' Row.
+    id: 'penthouse', area: 'manhattan', name: 'Your penthouse on Billionaires’ Row', emoji: '🏙️', type: 'home',
+    blurb: 'Ninety floors up, Central Park out every window. The chef starts at 7.',
+    at: [40.7662, -73.9785], interior: 'apartment', actions: [], color: '#b08d2e', rent: 400_000, rentLabel: 'Building fees',
   },
   {
     id: 'shelter', area: 'manhattan', name: 'Hope House Shelter', emoji: '🛏️', type: 'home',

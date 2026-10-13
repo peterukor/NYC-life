@@ -28,6 +28,8 @@ await page.screenshot({ path: 'test-results/shot-0-onboarding.png' });
 await page.select('#ob-year', '1995');
 await page.type('#ob-name', 'Jack');
 await page.$eval('#ob-go', (el) => el.click());
+await page.waitForSelector('#ob-start', { timeout: 10000 });
+await page.$eval('#ob-start', (el) => el.click());
 await wait(2500);
 await page.screenshot({ path: 'test-results/shot-1-home.png' });
 await page.$eval('[data-nav="leave"]', (el) => el.click());

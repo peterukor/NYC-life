@@ -1,14 +1,16 @@
 // =====================================================================
 // onboarding.ts — making your New Yorker.
 //
-// Asks for: birth year (21+ only, matching the Terms), a name, a look,
-// a starting story (Trust Fund Kid or Hustler) and two traits.
+// Asks for: birth year (21+ only, matching the Terms), a name, a look and
+// two traits. Then you're born: the class (broke, middle, rich or, very
+// rarely, billionaire) is rolled at random and revealed (sim/state.ts →
+// CLASS_ODDS). Testing can force one with ?class=poor|middle|rich|billionaire.
 // In multiplayer this becomes the sign-up screen with an account.
 // =====================================================================
 
 import { MIN_AGE } from '../core/constants.ts';
 import { esc } from '../core/format.ts';
-import { CLASSES, TRAITS, type NewLifeOptions } from '../sim/state.ts';
+import { CLASSES, rollClass, TRAITS, type NewLifeOptions } from '../sim/state.ts';
 import type { SpawnClass } from '../data/wardrobe.ts';
 import type { Look } from '../sim/types.ts';
 import { HAIR_COLORS, OUTFIT_COLORS, SKIN_TONES } from '../world/avatar.ts';
@@ -19,7 +21,6 @@ export function runOnboarding(onLook: (look: Look) => void): Promise<NewLifeOpti
     const thisYear = new Date().getFullYear();
     const years = Array.from({ length: 80 }, (_, i) => thisYear - 16 - i);
     const look: Look = { body: 'f', skin: SKIN_TONES[3], top: OUTFIT_COLORS[1], bottom: OUTFIT_COLORS[5], hair: HAIR_COLORS[0] };
-    let spawnClass: SpawnClass = 'middle';
     const traits = new Set<string>(['streetwise', 'foodie']);
 
     const swatches = (key: keyof Look, list: string[]) =>
@@ -48,15 +49,6 @@ export function runOnboarding(onLook: (look: Look) => void): Promise<NewLifeOpti
           <div class="field"><span class="label">Top</span>${swatches('top', OUTFIT_COLORS)}</div>
           <div class="field"><span class="label">Bottoms</span>${swatches('bottom', OUTFIT_COLORS)}</div>
           <div class="field"><span class="label">Hair</span>${swatches('hair', HAIR_COLORS)}</div>
-
-          <div class="field"><span class="label">Born into…</span>
-            <div class="origins">${(Object.keys(CLASSES) as SpawnClass[])
-              .map((o) => {
-                const d = CLASSES[o];
-                return `<button class="origin${o === spawnClass ? ' on' : ''}" data-origin="${o}"><h3>${d.emoji} ${d.title}</h3><div class="sub">${esc(d.tagline)}</div><ul>${d.perks.map((p) => `<li>${esc(p)}</li>`).join('')}</ul></button>`;
-              })
-              .join('')}</div>
-          </div>
 
           <div class="field"><span class="label">Pick two traits</span>
             <div class="traits">${Object.entries(TRAITS)
@@ -94,12 +86,6 @@ export function runOnboarding(onLook: (look: Look) => void): Promise<NewLifeOpti
         refreshLook();
         return;
       }
-      const o = t.closest<HTMLElement>('[data-origin]');
-      if (o) {
-        spawnClass = o.dataset.origin as SpawnClass;
-        el.querySelectorAll('.origin').forEach((x) => x.classList.toggle('on', x === o));
-        return;
-      }
       const tr = t.closest<HTMLElement>('[data-trait]');
       if (tr) {
         const id = tr.dataset.trait!;
@@ -122,8 +108,26 @@ export function runOnboarding(onLook: (look: Look) => void): Promise<NewLifeOpti
       if (thisYear - year - 1 < MIN_AGE) return void (err.textContent = `Sorry — NYC Life is for players ${MIN_AGE} and over.`);
       if (name.length < 2) return void (err.textContent = 'Pick a name with at least 2 letters.');
       if (traits.size !== 2) return void (err.textContent = 'Pick two traits.');
-      el.remove();
-      resolve({ name, origin: CLASSES[spawnClass].origin, spawnClass, look: { ...look }, birthYear: year, traits: [...traits] });
+      // You're born: roll the class (or ?class=… for testing), then reveal it.
+      const forced = new URLSearchParams(location.search).get('class') as SpawnClass | null;
+      const spawnClass: SpawnClass = forced && forced in CLASSES ? forced : rollClass();
+      const d = CLASSES[spawnClass];
+      const card = html(`<div class="born born-${spawnClass}" role="dialog" aria-label="You were born">
+        <div class="born-card">
+          <p class="born-kicker">${esc(name)}, you were born…</p>
+          <div class="born-emoji">${d.emoji}</div>
+          <h2>${esc(d.title)}</h2>
+          <p class="born-tag">${esc(d.tagline)}</p>
+          <ul>${d.perks.map((p) => `<li>${esc(p)}</li>`).join('')}</ul>
+          <p class="born-odds">${esc(d.odds)}</p>
+          <button class="btn primary block" id="ob-start">Start my life</button>
+        </div>
+      </div>`);
+      el.querySelector('.onboard-inner')!.replaceChildren(card);
+      card.querySelector('#ob-start')!.addEventListener('click', () => {
+        el.remove();
+        resolve({ name, origin: d.origin, spawnClass, look: { ...look }, birthYear: year, traits: [...traits] });
+      }, { once: true });
     });
   });
 }

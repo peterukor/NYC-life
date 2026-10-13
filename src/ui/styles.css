@@ -541,3 +541,15 @@ body.mirror .hud { opacity: 0; visibility: hidden; transition: opacity 0.2s, vis
 .storage-row { flex-wrap: wrap; }
 .storage-acts { display: flex; gap: 8px; flex-basis: 100%; justify-content: flex-end; }
 .storage-acts .btn { padding: 7px 12px; }
+
+/* "You were born…" reveal (ui/onboarding.ts) */
+.born { display: grid; place-items: center; min-height: 70dvh; }
+.born-card { width: 100%; padding: 22px 18px; border: var(--line); border-radius: 26px; background: var(--paper); box-shadow: var(--drop); text-align: center; animation: pop 0.5s var(--spring); }
+.born-kicker { margin: 0 0 6px; color: var(--ink-soft); font-weight: 700; }
+.born-emoji { font-size: 64px; line-height: 1.1; }
+.born-card h2 { margin: 6px 0 4px; font-family: var(--display); font-weight: 400; font-size: 28px; }
+.born-tag { margin: 0 0 12px; font-weight: 700; }
+.born-card ul { margin: 0 0 12px; padding: 0 0 0 18px; text-align: left; font-size: 14px; line-height: 1.5; }
+.born-odds { margin: 0 0 14px; font-size: 13px; font-weight: 800; color: var(--ink-soft); }
+.born-rich .born-card { background: #f3f7ff; }
+.born-billionaire .born-card { background: linear-gradient(160deg, #fff6d6, #ffe08a); }

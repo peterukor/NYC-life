@@ -102,6 +102,9 @@ function migrate(data: GameState): GameState | null {
     data.location = { area: home.area, placeId: home.id, x: door.x, z: door.z };
     data.layoutVersion = 5;
   }
+  // 2026-10-13: the classes became poor / middle / rich / billionaire.
+  const oldClass: Record<string, string> = { upper: 'rich', wealthy: 'billionaire' };
+  if (data.profile?.spawnClass && oldClass[data.profile.spawnClass]) data.profile.spawnClass = oldClass[data.profile.spawnClass] as typeof data.profile.spawnClass;
   data.people ??= {};
   data.joinedEvents ??= [];
   // Balance pass (2026-10-11): rents were rescaled. Paying tenants follow the

@@ -39,15 +39,29 @@ export const ORIGINS: Record<Origin, { title: string; emoji: string; tagline: st
 };
 
 /**
- * The four classes you can be born into (the rare billionaire tier is
- * capped at 15 citywide and needs the server, so it isn't pickable yet).
- * Each says how much money you start with, any debt, where you live,
- * who pays the rent, and your starting skills.
+ * The four classes you can be born into, rolled at random like a real
+ * birth (Peter, 2026-10-13): broke 55%, middle 35%, rich 9%, and a
+ * billionaire 1% of the time. Each says how much money you start with,
+ * any debt, where you live, who pays the rent, and your starting skills.
  */
+export const CLASS_ODDS: [SpawnClass, number][] = [['poor', 0.55], ['middle', 0.35], ['rich', 0.09], ['billionaire', 0.01]];
+
+/** Roll the class you're born into. `rand` returns 0..1. */
+export function rollClass(rand = Math.random): SpawnClass {
+  let r = rand();
+  for (const [c, p] of CLASS_ODDS) {
+    if (r < p) return c;
+    r -= p;
+  }
+  return 'poor';
+}
+
 export const CLASSES: Record<SpawnClass, {
   title: string;
   emoji: string;
   tagline: string;
+  /** How rare it is, in words (shown on the reveal). */
+  odds: string;
   perks: string[];
   cash: number;
   bank: number;
@@ -58,24 +72,24 @@ export const CLASSES: Record<SpawnClass, {
   skills: Partial<Record<SkillKey, number>>;
 }> = {
   poor: {
-    title: 'Broke & Hungry', emoji: '🎒', tagline: 'Came with a duffel bag and a dream.',
+    title: 'Broke & Hungry', emoji: '🎒', tagline: 'Came with a duffel bag and a dream.', odds: 'About half of New Yorkers start here',
     perks: ['$150 cash + a $12,000 student loan', 'Room in an East Harlem walk-up with two roommates', 'The deli round the corner is hiring', 'Hustle and Street Smarts start at 2', 'Learn every skill 25% faster', 'A rack of hand-me-down clothes'],
     cash: 15_000, bank: 0, loan: true, homeId: 'sharedApt', rentPaid: false, origin: 'hustler', skills: { hustle: 2, streetSmarts: 2 },
   },
   middle: {
-    title: 'Regular New Yorker', emoji: '🗽', tagline: 'Steady, normal, ready to level up.',
-    perks: ['$1,500 cash + $4,000 saved', 'Hell’s Kitchen studio (you pay rent)', 'Hustle and Charisma start at 1', '6 plain + 2 premium outfits'],
-    cash: 150_000, bank: 400_000, loan: false, homeId: 'hkStudio', rentPaid: false, origin: 'hustler', skills: { hustle: 1, charisma: 1 },
+    title: 'Regular New Yorker', emoji: '🗽', tagline: 'Steady, normal, ready to level up.', odds: 'About 1 in 3 start here',
+    perks: ['$600 cash + $2,500 saved', 'Your own studio in Hell’s Kitchen (you pay the rent)', 'Hustle and Charisma start at 1', 'A closet of everyday clothes'],
+    cash: 60_000, bank: 250_000, loan: false, homeId: 'hkStudio', rentPaid: false, origin: 'hustler', skills: { hustle: 1, charisma: 1 },
   },
-  upper: {
-    title: 'Trust Fund Kid', emoji: '💳', tagline: 'Dad “knows a guy”.',
-    perks: ['$25,000 in the bank', 'Hell’s Kitchen studio, rent paid by Dad', 'Charisma starts at 2', '10 plain + 5 premium + 1 exclusive outfits'],
-    cash: 150_000, bank: 2_500_000, loan: false, homeId: 'hkStudio', rentPaid: true, origin: 'trustFund', skills: { charisma: 2 },
+  rich: {
+    title: 'Upper East Side', emoji: '💳', tagline: 'Doorman knows your name. Your parents know his.', odds: 'About 1 in 11',
+    perks: ['$2,000 cash + $40,000 in the bank', 'Two-bedroom on the Upper East Side with a doorman', 'Charisma starts at 2', 'Premium clothes and a couple of designer pieces'],
+    cash: 200_000, bank: 4_000_000, loan: false, homeId: 'uesApt', rentPaid: false, origin: 'trustFund', skills: { charisma: 2 },
   },
-  wealthy: {
-    title: 'Old Money', emoji: '🥂', tagline: 'Your family name is on a museum wing.',
-    perks: ['$250,000 in the bank', 'Tribeca loft, rent paid by the family', 'Charisma 3, but no street smarts', '15 premium + 5 exclusive outfits'],
-    cash: 500_000, bank: 25_000_000, loan: false, homeId: 'wburgLoft', rentPaid: true, origin: 'trustFund', skills: { charisma: 3 },
+  billionaire: {
+    title: 'Billionaire Heir', emoji: '🥂', tagline: 'Your family name is on a museum wing.', odds: '1 in 100. Screenshot this.',
+    perks: ['$20,000 cash + $50 million in the bank', 'Penthouse on Billionaires’ Row, over Central Park', 'A private chef and a housekeeper', 'Charisma 3, Street Smarts 0', 'A closet full of designer pieces'],
+    cash: 2_000_000, bank: 5_000_000_000, loan: false, homeId: 'penthouse', rentPaid: false, origin: 'trustFund', skills: { charisma: 3 },
   },
 };
 
@@ -92,7 +106,7 @@ export const TRAITS: Record<string, { label: string; emoji: string; desc: string
 export function newLife(opts: NewLifeOptions): GameState {
   const now = nowMs();
   const today = nycTime(now).dateKey;
-  const spawnClass: SpawnClass = opts.spawnClass ?? (opts.origin === 'trustFund' ? 'upper' : 'poor');
+  const spawnClass: SpawnClass = opts.spawnClass ?? (opts.origin === 'trustFund' ? 'rich' : 'poor');
   const cls = CLASSES[spawnClass];
   const home = PLACE_BY_ID[cls.homeId] ?? PLACE_BY_ID.hkStudio;
   const door = doorOf(home);

@@ -121,7 +121,7 @@ FURNITURE.add(
   { id: 'bathtub', name: 'Bathtub', emoji: '🛁', price: 70_000, parts: [{ model: 'bathtub' }], actions: ['shower'], use: 'stepIn', fixed: true, quality: 'nice' },
   { id: 'toilet', name: 'Toilet', emoji: '🚽', price: 20_000, parts: [{ model: 'toilet' }], actions: ['toilet'], use: 'sitOn', fixed: true },
   { id: 'bathSink', name: 'Bathroom sink', emoji: '🪥', price: 15_000, parts: [{ model: 'bathroomSink', y: 0.8 }, { model: 'bathroomMirror', y: 1.7, z: -0.2 }], actions: [], fixed: true },
-  { id: 'washer', name: 'Washing machine', emoji: '🧺', price: 45_000, parts: [{ model: 'washer' }], actions: [] },
+  { id: 'washer', name: 'Washer-dryer', emoji: '🧺', price: 45_000, parts: [{ model: 'washer' }], actions: ['laundry'], fixed: true },
   // ---- living room
   { id: 'sofa', name: 'Sofa', emoji: '🛋️', price: 28_000, parts: [{ model: 'loungeSofa' }, { model: 'pillow', x: -0.6, y: 0.5, z: -0.2 }], actions: ['callMom', 'guitar', 'workout'], use: 'sitOn', seat: true, kind: 'couch', quality: 'basic', pitch: 'No springs poking you. More fun from the couch.' },
   { id: 'sofaLong', name: 'Big sofa', emoji: '🛋️', price: 72_000, parts: [{ model: 'loungeSofaLong' }], actions: ['callMom', 'guitar', 'workout'], use: 'sitOn', seat: true, kind: 'couch', quality: 'nice', pitch: 'Room to stretch out. The best seat in the house.' },
@@ -179,4 +179,23 @@ FURNITURE.add(
   { id: 'posters', name: 'Posters', emoji: '🖼️', price: 1_500, parts: [{ model: 'toyPosters' }], actions: [], wall: true, quality: 'cheap' },
   { id: 'windowAC', name: 'Window AC', emoji: '❄️', price: 9_000, parts: [{ model: 'toyWindowAC' }], actions: [], wall: true, quality: 'cheap' },
   { id: 'pedestalSink', name: 'Bathroom sink', emoji: '🪥', price: 8_000, parts: [{ model: 'toyPedestalSink' }], actions: [], fixed: true, quality: 'cheap' },
+);
+
+// ---- The penthouse (billionaire start), built in code like the walk-up's
+// pieces but in marble, walnut, brass and velvet. All luxury.
+FURNITURE.add(
+  { id: 'kingBed', name: 'King bed', emoji: '🛏️', price: 1_800_000, parts: [{ model: 'toyKingBed' }], actions: ['sleep', 'nap'], use: 'lie', kind: 'bed', quality: 'luxury' },
+  { id: 'velvetSectional', name: 'Velvet sectional', emoji: '🛋️', price: 1_200_000, parts: [{ model: 'toyVelvetSectional' }], actions: ['callMom', 'guitar', 'workout'], use: 'sitOn', seat: true, kind: 'couch', quality: 'luxury' },
+  { id: 'mediaWall', name: 'Home cinema', emoji: '📺', price: 900_000, parts: [{ model: 'toyMediaWall' }], actions: ['watchTv', 'gameConsole'], tv: true, screen: [2.0, 1.1, 0, 1.33, 0.0], kind: 'tv', quality: 'luxury' },
+  { id: 'chefRange', name: 'Chef’s range', emoji: '🍳', price: 1_500_000, parts: [{ model: 'toyChefRange' }], actions: ['cookPasta', 'cookFancy'], fixed: true, quality: 'luxury' },
+  { id: 'chefFridge', name: 'Chef’s fridge', emoji: '🧊', price: 1_200_000, parts: [{ model: 'toyChefFridge' }], actions: ['chefMeal', 'snack'], fixed: true, quality: 'luxury' },
+  { id: 'marbleIsland', name: 'Marble island', emoji: '🍽️', price: 800_000, parts: [{ model: 'toyMarbleIsland' }], actions: [], fixed: true, quality: 'luxury' },
+  { id: 'soakingTub', name: 'Soaking tub', emoji: '🛁', price: 1_000_000, parts: [{ model: 'toySoakingTub' }], actions: ['soak', 'shower'], use: 'stepIn', fixed: true, quality: 'luxury' },
+  { id: 'doubleVanity', name: 'Double vanity', emoji: '🪥', price: 600_000, parts: [{ model: 'toyDoubleVanity' }], actions: [], fixed: true, quality: 'luxury' },
+  { id: 'luxToilet', name: 'Toilet', emoji: '🚽', price: 300_000, parts: [{ model: 'toilet' }], actions: ['toilet'], use: 'sitOn', fixed: true, quality: 'luxury' },
+  { id: 'grandPiano', name: 'Baby grand piano', emoji: '🎹', price: 4_500_000, parts: [{ model: 'toyGrandPiano' }], actions: ['playPiano'], quality: 'luxury' },
+  { id: 'artwork', name: 'Original painting', emoji: '🖼️', price: 2_500_000, parts: [{ model: 'toyArtwork' }], actions: [], wall: true, quality: 'luxury' },
+  { id: 'wardrobeWall', name: 'Walk-in wardrobe', emoji: '👔', price: 900_000, parts: [{ model: 'toyWardrobeWall' }], actions: [], opens: 'closet', quality: 'luxury' },
+  { id: 'executiveDesk', name: 'Executive desk', emoji: '💻', price: 700_000, parts: [{ model: 'toyExecutiveDesk' }], actions: ['codePractice', 'freelance', 'sellOnline', 'postContent', 'doomscroll'], use: 'sitAt', quality: 'luxury' },
+  { id: 'fiddleFig', name: 'Fiddle-leaf fig', emoji: '🪴', price: 40_000, parts: [{ model: 'toyFiddleFig' }], actions: [], kind: 'plant', quality: 'luxury' },
 );

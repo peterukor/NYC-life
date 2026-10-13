@@ -57,6 +57,12 @@ const LIST: ActionDef[] = [
   { id: 'doomscroll', label: 'Scroll NYC Twitter', emoji: '📱', seconds: 6, needs: { fun: 10, social: 6, energy: -2 }, tags: ['online'] },
   { id: 'callMom', label: 'Call your mom', emoji: '📞', seconds: 8, needs: { social: 30, fun: 4 }, moodlet: { id: 'momCall', label: 'Mom says she’s proud', emoji: '🥹', value: 10, minutes: 90 }, tags: ['social'] },
   { id: 'guitar', label: 'Play guitar', emoji: '🎸', seconds: 12, needs: { fun: 18 }, skill: { key: 'music', gain: 0.7 }, tags: ['skill'] },
+  // Home living conditions (2026-10-13): roommates, a washer, a chef, a tub, a piano.
+  { id: 'chatRoommate', label: 'Chat for a bit', emoji: '💬', seconds: 6, needs: { social: 22, fun: 6 }, tags: ['social'] },
+  { id: 'laundry', label: 'Do laundry', emoji: '🧺', seconds: 8, needs: { hygiene: 15, fun: -2 }, tags: ['chore'] },
+  { id: 'chefMeal', label: 'Chef’s tasting menu', emoji: '🍽️', seconds: 10, needs: { hunger: 80, fun: 12 }, tags: ['eat'] },
+  { id: 'soak', label: 'Long soak in the tub', emoji: '🛁', seconds: 10, needs: { hygiene: 85, energy: 8, fun: 8 }, tags: ['bathe'] },
+  { id: 'playPiano', label: 'Play the piano', emoji: '🎹', seconds: 12, needs: { fun: 20 }, skill: { key: 'music', gain: 0.8 }, tags: ['skill'] },
   { id: 'workout', label: 'Home workout', emoji: '🏋️', seconds: 12, needs: { energy: -14, hygiene: -14, fun: 4 }, skill: { key: 'fitness', gain: 0.7 }, tags: ['fitness'] },
 
   // ---------- Bodega ----------

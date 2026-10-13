@@ -220,7 +220,7 @@ import { buyBusiness, candidates, hire, runBusinessDay, TAX } from '../src/sim/b
 import { netWorth as nw } from '../src/sim/market.ts';
 
 test('businesses: buy, staff, daily profit after tax, and audits claw back fraud', () => {
-  const s = newLife({ name: 'T', origin: 'trustFund', spawnClass: 'wealthy', look: { body: 'm', skin: '#000', top: '#000', bottom: '#000', hair: '#000' }, birthYear: 1990, traits: [] });
+  const s = newLife({ name: 'T', origin: 'trustFund', spawnClass: 'billionaire', look: { body: 'm', skin: '#000', top: '#000', bottom: '#000', hair: '#000' }, birthYear: 1990, traits: [] });
   const worth = nw(s);
   assert.equal(buyBusiness(s, 'cafe'), null);
   assert.ok(nw(s) < worth, 'buying loses some value (resale is 80%)');

@@ -3,6 +3,7 @@
 // a new day starts at New York midnight, and weekly bills come due.
 // =====================================================================
 
+import { PLACE_BY_ID } from '../data/places.ts';
 import { runCollections } from './debt.ts';
 import { runGangDay } from './gangs.ts';
 import { bus } from '../core/bus.ts';
@@ -79,12 +80,13 @@ function rollDays(state: GameState): string | null {
   if (state.home.weeklyRent > 0) {
     let weeks = Math.floor(daysBetween(state.home.rentDueDay, today) / 7);
     while (weeks-- > 0) {
-      const { short } = chargeBill(state, state.home.weeklyRent, 'Weekly rent');
+      const label = PLACE_BY_ID[state.home.placeId]?.rentLabel ?? 'Weekly rent';
+      const { short } = chargeBill(state, state.home.weeklyRent, label);
       advanceKey(state.home, 'rentDueDay', 7);
       if (short > 0) {
         notes.push(`Rent was ${money(short)} short. Your landlord is not amused.`);
         addMoodlet(state, { id: 'rentStress', label: 'Behind on rent', emoji: '🏚️', value: -20, minutes: 60 * 24 });
-      } else notes.push(`Paid ${money(state.home.weeklyRent)} rent.`);
+      } else notes.push(`Paid ${money(state.home.weeklyRent)} ${label.toLowerCase().replace('weekly ', '')}.`);
     }
   }
 

@@ -11,10 +11,12 @@ const browser = await puppeteer.launch({ executablePath: '/opt/pw-browsers/chrom
 const page = await browser.newPage();
 await page.setViewport({ width: 420, height: 420 });
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
-await page.goto('http://localhost:4173/?qa=1&hour=13', { waitUntil: 'load' });
+await page.goto('http://localhost:4173/?qa=1&class=poor&hour=13', { waitUntil: 'load' });
 await page.evaluate(() => localStorage.clear()); await page.reload({ waitUntil: 'load' });
 await page.waitForSelector('#ob-year'); await page.select('#ob-year', '1995'); await page.type('#ob-name', 'Jack');
-await page.$eval('#ob-go', (el) => el.click()); await wait(2500);
+await page.$eval('#ob-go', (el) => el.click());
+await page.waitForSelector('#ob-start', { timeout: 10000 });
+await page.$eval('#ob-start', (el) => el.click()); await wait(2500);
 await page.$eval('[data-nav="leave"]', (el) => el.click()); await wait(2500);
 // Hide the map's HTML overlay (pins, cards, buttons) so the blocks are clear.
 await page.addStyleTag({ content: '.map3d, .hud, header, nav, .toast { display: none !important; }' });

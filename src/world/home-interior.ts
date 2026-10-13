@@ -143,12 +143,16 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
   wallWithGaps([-hw, hd], [hw, hd], [[hw - 1.2, hw + 1.2]]); // front (low), front door in the middle
   for (const w of layout.walls) wallWithGaps(w.a, w.b, w.gaps);
 
-  // Windows on the back wall: bright sky panes with cream frames.
-  for (const x of [-hw * 0.45, hw * 0.25]) {
-    const frame = new THREE.Mesh(t(new THREE.PlaneGeometry(2.0, 1.4)), capMat);
-    frame.position.set(x, 1.75, -hd + WALL_T / 2 + 0.01);
-    const pane = new THREE.Mesh(t(new THREE.PlaneGeometry(1.75, 1.15)), t(new THREE.MeshBasicMaterial({ color: '#a9d8f5' })));
-    pane.position.set(x, 1.75, -hd + WALL_T / 2 + 0.02);
+  // Windows on the back wall: bright sky panes with cream frames, or (the
+  // penthouse) floor-to-ceiling glass over Central Park.
+  const win = layout.windows ?? { xs: [-hw * 0.45, hw * 0.25], w: 2.0, h: 1.4, y: 1.75, view: 'sky' as const };
+  const view = win.view === 'park' ? t(parkView()) : null;
+  for (const x of win.xs) {
+    const frame = new THREE.Mesh(t(new THREE.PlaneGeometry(win.w, win.h)), capMat);
+    frame.position.set(x, win.y, -hd + WALL_T / 2 + 0.01);
+    const paneMat = t(new THREE.MeshBasicMaterial(view ? { map: view, toneMapped: false } : { color: '#a9d8f5' }));
+    const pane = new THREE.Mesh(t(new THREE.PlaneGeometry(win.w - 0.25, win.h - 0.25)), paneMat);
+    pane.position.set(x, win.y, -hd + WALL_T / 2 + 0.02);
     scene.add(frame, pane);
   }
 
@@ -515,4 +519,41 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
       disposables.forEach((x) => x.dispose());
     },
   };
+}
+
+/** Looking down on Central Park from ninety floors up: sky, skyline, the park, the lake. */
+function parkView(): THREE.CanvasTexture {
+  const c = document.createElement('canvas');
+  c.width = 256;
+  c.height = 160;
+  const g = c.getContext('2d')!;
+  const sky = g.createLinearGradient(0, 0, 0, 70);
+  sky.addColorStop(0, '#8ec9f0');
+  sky.addColorStop(1, '#d9eefb');
+  g.fillStyle = sky;
+  g.fillRect(0, 0, 256, 70);
+  // Far skyline (Upper West and East Sides) along the horizon.
+  g.fillStyle = '#9fb3c4';
+  for (let x = 0; x < 256; x += 9) {
+    const h = 6 + ((x * 37) % 17);
+    g.fillRect(x, 66 - h, 7, h + 4);
+  }
+  // The park, the lake, a few paths.
+  g.fillStyle = '#5f9e4f';
+  g.fillRect(0, 68, 256, 92);
+  g.fillStyle = '#4c8a41';
+  for (let i = 0; i < 70; i++) g.fillRect((i * 53) % 256, 72 + ((i * 29) % 86), 6, 4);
+  g.fillStyle = '#7fb6d8';
+  g.beginPath();
+  g.ellipse(150, 112, 48, 14, -0.15, 0, Math.PI * 2);
+  g.fill();
+  g.strokeStyle = '#e9e1c8';
+  g.lineWidth = 2;
+  g.beginPath();
+  g.moveTo(0, 140);
+  g.bezierCurveTo(70, 120, 120, 150, 256, 128);
+  g.stroke();
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
 }
