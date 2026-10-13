@@ -61,6 +61,63 @@ export const HOME_LAYOUTS = new Registry<HomeLayout>('home layout');
 
 HOME_LAYOUTS.add(
   {
+    // THE BROKE START (Peter, 2026-10-13): a room in a shared East Harlem
+    // walk-up. Your small bedroom on the left (twin bed, milk crates, a
+    // clothes rack for a closet), a shared kitchen and living room with
+    // two roommates' doors, a tiny bathroom by the front door.
+    // All chunky cartoon pieces built in code (world/furniture-toys.ts).
+    id: 'harlemWalkup',
+    name: 'East Harlem walk-up',
+    // A railroad apartment: long and narrow, one room behind the other
+    // (classic old-NYC walk-up, and it fills a phone held upright).
+    width: 7.6,
+    depth: 11,
+    wallColor: '#e8dcc4',
+    rooms: [
+      { label: 'Your room', rect: [-3.8, -5.5, 3.8, -1.6], floor: '#a9784e' },
+      { label: 'Living', rect: [-3.8, -1.6, 3.8, 2.6], floor: '#c09068' },
+      { label: 'Kitchen', rect: [-3.8, -1.6, -2.75, 2.6], floor: '#e7e0cf' },
+      { label: 'Hall', rect: [-3.8, 2.6, 1.2, 5.5], floor: '#b98a5f' },
+      { label: 'Bathroom', rect: [1.2, 2.6, 3.8, 5.5], floor: '#bfe0e6' },
+    ],
+    walls: [
+      { a: [-3.8, -1.6], b: [3.8, -1.6], gaps: [[2.2, 3.2]] },
+      { a: [1.2, 2.6], b: [1.2, 5.5], gaps: [[0.3, 1.3]] },
+      { a: [1.2, 2.6], b: [3.8, 2.6] },
+    ],
+    furniture: [
+      // Your room at the back: bed in the corner, crates, a folding desk under the window.
+      { uid: 'bed', item: 'twinBed', x: -3.22, z: -4.45, rot: 0 },
+      { uid: 'night', item: 'crateNightstand', x: -2.35, z: -5.2, rot: 0 },
+      { uid: 'radiator', item: 'radiator', x: -1.45, z: -5.35, rot: 0 },
+      { uid: 'ac', item: 'windowAC', x: -1.71, z: -5.1, rot: 0 },
+      { uid: 'posters', item: 'posters', x: -3.68, z: -2.6, rot: H },
+      { uid: 'desk', item: 'foldingDesk', x: 1.0, z: -5.15, rot: 0 },
+      { uid: 'rack', item: 'clothesRack', x: 3.4, z: -3.7, rot: -H },
+      { uid: 'laundry', item: 'laundryPile', x: 0.4, z: -2.7, rot: 0 },
+      { uid: 'boxes', item: 'movingBoxes', x: 2.75, z: -2.2, rot: 0 },
+      // Kitchen along the left wall.
+      { uid: 'stove', item: 'oldStove', x: -3.45, z: -1.05, rot: H },
+      { uid: 'ksink', item: 'sinkCounter', x: -3.47, z: 0.25, rot: H },
+      { uid: 'fridge', item: 'oldFridge', x: -3.43, z: 1.6, rot: H },
+      { uid: 'trash', item: 'trashBags', x: -3.4, z: 2.35, rot: H },
+      { uid: 'table', item: 'smallTable', x: -1.4, z: 0.3, rot: 0 },
+      // Living room.
+      { uid: 'rug', item: 'wornRug', x: 2.2, z: -0.2, rot: 0 },
+      { uid: 'tv', item: 'crateTv', x: 2.2, z: -1.27, rot: 0 },
+      { uid: 'couch', item: 'wornCouch', x: 2.2, z: 0.95, rot: PI },
+      { uid: 'roomA', item: 'roommateDoor', x: 3.63, z: 2.0, rot: -H },
+      { uid: 'posters2', item: 'posters', x: 3.68, z: -0.2, rot: -H },
+      // Hall by the front door, and the bathroom.
+      { uid: 'roomB', item: 'roommateDoor', x: -3.63, z: 3.7, rot: H },
+      { uid: 'plant', item: 'plantStool', x: -3.3, z: 5.0, rot: 0 },
+      { uid: 'shoes', item: 'shoePile', x: -0.4, z: 4.85, rot: 0 },
+      { uid: 'bsink', item: 'pedestalSink', x: 2.2, z: 2.85, rot: 0 },
+      { uid: 'tub', item: 'tubShower', x: 3.36, z: 4.3, rot: -H },
+      { uid: 'toilet', item: 'oldToilet', x: 1.75, z: 4.95, rot: PI },
+    ],
+  },
+  {
     // One big room with a little bathroom in the back corner.
     id: 'studio',
     name: 'Studio',
@@ -224,7 +281,7 @@ HOME_LAYOUTS.add(
 );
 
 /** Which floor plan each home place uses. */
-export const HOME_LAYOUT_FOR: Record<string, string> = { hkStudio: 'studio', wburgLoft: 'loft', sharedApt: 'shared', shelter: 'shelter' };
+export const HOME_LAYOUT_FOR: Record<string, string> = { hkStudio: 'studio', wburgLoft: 'loft', sharedApt: 'harlemWalkup', shelter: 'shelter' };
 
 export function layoutForPlace(placeId: string): HomeLayout {
   return HOME_LAYOUTS.get(HOME_LAYOUT_FOR[placeId]) ?? HOME_LAYOUTS.require('studio');

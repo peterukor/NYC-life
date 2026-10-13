@@ -279,10 +279,10 @@ const RAW: RawPlace[] = [
     at: [40.7195, -74.0085], interior: 'apartment', actions: [], color: '#5d6d7e', rent: 90_000,
   },
   {
-    // Moved from Brooklyn to Harlem (2026-10-12).
-    id: 'sharedApt', area: 'manhattan', name: 'Room in a shared Harlem apartment', emoji: '🏠', type: 'home',
-    blurb: 'Three roommates, one bathroom, great vibes (mostly).',
-    at: [40.8075, -73.9450], interior: 'apartment', actions: [], color: '#a0522d', rent: 18_000,
+    // The broke start (Peter, 2026-10-13): East Harlem, 116th St near 2nd Ave.
+    id: 'sharedApt', area: 'manhattan', name: 'Room in an East Harlem walk-up', emoji: '🏠', type: 'home',
+    blurb: 'Fourth floor, no elevator. Two roommates, one bathroom, a radiator that clanks all night, and the best bodega in El Barrio downstairs.',
+    at: [40.7975, -73.9395], interior: 'apartment', actions: [], color: '#a0522d', rent: 18_000,
   },
   {
     // Moved from Brooklyn to the East Village (2026-10-12).

@@ -43,6 +43,13 @@ export class Toy {
     return this.add(new THREE.SphereGeometry(r, 12, 8).translate(x, y, z), color);
   }
 
+  /** Everything merged into one geometry (vertex colours, normals). */
+  geometry(): THREE.BufferGeometry {
+    const geo = mergeGeometries(this.parts)!;
+    geo.computeVertexNormals();
+    return geo;
+  }
+
   /** Merge everything into one mesh (one draw call). */
   build(name: string): THREE.Mesh {
     const geo = mergeGeometries(this.parts)!;

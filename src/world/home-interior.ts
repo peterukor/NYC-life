@@ -86,7 +86,9 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
     if (len < 0.05) return;
     const cx = (ax + bx) / 2;
     const cz = (az + bz) / 2;
-    const low = alongX && cz > 0.5;
+    // Every wall running across the view is cut low except the back wall,
+    // so rooms behind other rooms stay visible (railroad apartments).
+    const low = alongX && cz > -hd + 0.3;
     const h = low ? LOW_WALL : WALL_H;
     const m = new THREE.Mesh(t(new THREE.BoxGeometry(alongX ? len + WALL_T : WALL_T, h, alongX ? WALL_T : len + WALL_T)), wallMat);
     m.position.set(cx, h / 2, cz);
@@ -175,8 +177,9 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
     if (def.tv && !tvScreen) {
       tvScreen = t(new THREE.MeshBasicMaterial({ color: '#0b0b0b', toneMapped: false }));
       const big = def.id === 'tv';
-      const screen = new THREE.Mesh(t(new THREE.PlaneGeometry(big ? 1.15 : 0.5, big ? 0.62 : 0.34)), tvScreen);
-      screen.position.set(big ? 0 : -0.05, big ? 1.1 : 0.3, big ? 0.16 : 0.29);
+      const [sw, sh, sx, sy, sz] = def.screen ?? (big ? [1.15, 0.62, 0, 1.1, 0.16] : [0.5, 0.34, -0.05, 0.3, 0.29]);
+      const screen = new THREE.Mesh(t(new THREE.PlaneGeometry(sw, sh)), tvScreen);
+      screen.position.set(sx, sy, sz);
       g.add(screen);
     }
     scene.add(g);
@@ -252,7 +255,7 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
     movable: !opts.venue,
     focus: new THREE.Vector3(0, 0.6, -0.4),
     spawn: new THREE.Vector3(0, 0, hd - 1),
-    halfWidth: hw + 0.6,
+    halfWidth: hw + 1.1, // margin: the front of the room is nearer the camera, so it looks wider
     playTvAd,
     moveItem(uid, x, z) {
       const it = items.find((i) => i.uid === uid);

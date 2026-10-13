@@ -10,6 +10,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { FURN_SCALE } from '../data/furniture.ts';
+import { toyFurnitureModels } from '../world/furniture-toys.ts';
 
 export interface FurnitureKit {
   models: Map<string, THREE.BufferGeometry>;
@@ -50,6 +51,8 @@ export function loadFurnitureKit(): Promise<FurnitureKit | null> {
         g.computeBoundingSphere();
         models.set(m.name || m.parent?.name || '', g);
       });
+      // The chunky cartoon pieces built in code (world/furniture-toys.ts).
+      for (const [name, g] of toyFurnitureModels()) models.set(name, g);
       return { models, material: new THREE.MeshLambertMaterial({ vertexColors: true }) };
     } catch (err) {
       console.info('[furniture] not loaded, using the simple apartment:', (err as Error)?.message ?? err);

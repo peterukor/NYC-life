@@ -296,6 +296,13 @@ export class Game {
         if (p) this.enterInterior(p, false);
         return !!p;
       },
+      /** Point the camera inside a home from (x, y, z) at (tx, 0.6, tz) — for close-up screenshots. */
+      interiorCam: (x: number, y: number, z: number, tx: number, tz: number) => {
+        const cam = this.engine.mode === 'interior' ? this.interiorCamera : this.engine.camera;
+        cam.position.set(x, y, z);
+        cam.lookAt(tx, 0.6, tz);
+        cam.updateProjectionMatrix();
+      },
       /** Try on clothes without saving (for screenshots). */
       /** Force an activity animation on the player (null = back to normal). */
       anim: (name: FolkAnim | null) => this.player.setAction(name),
@@ -981,7 +988,7 @@ export class Game {
     cam.aspect = aspect;
     const roomHalfWidth = this.interior?.halfWidth ?? 7.2;
     const hFov = 2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(cam.fov) / 2) * aspect);
-    const dist = Math.max(15, roomHalfWidth / Math.tan(hFov / 2));
+    const dist = Math.max(9, roomHalfWidth / Math.tan(hFov / 2)); // small homes fill the screen too
     cam.position.set(0, dist * 0.72, dist * 0.7);
     cam.lookAt(0, 0.6, -0.5);
     cam.far = dist * 4;
