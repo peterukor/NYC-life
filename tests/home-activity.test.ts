@@ -62,17 +62,20 @@ test('cheap pieces are slower, nice ones quicker; cooking burns less as you get 
   assert.ok(activitySeconds(sleep, 'twinBed') > activitySeconds(sleep, 'bedSingle'));
   assert.ok(activitySeconds(sleep, 'bedDouble') < activitySeconds(sleep, 'bedSingle'));
   const s = life();
+  // A fixed sequence of rolls so the test never flakes.
+  let seed = 7;
+  const rand = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
   let burns = 0;
   for (let i = 0; i < 400; i++) {
     beginActivity(s, 'cookPasta', { item: 'oldStove' });
-    if (completeActivity(s)?.quirk?.id === 'smokeAlarm') burns++;
+    if (completeActivity(s, rand)?.quirk?.id === 'smokeAlarm') burns++;
     s.money = 1_000_000;
   }
   s.skills.cooking = 5;
   let pro = 0;
   for (let i = 0; i < 400; i++) {
     beginActivity(s, 'cookPasta', { item: 'oldStove' });
-    if (completeActivity(s)?.quirk?.id === 'smokeAlarm') pro++;
+    if (completeActivity(s, rand)?.quirk?.id === 'smokeAlarm') pro++;
   }
   assert.ok(burns > pro, `beginner burns ${burns}, good cook ${pro}`);
 });
