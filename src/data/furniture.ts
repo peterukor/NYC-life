@@ -40,6 +40,22 @@ export interface FurnitureDef {
   flat?: boolean;
   /** Hangs on a wall (posters, a window AC): snaps to the outer walls when moved. */
   wall?: boolean;
+  /**
+   * How good it is (see FURNITURE_QUALITY): cheap pieces give back less and
+   * can leave you with a downside, luxury pieces give back more. Default basic.
+   */
+  quality?: Quality;
+  /** A downside a cheap piece can give you after using it (chance 0–1). */
+  quirk?: { chance: number; moodlet: { id: string; label: string; emoji: string; value: number; minutes: number } };
+  /**
+   * How you use it: lie on it (beds), sit on it (couches, toilets), sit at
+   * it (desks), step into it (showers), or stand at it (default).
+   */
+  use?: 'lie' | 'sitOn' | 'sitAt' | 'stepIn' | 'stand';
+  /** Something to sit on: TV actions sit you on the nearest one. */
+  seat?: boolean;
+  /** Built in (plumbing, the stove, doors): can't be moved or put in storage. */
+  fixed?: boolean;
   /** Pieces with a screen: the TV ad plays on these. */
   tv?: boolean;
   /** Where the screen sits on a TV piece (metres from its centre): width, height, x, y, z. */
@@ -50,32 +66,47 @@ export interface FurnitureDef {
   placeActions?: boolean;
 }
 
+export type Quality = 'cheap' | 'basic' | 'nice' | 'luxury';
+
+/**
+ * What quality does (Peter, 2026-10-13: "cheap furniture … add just a lil
+ * bit"). `gain` scales what a piece gives back (energy from a bed, fun from
+ * a TV); costs like hunger while sleeping are not scaled. Cheap pieces
+ * may also leave a downside (their `quirk`), luxury ones a little treat.
+ */
+export const FURNITURE_QUALITY: Record<Quality, { label: string; gain: number; treat?: { id: string; label: string; emoji: string; value: number; minutes: number } }> = {
+  cheap: { label: 'Cheap', gain: 0.7 },
+  basic: { label: 'Basic', gain: 1 },
+  nice: { label: 'Nice', gain: 1.25 },
+  luxury: { label: 'Luxury', gain: 1.5, treat: { id: 'luxe', label: 'Living in luxury', emoji: '✨', value: 6, minutes: 60 } },
+};
+
 export const FURNITURE = new Registry<FurnitureDef>('furniture');
 
 FURNITURE.add(
   // ---- bedroom
-  { id: 'bedDouble', name: 'Double bed', emoji: '🛏️', price: 60_000, parts: [{ model: 'bedDouble' }], actions: ['sleep', 'nap'] },
-  { id: 'bedSingle', name: 'Single bed', emoji: '🛏️', price: 30_000, parts: [{ model: 'bedSingle' }], actions: ['sleep', 'nap'] },
+  { id: 'bedDouble', name: 'Double bed', emoji: '🛏️', price: 60_000, parts: [{ model: 'bedDouble' }], actions: ['sleep', 'nap'], use: 'lie', quality: 'nice' },
+  { id: 'bedSingle', name: 'Single bed', emoji: '🛏️', price: 30_000, parts: [{ model: 'bedSingle' }], actions: ['sleep', 'nap'], use: 'lie' },
   { id: 'nightstand', name: 'Nightstand', emoji: '🗄️', price: 8_000, parts: [{ model: 'cabinetBedDrawer' }, { model: 'lampSquareTable', y: 0.52 }], actions: [] },
   { id: 'closet', name: 'Closet', emoji: '👕', price: 35_000, parts: [{ model: 'bookcaseClosedWide' }], actions: [], opens: 'closet' },
   // ---- kitchen
-  { id: 'stove', name: 'Stove', emoji: '🍳', price: 45_000, parts: [{ model: 'kitchenStove' }], actions: ['cookPasta', 'cookFancy'] },
+  { id: 'stove', name: 'Stove', emoji: '🍳', price: 45_000, parts: [{ model: 'kitchenStove' }], actions: ['cookPasta', 'cookFancy'], fixed: true },
   { id: 'fridge', name: 'Fridge', emoji: '🧊', price: 50_000, parts: [{ model: 'kitchenFridge' }], actions: ['snack'] },
-  { id: 'kitchenSink', name: 'Kitchen sink', emoji: '🚰', price: 20_000, parts: [{ model: 'kitchenSink' }], actions: [] },
+  { id: 'kitchenSink', name: 'Kitchen sink', emoji: '🚰', price: 20_000, parts: [{ model: 'kitchenSink' }], actions: [], fixed: true },
   { id: 'counter', name: 'Counter', emoji: '🗄️', price: 15_000, parts: [{ model: 'kitchenCabinetDrawer' }, { model: 'kitchenCoffeeMachine', y: 0.9, x: -0.1 }], actions: [] },
   { id: 'counterMicrowave', name: 'Counter + microwave', emoji: '🗄️', price: 22_000, parts: [{ model: 'kitchenCabinet' }, { model: 'kitchenMicrowave', y: 0.9 }], actions: ['snack'] },
   { id: 'diningTable', name: 'Dining table', emoji: '🍽️', price: 25_000, parts: [{ model: 'table' }, { model: 'chairCushion', x: -0.5, z: 0.75, rot: Math.PI }, { model: 'chairCushion', x: 0.5, z: -0.75 }], actions: [] },
   { id: 'breakfastBar', name: 'Breakfast bar', emoji: '🍽️', price: 18_000, parts: [{ model: 'kitchenBar' }, { model: 'stoolBar', z: 0.55 }], actions: [] },
   // ---- bathroom
-  { id: 'shower', name: 'Shower', emoji: '🚿', price: 40_000, parts: [{ model: 'shower' }], actions: ['shower'] },
-  { id: 'bathtub', name: 'Bathtub', emoji: '🛁', price: 70_000, parts: [{ model: 'bathtub' }], actions: ['shower'] },
-  { id: 'toilet', name: 'Toilet', emoji: '🚽', price: 20_000, parts: [{ model: 'toilet' }], actions: ['toilet'] },
-  { id: 'bathSink', name: 'Bathroom sink', emoji: '🪥', price: 15_000, parts: [{ model: 'bathroomSink', y: 0.8 }, { model: 'bathroomMirror', y: 1.7, z: -0.2 }], actions: [] },
+  { id: 'shower', name: 'Shower', emoji: '🚿', price: 40_000, parts: [{ model: 'shower' }], actions: ['shower'], use: 'stepIn', fixed: true },
+  { id: 'bathtub', name: 'Bathtub', emoji: '🛁', price: 70_000, parts: [{ model: 'bathtub' }], actions: ['shower'], use: 'stepIn', fixed: true, quality: 'nice' },
+  { id: 'toilet', name: 'Toilet', emoji: '🚽', price: 20_000, parts: [{ model: 'toilet' }], actions: ['toilet'], use: 'sitOn', fixed: true },
+  { id: 'bathSink', name: 'Bathroom sink', emoji: '🪥', price: 15_000, parts: [{ model: 'bathroomSink', y: 0.8 }, { model: 'bathroomMirror', y: 1.7, z: -0.2 }], actions: [], fixed: true },
   { id: 'washer', name: 'Washing machine', emoji: '🧺', price: 45_000, parts: [{ model: 'washer' }], actions: [] },
   // ---- living room
-  { id: 'sofa', name: 'Sofa', emoji: '🛋️', price: 55_000, parts: [{ model: 'loungeSofa' }, { model: 'pillow', x: -0.6, y: 0.5, z: -0.2 }], actions: ['callMom', 'guitar', 'workout'] },
-  { id: 'sofaLong', name: 'Big sofa', emoji: '🛋️', price: 90_000, parts: [{ model: 'loungeSofaLong' }], actions: ['callMom', 'guitar', 'workout'] },
-  { id: 'armchair', name: 'Armchair', emoji: '💺', price: 25_000, parts: [{ model: 'loungeChair' }], actions: [] },
+  { id: 'sofa', name: 'Sofa', emoji: '🛋️', price: 55_000, parts: [{ model: 'loungeSofa' }, { model: 'pillow', x: -0.6, y: 0.5, z: -0.2 }], actions: ['callMom', 'guitar', 'workout'], use: 'sitOn', seat: true },
+  { id: 'sofaLong', name: 'Big sofa', emoji: '🛋️', price: 90_000, parts: [{ model: 'loungeSofaLong' }], actions: ['callMom', 'guitar', 'workout'], use: 'sitOn', seat: true, quality: 'nice' },
+  { id: 'armchair', name: 'Armchair', emoji: '💺', price: 25_000, parts: [{ model: 'loungeChair' }], actions: [], use: 'sitOn', seat: true },
   { id: 'coffeeTable', name: 'Coffee table', emoji: '☕', price: 12_000, parts: [{ model: 'tableCoffee' }], actions: [] },
   { id: 'glassTable', name: 'Glass coffee table', emoji: '☕', price: 20_000, parts: [{ model: 'tableCoffeeGlass' }], actions: [] },
   { id: 'tv', name: 'TV', emoji: '📺', price: 50_000, parts: [{ model: 'cabinetTelevision' }, { model: 'televisionModern', y: 0.62 }], actions: ['watchTv', 'gameConsole'], tv: true },
@@ -84,8 +115,8 @@ FURNITURE.add(
   { id: 'bookcaseWide', name: 'Wide bookcase', emoji: '📚', price: 28_000, parts: [{ model: 'bookcaseClosedWide' }], actions: [] },
   { id: 'speaker', name: 'Speaker', emoji: '🔊', price: 15_000, parts: [{ model: 'speaker' }], actions: [] },
   // ---- work
-  { id: 'desk', name: 'Laptop desk', emoji: '💻', price: 30_000, parts: [{ model: 'desk' }, { model: 'laptop', y: 0.76 }, { model: 'chairDesk', z: 0.75, rot: Math.PI }], actions: ['codePractice', 'freelance', 'sellOnline', 'postContent', 'doomscroll'] },
-  { id: 'deskScreen', name: 'Computer desk', emoji: '🖥️', price: 70_000, parts: [{ model: 'desk' }, { model: 'computerScreen', y: 0.76, z: -0.15 }, { model: 'chairDesk', z: 0.75, rot: Math.PI }], actions: ['codePractice', 'freelance', 'sellOnline', 'postContent', 'doomscroll'] },
+  { id: 'desk', name: 'Laptop desk', emoji: '💻', price: 30_000, parts: [{ model: 'desk' }, { model: 'laptop', y: 0.76 }, { model: 'chairDesk', z: 0.75, rot: Math.PI }], actions: ['codePractice', 'freelance', 'sellOnline', 'postContent', 'doomscroll'], use: 'sitAt' },
+  { id: 'deskScreen', name: 'Computer desk', emoji: '🖥️', price: 70_000, parts: [{ model: 'desk' }, { model: 'computerScreen', y: 0.76, z: -0.15 }, { model: 'chairDesk', z: 0.75, rot: Math.PI }], actions: ['codePractice', 'freelance', 'sellOnline', 'postContent', 'doomscroll'], use: 'sitAt', quality: 'nice' },
   // ---- venues (shops, cafés, bars): the counter sells whatever the place sells
   { id: 'serviceCounter', name: 'Counter', emoji: '🛎️', price: 0, parts: [{ model: 'kitchenBar', x: -1.3 }, { model: 'kitchenBar', x: -0.43 }, { model: 'kitchenBar', x: 0.43 }, { model: 'kitchenBar', x: 1.3 }, { model: 'kitchenCoffeeMachine', x: -1.1, y: 0.84, z: -0.05 }], actions: [], placeActions: true },
   { id: 'barCounter', name: 'Bar', emoji: '🍸', price: 0, parts: [{ model: 'kitchenBar', x: -1.7 }, { model: 'kitchenBar', x: -0.85 }, { model: 'kitchenBar', x: 0 }, { model: 'kitchenBar', x: 0.85 }, { model: 'kitchenBar', x: 1.7 }, { model: 'stoolBar', x: -1.3, z: 0.6 }, { model: 'stoolBar', x: 0, z: 0.6 }, { model: 'stoolBar', x: 1.3, z: 0.6 }], actions: [], placeActions: true },
@@ -106,27 +137,27 @@ FURNITURE.add(
 // ---- Chunky cartoon pieces built in code (world/furniture-toys.ts):
 // the broke East Harlem walk-up (Peter, 2026-10-13).
 FURNITURE.add(
-  { id: 'twinBed', name: 'Twin bed', emoji: '🛏️', price: 18_000, parts: [{ model: 'toyTwinBed' }], actions: ['sleep', 'nap'] },
-  { id: 'crateNightstand', name: 'Milk-crate nightstand', emoji: '🧺', price: 1_500, parts: [{ model: 'toyCrateNightstand' }], actions: [] },
-  { id: 'clothesRack', name: 'Clothes rack', emoji: '👕', price: 4_000, parts: [{ model: 'toyClothesRack' }], actions: [], opens: 'closet' },
-  { id: 'foldingDesk', name: 'Folding desk', emoji: '💻', price: 6_000, parts: [{ model: 'toyFoldingDesk' }], actions: ['codePractice', 'freelance', 'sellOnline', 'postContent', 'doomscroll'] },
-  { id: 'radiator', name: 'Radiator', emoji: '♨️', price: 0, parts: [{ model: 'toyRadiator' }], actions: [] },
-  { id: 'laundryPile', name: 'Laundry pile', emoji: '🧦', price: 0, parts: [{ model: 'toyLaundryPile' }], actions: [] },
-  { id: 'movingBoxes', name: 'Moving boxes', emoji: '📦', price: 0, parts: [{ model: 'toyMovingBoxes' }], actions: [] },
-  { id: 'wornCouch', name: 'Worn couch', emoji: '🛋️', price: 15_000, parts: [{ model: 'toyWornCouch' }], actions: ['callMom', 'guitar', 'workout'] },
-  { id: 'crateTv', name: 'Old TV on crates', emoji: '📺', price: 5_000, parts: [{ model: 'toyCrateTv' }], actions: ['watchTv', 'gameConsole'], tv: true, screen: [0.5, 0.36, 0, 0.65, 0.255] },
-  { id: 'smallTable', name: 'Kitchen table', emoji: '🍽️', price: 9_000, parts: [{ model: 'toySmallTable' }], actions: [] },
-  { id: 'roommateDoor', name: "Roommate's door", emoji: '🚪', price: 0, parts: [{ model: 'toyRoommateDoor' }], actions: [] },
-  { id: 'plantStool', name: 'Pothos', emoji: '🪴', price: 2_500, parts: [{ model: 'toyPlantStool' }], actions: [] },
-  { id: 'shoePile', name: 'Shoes by the door', emoji: '👟', price: 0, parts: [{ model: 'toyShoePile' }], actions: [], flat: true },
-  { id: 'wornRug', name: 'Worn rug', emoji: '🟫', price: 3_000, parts: [{ model: 'toyWornRug' }], actions: [], flat: true },
-  { id: 'trashBags', name: 'Trash', emoji: '🗑️', price: 0, parts: [{ model: 'toyTrashBags' }], actions: [] },
-  { id: 'oldStove', name: 'Old stove', emoji: '🍳', price: 20_000, parts: [{ model: 'toyOldStove' }], actions: ['cookPasta', 'cookFancy'] },
-  { id: 'oldFridge', name: 'Old fridge', emoji: '🧊', price: 20_000, parts: [{ model: 'toyOldFridge' }], actions: ['snack'] },
-  { id: 'sinkCounter', name: 'Sink and counter', emoji: '🚰', price: 12_000, parts: [{ model: 'toySinkCounter' }], actions: [] },
-  { id: 'oldToilet', name: 'Toilet', emoji: '🚽', price: 10_000, parts: [{ model: 'toyToilet' }], actions: ['toilet'] },
-  { id: 'tubShower', name: 'Tub and shower', emoji: '🛁', price: 25_000, parts: [{ model: 'toyTubShower' }], actions: ['shower'] },
-  { id: 'posters', name: 'Posters', emoji: '🖼️', price: 1_500, parts: [{ model: 'toyPosters' }], actions: [], wall: true },
-  { id: 'windowAC', name: 'Window AC', emoji: '❄️', price: 9_000, parts: [{ model: 'toyWindowAC' }], actions: [], wall: true },
-  { id: 'pedestalSink', name: 'Bathroom sink', emoji: '🪥', price: 8_000, parts: [{ model: 'toyPedestalSink' }], actions: [] },
+  { id: 'twinBed', name: 'Twin bed', emoji: '🛏️', price: 18_000, parts: [{ model: 'toyTwinBed' }], actions: ['sleep', 'nap'], use: 'lie', quality: 'cheap', quirk: { chance: 0.35, moodlet: { id: 'stiffBack', label: 'Stiff back from the cheap mattress', emoji: '🥴', value: -6, minutes: 120 } } },
+  { id: 'crateNightstand', name: 'Milk-crate nightstand', emoji: '🧺', price: 1_500, parts: [{ model: 'toyCrateNightstand' }], actions: [], quality: 'cheap' },
+  { id: 'clothesRack', name: 'Clothes rack', emoji: '👕', price: 4_000, parts: [{ model: 'toyClothesRack' }], actions: [], opens: 'closet', quality: 'cheap' },
+  { id: 'foldingDesk', name: 'Folding desk', emoji: '💻', price: 6_000, parts: [{ model: 'toyFoldingDesk' }], actions: ['codePractice', 'freelance', 'sellOnline', 'postContent', 'doomscroll'], use: 'sitAt', quality: 'cheap', quirk: { chance: 0.2, moodlet: { id: 'wobblyDesk', label: 'The folding desk wobbles', emoji: '😤', value: -3, minutes: 45 } } },
+  { id: 'radiator', name: 'Radiator', emoji: '♨️', price: 0, parts: [{ model: 'toyRadiator' }], actions: [], fixed: true, quality: 'cheap' },
+  { id: 'laundryPile', name: 'Laundry pile', emoji: '🧦', price: 0, parts: [{ model: 'toyLaundryPile' }], actions: [], quality: 'cheap' },
+  { id: 'movingBoxes', name: 'Moving boxes', emoji: '📦', price: 0, parts: [{ model: 'toyMovingBoxes' }], actions: [], quality: 'cheap' },
+  { id: 'wornCouch', name: 'Worn couch', emoji: '🛋️', price: 15_000, parts: [{ model: 'toyWornCouch' }], actions: ['callMom', 'guitar', 'workout'], use: 'sitOn', seat: true, quality: 'cheap', quirk: { chance: 0.25, moodlet: { id: 'lumpyCouch', label: 'A spring poked you', emoji: '😣', value: -4, minutes: 60 } } },
+  { id: 'crateTv', name: 'Old TV on crates', emoji: '📺', price: 5_000, parts: [{ model: 'toyCrateTv' }], actions: ['watchTv', 'gameConsole'], tv: true, screen: [0.5, 0.36, 0, 0.65, 0.255], quality: 'cheap', quirk: { chance: 0.25, moodlet: { id: 'badSignal', label: 'The TV kept cutting out', emoji: '📶', value: -3, minutes: 45 } } },
+  { id: 'smallTable', name: 'Kitchen table', emoji: '🍽️', price: 9_000, parts: [{ model: 'toySmallTable' }], actions: [], quality: 'cheap' },
+  { id: 'roommateDoor', name: "Roommate's door", emoji: '🚪', price: 0, parts: [{ model: 'toyRoommateDoor' }], actions: [], fixed: true },
+  { id: 'plantStool', name: 'Pothos', emoji: '🪴', price: 2_500, parts: [{ model: 'toyPlantStool' }], actions: [], quality: 'cheap' },
+  { id: 'shoePile', name: 'Shoes by the door', emoji: '👟', price: 0, parts: [{ model: 'toyShoePile' }], actions: [], flat: true, quality: 'cheap' },
+  { id: 'wornRug', name: 'Worn rug', emoji: '🟫', price: 3_000, parts: [{ model: 'toyWornRug' }], actions: [], flat: true, quality: 'cheap' },
+  { id: 'trashBags', name: 'Trash', emoji: '🗑️', price: 0, parts: [{ model: 'toyTrashBags' }], actions: [], quality: 'cheap' },
+  { id: 'oldStove', name: 'Old stove', emoji: '🍳', price: 20_000, parts: [{ model: 'toyOldStove' }], actions: ['cookPasta', 'cookFancy'], fixed: true, quality: 'cheap', quirk: { chance: 0.2, moodlet: { id: 'smokeAlarm', label: 'Set off the smoke alarm', emoji: '🚨', value: -4, minutes: 45 } } },
+  { id: 'oldFridge', name: 'Old fridge', emoji: '🧊', price: 20_000, parts: [{ model: 'toyOldFridge' }], actions: ['snack'], fixed: true, quality: 'cheap', quirk: { chance: 0.15, moodlet: { id: 'offMilk', label: 'The milk was a little off', emoji: '🤢', value: -4, minutes: 60 } } },
+  { id: 'sinkCounter', name: 'Sink and counter', emoji: '🚰', price: 12_000, parts: [{ model: 'toySinkCounter' }], actions: [], fixed: true, quality: 'cheap' },
+  { id: 'oldToilet', name: 'Toilet', emoji: '🚽', price: 10_000, parts: [{ model: 'toyToilet' }], actions: ['toilet'], use: 'sitOn', fixed: true, quality: 'cheap' },
+  { id: 'tubShower', name: 'Tub and shower', emoji: '🛁', price: 25_000, parts: [{ model: 'toyTubShower' }], actions: ['shower'], use: 'stepIn', fixed: true, quality: 'cheap', quirk: { chance: 0.3, moodlet: { id: 'coldShower', label: 'The hot water ran out', emoji: '🥶', value: -5, minutes: 60 } } },
+  { id: 'posters', name: 'Posters', emoji: '🖼️', price: 1_500, parts: [{ model: 'toyPosters' }], actions: [], wall: true, quality: 'cheap' },
+  { id: 'windowAC', name: 'Window AC', emoji: '❄️', price: 9_000, parts: [{ model: 'toyWindowAC' }], actions: [], wall: true, quality: 'cheap' },
+  { id: 'pedestalSink', name: 'Bathroom sink', emoji: '🪥', price: 8_000, parts: [{ model: 'toyPedestalSink' }], actions: [], fixed: true, quality: 'cheap' },
 );

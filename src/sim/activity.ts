@@ -30,9 +30,9 @@ export function startAction(s: GameState, actionId: string): { ok: true; action:
   return { ok: true, action: a };
 }
 
-export function finishAction(s: GameState, a: ActionDef): ActionOutcome {
+export function finishAction(s: GameState, a: ActionDef, opts: { needsDone?: boolean } = {}): ActionOutcome {
   let earned = 0;
-  if (a.needs) applyNeeds(s, foodieBonus(s, a));
+  if (a.needs && !opts.needsDone) applyNeeds(s, foodieBonus(s, a));
   if (a.moodlet) addMoodlet(s, a.moodlet);
 
   let skillUp: string | null = null;
@@ -51,7 +51,7 @@ export function finishAction(s: GameState, a: ActionDef): ActionOutcome {
 }
 
 /** Foodies get extra fun from eating; night owls get extra fun from nightlife. */
-function foodieBonus(s: GameState, a: ActionDef): NonNullable<ActionDef['needs']> {
+export function foodieBonus(s: GameState, a: ActionDef): NonNullable<ActionDef['needs']> {
   const needs = { ...a.needs };
   if (s.profile.traits.includes('foodie') && a.tags.includes('eat')) needs.fun = (needs.fun ?? 0) + 10;
   if (s.profile.traits.includes('nightOwl') && a.tags.includes('nightlife')) needs.fun = (needs.fun ?? 0) + 10;

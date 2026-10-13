@@ -54,7 +54,8 @@ import { buildHome, type HomeInterior } from './world/home-interior.ts';
 import { loadFurnitureKit, type FurnitureKit } from './assets/furniture-kit.ts';
 import { layoutForPlace } from './data/homes.ts';
 import { VENUE_LAYOUT_FOR, VENUE_LAYOUTS } from './data/venues.ts';
-import { FURNITURE } from './data/furniture.ts';
+import { FURNITURE, FURNITURE_QUALITY } from './data/furniture.ts';
+import { beginActivity, completeActivity, stopActivity, tickActivity, activityProgress } from './sim/home-activity.ts';
 import { openCloset } from './ui/closet.ts';
 import { openStore } from './ui/store.ts';
 import { minigameFor } from './data/minigames.ts';
@@ -88,6 +89,9 @@ import { runOnboarding } from './ui/onboarding.ts';
 import { openPhone } from './ui/phone.ts';
 
 
+/** The sit-down clip lowers the hips about this far: stand this much below a seat's top. */
+const SEAT_DROP = 0.18;
+
 export class Game {
   private engine: Engine;
   private state!: GameState;
@@ -113,6 +117,8 @@ export class Game {
   /** The furniture piece being moved in move mode (home only). */
   private moving: { uid: string; bar: HTMLElement } | null = null;
   /** A finger dragging the held piece (move mode). */
+  /** Using a piece of furniture right now: the progress bar and how you're posed. */
+  private doing: { bar: ReturnType<typeof progressBar>; uid?: string; standX: number; standZ: number } | null = null;
   private indoor: { points: { x: number; z: number }[]; then?: () => void; face?: THREE.Vector3 } | null = null;
   private drag: { id: number; dx: number; dz: number; moved: boolean; sx: number; sy: number } | null = null;
 
@@ -333,6 +339,28 @@ export class Game {
       },
       walking: () => !!this.indoor,
       indoorRoute: () => (this.indoor ? this.indoor.points.map((q) => ({ ...q })) : null),
+      resetCam: () => this.fitInteriorCamera(),
+      animDebug: () => this.player.debug?.(),
+      holdPose: (name: FolkAnim, at: number | null) => {
+        this.player.setAction(name);
+        this.player.setHold(at);
+      },
+      activity: () => (this.state.activity ? { ...this.state.activity, posed: !!this.doing } : null),
+      needs: () => ({ ...this.state.needs }),
+      storage: () => [...(this.state.storage ?? [])],
+      homeItems: () => (this.interior && 'items' in this.interior ? (this.interior as HomeInterior).items.map((i) => ({ ...i })) : null),
+      blockedUse: () => (this.interior && 'blockedUse' in this.interior ? (this.interior as HomeInterior).blockedUse() : null),
+      /** Try a spot for a piece the way a drag-and-drop would: returns why not (null = placed). */
+      tryPlace: (uid: string, x: number, z: number) => {
+        const home = this.interior as HomeInterior;
+        home.beginMove(uid);
+        home.dragTo(uid, x, z);
+        const why = home.drop(uid);
+        home.endMove(uid, false);
+        this.saveHomeLayout();
+        return why;
+      },
+      playerRot: () => ({ x: this.player.root.rotation.x, y: this.player.root.rotation.y, py: this.player.root.position.y }),
       /** Open the closet (with the mirror, when at home). */
       closet: () => this.openClosetMirror(),
       wardrobe: () => [...this.state.wardrobe],
@@ -611,6 +639,7 @@ export class Game {
     } else if (this.engine.mode === 'interior' && this.interior) {
       this.interior.update(dt);
       this.player.animate(this.walkIndoors(dt), dt);
+      this.tickDoing();
       const ring = this.tapRing;
       if (ring?.visible) {
         ring.userData.t += dt;
@@ -776,6 +805,8 @@ export class Game {
       return;
     }
     if (this.engine.mode === 'interior' && this.interior) {
+      // Tapping anything while busy with a piece: get up first.
+      if (this.doing) this.stopDoing(true);
       const hit = this.engine.pick(x, y, this.interior.objects.map((o) => o.mesh), this.interiorCamera);
       const id = hit?.object.userData.objectId as string | undefined;
       const obj = id ? this.interior.objects.find((o) => o.id === id) : undefined;
@@ -783,7 +814,10 @@ export class Game {
         // Walk over to it, face it, then show what you can do with it.
         const centre = obj.mesh.getWorldPosition(new THREE.Vector3()).setY(0);
         const movable = (this.interior as HomeInterior).movable ? obj.id : undefined;
-        return this.walkInside(obj.stand.x, obj.stand.z, () => this.openObjectSheet(obj.label, obj.emoji, obj.actions, movable), centre);
+        const homeItem = 'items' in this.interior ? (this.interior as HomeInterior).items.find((i) => i.uid === obj.id) : undefined;
+        // The clothes rack / closet opens your clothes straight away.
+        const closet = homeItem && FURNITURE.get(homeItem.item)?.opens === 'closet';
+        return this.walkInside(obj.stand.x, obj.stand.z, () => (closet ? this.openClosetMirror(obj.id) : this.openObjectSheet(obj.label, obj.emoji, obj.actions, movable)), centre);
       }
       // The floor: just walk there.
       const home = this.interior as HomeInterior;
@@ -851,9 +885,10 @@ export class Game {
     this.walkTo(door.x, door.z);
   }
 
-  private onNav(which: 'here' | 'map' | 'phone' | 'leave'): void {
+  private onNav(which: 'here' | 'map' | 'phone' | 'leave' | 'storage'): void {
     if (this.busy) return;
     sfx.tap();
+    if (which === 'storage') return this.openStorage();
     if (which === 'leave') {
       // At home, stroll to the front door first.
       const home = this.interior as HomeInterior | null;
@@ -983,7 +1018,12 @@ export class Game {
     const isOffice = place?.type === 'work';
     // Home furniture that opens a screen (the closet).
     const homeItem = movableId && this.interior && 'items' in this.interior ? (this.interior as HomeInterior).items.find((i) => i.uid === movableId) : undefined;
-    const opensCloset = !!homeItem && FURNITURE.get(homeItem.item)?.opens === 'closet';
+    const homeDef = homeItem ? FURNITURE.get(homeItem.item) : undefined;
+    const opensCloset = homeDef?.opens === 'closet';
+    // Quality: how much it gives back (cheap pieces can leave a downside).
+    const q = homeDef?.quality ?? 'basic';
+    const qualityNote = homeDef && actionIds.length ? `<p class="blurb quality-note q-${q}"><b>${FURNITURE_QUALITY[q].label}</b> · gives back ${Math.round(FURNITURE_QUALITY[q].gain * 100)}%${homeDef.quirk ? ` · ${esc(homeDef.quirk.moodlet.emoji)} sometimes: ${esc(homeDef.quirk.moodlet.label.toLowerCase())}` : ''}</p>` : '';
+    const canMove = !!movableId && !homeDef?.fixed;
     const workBtn = isOffice && this.state.job && CAREER_BY_ID[this.state.job.careerId].placeId === place!.id ? '<button class="btn primary block" style="margin-bottom:10px" data-act="work">💼 Work a shift</button>' : '';
     const sheet = openSheet({
       emoji,
@@ -991,9 +1031,10 @@ export class Game {
       sub: place ? esc(place.name) : undefined,
       body:
         workBtn +
+        qualityNote +
         (actionIds.length || phoneOffer ? this.actionGrid(actionIds, open, phoneOffer) : `<p class="blurb">${isOffice ? 'This is a workplace. Apply for the job on your phone, then come back for shifts.' : movableId ? 'Just for looks — but it makes the place feel like home.' : 'Nothing to do here right now.'}</p>`) +
         (opensCloset ? '<button class="btn primary block" style="margin-top:10px" data-act="closet">👕 Open closet</button>' : '') +
-        (movableId ? '<button class="btn block" style="margin-top:10px" data-act="move-furniture">✋ Move this</button>' : ''),
+        (canMove ? '<div class="row" style="margin-top:10px"><button class="btn" style="flex:1" data-act="move-furniture">✋ Move</button><button class="btn" style="flex:1" data-act="store-furniture">📦 Put away</button></div>' : movableId && homeDef?.fixed ? '<p class="blurb" style="margin-top:10px">Built in: it stays where it is.</p>' : ''),
     });
     onAct(sheet.body, (act, el) => {
       sheet.close();
@@ -1004,8 +1045,13 @@ export class Game {
       }
       if (act === 'work') return void this.goToWork();
       if (act === 'move-furniture' && movableId) return this.startMoving(movableId);
-      if (act === 'closet') return this.openClosetMirror();
-      if (act.startsWith('do:')) void this.runAction(act.slice(3), el);
+      if (act === 'store-furniture' && movableId) return this.storeFurniture(movableId);
+      if (act === 'closet') return this.openClosetMirror(movableId);
+      if (act.startsWith('do:')) {
+        // At home: use the piece over time (with a pose and a Stop button).
+        if (movableId && homeItem) return this.useFurniture(movableId, act.slice(3));
+        void this.runAction(act.slice(3), el);
+      }
     });
   }
 
@@ -1022,6 +1068,7 @@ export class Game {
     const home = this.interior as HomeInterior | null;
     if (!home || !('floors' in home)) return;
     this.stopMoving(false);
+    this.stopDoing();
     this.indoor = null;
     const bar = html(`<div class="move-bar"><span>Drag it, or tap the floor</span><button class="btn" data-mv="turn" aria-label="Turn">↻</button><button class="btn" data-mv="cancel" aria-label="Cancel">✕</button><button class="btn primary" data-mv="done">✓ Done</button></div>`);
     root().appendChild(bar);
@@ -1153,6 +1200,7 @@ export class Game {
       if (!this.state.stats.placesVisited.includes(place.id)) this.state.stats.placesVisited.push(place.id);
       bus.emit('place:entered', { placeId: place.id });
       this.refreshHud(true);
+      this.resumeActivity(place.id);
     };
     if (!animate) return go();
     fade(true);
@@ -1188,7 +1236,8 @@ export class Game {
    * (framed in the top half of the screen, above the closet sheet) and
    * you turn to face it, so every change shows up close.
    */
-  private openClosetMirror(): void {
+  private openClosetMirror(rackUid?: string): void {
+    this.stopDoing();
     const inside = this.engine.mode === 'interior' && !!this.interior;
     const cam = this.mirrorCamera;
     const prevYaw = this.player.root.rotation.y;
@@ -1228,6 +1277,7 @@ export class Game {
         this.save();
       },
       turn: inside ? () => { yaw += Math.PI / 2; frame(); } : undefined,
+      move: rackUid ? () => window.setTimeout(() => this.startMoving(rackUid), 350) : undefined,
       onClose: () => {
         document.body.classList.remove('mirror');
         if (!inside || this.engine.altCamera !== cam) return;
@@ -1239,6 +1289,7 @@ export class Game {
 
   private leaveInterior(): void {
     if (!this.interior) return;
+    this.stopDoing();
     this.indoor = null;
     this.stopMoving(true);
     const placeId = this.state.location.placeId;
@@ -1265,8 +1316,257 @@ export class Game {
   // Doing things
   // ===================================================================
 
+  // ===================================================================
+  // Furniture storage: pieces you own that aren't placed
+  // ===================================================================
+
+  /** Put a piece away: it leaves the room and waits in Storage. */
+  private storeFurniture(uid: string): void {
+    const home = this.interior as HomeInterior | null;
+    if (!home || !('removePiece' in home)) return;
+    const it = home.items.find((i) => i.uid === uid);
+    const def = it && FURNITURE.get(it.item);
+    if (!it || !def || def.fixed) return;
+    this.stopDoing();
+    home.removePiece(uid);
+    (this.state.storage ??= []).push(it.item);
+    this.saveHomeLayout();
+    toast(`${def.emoji} ${def.name} put away. It's in Storage`, { icon: '📦', ms: 2200 });
+  }
+
+  /** Remember this home's furniture as it is now. */
+  private saveHomeLayout(): void {
+    const home = this.interior as HomeInterior | null;
+    const placeId = this.state.location.placeId;
+    if (home && 'items' in home && placeId) this.state.homes[placeId] = home.items.map((i) => ({ ...i }));
+    this.save();
+  }
+
+  /** Storage: everything you own that isn't out. Tap Place to bring it in. */
+  private openStorage(): void {
+    const home = this.interior as HomeInterior | null;
+    if (!home || !('addPiece' in home)) return;
+    this.stopMoving(true);
+    const stored = this.state.storage ?? [];
+    const counts = new Map<string, number>();
+    for (const id of stored) counts.set(id, (counts.get(id) ?? 0) + 1);
+    const rows = [...counts].map(([id, n]) => {
+      const d = FURNITURE.get(id);
+      if (!d) return '';
+      const q = FURNITURE_QUALITY[d.quality ?? 'basic'].label;
+      return `<button class="list-item tap" style="width:100%;font:inherit;text-align:left" data-act="place:${id}"><span style="font-size:26px" aria-hidden="true">${d.emoji}</span><span class="grow"><div class="title">${esc(d.name)}${n > 1 ? ` ×${n}` : ''}</div><div class="sub">${q} · ${d.actions.length ? 'usable' : 'decoration'}</div></span><span class="btn">Place</span></button>`;
+    }).join('');
+    const sheet = openSheet({
+      emoji: '📦',
+      title: 'Storage',
+      sub: 'Furniture you own that isn’t out',
+      body: rows ? `<div>${rows}</div>` : '<p class="blurb">Nothing in storage. Tap a piece of furniture and choose “Put away” to store it here.</p>',
+    });
+    onAct(sheet.body, (act) => {
+      if (!act.startsWith('place:')) return;
+      sheet.close();
+      const item = act.slice(6);
+      const p = this.player.root.position;
+      const uid = home.addPiece(item, p.x, p.z + 0.8);
+      if (!uid) return toast('No room for that right now. Put something away first', { icon: '📦', tone: 'bad' });
+      const k = stored.indexOf(item);
+      if (k >= 0) stored.splice(k, 1);
+      this.saveHomeLayout();
+      // Straight into move mode, so you can put it exactly where you want.
+      this.startMoving(uid);
+    });
+  }
+
+  // ===================================================================
+  // Using furniture at home (sim/home-activity.ts)
+  // ===================================================================
+
+  /**
+   * Use a piece: start the activity (charges any cost), pose on it (lie on
+   * the bed, sit on the couch or toilet, sit at the desk, step into the
+   * shower), and fill the needs in over time. Stop any time.
+   * TV actions sit you on the nearest couch or chair first.
+   */
+  private useFurniture(uid: string, actionId: string, step: 'new' | 'atSeat' | 'resume' = 'new'): void {
+    const home = this.interior as HomeInterior | null;
+    if (!home || !('pieceInfo' in home)) return;
+    const resume = step === 'resume';
+    if (!resume) this.stopDoing();
+    const a = ACTIONS[actionId];
+    // TV: sit on the nearest couch or chair to watch (walk there first).
+    const seat = a?.tags.includes('tv') ? this.nearestSeat(home, uid) : null;
+    if (seat && step === 'new') {
+      const obj = home.objects.find((o) => o.id === seat)!;
+      const tv = home.objects.find((o) => o.id === uid)!;
+      return this.walkInside(obj.stand.x, obj.stand.z, () => this.useFurniture(uid, actionId, 'atSeat'), tv.mesh.position.clone());
+    }
+    const target = seat ?? uid;
+    const info = home.pieceInfo(uid);
+    if (!info) return;
+    if (!resume) {
+      const r = beginActivity(this.state, actionId, { uid, item: info.item, placeId: this.state.location.placeId });
+      if (!r.ok) return toast(r.why, { icon: '🔒', tone: 'bad' });
+    }
+    const act = this.state.activity!;
+    if (act.actionId === 'watchTv') this.interior?.playTvAd?.();
+    const stand = this.player.root.position.clone();
+    this.posePlayer(home, target, actionId);
+    const action = ACTIONS[act.actionId];
+    const bar = progressBar(`${action.emoji} ${action.label}…`, { skipLabel: 'Stop', onSkip: () => this.stopDoing(true), compact: true });
+    bar.set(activityProgress(act));
+    this.doing = { bar, uid: target, standX: stand.x, standZ: stand.z };
+    this.save();
+  }
+
+  /**
+   * Back home after a reload: carry on with what you were doing (posed on
+   * the piece, bar where it was), or wrap it up if the time already ran out.
+   */
+  private resumeActivity(placeId: string): void {
+    const act = this.state.activity;
+    if (!act) return;
+    const home = this.interior as HomeInterior | null;
+    const here = act.placeId === placeId && !!act.uid && !!home && 'pieceInfo' in home && !!home.pieceInfo(act.uid);
+    if (!here) {
+      stopActivity(this.state);
+      return;
+    }
+    if (activityProgress(act) >= 1) {
+      const res = completeActivity(this.state);
+      if (res) toast(`${res.action.emoji} ${res.action.label} — finished while you were away`, { tone: 'good', ms: 3000 });
+      if (res?.quirk) toast(res.quirk.label, { icon: res.quirk.emoji, tone: res.quirk.value < 0 ? 'bad' : 'good', ms: 3500 });
+      this.save();
+      return;
+    }
+    const obj = home!.objects.find((o) => o.id === act.uid);
+    if (obj) this.player.root.position.copy(obj.stand);
+    this.useFurniture(act.uid!, act.actionId, 'resume');
+  }
+
+  /** The nearest seat (couch, armchair) to a piece, by uid. */
+  private nearestSeat(home: HomeInterior, uid: string): string | null {
+    const me = home.items.find((i) => i.uid === uid);
+    if (!me) return null;
+    let best: string | null = null, bd = 5;
+    for (const it of home.items) {
+      if (!FURNITURE.get(it.item)?.seat) continue;
+      const d = Math.hypot(it.x - me.x, it.z - me.z);
+      if (d < bd) { bd = d; best = it.uid; }
+    }
+    return best;
+  }
+
+  /** Put the character on/in/at a piece for an activity. */
+  private posePlayer(home: HomeInterior, uid: string, actionId: string): void {
+    const info = home.pieceInfo(uid);
+    const obj = home.objects.find((o) => o.id === uid);
+    if (!info || !obj) return;
+    const def = FURNITURE.get(info.item)!;
+    const use = def.use ?? 'stand';
+    const root = this.player.root;
+    const up = new THREE.Vector3(0, 1, 0);
+    const local = (lx: number, lz: number) => new THREE.Vector3(lx, 0, lz).applyAxisAngle(up, info.rot).add(new THREE.Vector3(info.x, 0, info.z));
+    // The surface height under a spot (the mattress, the seat, the tub floor).
+    const surface = (p: THREE.Vector3) => {
+      const ray = new THREE.Raycaster(new THREE.Vector3(p.x, 3, p.z), new THREE.Vector3(0, -1, 0));
+      obj.mesh.updateMatrixWorld(true);
+      const hit = ray.intersectObject(obj.mesh, true)[0];
+      return hit ? hit.point.y : 0;
+    };
+    const fp = info.fp;
+    const cz = (fp.minZ + fp.maxZ) / 2, depth = fp.maxZ - fp.minZ;
+    root.rotation.set(0, 0, 0, 'XYZ');
+    if (use === 'lie') {
+      // On your back, head on the pillow (the back of the bed), feet towards the foot.
+      const p = local(0, cz + depth * 0.22);
+      root.position.set(p.x, surface(local(0, cz)) + 0.08, p.z);
+      root.rotation.set(-Math.PI / 2, info.rot, 0, 'YXZ');
+      this.player.setAction('idle');
+    } else if (use === 'sitOn' || use === 'sitAt') {
+      // Couches and toilets: sit facing out. Desks: sit on the chair, facing the desk.
+      const p = use === 'sitAt' ? local(0, fp.maxZ - 0.22) : local(0, cz + depth * 0.12);
+      root.position.set(p.x, Math.max(0, surface(p) - SEAT_DROP), p.z);
+      root.rotation.y = use === 'sitAt' ? info.rot + Math.PI : info.rot;
+      this.player.setAction('sit');
+      this.player.setHold(1);
+    } else if (use === 'stepIn') {
+      const p = local(0, cz);
+      root.position.set(p.x, surface(p), p.z);
+      root.rotation.y = info.rot;
+      this.player.setAction('idle');
+    } else {
+      // Stand at it, facing it: cooking and grabbing food reach in.
+      root.position.copy(obj.stand);
+      root.rotation.y = Math.atan2(info.x - obj.stand.x, info.z - obj.stand.z);
+      const a = ACTIONS[actionId];
+      if (a?.tags.includes('eat') || a?.tags.includes('cook')) {
+        // Reaching in: hold the pick-up clip at its lowest point.
+        this.player.setAction('pickup');
+        this.player.setHold(0.45);
+      } else this.player.setAction('idle');
+    }
+  }
+
+  /** Every frame at home: fill the needs in, move the bar, finish when done. */
+  private tickDoing(): void {
+    if (!this.doing || !this.state.activity) return;
+    const f = tickActivity(this.state);
+    this.doing.bar.set(f);
+    if (f >= 1) this.finishDoing();
+  }
+
+  private finishDoing(): void {
+    const d = this.doing;
+    if (!d) return;
+    this.doing = null;
+    d.bar.remove();
+    const res = completeActivity(this.state);
+    this.unpose(d);
+    if (!res) return;
+    const a = res.action;
+    const recovered = recordVariety(this.state, a.id);
+    if (recovered) toast(recovered, { icon: '🌤️', tone: 'good', ms: 4500 });
+    const bits = [`${a.emoji} ${a.label} — done`];
+    if (res.earned > 0) bits.push(`+${money(res.earned)}`);
+    toast(bits.join(' · '), { tone: 'good' });
+    if (res.quirk) toast(res.quirk.label, { icon: res.quirk.emoji, tone: res.quirk.value < 0 ? 'bad' : 'good', ms: 3500 });
+    if (res.skillUp) {
+      toast(`Skill up! ${res.skillUp.replace(/^\w/, (c) => c.toUpperCase())}`, { icon: '⭐', tone: 'good' });
+      sfx.notify();
+    }
+    this.save();
+    this.refreshHud(true);
+  }
+
+  /** Stop using a piece early: keep what you got so far. */
+  private stopDoing(announce = false): void {
+    const d = this.doing;
+    if (!d) {
+      // An activity left over (e.g. from another room): just end it.
+      if (this.state.activity) stopActivity(this.state);
+      return;
+    }
+    this.doing = null;
+    d.bar.remove();
+    const pct = Math.round((this.state.activity ? tickActivity(this.state) : 0) * 100);
+    const a = stopActivity(this.state);
+    this.unpose(d);
+    if (announce && a) toast(`${a.emoji} Stopped ${a.label.toLowerCase()} · ${pct}% done`, { ms: 1800 });
+    this.save();
+    this.refreshHud(true);
+  }
+
+  /** Get up: back on your feet where you started. */
+  private unpose(d: { standX: number; standZ: number }): void {
+    const root = this.player.root;
+    root.rotation.set(0, root.rotation.order === 'YXZ' ? root.rotation.y : root.rotation.y, 0, 'XYZ');
+    root.position.set(d.standX, 0, d.standZ);
+    this.player.setAction(null);
+  }
+
   private async runAction(actionId: string, _el?: HTMLElement): Promise<void> {
     if (this.busy) return;
+    this.stopDoing();
     const r = startAction(this.state, actionId);
     if (!r.ok) return toast(r.why, { icon: '🔒', tone: 'bad' });
     this.busy = true;
@@ -1862,6 +2162,7 @@ export class Game {
     const goal = currentGoal(s);
     this.hud.update(s, where, {
       inside,
+      atHome: inside && !!this.interior && 'removePiece' in this.interior && (this.interior as HomeInterior).movable,
       canWork: !!s.job && !blocker && !this.busy,
       workLabel: s.job ? `Work a shift for ${money(CAREER_BY_ID[s.job.careerId].ladder[Math.min(s.job.level, 4)].pay)}` : '',
       goal: goal ? { title: goal.title, hint: goal.hint } : null,

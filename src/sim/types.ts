@@ -168,6 +168,10 @@ export interface GameState {
   events: { lastFiredAt: number; cooldowns: Record<string, number> };
   /** Each home's furniture arrangement, by home place id (see data/homes.ts). */
   homes: Record<string, { uid: string; item: string; x: number; z: number; rot: number }[]>;
+  /** Furniture you own that isn't placed anywhere (item ids). */
+  storage?: string[];
+  /** What you're doing right now at home (sim/home-activity.ts), if anything. */
+  activity?: import('./home-activity.ts').Activity | null;
   news: NewsItem[];
   tutorialStep: number;
   settings: { quality: 'auto' | 'low' | 'medium' | 'high'; sound: boolean };

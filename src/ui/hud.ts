@@ -19,7 +19,7 @@ import { NEED_LOW } from '../core/constants.ts';
 import { html, root } from './dom.ts';
 
 export interface HudHandlers {
-  onNav: (which: 'here' | 'map' | 'phone' | 'leave') => void;
+  onNav: (which: 'here' | 'map' | 'phone' | 'leave' | 'storage') => void;
   onMoney: () => void;
   onWork: () => void;
   onMenu: () => void;
@@ -59,11 +59,12 @@ export class Hud {
           <button data-nav="here"><span class="dock-ico" aria-hidden="true">📍</span><span>Here</span></button>
           <button data-nav="map"><span class="dock-ico" aria-hidden="true">🗺️</span><span>Map</span></button>
           <button data-nav="phone"><span class="dock-ico" aria-hidden="true">📱</span><span>Phone</span></button>
+          <button data-nav="storage" hidden><span class="dock-ico" aria-hidden="true">📦</span><span>Storage</span></button>
           <button data-nav="leave" hidden><span class="dock-ico" aria-hidden="true">🚪</span><span>Go outside</span></button>
         </nav>
       </div>`);
     root().appendChild(this.el);
-    this.el.querySelectorAll<HTMLElement>('[data-nav]').forEach((b) => b.addEventListener('click', () => this.h.onNav(b.dataset.nav as 'here' | 'map' | 'phone' | 'leave')));
+    this.el.querySelectorAll<HTMLElement>('[data-nav]').forEach((b) => b.addEventListener('click', () => this.h.onNav(b.dataset.nav as 'here' | 'map' | 'phone' | 'leave' | 'storage')));
     this.el.querySelector('[data-money]')!.addEventListener('click', () => this.h.onMoney());
     this.el.querySelector('[data-menu]')!.addEventListener('click', () => this.h.onMenu());
     this.el.querySelector('[data-work]')!.addEventListener('click', () => this.h.onWork());
@@ -73,7 +74,7 @@ export class Hud {
     this.el.querySelectorAll<HTMLElement>('.metrocard, .bullets, .dock, .work-btn, .speak-btn').forEach((x) => (x.style.pointerEvents = 'auto'));
   }
 
-  update(s: GameState, where: Where, opts: { inside: boolean; canWork: boolean; workLabel: string; goal: { title: string; hint: string } | null }): void {
+  update(s: GameState, where: Where, opts: { inside: boolean; atHome?: boolean; canWork: boolean; workLabel: string; goal: { title: string; hint: string } | null }): void {
     const t = nycTime();
     const w = WEATHER_INFO[weatherFor(t.dateKey, t.hour)];
     const mood = computeMood(s);
@@ -104,6 +105,7 @@ export class Hud {
     work.hidden = !opts.canWork;
     work.querySelector('[data-work-label]')!.textContent = opts.workLabel;
     (this.el.querySelector('[data-nav="leave"]') as HTMLElement).hidden = !opts.inside;
+    (this.el.querySelector('[data-nav="storage"]') as HTMLElement).hidden = !opts.atHome;
     (this.el.querySelector('[data-nav="here"]') as HTMLElement).hidden = opts.inside;
     (this.el.querySelector('[data-speak]') as HTMLElement).hidden = opts.inside;
     const goal = this.el.querySelector<HTMLElement>('[data-goal]')!;

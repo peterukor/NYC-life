@@ -50,6 +50,14 @@ export interface HomeInterior extends Interior {
   spotFree: (x: number, z: number) => boolean;
   /** A walk around the furniture from one spot to another (null = no way there). */
   walkPath: (fx: number, fz: number, tx: number, tz: number) => { x: number; z: number }[] | null;
+  /** Take a piece out of the home (into storage). */
+  removePiece: (uid: string) => void;
+  /** Bring a piece in at the free spot nearest (x, z). Returns its uid, or null if there's no room. */
+  addPiece: (item: string, x: number, z: number) => string | null;
+  /** A piece's spot, turn and footprint (for posing the player on it). */
+  pieceInfo: (uid: string) => { item: string; x: number; z: number; rot: number; fp: Footprint } | null;
+  /** The first piece you use that can't be reached from the door (null = all fine). */
+  blockedUse: () => string | null;
   /** Pieces standing where they shouldn't (for QA of the home layouts). */
   clashes: () => { uid: string; why: string }[];
   /** Glow the piece being moved (null = none). */
@@ -201,6 +209,25 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
   };
   // Where you can walk: rebuilt (lazily) whenever furniture moves.
   let grid: WalkGrid | null = null;
+  /**
+   * Can you still reach everything you use (bed, stove, shower…) from the
+   * front door? Fitting on the floor isn't enough: a couch can fit and
+   * still wall off the kitchen. Returns the first piece you can't reach.
+   */
+  const blockedUse = (): string | null => {
+    const g = new WalkGrid(fit);
+    const door = { x: 0, z: hd - 1 };
+    const v = new THREE.Vector3();
+    for (const it of items) {
+      const def = FURNITURE.get(it.item);
+      if (!def || !(def.actions.length || def.opens || def.placeActions)) continue;
+      standFor(it, v);
+      const path = g.path(door.x, door.z, v.x, v.z);
+      const end = path?.[path.length - 1];
+      if (!end || Math.hypot(end.x - v.x, end.z - v.z) > 0.35) return def.name;
+    }
+    return null;
+  };
   const refreshStands = () => {
     grid = null;
     for (const it of items) {
@@ -216,9 +243,10 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
     g.rotation.y = it.rot;
   };
 
-  for (const it of items) {
+  /** Build a piece's 3D group and tap target. */
+  const addPiece = (it: HomeItem) => {
     const def = FURNITURE.get(it.item);
-    if (!def) continue;
+    if (!def) return;
     const g = new THREE.Group();
     g.name = `furniture-${it.uid}`;
     for (const p of def.parts) {
@@ -243,7 +271,8 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
     const label = def.placeActions ? place.name : def.name;
     objects.push({ id: it.uid, label, emoji: def.placeActions ? place.emoji : def.emoji, mesh: g, actions: def.placeActions ? opts.placeActions ?? [] : def.actions, stand: new THREE.Vector3() });
     placeGroup(it);
-  }
+  };
+  for (const it of items) addPiece(it);
   refreshStands();
 
   // TV: the ad shows only when you turn the TV on, briefly and clearly.
@@ -393,7 +422,11 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
     drop(uid) {
       const it = heldItem(uid);
       if (!it || !hold) return null;
-      const why = whyNot(fit, uid, it.x, it.z, it.rot);
+      let why = whyNot(fit, uid, it.x, it.z, it.rot);
+      if (!why) {
+        const cut = blockedUse();
+        if (cut) why = `That blocks the way to the ${cut.toLowerCase()}`;
+      }
       if (why) putBack(it, hold.okX, hold.okZ, hold.okRot);
       else Object.assign(hold, { okX: it.x, okZ: it.z, okRot: it.rot });
       updateShade(it);
@@ -403,7 +436,7 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
       const it = heldItem(uid);
       if (it && hold) {
         if (cancel) putBack(it, hold.startX, hold.startZ, hold.startRot);
-        else if (whyNot(fit, uid, it.x, it.z, it.rot)) putBack(it, hold.okX, hold.okZ, hold.okRot);
+        else if (whyNot(fit, uid, it.x, it.z, it.rot) || blockedUse()) putBack(it, hold.okX, hold.okZ, hold.okRot);
       }
       hold = null;
       shade.visible = edge.visible = false;
@@ -415,6 +448,56 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
       return it ? { x: it.x, z: it.z } : null;
     },
     spotFree: (x, z) => spotFree(fit, x, z),
+    removePiece(uid) {
+      const k = items.findIndex((i) => i.uid === uid);
+      if (k < 0) return;
+      items.splice(k, 1);
+      const g = groups.get(uid);
+      g?.removeFromParent();
+      groups.delete(uid);
+      const o = objects.findIndex((x) => x.id === uid);
+      if (o >= 0) objects.splice(o, 1);
+      if (tvScreen && g && g.children.some((c) => (c as THREE.Mesh).material === tvScreen)) tvScreen = null;
+      refreshStands();
+    },
+    addPiece(item, x, z) {
+      const def = FURNITURE.get(item);
+      if (!def) return null;
+      let n = 1;
+      while (items.some((i) => i.uid === `${item}-${n}`)) n++;
+      const it: HomeItem = { uid: `${item}-${n}`, item, x, z, rot: 0 };
+      items.push(it);
+      // Search outwards from (x, z) on a 20 cm grid for a spot it fits (both turns).
+      let found = false;
+      outer: for (let ring = 0; ring < 40; ring++) {
+        for (let dz = -ring; dz <= ring; dz++) for (let dx = -ring; dx <= ring; dx++) {
+          if (Math.max(Math.abs(dx), Math.abs(dz)) !== ring) continue;
+          for (const rot of [0, Math.PI / 2, Math.PI, -Math.PI / 2]) {
+            let px = Math.round((x + dx * 0.2) * 10) / 10, pz = Math.round((z + dz * 0.2) * 10) / 10, pr = rot;
+            if (def.wall) ({ x: px, z: pz, rot: pr } = snapToWall(fit, item, px, pz));
+            if (!whyNot(fit, it.uid, px, pz, pr)) {
+              Object.assign(it, { x: px, z: pz, rot: pr });
+              if (blockedUse()) continue;
+              found = true;
+              break outer;
+            }
+          }
+        }
+      }
+      if (!found) {
+        items.pop();
+        return null;
+      }
+      addPiece(it);
+      refreshStands();
+      return it.uid;
+    },
+    blockedUse: () => blockedUse(),
+    pieceInfo: (uid) => {
+      const it = items.find((i) => i.uid === uid);
+      const fp = it && fit.footprint(it.item);
+      return it && fp ? { item: it.item, x: it.x, z: it.z, rot: it.rot, fp } : null;
+    },
     walkPath: (fx, fz, tx, tz) => (grid ??= new WalkGrid(fit)).path(fx, fz, tx, tz),
     clashes: () => items.flatMap((i) => {
       const why = whyNot(fit, i.uid, i.x, i.z, i.rot);

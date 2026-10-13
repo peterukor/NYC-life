@@ -94,8 +94,8 @@ export function openModal(markup: string): { el: HTMLElement; close: () => void 
 }
 
 /** Progress bar for actions in progress. Returns an updater and a remover. */
-export function progressBar(label: string, opts: { skipLabel?: string; onSkip?: () => void } = {}): { set: (f: number, label?: string) => void; remove: () => void } {
-  const el = html(`<div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100"><span class="lbl">${esc(label)}</span><div class="bar"><i></i></div>${opts.onSkip ? `<button class="btn skip">${esc(opts.skipLabel ?? 'Skip')}</button>` : ''}</div>`);
+export function progressBar(label: string, opts: { skipLabel?: string; onSkip?: () => void; compact?: boolean } = {}): { set: (f: number, label?: string) => void; remove: () => void } {
+  const el = html(`<div class="progress${opts.compact ? ' compact' : ''}" role="progressbar" aria-valuemin="0" aria-valuemax="100"><span class="lbl">${esc(label)}</span><div class="bar"><i></i></div>${opts.onSkip ? `<button class="btn skip">${esc(opts.skipLabel ?? 'Skip')}</button>` : ''}</div>`);
   root().appendChild(el);
   if (opts.onSkip) el.querySelector('.skip')!.addEventListener('click', () => opts.onSkip!());
   const bar = el.querySelector<HTMLElement>('.bar i')!;

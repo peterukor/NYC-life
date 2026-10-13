@@ -48,6 +48,8 @@ export interface ClosetHooks {
   apply: (look: Look) => void;
   /** Turn the character a quarter round in the mirror (only at home). */
   turn?: () => void;
+  /** Move the rack/closet itself (closes the closet first). */
+  move?: () => void;
   onClose?: () => void;
 }
 
@@ -121,7 +123,8 @@ export function openCloset(state: GameState, hooks: ClosetHooks | ((look: Look) 
     host.innerHTML = `
       <div class="closet-tabs" role="tablist">${TABS.map((t) => `<button role="tab" aria-selected="${t.tab === tab}" data-tab="${t.tab}">${t.label}</button>`).join('')}</div>
       ${tab === 'outfits' ? outfitsTab() : itemsTab(tab)}
-      ${h.turn ? '<button class="closet-turn" data-turn="1">↻ Turn around</button>' : ''}`;
+      ${h.turn ? '<button class="closet-turn" data-turn="1">↻ Turn around</button>' : ''}
+      ${h.move ? '<button class="closet-turn" data-move="1">✋ Move the rack</button>' : ''}`;
   };
 
   /** Only wear saved pieces you still own (hair is always yours). */
@@ -138,11 +141,15 @@ export function openCloset(state: GameState, hooks: ClosetHooks | ((look: Look) 
   };
 
   host.addEventListener('click', (e) => {
-    const el = (e.target as HTMLElement).closest<HTMLElement>('[data-tab],[data-wear],[data-color],[data-turn],[data-outfit],[data-save],[data-clear]');
+    const el = (e.target as HTMLElement).closest<HTMLElement>('[data-tab],[data-wear],[data-color],[data-turn],[data-move],[data-outfit],[data-save],[data-clear]');
     if (!el) return;
     const d = el.dataset;
     if (d.tab) tab = d.tab as Tab;
     else if (d.turn) return h.turn?.();
+    else if (d.move) {
+      sheet.close();
+      return h.move?.();
+    }
     else if (d.outfit !== undefined) wearOutfit(outfits[+d.outfit]!);
     else if (d.save !== undefined) {
       outfits[+d.save] = { ...look };

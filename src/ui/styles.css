@@ -174,6 +174,11 @@ a { color: var(--info); }
 .progress { position: absolute; left: 50%; bottom: calc(var(--safe-bottom) + 160px); transform: translateX(-50%); width: min(86vw, 360px); padding: 12px 14px; border: var(--line); border-radius: 20px; background: var(--paper); box-shadow: var(--drop); font-size: 15px; }
 .progress .bar { height: 14px; margin-top: 8px; border: var(--line-thin); border-radius: 999px; background: var(--paper-2); overflow: hidden; }
 .progress .skip { display: block; width: 100%; margin-top: 10px; padding: 8px 12px; pointer-events: auto; }
+/* Using furniture at home: a slim bar up top, so you can watch yourself do it. */
+.progress.compact { top: calc(var(--safe-top, 0px) + 150px); bottom: auto; display: grid; grid-template-columns: 1fr auto; align-items: center; column-gap: 10px; padding: 8px 10px 8px 14px; font-size: 13px; border-radius: 16px; }
+.progress.compact .lbl { grid-column: 1; }
+.progress.compact .bar { grid-column: 1; height: 10px; margin-top: 5px; }
+.progress.compact .skip { grid-column: 2; grid-row: 1 / span 2; width: auto; margin: 0; padding: 7px 14px; }
 .progress .bar i { display: block; height: 100%; width: 0; background: repeating-linear-gradient(-45deg, var(--cab) 0 10px, #ffd75e 10px 20px); }
 
 /* -------------------------------------------------------------- modal */
@@ -337,6 +342,12 @@ a { color: var(--info); }
 .closet-colors .sw { width: 34px; height: 34px; border-radius: 50%; border: var(--line-thin); box-shadow: var(--drop-sm); }
 .closet-colors .sw.on { outline: 3px solid #ffc629; outline-offset: 2px; }
 .closet-more { margin-top: 10px; }
+/* Furniture quality line in an object's sheet (cheap / basic / nice / luxury). */
+.quality-note { margin: 0 0 10px; font-size: 13px; }
+.quality-note b { display: inline-block; padding: 1px 8px; border-radius: 8px; background: var(--paper-2); color: var(--ink); }
+.quality-note.q-cheap b { background: #ffe1d6; color: #8a3b12; }
+.quality-note.q-nice b { background: #dbe7ff; color: #1d3a8a; }
+.quality-note.q-luxury b { background: #ffe08a; color: #7a4b00; }
 /* At home the closet is a mirror: a shorter sheet, no dimming, you stay in view. */
 .sheet.closet-sheet { max-height: 54dvh; }
 body.mirror .hud { opacity: 0; visibility: hidden; transition: opacity 0.2s, visibility 0.2s; }

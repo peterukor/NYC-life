@@ -125,6 +125,9 @@ export function newLife(opts: NewLifeOptions): GameState {
     stats: { actionsDone: {}, placesVisited: [home.id], eventsSeen: {}, scamsFallenFor: 0, scamsSpotted: 0, earnedToday: 0, dayKey: today },
     events: { lastFiredAt: now, cooldowns: {} },
     homes: {},
+    // Starting broke: a couple of things still in boxes from the move.
+    storage: spawnClass === 'poor' ? ['floorLamp', 'plant'] : [],
+    activity: null,
     auto: { on: false, routine: [], since: 0 },
     portfolio: {},
     paths: newPathsState(),
