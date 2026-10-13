@@ -30,7 +30,7 @@ import { TILE } from './atlas.ts';
 import type { CityMeshBuilder } from './builder.ts';
 
 export type Style = 'brownstone' | 'walkup' | 'prewar' | 'modern' | 'glass' | 'deco';
-export type Face = 'n' | 's';
+export type Face = 'n' | 's' | 'e' | 'w';
 type RoofKind = 'tower' | 'garden' | 'plain' | 'solar' | 'ac' | 'bar';
 
 export interface BuildingPlan {
@@ -38,10 +38,10 @@ export interface BuildingPlan {
   id: number;
   style: Style;
   rect: Rect;
-  /** Which street the front faces. */
+  /** Which street the front faces ('e' / 'w' = an avenue, for the buildings along a block's avenue sides). */
   front: Face;
-  /** An open side facing an avenue (corner lot), or null. */
-  corner: 'e' | 'w' | null;
+  /** An open side (corner lot: the side facing the other street), or null. */
+  corner: Face | null;
   floors: number;
   floorH: number;
   /** Total height including setbacks/crowns (for see-through & billboards). */
@@ -251,6 +251,56 @@ export function planNycBlock(inner: Rect, zone: string, rng: Rng, nearHub: boole
 
 const DARK_METAL = '#2c3038';
 
+// ---------------------------------------------------------------------
+// The front of a building, in its own terms: 'a' runs along the front
+// wall, 'o' goes out from it into the street. Lets the front details
+// (awnings, stoops, ledges, fire escapes) work on any of the four sides.
+// ---------------------------------------------------------------------
+interface Front {
+  axis: 'x' | 'z';
+  /** The front wall's x (axis 'z') or z (axis 'x'). */
+  wall: number;
+  out: 1 | -1;
+  a0: number;
+  a1: number;
+  /** Face letters (builder.box) for the front and for the two ends. */
+  face: string;
+  ends: string;
+}
+function frontOf(p: BuildingPlan, r: Rect): Front {
+  switch (p.front) {
+    case 'n': return { axis: 'x', wall: r.minZ, out: -1, a0: r.minX, a1: r.maxX, face: 'n', ends: 'ew' };
+    case 's': return { axis: 'x', wall: r.maxZ, out: 1, a0: r.minX, a1: r.maxX, face: 's', ends: 'ew' };
+    case 'w': return { axis: 'z', wall: r.minX, out: -1, a0: r.minZ, a1: r.maxZ, face: 'w', ends: 'ns' };
+    default: return { axis: 'z', wall: r.maxX, out: 1, a0: r.minZ, a1: r.maxZ, face: 'e', ends: 'ns' };
+  }
+}
+/** World point at (along a, height y, out o) from a front. */
+function fp(f: Front, a: number, y: number, o: number): { x: number; y: number; z: number } {
+  return f.axis === 'x' ? { x: a, y, z: f.wall + f.out * o } : { x: f.wall + f.out * o, y, z: a };
+}
+/** Does going from a0 to a1 run "rightwards" along the front (so quads face out)? */
+function rightwards(f: Front): boolean {
+  return f.axis === 'x' ? f.out > 0 : f.out < 0;
+}
+/** A quad standing on the front: a from s to e, bottom edge at (yb, ob), top edge at (yt, ot). Faces out. */
+function frontQuad(b: CityMeshBuilder, f: Front, s: number, e: number, yb: number, ob: number, yt: number, ot: number, color: string, tile = 0, cu = 1, cv = 1): void {
+  const [p, q] = rightwards(f) ? [s, e] : [e, s];
+  b.quad(fp(f, p, yb, ob), fp(f, q, yb, ob), fp(f, q, yt, ot), fp(f, p, yt, ot), color, tile, cu, cv);
+}
+/** A box in front terms (a range, y range, o range); `faces` uses f = front, k = back, s = ends, t, b. */
+function frontBox(b: CityMeshBuilder, f: Front, a0: number, a1: number, y0: number, y1: number, o0: number, o1: number, color: string, faces: string): void {
+  const p0 = fp(f, a0, 0, o0), p1 = fp(f, a1, 0, o1);
+  const back = { n: 's', s: 'n', e: 'w', w: 'e' }[f.face as 'n'];
+  let fs = '';
+  if (faces.includes('f')) fs += f.face;
+  if (faces.includes('k')) fs += back;
+  if (faces.includes('s')) fs += f.ends;
+  if (faces.includes('t')) fs += 't';
+  if (faces.includes('b')) fs += 'b';
+  b.box(Math.min(p0.x, p1.x), Math.max(p0.x, p1.x), y0, y1, Math.min(p0.z, p1.z), Math.max(p0.z, p1.z), color, fs);
+}
+
 /** Walls of one tier: front/back/sides with the right tiles. */
 function walls(b: CityMeshBuilder, p: BuildingPlan, r: Rect, y0: number, floors: number, groundTile: number | null, tile: number, simple: boolean): void {
   const rule = STYLE_RULES[p.style];
@@ -261,19 +311,22 @@ function walls(b: CityMeshBuilder, p: BuildingPlan, r: Rect, y0: number, floors:
   const baysX = Math.max(1, Math.round(wx / rule.bay));
   const baysZ = Math.max(1, Math.round(wz / rule.bay));
   const u0 = (p.seed % 7) * 0.0; // keep windows aligned to the wall edges
-  const sideTile = (side: 'e' | 'w') => (p.corner === side || p.tiers.length > 1 || p.style === 'glass' || p.style === 'deco' ? tile : TILE.blankBrick);
-  // Front and back.
-  for (const dir of ['n', 's'] as const) {
-    const front = dir === p.front;
-    if (front && groundTile !== null && !simple) {
-      b.facade(dir, r.minX, r.maxX, r.minZ, r.maxZ, y0, y0 + fh, p.color, groundTile, baysX, 1, u0, 0);
-      b.facade(dir, r.minX, r.maxX, r.minZ, r.maxZ, y0 + fh, y1, p.color, tile, baysX, floors - 1, u0, 1);
+  const open = p.tiers.length > 1 || p.style === 'glass' || p.style === 'deco';
+  const back = { n: 's', s: 'n', e: 'w', w: 'e' }[p.front];
+  for (const dir of ['n', 's', 'e', 'w'] as const) {
+    const bays = dir === 'n' || dir === 's' ? baysX : baysZ;
+    if (dir === p.front) {
+      if (groundTile !== null && !simple) {
+        b.facade(dir, r.minX, r.maxX, r.minZ, r.maxZ, y0, y0 + fh, p.color, groundTile, bays, 1, u0, 0);
+        b.facade(dir, r.minX, r.maxX, r.minZ, r.maxZ, y0 + fh, y1, p.color, tile, bays, floors - 1, u0, 1);
+      } else b.facade(dir, r.minX, r.maxX, r.minZ, r.maxZ, y0, y1, p.color, tile, bays, floors, u0, 0);
+    } else if (dir === back) {
+      b.facade(dir, r.minX, r.maxX, r.minZ, r.maxZ, y0, y1, p.color, p.style !== 'walkup' ? tile : TILE.blankBrick, bays, floors, u0, 0);
     } else {
-      b.facade(dir, r.minX, r.maxX, r.minZ, r.maxZ, y0, y1, p.color, front || p.style !== 'walkup' ? tile : TILE.blankBrick, baysX, floors, u0, 0);
+      // A side: windows if it's an open corner (or a tower), blank party wall otherwise.
+      b.facade(dir, r.minX, r.maxX, r.minZ, r.maxZ, y0, y1, p.color, p.corner === dir || open ? tile : TILE.blankBrick, bays, floors);
     }
   }
-  b.facade('e', r.minX, r.maxX, r.minZ, r.maxZ, y0, y1, p.color, sideTile('e'), baysZ, floors);
-  b.facade('w', r.minX, r.maxX, r.minZ, r.maxZ, y0, y1, p.color, sideTile('w'), baysZ, floors);
 }
 
 /** Flat roof with a low parapet wall around it. */
@@ -371,80 +424,66 @@ function roofProps(b: CityMeshBuilder, p: BuildingPlan, r: Rect, y: number, rng:
 
 /** Zig-zag fire escape on the front of a walk-up. */
 function fireEscape(b: CityMeshBuilder, p: BuildingPlan, r: Rect): void {
-  const fz = p.front === 's' ? r.maxZ : r.minZ;
-  const out = p.front === 's' ? 1 : -1;
-  const width = Math.min(5, (r.maxX - r.minX) * 0.55);
-  const cx = (r.minX + r.maxX) / 2;
-  const x0 = cx - width / 2;
-  const x1 = cx + width / 2;
+  const f = frontOf(p, r);
+  const width = Math.min(5, (f.a1 - f.a0) * 0.55);
+  const ca = (f.a0 + f.a1) / 2;
+  const a0 = ca - width / 2;
+  const a1 = ca + width / 2;
   const depth = 1.1;
-  const zIn = fz;
-  const zOut = fz + out * depth;
-  const [za, zb] = zIn < zOut ? [zIn, zOut] : [zOut, zIn];
-  for (let f = 1; f < p.floors; f++) {
-    const y = f * p.floorH + 0.1;
-    b.box(x0, x1, y - 0.12, y, za, zb, DARK_METAL, 'nsewt');
+  const B = (pa: number, ya: number, oa: number, pb: number, yb: number, ob: number) => {
+    const u = fp(f, pa, ya, oa), v = fp(f, pb, yb, ob);
+    b.beam(u.x, u.y, u.z, v.x, v.y, v.z, 0.07, DARK_METAL);
+  };
+  for (let fl = 1; fl < p.floors; fl++) {
+    const y = fl * p.floorH + 0.1;
+    frontBox(b, f, a0, a1, y - 0.12, y, 0, depth, DARK_METAL, 'fkstb');
     // Railing: top bar along the front and the two ends, plus corner posts.
-    b.beam(x0, y + 1.0, zOut, x1, y + 1.0, zOut, 0.07, DARK_METAL);
-    b.beam(x0, y, zOut, x0, y + 1.0, zOut, 0.07, DARK_METAL);
-    b.beam(x1, y, zOut, x1, y + 1.0, zOut, 0.07, DARK_METAL);
-    b.beam(x0, y + 1.0, zIn, x0, y + 1.0, zOut, 0.07, DARK_METAL);
-    b.beam(x1, y + 1.0, zIn, x1, y + 1.0, zOut, 0.07, DARK_METAL);
-    // Ladder down to the floor below, alternating sides.
-    if (f > 1) {
-      const left = f % 2 === 0;
-      const lx0 = left ? x0 + 0.4 : x1 - 0.4;
-      const lx1 = left ? x0 + 1.8 : x1 - 1.8;
-      b.beam(lx0, y, (zIn + zOut) / 2, lx1, y - p.floorH, (zIn + zOut) / 2, 0.12, DARK_METAL);
+    B(a0, y + 1.0, depth, a1, y + 1.0, depth);
+    B(a0, y, depth, a0, y + 1.0, depth);
+    B(a1, y, depth, a1, y + 1.0, depth);
+    B(a0, y + 1.0, 0, a0, y + 1.0, depth);
+    B(a1, y + 1.0, 0, a1, y + 1.0, depth);
+    // Ladder down to the floor below, alternating ends.
+    if (fl > 1) {
+      const left = fl % 2 === 0;
+      const la = left ? a0 + 0.4 : a1 - 0.4;
+      const lb = left ? a0 + 1.8 : a1 - 1.8;
+      const u = fp(f, la, y, depth / 2), v = fp(f, lb, y - p.floorH, depth / 2);
+      b.beam(u.x, u.y, u.z, v.x, v.y, v.z, 0.12, DARK_METAL);
     }
   }
 }
 
-/** Striped shop awning over the ground floor. */
-function awning(b: CityMeshBuilder, x0: number, x1: number, fz: number, out: number, y: number, color: string): void {
-  const z1 = fz + out * 1.6;
+/** Striped shop awning over the ground floor, from a0 to a1 along the front. */
+function awning(b: CityMeshBuilder, f: Front, a0: number, a1: number, y: number, color: string): void {
   const lo = y - 0.9;
-  const V = (x: number, yy: number, z: number) => ({ x, y: yy, z });
-  const cu = Math.max(1, Math.round((x1 - x0) / 2));
-  if (out > 0) {
-    b.quad(V(x0, lo, z1), V(x1, lo, z1), V(x1, y, fz), V(x0, y, fz), color, TILE.stripes, cu, 1);
-    b.quad(V(x0, lo - 0.35, z1), V(x1, lo - 0.35, z1), V(x1, lo, z1), V(x0, lo, z1), color, TILE.stripes, cu, 0.3);
-  } else {
-    b.quad(V(x1, lo, z1), V(x0, lo, z1), V(x0, y, fz), V(x1, y, fz), color, TILE.stripes, cu, 1);
-    b.quad(V(x1, lo - 0.35, z1), V(x0, lo - 0.35, z1), V(x0, lo, z1), V(x1, lo, z1), color, TILE.stripes, cu, 0.3);
-  }
+  const cu = Math.max(1, Math.round((a1 - a0) / 2));
+  frontQuad(b, f, a0, a1, lo, 1.6, y, 0, color, TILE.stripes, cu, 1);
+  frontQuad(b, f, a0, a1, lo - 0.35, 1.6, lo, 1.6, color, TILE.stripes, cu, 0.3);
 }
 
 /** Front stoop + door of a brownstone. */
 function stoop(b: CityMeshBuilder, p: BuildingPlan, r: Rect): void {
-  const fz = p.front === 's' ? r.maxZ : r.minZ;
-  const out = p.front === 's' ? 1 : -1;
-  const sx = (p.seed % 2 ? r.minX + 1.1 : r.maxX - 3.1);
+  const f = frontOf(p, r);
+  const sa = p.seed % 2 ? f.a0 + 1.1 : f.a1 - 3.1;
   const steps = 6;
   const stepH = 0.26;
   const run = 0.32;
   const stone = shade(p.color, 0.85);
-  for (let i = 0; i < steps; i++) {
-    const zA = fz + out * (run * (steps - i));
-    const [z0, z1] = out > 0 ? [fz, zA] : [zA, fz];
-    b.box(sx, sx + 2, 0, (i + 1) * stepH, z0, z1, stone, out > 0 ? 'sewt' : 'newt');
-  }
+  for (let i = 0; i < steps; i++) frontBox(b, f, sa, sa + 2, 0, (i + 1) * stepH, 0, run * (steps - i), stone, 'fst');
   const top = steps * stepH;
-  const railZ = fz + out * run * steps;
-  for (const x of [sx + 0.05, sx + 1.95]) b.beam(x, top + 0.9, fz, x, 0.9, railZ, 0.08, DARK_METAL);
+  for (const a of [sa + 0.05, sa + 1.95]) {
+    const u = fp(f, a, top + 0.9, 0), v = fp(f, a, 0.9, run * steps);
+    b.beam(u.x, u.y, u.z, v.x, v.y, v.z, 0.08, DARK_METAL);
+  }
   // Door on the wall, just in front of it so it doesn't flicker.
-  const dz = fz + out * 0.04;
-  const V = (x: number, y: number) => ({ x, y, z: dz });
-  if (out > 0) b.quad(V(sx + 0.3, top), V(sx + 1.7, top), V(sx + 1.7, top + 2.6), V(sx + 0.3, top + 2.6), '#ffffff', TILE.door);
-  else b.quad(V(sx + 1.7, top), V(sx + 0.3, top), V(sx + 0.3, top + 2.6), V(sx + 1.7, top + 2.6), '#ffffff', TILE.door);
+  frontQuad(b, f, sa + 0.3, sa + 1.7, top, 0.04, top + 2.6, 0.04, '#ffffff', TILE.door);
 }
 
 /** Horizontal stone ledge across the front (gives depth to tall walls). */
 function ledge(b: CityMeshBuilder, p: BuildingPlan, r: Rect, y: number, depth: number, h: number, color: string): void {
-  const fz = p.front === 's' ? r.maxZ : r.minZ;
-  const out = p.front === 's' ? 1 : -1;
-  const [z0, z1] = out > 0 ? [fz - 0.05, fz + depth] : [fz - depth, fz + 0.05];
-  b.box(r.minX - 0.12, r.maxX + 0.12, y, y + h, z0, z1, color, out > 0 ? 'sewtb' : 'newtb');
+  const f = frontOf(p, r);
+  frontBox(b, f, f.a0 - 0.12, f.a1 + 0.12, y, y + h, -0.05, depth, color, 'fstb');
 }
 
 /** Full detail (near the camera). */
@@ -499,10 +538,9 @@ export function emitDetailed(b: CityMeshBuilder, p: BuildingPlan, rng: Rng): voi
   }
   void top;
 
-  const fz = p.front === 's' ? p.rect.maxZ : p.rect.minZ;
-  const out = p.front === 's' ? 1 : -1;
+  const f = frontOf(p, p.rect);
   if (p.style === 'brownstone') stoop(b, p, p.rect);
-  if (p.awning) awning(b, p.rect.minX + 0.4, p.rect.maxX - 0.4, fz, out, p.floorH - 0.2, p.awning);
+  if (p.awning) awning(b, f, f.a0 + 0.4, f.a1 - 0.4, p.floorH - 0.2, p.awning);
   if (p.fireEscape) fireEscape(b, p, p.rect);
 }
 

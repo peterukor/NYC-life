@@ -239,7 +239,16 @@ export function emitBlockProps(bld: CityMeshBuilder, o: PropOptions, rng: Rng): 
   // ---- shopfront life: café tables, fruit stands, scaffolding
   let scaffolds = rng.chance(0.4) ? 1 : 0;
   for (const p of o.buildings) {
-    const out = p.front === 's' ? 1 : -1;
+    const out = p.front === 's' || p.front === 'e' ? 1 : -1;
+    if (p.front === 'e' || p.front === 'w') {
+      // Avenue-side buildings: a café or fruit stand on the avenue sidewalk now and then.
+      const wallX = p.front === 'e' ? p.rect.maxX : p.rect.minX;
+      const cz = (p.rect.minZ + p.rect.maxZ) / 2;
+      if (near(wallX + out * sidewalk * 0.42, cz, 4.5)) continue;
+      if (p.shop && rng.chance(0.2)) cafe(bld, wallX + out * 2.0, cz, 'z', rng);
+      else if (p.shop && rng.chance(0.15)) fruitStand(bld, wallX + out * 1.0, cz, 'z', rng);
+      continue;
+    }
     const wallZ = p.front === 's' ? p.rect.maxZ : p.rect.minZ;
     const cx = (p.rect.minX + p.rect.maxX) / 2;
     const sz = wallZ + out * (sidewalk * 0.42);
