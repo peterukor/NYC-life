@@ -170,6 +170,8 @@ export interface GameState {
   homes: Record<string, { uid: string; item: string; x: number; z: number; rot: number }[]>;
   /** Furniture you own that isn't placed anywhere (item ids). */
   storage?: string[];
+  /** A shift you've clocked in for and not been paid for yet (sim/shift.ts). */
+  shift?: import('./shift.ts').ShiftSession | null;
   /** What you're doing right now at home (sim/home-activity.ts), if anything. */
   activity?: import('./home-activity.ts').Activity | null;
   news: NewsItem[];

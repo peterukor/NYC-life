@@ -142,6 +142,7 @@ test('the market is the same for everyone and trading keeps the books straight',
     assert.equal(priceOf(st.id, day), p, 'deterministic');
   }
   const s = newLife({ name: 'T', origin: 'hustler', look: { body: 'm', skin: '#000', top: '#000', bottom: '#000', hair: '#000' }, birthYear: 1990, traits: [] });
+  s.money = 50_000; // (starting broke is only $150 now)
   const before = netWorth(s);
   assert.equal(buyStock(s, 'nyx', 20_000), null);
   // Buying costs only the fee in net worth terms.

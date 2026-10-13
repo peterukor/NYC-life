@@ -59,8 +59,8 @@ export const CLASSES: Record<SpawnClass, {
 }> = {
   poor: {
     title: 'Broke & Hungry', emoji: '🎒', tagline: 'Came with a duffel bag and a dream.',
-    perks: ['$300 cash + a $12,000 student loan', 'Room in an East Harlem walk-up with two roommates', 'Hustle and Street Smarts start at 2', 'Learn every skill 25% faster', '5 plain outfits'],
-    cash: 30_000, bank: 0, loan: true, homeId: 'sharedApt', rentPaid: false, origin: 'hustler', skills: { hustle: 2, streetSmarts: 2 },
+    perks: ['$150 cash + a $12,000 student loan', 'Room in an East Harlem walk-up with two roommates', 'The deli round the corner is hiring', 'Hustle and Street Smarts start at 2', 'Learn every skill 25% faster', 'A rack of hand-me-down clothes'],
+    cash: 15_000, bank: 0, loan: true, homeId: 'sharedApt', rentPaid: false, origin: 'hustler', skills: { hustle: 2, streetSmarts: 2 },
   },
   middle: {
     title: 'Regular New Yorker', emoji: '🗽', tagline: 'Steady, normal, ready to level up.',

@@ -82,14 +82,15 @@ export interface ShiftResult {
  * `extra` comes from a played mini-game: a performance bonus (−8…+8)
  * and a pay multiplier for doing well.
  */
-export function completeShift(s: GameState, style: WorkStyle, extra: { perf?: number; pay?: number } = {}): ShiftResult {
+export function completeShift(s: GameState, style: WorkStyle, extra: { perf?: number; pay?: number; needsDone?: boolean; flat?: boolean } = {}): ShiftResult {
   const job = s.job!;
   const c = CAREER_BY_ID[job.careerId];
   const mood = moodWorkMultiplier(s);
 
   let perf = 0;
   let payMult = 1;
-  switch (style) {
+  // (A played deli shift has already applied its own needs and performance.)
+  if (!extra.needsDone) switch (style) {
     case 'grind':
       perf = 9 * mood;
       payMult = 1.1;
@@ -114,7 +115,8 @@ export function completeShift(s: GameState, style: WorkStyle, extra: { perf?: nu
   job.shiftsAtLevel += 1;
   job.shiftsTotal += 1;
 
-  const pay = Math.round((shiftPay(s) * payMult * (0.85 + job.performance / 333)) / 25) * 25;
+  // `flat`: the base wage as-is (the deli shift pays performance through tips).
+  const pay = extra.flat ? shiftPay(s) : Math.round((shiftPay(s) * payMult * (0.85 + job.performance / 333)) / 25) * 25;
   changeMoney(s, pay, `${c.name} shift`);
 
   let promoted: string | null = null;

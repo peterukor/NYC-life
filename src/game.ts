@@ -26,7 +26,7 @@ import { isRushHour, nowMs, nycTime } from './core/clock.ts';
 import { MAP_MAX_DISTANCE, DETAIL_RADIUS, RIDESHARE, SUBWAY_FARE, WALK_SPEED, INDOOR_WALK, SHIFT_GAME_HOURS, SHIFT_SECONDS, DIRECTOR_TICK_SECONDS, CAMERA } from './core/constants.ts';
 import { esc, money } from './core/format.ts';
 import { ACTIONS, actionLock } from './data/actions.ts';
-import { CAREER_BY_ID } from './data/careers.ts';
+import { CAREER_BY_ID, CAREERS } from './data/careers.ts';
 import { doorOf, isOpen, PLACE_BY_ID, stationOf, type PlaceDef } from './data/places.ts';
 import { finishAction, startAction } from './sim/activity.ts';
 import { changeMoney } from './sim/economy.ts';
@@ -39,7 +39,7 @@ import { loadGame, saveGame, deleteGame } from './sim/save.ts';
 import { newLife } from './sim/state.ts';
 import { OPEN_AREAS, isOpenArea, type AreaId, type GameState, type Look } from './sim/types.ts';
 import { weatherDef, weatherFor } from './sim/weather.ts';
-import { completeShift, jobTitle, shiftBlocker, WORK_STYLES, type WorkStyle } from './sim/work.ts';
+import { applyForJob, completeShift, jobTitle, shiftBlocker, WORK_STYLES, type WorkStyle } from './sim/work.ts';
 import { Engine } from './render/engine.ts';
 import { qualitySettings } from './render/quality.ts';
 import { skyAt } from './render/sky.ts';
@@ -54,11 +54,15 @@ import { buildHome, type HomeInterior } from './world/home-interior.ts';
 import { loadFurnitureKit, type FurnitureKit } from './assets/furniture-kit.ts';
 import { layoutForPlace } from './data/homes.ts';
 import { VENUE_LAYOUT_FOR, VENUE_LAYOUTS } from './data/venues.ts';
-import { FURNITURE, FURNITURE_QUALITY, qualityLine } from './data/furniture.ts';
+import { FURNITURE, FURNITURE_QUALITY, qualityLine, SHOP_ITEMS } from './data/furniture.ts';
+import { buyFurniture } from './sim/shop.ts';
+import { openFurnitureShop } from './ui/furniture-shop.ts';
 import { beginActivity, completeActivity, stopActivity, tickActivity, activityProgress } from './sim/home-activity.ts';
+import { abandonShift, baseWage, finishDeliShift, startDeliShift } from './sim/shift.ts';
+import { playDeliShift, shiftIntro, showPayslip } from './ui/deli-shift.ts';
 import { openCloset } from './ui/closet.ts';
 import { openStore } from './ui/store.ts';
-import { minigameFor } from './data/minigames.ts';
+import { minigameFor, PLAYABLE_SHIFTS } from './data/minigames.ts';
 import { openSidePanel } from './ui/side-panel.ts';
 import { openAutoMode } from './ui/auto-mode.ts';
 import { recordVariety } from './sim/auto.ts';
@@ -340,6 +344,11 @@ export class Game {
       walking: () => !!this.indoor,
       indoorRoute: () => (this.indoor ? this.indoor.points.map((q) => ({ ...q })) : null),
       resetCam: () => this.fitInteriorCamera(),
+      money: () => this.state.money,
+      job: () => this.state.job?.careerId ?? null,
+      shiftOpen: () => !!this.state.shift,
+      goal: () => currentGoal(this.state)?.title ?? null,
+      setNeed: (k: keyof GameState['needs'], v: number) => { this.state.needs[k] = v; },
       animDebug: () => this.player.debug?.(),
       holdPose: (name: FolkAnim, at: number | null) => {
         this.player.setAction(name);
@@ -437,6 +446,8 @@ export class Game {
     const loaded = loadGame();
     if (loaded) {
       this.state = loaded;
+      // A shift left unfinished (closed mid-shift): it ends, unpaid.
+      const walkedOut = abandonShift(this.state);
       this.applySettings();
       const summary = advanceTo(this.state);
       this.loadArea(this.state.location.area);
@@ -444,6 +455,7 @@ export class Game {
       this.engine.start((dt) => this.frame(dt));
       this.finishBoot();
       if (summary) window.setTimeout(() => toast(summary, { icon: '🕐', ms: 6000 }), 900);
+      if (walkedOut) window.setTimeout(() => toast('You left in the middle of your last shift, so it wasn’t paid', { icon: '🥪', ms: 4500 }), 1400);
       if (this.state.location.placeId) this.enterInterior(PLACE_BY_ID[this.state.location.placeId], false);
       return;
     }
@@ -817,6 +829,12 @@ export class Game {
         const homeItem = 'items' in this.interior ? (this.interior as HomeInterior).items.find((i) => i.uid === obj.id) : undefined;
         // The clothes rack / closet opens your clothes straight away.
         const closet = homeItem && FURNITURE.get(homeItem.item)?.opens === 'closet';
+        // In the furniture store, every floor model (and the counter) opens the catalog.
+        const here = this.state.location.placeId ? PLACE_BY_ID[this.state.location.placeId] : null;
+        if (here?.interior === 'furniture') {
+          const shown = homeItem && SHOP_ITEMS.includes(homeItem.item) ? homeItem.item : undefined;
+          return this.walkInside(obj.stand.x, obj.stand.z, () => this.openShop(shown), centre);
+        }
         return this.walkInside(obj.stand.x, obj.stand.z, () => (closet ? this.openClosetMirror(obj.id) : this.openObjectSheet(obj.label, obj.emoji, obj.actions, movable)), centre);
       }
       // The floor: just walk there.
@@ -1024,7 +1042,15 @@ export class Game {
     const q = homeDef?.quality ?? 'basic';
     const qualityNote = homeDef && actionIds.length ? `<p class="blurb quality-note q-${q}"><b>${FURNITURE_QUALITY[q].label}</b> · ${qualityLine(q)}</p>` : '';
     const canMove = !!movableId && !homeDef?.fixed;
-    const workBtn = isOffice && this.state.job && CAREER_BY_ID[this.state.job.careerId].placeId === place!.id ? '<button class="btn primary block" style="margin-bottom:10px" data-act="work">💼 Work a shift</button>' : '';
+    // Any workplace (an office, the deli…): work a shift if it's your job,
+    // or ask about the job if it isn't yet.
+    const careerHere = place ? CAREERS.find((c) => c.placeId === place.id) : undefined;
+    const worksHere = !!careerHere && this.state.job?.careerId === careerHere.id;
+    const workBtn = worksHere
+      ? `<button class="btn primary block" style="margin-bottom:10px" data-act="work">💼 Work a shift <small>(${money(baseWage(this.state))} + tips)</small></button>`
+      : careerHere && !isOffice
+        ? `<button class="btn primary block" style="margin-bottom:10px" data-act="hire">💼 Ask about a job: ${esc(careerHere.ladder[0].title)} · ${money(careerHere.ladder[0].pay)} + tips a shift</button>`
+        : '';
     const sheet = openSheet({
       emoji,
       title: label,
@@ -1044,6 +1070,15 @@ export class Game {
         return this.save();
       }
       if (act === 'work') return void this.goToWork();
+      if (act === 'hire' && careerHere) {
+        const had = this.state.job ? CAREER_BY_ID[this.state.job.careerId].name : null;
+        const err = applyForJob(this.state, careerHere.id);
+        if (err) return toast(err, { icon: '💼', tone: 'bad' });
+        sfx.notify();
+        toast(`Hired! You’re a ${careerHere.ladder[0].title} at ${place!.name}${had ? ` (you left ${had})` : ''}. Tap the counter to work a shift.`, { icon: '🎉', tone: 'good', ms: 4500 });
+        this.save();
+        return this.refreshHud(true);
+      }
       if (act === 'move-furniture' && movableId) return this.startMoving(movableId);
       if (act === 'store-furniture' && movableId) return this.storeFurniture(movableId);
       if (act === 'closet') return this.openClosetMirror(movableId);
@@ -1207,7 +1242,8 @@ export class Game {
     window.setTimeout(() => {
       go();
       fade(false);
-      if (place.interior !== 'apartment') toast(`Tap the ${place.interior === 'office' ? 'desk' : 'counter'} to see what’s on offer`, { icon: place.emoji });
+      if (place.interior === 'furniture') toast('Tap any piece to see it in the catalog', { icon: place.emoji });
+      else if (place.interior !== 'apartment') toast(`Tap the ${place.interior === 'office' ? 'desk' : 'counter'} to see what’s on offer`, { icon: place.emoji });
     }, 300);
   }
 
@@ -1316,6 +1352,21 @@ export class Game {
   // Doing things
   // ===================================================================
 
+  /** The furniture catalog. Buying delivers to Storage at home. */
+  private openShop(focus?: string): void {
+    openFurnitureShop(this.state, {
+      buy: (item) => {
+        const r = buyFurniture(this.state, item);
+        if (!r.ok) return r.why;
+        sfx.cash();
+        this.save(); // money and the delivery are saved together
+        this.refreshHud(true);
+        toast(`${r.def.emoji} ${r.def.name} bought: it’s waiting in your Storage at home`, { icon: '📦', tone: 'good', ms: 3500 });
+        return null;
+      },
+    }, focus);
+  }
+
   // ===================================================================
   // Furniture storage: pieces you own that aren't placed
   // ===================================================================
@@ -1342,6 +1393,34 @@ export class Game {
     this.save();
   }
 
+  /**
+   * Swap a stored piece for one that's out (the new bed for the old one):
+   * the new one goes where the old one stood (or as near as it fits), the
+   * old one goes into Storage.
+   */
+  private swapFurniture(item: string, oldUid: string): void {
+    const home = this.interior as HomeInterior | null;
+    if (!home || !('addPiece' in home)) return;
+    const old = home.items.find((i) => i.uid === oldUid);
+    const stored = this.state.storage ?? [];
+    const k = stored.indexOf(item);
+    if (!old || k < 0) return;
+    this.stopDoing();
+    const spot = { item: old.item, x: old.x, z: old.z, rot: old.rot };
+    home.removePiece(oldUid);
+    const uid = home.addPiece(item, spot.x, spot.z, spot.rot);
+    if (!uid) {
+      // No room even there: put the old one back as it was.
+      home.addPiece(spot.item, spot.x, spot.z, spot.rot);
+      return toast('That doesn’t fit there. Make some room first', { icon: '📦', tone: 'bad' });
+    }
+    stored.splice(k, 1);
+    stored.push(spot.item);
+    this.saveHomeLayout();
+    const d = FURNITURE.get(item)!;
+    toast(`${d.emoji} ${d.name} is in. The ${FURNITURE.get(spot.item)!.name.toLowerCase()} went to Storage`, { icon: '✨', tone: 'good', ms: 3200 });
+  }
+
   /** Storage: everything you own that isn't out. Tap Place to bring it in. */
   private openStorage(): void {
     const home = this.interior as HomeInterior | null;
@@ -1354,7 +1433,12 @@ export class Game {
       const d = FURNITURE.get(id);
       if (!d) return '';
       const q = FURNITURE_QUALITY[d.quality ?? 'basic'].label;
-      return `<button class="list-item tap" style="width:100%;font:inherit;text-align:left" data-act="place:${id}"><span style="font-size:26px" aria-hidden="true">${d.emoji}</span><span class="grow"><div class="title">${esc(d.name)}${n > 1 ? ` ×${n}` : ''}</div><div class="sub">${q} · ${d.actions.length ? 'usable' : 'decoration'}</div></span><span class="btn">Place</span></button>`;
+      // Same kind already out (a bed for a bed): offer a one-tap swap.
+      const old = d.kind ? home.items.find((i) => FURNITURE.get(i.item)?.kind === d.kind && !FURNITURE.get(i.item)?.fixed) : undefined;
+      const oldDef = old ? FURNITURE.get(old.item)! : null;
+      return `<div class="list-item storage-row"><span style="font-size:26px" aria-hidden="true">${d.emoji}</span><span class="grow"><div class="title">${esc(d.name)}${n > 1 ? ` ×${n}` : ''}</div><div class="sub">${q} · ${d.actions.length ? 'usable' : 'decoration'}</div></span><div class="storage-acts">${
+        oldDef ? `<button class="btn primary" data-act="swap:${id}:${old!.uid}">Swap for the ${esc(oldDef.name.toLowerCase())}</button>` : ''
+      }<button class="btn" data-act="place:${id}">Place</button></div></div>`;
     }).join('');
     const sheet = openSheet({
       emoji: '📦',
@@ -1363,6 +1447,11 @@ export class Game {
       body: rows ? `<div>${rows}</div>` : '<p class="blurb">Nothing in storage. Tap a piece of furniture and choose “Put away” to store it here.</p>',
     });
     onAct(sheet.body, (act) => {
+      if (act.startsWith('swap:')) {
+        sheet.close();
+        const [, item, oldUid] = act.split(':');
+        return this.swapFurniture(item, oldUid);
+      }
       if (!act.startsWith('place:')) return;
       sheet.close();
       const item = act.slice(6);
@@ -1644,6 +1733,7 @@ export class Game {
   }
 
   private async runShift(): Promise<void> {
+    if (PLAYABLE_SHIFTS.has(this.state.job!.careerId)) return this.runDeliShift();
     this.busy = true;
     const career = CAREER_BY_ID[this.state.job!.careerId];
     // A mini-game for this job? Offer to play the shift instead of skipping it.
@@ -1713,6 +1803,36 @@ export class Game {
   }
 
   /** Everything after a shift: stats, pay toast, promotion. */
+  /**
+   * The playable deli shift (sim/shift.ts, ui/deli-shift.ts): clock in,
+   * work the counter, get a payslip. Pay goes through the shift's id, so
+   * it's paid exactly once.
+   */
+  private async runDeliShift(): Promise<void> {
+    const s = this.state;
+    const career = CAREER_BY_ID[s.job!.careerId];
+    const t = nycTime();
+    const info = { place: PLACE_BY_ID[career.placeId].name, title: jobTitle(s), base: baseWage(s), startMinute: t.hour * 60 + t.minute, hours: SHIFT_GAME_HOURS, choices: [] as string[] };
+    const mode = await shiftIntro(info);
+    if (!mode) return;
+    const st = startDeliShift(s);
+    if (!st.ok) return toast(st.why, { icon: '💼', tone: 'bad' });
+    this.busy = true;
+    this.save(); // the shift id is saved: from here on it can only pay once
+    info.choices = st.session.choices;
+    const play = mode === 'play' ? await playDeliShift(info) : { orders: [], picks: {}, skipped: true };
+    const slip = finishDeliShift(s, st.session.id, play);
+    this.busy = false;
+    this.save();
+    this.refreshHud(true);
+    if (!slip) return;
+    sfx.cash();
+    await showPayslip(slip, { title: `${career.emoji} ${info.title}` });
+    if (slip.promoted) this.state.news.unshift({ id: `promo-${nowMs()}`, at: nowMs(), scope: this.state.location.area, emoji: '📈', headline: `${this.state.profile.name} promoted to ${slip.promoted}`, personal: true });
+    this.save();
+    this.refreshHud(true);
+  }
+
   private afterShift(r: ReturnType<typeof completeShift>): void {
     this.state.stats.actionsDone['__shift'] = (this.state.stats.actionsDone['__shift'] ?? 0) + 1;
     this.busy = false;

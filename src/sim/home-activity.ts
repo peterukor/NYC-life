@@ -99,6 +99,9 @@ export function completeActivity(s: GameState, rand = Math.random): ActivityResu
   s.activity = null;
   if (!a) return null;
   const out = finishAction(s, a, { needsDone: true });
+  // (For the first-upgrade goal: a full rest on something better than cheap.)
+  const q = act.item ? FURNITURE.get(act.item)?.quality : undefined;
+  if (a.tags.includes('rest') && q && q !== 'cheap') s.stats.actionsDone['__betterSleep'] = (s.stats.actionsDone['__betterSleep'] ?? 0) + 1;
   let quirk: ActivityResult['quirk'] = null;
   const def = act.item ? FURNITURE.get(act.item) : undefined;
   if (def?.quirk && rand() < def.quirk.chance) {

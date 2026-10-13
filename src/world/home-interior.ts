@@ -53,7 +53,7 @@ export interface HomeInterior extends Interior {
   /** Take a piece out of the home (into storage). */
   removePiece: (uid: string) => void;
   /** Bring a piece in at the free spot nearest (x, z). Returns its uid, or null if there's no room. */
-  addPiece: (item: string, x: number, z: number) => string | null;
+  addPiece: (item: string, x: number, z: number, rot?: number) => string | null;
   /** A piece's spot, turn and footprint (for posing the player on it). */
   pieceInfo: (uid: string) => { item: string; x: number; z: number; rot: number; fp: Footprint } | null;
   /** The first piece you use that can't be reached from the door (null = all fine). */
@@ -460,7 +460,7 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
       if (tvScreen && g && g.children.some((c) => (c as THREE.Mesh).material === tvScreen)) tvScreen = null;
       refreshStands();
     },
-    addPiece(item, x, z) {
+    addPiece(item, x, z, preferRot = 0) {
       const def = FURNITURE.get(item);
       if (!def) return null;
       let n = 1;
@@ -472,7 +472,7 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
       outer: for (let ring = 0; ring < 40; ring++) {
         for (let dz = -ring; dz <= ring; dz++) for (let dx = -ring; dx <= ring; dx++) {
           if (Math.max(Math.abs(dx), Math.abs(dz)) !== ring) continue;
-          for (const rot of [0, Math.PI / 2, Math.PI, -Math.PI / 2]) {
+          for (const rot of [preferRot, preferRot + Math.PI / 2, preferRot + Math.PI, preferRot - Math.PI / 2]) {
             let px = Math.round((x + dx * 0.2) * 10) / 10, pz = Math.round((z + dz * 0.2) * 10) / 10, pr = rot;
             if (def.wall) ({ x: px, z: pz, rot: pr } = snapToWall(fit, item, px, pz));
             if (!whyNot(fit, it.uid, px, pz, pr)) {

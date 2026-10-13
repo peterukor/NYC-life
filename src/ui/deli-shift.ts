@@ -1,0 +1,197 @@
+// =====================================================================
+// deli-shift.ts — playing a shift at the deli counter.
+//
+// Clock in → 6 customers, one at a time: read the order, tap the
+// ingredients onto the tray, Serve (or Clear and redo) before they give
+// up. Twice during the shift something comes up and you choose. The
+// clock in the corner runs through the 4 hours as you go. At the end the
+// game pays you (sim/shift.ts) and shows the payslip.
+//
+// This file only plays the shift and reports what happened; paying is
+// done once, by the caller, with the shift's id.
+// =====================================================================
+
+import { esc, money } from '../core/format.ts';
+import { INGREDIENTS, ORDER_SECONDS, SHIFT_CHOICES, SHIFT_ORDERS, makeOrder, orderRight, type ServedOrder, type ShiftPlay, type Payslip } from '../sim/shift.ts';
+import { NEED_INFO } from '../sim/needs.ts';
+import type { NeedKey } from '../sim/types.ts';
+import { openModal } from './dom.ts';
+
+export interface ShiftIntro {
+  place: string;
+  title: string;
+  base: number;
+  startMinute: number;
+  hours: number;
+  choices: string[];
+}
+
+const clock = (min: number) => {
+  const h = Math.floor(min / 60) % 24;
+  const m = Math.floor(min % 60);
+  return `${h % 12 === 0 ? 12 : h % 12}:${String(m).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`;
+};
+
+/** Ask: play the shift, or auto-pilot it for the base wage. Null = not now. */
+export function shiftIntro(info: ShiftIntro): Promise<'play' | 'auto' | null> {
+  return new Promise((resolve) => {
+    const m = openModal(`
+      <div class="big">🥪</div>
+      <h2>${esc(info.title)} at ${esc(info.place)}</h2>
+      <p>${clock(info.startMinute)} → ${clock(info.startMinute + info.hours * 60)} · ${SHIFT_ORDERS} customers<br>
+      <b>${money(info.base)}</b> base wage + tips for fast, correct orders<br>
+      <span class="shift-cost">⚡ tiring · 🍔 makes you hungry</span></p>
+      <div class="choices">
+        <button class="choice" data-act="play">🧑‍🍳 <span>Clock in<span class="hint">Work the counter yourself: tips up to about ${money(3600)}</span></span></button>
+        <button class="choice" data-act="auto">⏩ <span>Auto-pilot<span class="hint">Base wage only, no tips</span></span></button>
+        <button class="choice" data-act="no">↩️ <span>Not now</span></button>
+      </div>`);
+    m.el.addEventListener('click', (e) => {
+      const b = (e.target as HTMLElement).closest<HTMLElement>('[data-act]');
+      if (!b) return;
+      m.close();
+      resolve(b.dataset.act === 'play' ? 'play' : b.dataset.act === 'auto' ? 'auto' : null);
+    });
+  });
+}
+
+/** Play the counter. Resolves with what happened (orders + choices). */
+export function playDeliShift(info: ShiftIntro): Promise<ShiftPlay> {
+  return new Promise((resolve) => {
+    const m = openModal(`<div class="deli">
+      <div class="deli-top"><span class="deli-clock"></span><span class="deli-count"></span><span class="deli-tips"></span></div>
+      <div class="deli-cust"><span class="deli-who"></span><span class="mg-bubble deli-ask"></span></div>
+      <div class="deli-wait"><i></i></div>
+      <div class="deli-tray" aria-label="Your tray"></div>
+      <div class="deli-grid">${INGREDIENTS.map((g) => `<button class="deli-ing" data-ing="${g.id}"><span>${g.emoji}</span>${esc(g.label)}</button>`).join('')}</div>
+      <div class="deli-acts"><button class="btn" data-clear>Clear</button><button class="btn primary" data-serve>Serve ✓</button></div>
+      <div class="deli-choice" hidden></div>
+    </div>`);
+    m.el.classList.add('deli-modal');
+    const q = <T extends HTMLElement>(s: string) => m.el.querySelector<T>(s)!;
+    const clockEl = q('.deli-clock'), countEl = q('.deli-count'), tipsEl = q('.deli-tips');
+    const whoEl = q('.deli-who'), askEl = q('.deli-ask'), waitEl = q<HTMLElement>('.deli-wait i'), trayEl = q('.deli-tray');
+    const choiceEl = q('.deli-choice');
+    const served: ServedOrder[] = [];
+    const picks: Record<string, string> = {};
+    let tray: string[] = [];
+    let order = makeOrder();
+    let left = ORDER_SECONDS;
+    let paused = false;
+    let done = false;
+    let tipsSoFar = 0;
+    const minutesPerOrder = (info.hours * 60) / SHIFT_ORDERS;
+
+    const drawTray = () => {
+      trayEl.innerHTML = tray.length ? tray.map((id) => `<span>${INGREDIENTS.find((g) => g.id === id)!.emoji}</span>`).join('') : '<em>Tap ingredients to build the order</em>';
+    };
+    const drawTop = () => {
+      clockEl.textContent = `🕘 ${clock(info.startMinute + served.length * minutesPerOrder)}`;
+      countEl.textContent = `${Math.min(served.length + 1, SHIFT_ORDERS)}/${SHIFT_ORDERS}`;
+      tipsEl.textContent = `Tips ${money(tipsSoFar)}`;
+    };
+    const nextCustomer = () => {
+      if (served.length >= SHIFT_ORDERS) return finish();
+      // A choice comes up after the 2nd and 4th customers.
+      const ci = served.length === 2 ? 0 : served.length === 4 ? 1 : -1;
+      if (ci >= 0 && !picks[info.choices[ci]]) return showChoice(info.choices[ci]);
+      order = makeOrder();
+      tray = [];
+      left = ORDER_SECONDS;
+      whoEl.textContent = order.who;
+      askEl.textContent = `“${order.ask}”`;
+      // (QA only: the order's ingredients, so a test can play the shift.)
+      if (/[?&]qa=1/.test(location.search)) m.el.dataset.want = order.items.join(',');
+      drawTray();
+      drawTop();
+    };
+    const showChoice = (id: string) => {
+      const c = SHIFT_CHOICES.find((x) => x.id === id)!;
+      paused = true;
+      choiceEl.hidden = false;
+      choiceEl.innerHTML = `<div class="big">${c.emoji}</div><p><b>${esc(c.text)}</b></p><div class="choices">${c.options.map((o) => `<button class="choice" data-pick="${o.id}">${esc(o.label)}<span class="hint">${esc(o.hint)}</span></button>`).join('')}</div>`;
+      choiceEl.onclick = (e) => {
+        const b = (e.target as HTMLElement).closest<HTMLElement>('[data-pick]');
+        if (!b) return;
+        picks[id] = b.dataset.pick!;
+        choiceEl.hidden = true;
+        choiceEl.onclick = null;
+        paused = false;
+        nextCustomer();
+      };
+    };
+    const serve = (gaveUp = false) => {
+      if (paused || done) return;
+      const right = !gaveUp && orderRight(order, tray);
+      const o: ServedOrder = { right, timeLeft: left / ORDER_SECONDS };
+      served.push(o);
+      const tip = right ? Math.round((150 + 450 * o.timeLeft) / 25) * 25 * (picks.rush === 'hustle' && served.length > 2 ? 1.5 : 1) : 0;
+      tipsSoFar += Math.round(tip / 25) * 25;
+      // A quick reaction from the customer, then the next one.
+      askEl.textContent = gaveUp ? '“Forget it, I’m late.” 😤' : right ? `“Perfect, thanks!” ${tip >= 450 ? '💵' : '🙂'}` : '“That’s not what I asked for…” 😕';
+      askEl.classList.toggle('ok', right);
+      askEl.classList.toggle('no', !right);
+      paused = true;
+      window.setTimeout(() => {
+        askEl.classList.remove('ok', 'no');
+        paused = false;
+        nextCustomer();
+      }, 700);
+    };
+    const finish = () => {
+      if (done) return;
+      done = true;
+      window.clearInterval(tick);
+      m.close();
+      resolve({ orders: served, picks });
+    };
+    m.el.addEventListener('click', (e) => {
+      const t = e.target as HTMLElement;
+      const ing = t.closest<HTMLElement>('[data-ing]');
+      if (ing && !paused && tray.length < 7) {
+        tray.push(ing.dataset.ing!);
+        drawTray();
+      } else if (t.closest('[data-clear]') && !paused) {
+        tray = [];
+        drawTray();
+      } else if (t.closest('[data-serve]')) serve();
+    });
+    const tick = window.setInterval(() => {
+      if (paused || done) return;
+      left -= 0.1;
+      waitEl.style.width = `${Math.max(0, left / ORDER_SECONDS) * 100}%`;
+      waitEl.style.background = left < 5 ? '#e0283f' : '';
+      if (left <= 0) serve(true);
+    }, 100);
+    nextCustomer();
+  });
+}
+
+/** The payslip. `collect` pays (once); the button can't be pressed twice. */
+export function showPayslip(slip: Payslip, opts: { title: string }): Promise<void> {
+  return new Promise((resolve) => {
+    const needLine = (Object.entries(slip.needs) as [NeedKey, number][])
+      .filter(([, v]) => Math.round(v) !== 0)
+      .map(([k, v]) => `${NEED_INFO[k].emoji} ${v > 0 ? '+' : ''}${Math.round(v)}`)
+      .join(' · ');
+    const row = (label: string, v: number) => `<div class="slip-row"><span>${label}</span><b>${v < 0 ? '−' : ''}${money(Math.abs(v))}</b></div>`;
+    const m = openModal(`
+      <div class="big">🧾</div>
+      <h2>Payslip</h2>
+      <p>${esc(opts.title)} · ${slip.right}/${slip.of} orders right</p>
+      <div class="slip">
+        ${row('Base wage (4 h)', slip.base)}
+        ${row('Tips', slip.tips)}
+        ${slip.overtime ? row('Overtime', slip.overtime) : ''}
+        ${slip.covered ? row('Covered Ms. Rosa', slip.covered) : ''}
+        <div class="slip-row total"><span>Paid to your cash</span><b>${money(slip.total)}</b></div>
+      </div>
+      <p class="slip-needs">${needLine}</p>
+      ${slip.promoted ? `<p><b>📈 Promoted to ${esc(slip.promoted)}!</b></p>` : ''}
+      <button class="btn primary block" data-act="ok">Nice</button>`);
+    m.el.querySelector('[data-act="ok"]')!.addEventListener('click', () => {
+      m.close();
+      resolve();
+    }, { once: true });
+  });
+}

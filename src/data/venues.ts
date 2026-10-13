@@ -18,6 +18,29 @@ const PI = Math.PI;
 const H = PI / 2;
 
 export const VENUE_LAYOUTS: Record<string, HomeLayout> = {
+  // Lexington Home Goods: floor models you can tap to see in the catalog.
+  furniture: {
+    id: 'furniture', name: 'Furniture store', width: 14, depth: 10, wallColor: '#e6efe9',
+    rooms: [
+      { label: 'Showroom', rect: [-7, -5, 7, 5], floor: '#c9b28f' },
+      { label: 'Counter', rect: [2.6, -5, 7, -2.4], floor: '#e9e2d3' },
+    ],
+    walls: [],
+    furniture: [
+      { uid: 'counter', item: 'serviceCounter', x: 4.6, z: -3.4, rot: 0 },
+      { uid: 'bedSingle', item: 'bedSingle', x: -5.6, z: -3.4, rot: 0 },
+      { uid: 'bedDouble', item: 'bedDouble', x: -2.6, z: -3.2, rot: 0 },
+      { uid: 'tv', item: 'tv', x: 0.6, z: -4.5, rot: 0 },
+      { uid: 'tvVintage', item: 'tvVintage', x: 1.9, z: -4.5, rot: 0 },
+      { uid: 'sofa', item: 'sofa', x: -5.0, z: 1.0, rot: 0 },
+      { uid: 'sofaLong', item: 'sofaLong', x: -1.3, z: 0.9, rot: 0 },
+      { uid: 'armchair', item: 'armchair', x: 2.4, z: 0.9, rot: 0 },
+      { uid: 'floorLamp', item: 'floorLamp', x: 3.9, z: 0.7, rot: 0 },
+      { uid: 'bookcase', item: 'bookcase', x: 6.4, z: -0.4, rot: -H },
+      { uid: 'plant', item: 'plant', x: 6.3, z: 3.9, rot: 0 },
+      { uid: 'rug', item: 'rug', x: -1.3, z: 2.9, rot: 0 },
+    ],
+  },
   cafe: {
     id: 'cafe', name: 'Café', width: 14, depth: 10, wallColor: '#e9cfae',
     rooms: [
@@ -120,4 +143,4 @@ export const VENUE_LAYOUTS: Record<string, HomeLayout> = {
   },
 };
 
-export const VENUE_LAYOUT_FOR: Partial<Record<InteriorKind, string>> = { cafe: 'cafe', bodega: 'bodega', pizza: 'pizza', bar: 'bar', office: 'office', comedy: 'comedy' };
+export const VENUE_LAYOUT_FOR: Partial<Record<InteriorKind, string>> = { furniture: 'furniture', cafe: 'cafe', bodega: 'bodega', pizza: 'pizza', bar: 'bar', office: 'office', comedy: 'comedy' };

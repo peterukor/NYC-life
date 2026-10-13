@@ -23,6 +23,24 @@ export interface CareerDef {
 
 export const CAREERS: CareerDef[] = [
   {
+    // The starter job (Peter, 2026-10-13): round the corner from the walk-up.
+    // Pay is the 4-hour base wage; tips come from how well you work the
+    // counter (sim/shift.ts).
+    id: 'deli',
+    name: 'Deli',
+    emoji: '🥪',
+    placeId: 'barrioDeli',
+    skill: 'hustle',
+    blurb: 'Work the counter at El Barrio Deli: build the orders right, keep the line moving, earn the tips.',
+    ladder: [
+      { title: 'Counter Hand', pay: 6_600 },
+      { title: 'Grill Cook', pay: 9_000 },
+      { title: 'Shift Lead', pay: 12_500 },
+      { title: 'Deli Manager', pay: 17_500 },
+      { title: 'Partner', pay: 25_000 },
+    ],
+  },
+  {
     id: 'barista',
     name: 'Coffee',
     emoji: '☕',
