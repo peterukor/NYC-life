@@ -10,6 +10,7 @@ import { ACTIONS } from '../data/actions.ts';
 import { FURNITURE } from '../data/furniture.ts';
 import { changeMoney } from './economy.ts';
 import type { GameState } from './types.ts';
+import { layoutForPlace } from '../data/homes.ts';
 
 export interface Goal {
   title: string;
@@ -22,7 +23,8 @@ const did = (s: GameState, tag: string) => Object.keys(s.stats.actionsDone).some
 
 // The first loop (Peter, 2026-10-13): leave home → work → get paid → buy a
 // better bed → place it → feel the better sleep. Then the wider city.
-const placedBetterBed = (s: GameState) => (s.homes[s.home.placeId] ?? []).some((i) => FURNITURE.get(i.item)?.kind === 'bed' && FURNITURE.get(i.item)?.quality !== 'cheap');
+// (A home never rearranged has no saved layout yet: use its starting furniture.)
+const placedBetterBed = (s: GameState) => (s.homes[s.home.placeId] ?? layoutForPlace(s.home.placeId).furniture).some((i) => FURNITURE.get(i.item)?.kind === 'bed' && FURNITURE.get(i.item)?.quality !== 'cheap');
 const ownsBetterBed = (s: GameState) => placedBetterBed(s) || (s.storage ?? []).some((id) => FURNITURE.get(id)?.kind === 'bed' && FURNITURE.get(id)?.quality !== 'cheap');
 
 export const GOALS: Goal[] = [

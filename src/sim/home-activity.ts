@@ -20,6 +20,8 @@ import { nowMs } from '../core/clock.ts';
 import { finishAction, foodieBonus, startAction, type ActionOutcome } from './activity.ts';
 import { addMoodlet, applyNeeds } from './needs.ts';
 import { BATHROOM_WAIT, bathroomTaken, nightNoise } from './home-conditions.ts';
+import { mealOfAction } from '../data/groceries.ts';
+import { returnIngredients, storePortions, takeIngredients, takePortion } from './kitchen.ts';
 import type { GameState, NeedKey } from './types.ts';
 
 export interface Activity {
@@ -36,6 +38,8 @@ export interface Activity {
   done: number;
   /** Shared bathroom: the roommate who was in there first (you waited a moment). */
   waitedFor?: string;
+  /** Cooking: the ingredients taken from the fridge (given back if you stop early). */
+  took?: Record<string, number>;
 }
 
 /** What one go of an action gives, after the furniture's quality. */
@@ -59,12 +63,19 @@ export function beginActivity(
   actionId: string,
   opts: { uid?: string; item?: string; placeId?: string | null; rand?: () => number } = {},
 ): { ok: true; action: ActionDef; waitedFor?: string } | { ok: false; why: string } {
+  // Home cooking: check the fridge before anything is charged or started.
+  const food = mealOfAction(actionId);
+  if (food?.kind === 'cook' && !takeIngredients(s, food.meal.id, true)) return { ok: false, why: 'You’re missing ingredients' };
+  if (food?.kind === 'eat' && !(s.kitchen?.leftovers[food.meal.id] ?? 0)) return { ok: false, why: 'None left in the fridge' };
   const r = startAction(s, actionId);
   if (!r.ok) return r;
+  // Cooking takes the ingredients now; eating takes the portion now.
+  const took = food?.kind === 'cook' ? takeIngredients(s, food.meal.id) ?? undefined : undefined;
+  if (food?.kind === 'eat') takePortion(s, food.meal.id);
   // A shared bathroom is sometimes taken: it takes a few seconds longer.
   const waitedFor = bathroomTaken(opts.placeId, r.action, opts.rand) ?? undefined;
   const seconds = activitySeconds(r.action, opts.item) + (waitedFor ? BATHROOM_WAIT : 0);
-  s.activity = { actionId, uid: opts.uid, item: opts.item, placeId: opts.placeId ?? null, startedAt: nowMs(), seconds, done: 0, waitedFor };
+  s.activity = { actionId, uid: opts.uid, item: opts.item, placeId: opts.placeId ?? null, startedAt: nowMs(), seconds, done: 0, waitedFor, took };
   return { ...r, waitedFor };
 }
 
@@ -109,6 +120,9 @@ export function completeActivity(s: GameState, rand = Math.random): ActivityResu
   s.activity = null;
   if (!a) return null;
   const out = finishAction(s, a, { needsDone: true });
+  // A cooked meal: every portion goes in the fridge (eat one now, or later).
+  const food = mealOfAction(a.id);
+  if (food?.kind === 'cook' && act.took) storePortions(s, food.meal.id, food.meal.portions);
   // (For the first-upgrade goal: a full rest on something better than cheap.)
   const q = act.item ? FURNITURE.get(act.item)?.quality : undefined;
   if (a.tags.includes('rest') && q && q !== 'cheap') s.stats.actionsDone['__betterSleep'] = (s.stats.actionsDone['__betterSleep'] ?? 0) + 1;
@@ -119,7 +133,7 @@ export function completeActivity(s: GameState, rand = Math.random): ActivityResu
     quirk = def.quirk.moodlet;
   } else if ((quirk = nightNoise(s, act.placeId, a, rand))) {
     // Street noise at night (the studio): woke you once.
-  } else if (a.tags.includes('cook') && rand() < Math.max(0.03, 0.18 - 0.04 * Math.floor(s.skills.cooking))) {
+  } else if (a.tags.includes('cook') && rand() < burnChance(s, def?.quality)) {
     // Cooking can go a little wrong, less often as you get better at it.
     const m = { id: 'smokeAlarm', label: 'Burnt it a little and set off the smoke alarm', emoji: '🚨', value: -3, minutes: 30 };
     addMoodlet(s, m);
@@ -138,5 +152,16 @@ export function stopActivity(s: GameState): ActionDef | null {
   if (!act) return null;
   tickActivity(s);
   s.activity = null;
+  // Stopped cooking before it was done: the ingredients go back in the fridge.
+  if (act.took) returnIngredients(s, act.took);
   return ACTIONS[act.actionId] ?? null;
+}
+
+/**
+ * Chance cooking goes a little wrong: less the better you cook, and half
+ * as likely on a nice or luxury stove.
+ */
+export function burnChance(s: GameState, quality?: Quality): number {
+  const base = Math.max(0.03, 0.18 - 0.04 * Math.floor(s.skills.cooking));
+  return quality === 'nice' || quality === 'luxury' ? base / 2 : base;
 }

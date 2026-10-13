@@ -553,3 +553,23 @@ body.mirror .hud { opacity: 0; visibility: hidden; transition: opacity 0.2s, vis
 .born-odds { margin: 0 0 14px; font-size: 13px; font-weight: 800; color: var(--ink-soft); }
 .born-rich .born-card { background: #f3f7ff; }
 .born-billionaire .born-card { background: linear-gradient(160deg, #fff6d6, #ffe08a); }
+
+/* ---------- Kitchen: fridge, stove, InstaDash (2026-10-13) ---------- */
+.k-emoji { font-size: 26px; width: 34px; text-align: center; flex: none; }
+.k-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.k-chip { background: #fff; border: var(--line-thin); border-radius: 999px; padding: 4px 10px; font-size: 13px; }
+.k-coming { margin-top: 8px; }
+.k-order { margin-top: 12px; }
+.k-meal { background: #fff; border: var(--line-thin); border-radius: 16px; padding: 10px 12px; margin-top: 10px; }
+.k-meal.off { background: #f3f1ec; }
+.k-meal-head { display: flex; align-items: center; gap: 10px; }
+.k-meal-head small { display: block; color: var(--ink-soft); font-size: 12.5px; margin-top: 2px; }
+.k-uses { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+.k-use { font-size: 12.5px; background: #eaf7ee; border-radius: 8px; padding: 3px 8px; }
+.k-use.short { background: #fdeaea; color: var(--bad); font-weight: 700; }
+.k-use small { color: var(--ink-faint); font-weight: 400; }
+.dash-item { align-items: center; }
+.dash-qty { display: flex; align-items: center; gap: 6px; flex: none; }
+.dash-qty .btn { min-width: 36px; padding: 6px 0; }
+.dash-qty b { min-width: 18px; text-align: center; }
+.dash-total { margin: 12px 0 8px; text-align: center; }

@@ -70,6 +70,8 @@ export interface HomeLayout {
   walls: HomeWall[];
   furniture: HomeItem[];
   conditions?: HomeConditions;
+  /** Big homes: pinch to zoom and drag to pan (small homes keep a fixed view). */
+  zoomable?: boolean;
   /** Windows on the back wall (default: two ordinary ones). `view: 'park'` shows Central Park. */
   windows?: { xs: number[]; w: number; h: number; y: number; view?: 'sky' | 'park' };
 }
@@ -317,6 +319,7 @@ HOME_LAYOUTS.add(
     depth: 10,
     wallColor: '#eef1f4',
     conditions: { doorman: true },
+    zoomable: true,
     rooms: [
       { label: 'Living', rect: [-7, -0.8, 2.6, 5], floor: '#b98a5e' },
       { label: 'Kitchen', rect: [2.6, -0.8, 7, 5], floor: '#e8e6e1' },
@@ -371,6 +374,7 @@ HOME_LAYOUTS.add(
     depth: 12,
     wallColor: '#f4f1ea',
     conditions: { housekeeper: true, doorman: true },
+    zoomable: true,
     windows: { xs: [-6.5, -2.5, 1.5, 5.5], w: 3.4, h: 2.3, y: 1.4, view: 'park' },
     rooms: [
       { label: 'Great room', rect: [-9, -1, 4, 6], floor: '#d9c6a5' },

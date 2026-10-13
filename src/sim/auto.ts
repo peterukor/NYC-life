@@ -45,7 +45,7 @@ export const AUTO = {
 } as const;
 
 /** Things auto mode can do (home activities only: no travelling while you're away). */
-export const ROUTINE_CHOICES = ['sleep', 'snack', 'cookPasta', 'shower', 'toilet', 'watchTv', 'workout', 'freelance', 'codePractice', 'callMom'].filter((id) => ACTIONS[id]);
+export const ROUTINE_CHOICES = ['sleep', 'snack', 'shower', 'toilet', 'watchTv', 'workout', 'freelance', 'codePractice', 'callMom'].filter((id) => ACTIONS[id]);
 
 export interface AutoState {
   on: boolean;

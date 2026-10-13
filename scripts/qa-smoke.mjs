@@ -129,10 +129,11 @@ check('back on the street', (await nyc(() => window.__nyc.mode())) === 'city');
 const before = (await state()).location;
 // Pick a spot on the street that isn't a door, then really tap it.
 let spot = null;
+let spotAt = null;
 for (const [fx, fy] of [[0.25, 0.5], [0.7, 0.55], [0.5, 0.4], [0.3, 0.65], [0.75, 0.35], [0.5, 0.6], [0.2, 0.7], [0.8, 0.7], [0.5, 0.75], [0.35, 0.45]]) {
   const p = [Math.round(width * fx), Math.round(height * fy)];
   const w = await nyc((x, y) => window.__nyc.whatsAt(x, y), p[0], p[1]);
-  if (!w.door && (w.ground === 'ground' || w.ground === 'roads' || w.ground === 'sidewalks')) { spot = p; break; }
+  if (!w.door && /^(ground|roads|sidewalks|corridor-)/.test(w.ground ?? '')) { spot = p; spotAt = w.point; break; }
 }
 if (!spot) {
   const seen = [];
@@ -145,7 +146,11 @@ await page.touchscreen.tap(spot[0], spot[1]);
 // to 0.1 s), so give the walk plenty of time.
 await wait(6000);
 const after = (await state()).location;
-check('tapping the street walks the player', Math.hypot(after.x - before.x, after.z - before.z) > 1.5, `moved ${Math.hypot(after.x - before.x, after.z - before.z).toFixed(1)} m`);
+// Walked: either moved a good way, or got to (near) the spot that was tapped
+// (which can be close by, depending on where the camera ended up).
+const moved = Math.hypot(after.x - before.x, after.z - before.z);
+const toSpot = spotAt ? Math.hypot(after.x - spotAt.x, after.z - spotAt.z) : Infinity;
+check('tapping the street walks the player', moved > 1.5 || (moved > 0.3 && toSpot < 2), `moved ${moved.toFixed(1)} m, ${toSpot.toFixed(1)} m from the tap`);
 await shot('07-street');
 // Close-up of the player character, to eyeball the avatar's look.
 await nyc(() => window.__nyc.zoom(9));

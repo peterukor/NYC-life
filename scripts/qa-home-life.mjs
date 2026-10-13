@@ -25,8 +25,10 @@ const walked = async () => { for (let k = 0; k < 400 && (await ev(() => window._
 const doAct = async (uid, actionId) => {
   await tapItem(uid);
   await walked();
-  await page.waitForSelector(`[data-act="do:${actionId}"]`, { timeout: 5000 });
-  await page.$eval(`[data-act="do:${actionId}"]`, (el) => el.click());
+  // "cook:eggsToast" is the stove's own button; everything else is "do:<action>".
+  const sel = `[data-act="${actionId.includes(':') ? actionId : `do:${actionId}`}"]`;
+  await page.waitForSelector(sel, { timeout: 5000 });
+  await page.$eval(sel, (el) => el.click());
   await wait(400);
 };
 
@@ -61,12 +63,13 @@ for (let k = 0; k < 140 && (await ev(() => window.__nyc.activity())); k++) await
 ok(!(await ev(() => window.__nyc.activity())), 'TV finished on its own');
 
 console.log('3. Shower, toilet, desk, stove poses');
-for (const [uid, act, shot] of [['tub', 'shower', 'shower'], ['toilet', 'toilet', 'toilet'], ['desk', 'doomscroll', 'desk'], ['stove', 'cookPasta', 'stove']]) {
+for (const [uid, act, shot] of [['tub', 'shower', 'shower'], ['toilet', 'toilet', 'toilet'], ['desk', 'doomscroll', 'desk'], ['stove', 'cook:eggsToast', 'stove']]) {
   await doAct(uid, act);
   await wait(1200);
   await page.screenshot({ path: `test-results/life-${shot}.png` });
   const a = await ev(() => window.__nyc.activity());
-  ok(a && a.actionId === act, `${act} running`);
+  const want = act.startsWith('cook:') ? `cook_${act.slice(5)}` : act;
+  ok(a && a.actionId === want, `${want} running`);
   if (a) await page.$eval('.progress .skip', (el) => el.click());
   await wait(300);
 }

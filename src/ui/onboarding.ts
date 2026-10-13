@@ -16,6 +16,36 @@ import type { Look } from '../sim/types.ts';
 import { HAIR_COLORS, OUTFIT_COLORS, SKIN_TONES } from '../world/avatar.ts';
 import { html, root } from './dom.ts';
 
+const PENDING_KEY = 'nyc-life.bornClass';
+
+/** A class already rolled for this device, not yet started. */
+function pendingClass(): SpawnClass | null {
+  try {
+    const c = localStorage.getItem(PENDING_KEY) as SpawnClass | null;
+    return c && c in CLASSES ? c : null;
+  } catch {
+    return null;
+  }
+}
+
+function keepPending(c: SpawnClass): SpawnClass {
+  try {
+    localStorage.setItem(PENDING_KEY, c);
+  } catch {
+    /* private mode: nothing to keep it in */
+  }
+  return c;
+}
+
+/** The life has started (and is saved with its class): forget the pending roll. */
+export function clearPendingClass(): void {
+  try {
+    localStorage.removeItem(PENDING_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
 export function runOnboarding(onLook: (look: Look) => void): Promise<NewLifeOptions> {
   return new Promise((resolve) => {
     const thisYear = new Date().getFullYear();
@@ -110,7 +140,9 @@ export function runOnboarding(onLook: (look: Look) => void): Promise<NewLifeOpti
       if (traits.size !== 2) return void (err.textContent = 'Pick two traits.');
       // You're born: roll the class (or ?class=… for testing), then reveal it.
       const forced = new URLSearchParams(location.search).get('class') as SpawnClass | null;
-      const spawnClass: SpawnClass = forced && forced in CLASSES ? forced : rollClass();
+      // The roll is kept until the life is saved, so refreshing on the
+      // reveal (or closing the app) can't reroll it.
+      const spawnClass: SpawnClass = forced && forced in CLASSES ? forced : pendingClass() ?? keepPending(rollClass());
       const d = CLASSES[spawnClass];
       const card = html(`<div class="born born-${spawnClass}" role="dialog" aria-label="You were born">
         <div class="born-card">

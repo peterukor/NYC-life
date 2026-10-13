@@ -27,6 +27,7 @@ import { businessValue, buyBusiness, candidates, fire, hire, TAX } from '../sim/
 import { PATHS } from '../data/paths.ts';
 import { joinPath, leavePath, levelBlockers, levelTasks, pathLevel, pathTitle, taskProgress, tryLevelUp } from '../sim/paths.ts';
 import { PHONE_APPS, type PhoneAppCtx } from './phone-apps.ts';
+import './instadash.ts'; // registers the InstaDash app
 import { bankruptcyBlocker, DEBT } from '../sim/debt.ts';
 import { buyStock, dayChange, netWorth, portfolioValue, priceOf, recentPrices, sellStock, TRADE_FEE } from '../sim/market.ts';
 

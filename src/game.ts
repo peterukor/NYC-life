@@ -58,6 +58,10 @@ import { FURNITURE, FURNITURE_QUALITY, qualityLine, SHOP_ITEMS } from './data/fu
 import { buyFurniture } from './sim/shop.ts';
 import { arriveHome, hasDoorman } from './sim/home-conditions.ts';
 import { Roommates } from './world/roommates.ts';
+import { InteriorView } from './world/interior-view.ts';
+import { openFridge, openStove } from './ui/kitchen.ts';
+import { receiveOrders } from './sim/kitchen.ts';
+import { cookActionId, eatActionId, mealOfAction } from './data/groceries.ts';
 import { openFurnitureShop } from './ui/furniture-shop.ts';
 import { beginActivity, completeActivity, stopActivity, tickActivity, activityProgress } from './sim/home-activity.ts';
 import { abandonShift, baseWage, finishDeliShift, startDeliShift } from './sim/shift.ts';
@@ -91,7 +95,7 @@ import { sfx, setSoundEnabled } from './ui/audio.ts';
 import { closeSheet, fade, html, isSheetOpen, onAct, openModal, openSheet, progressBar, root, toast, wait } from './ui/dom.ts';
 import { Hud } from './ui/hud.ts';
 import { openMap } from './ui/map.ts';
-import { runOnboarding } from './ui/onboarding.ts';
+import { clearPendingClass, runOnboarding } from './ui/onboarding.ts';
 import { openPhone } from './ui/phone.ts';
 
 
@@ -118,6 +122,8 @@ export class Game {
   private roommates: Roommates | null = null;
   private transit: TransitScene | null = null;
   private interiorCamera = new THREE.PerspectiveCamera(48, 1, 0.1, 200);
+  /** Zoom and pan inside the big homes. */
+  private view = new InteriorView(this.interiorCamera);
   /** The closet mirror's view (see openClosetMirror). */
   private mirrorCamera = new THREE.PerspectiveCamera(40, 1, 0.05, 60);
   /** Home furniture models (loaded at boot; null = use the simple room). */
@@ -151,9 +157,10 @@ export class Game {
     this.engine.cityScene.add(this.player.root);
     this.engine.onTap((x, y) => this.onTap(x, y));
     this.setupFurnitureDrag();
+    this.setupInteriorGestures();
     // Re-frame rooms when the phone rotates or the window changes size.
     window.addEventListener('resize', () => {
-      if (this.engine.mode === 'interior') this.fitInteriorCamera();
+      if (this.engine.mode === 'interior') this.fitInteriorCamera(true);
     });
     // Test hooks for automated play-testing (only with ?qa in the address).
     if (new URLSearchParams(location.search).has('qa')) this.exposeTestHooks();
@@ -350,6 +357,20 @@ export class Game {
       walking: () => !!this.indoor,
       indoorRoute: () => (this.indoor ? this.indoor.points.map((q) => ({ ...q })) : null),
       resetCam: () => this.fitInteriorCamera(),
+      phoneApp: (id: string) => this.openPhoneApp(id),
+      /** InstaDash: make every order arrive now (QA). */
+      deliverNow: () => {
+        for (const o of this.state.kitchen?.orders ?? []) o.arrivesAt = 0;
+      },
+      indoorWalking: () => !!this.indoor,
+      walkInside: (x: number, z: number) => this.walkInside(x, z),
+      zoomAt: (f: number, x: number, y: number) => this.view.zoomAt(f, x, y),
+      view: () => ({ zoom: +this.view.zoom.toFixed(2), panX: +this.view.pan.x.toFixed(2), panZ: +this.view.pan.y.toFixed(2), enabled: this.view.enabled, seesPlayer: this.view.sees(this.player.root.position) }),
+      playerScreen: () => {
+        const p = this.player.root.position.clone().setY(0.8).project(this.interiorCamera);
+        const el = this.engine.renderer.domElement.getBoundingClientRect();
+        return { x: el.left + ((p.x + 1) / 2) * el.width, y: el.top + ((1 - p.y) / 2) * el.height };
+      },
       money: () => this.state.money,
       job: () => this.state.job?.careerId ?? null,
       shiftOpen: () => !!this.state.shift,
@@ -361,6 +382,7 @@ export class Game {
         this.player.setHold(at);
       },
       activity: () => (this.state.activity ? { ...this.state.activity, posed: !!this.doing } : null),
+      stopDoing: () => this.stopDoing(true),
       needs: () => ({ ...this.state.needs }),
       storage: () => [...(this.state.storage ?? [])],
       homeItems: () => (this.interior && 'items' in this.interior ? (this.interior as HomeInterior).items.map((i) => ({ ...i })) : null),
@@ -487,6 +509,7 @@ export class Game {
     this.enterInterior(PLACE_BY_ID[this.state.home.placeId], false);
     toast(`Welcome to New York, ${opts.name}!`, { icon: '🗽', tone: 'good', ms: 4000 });
     this.save();
+    clearPendingClass(); // the class is in the save now
   }
 
   private finishBoot(): void {
@@ -659,6 +682,8 @@ export class Game {
     } else if (this.engine.mode === 'interior' && this.interior) {
       this.interior.update(dt);
       this.player.animate(this.walkIndoors(dt), dt);
+      // Zoomed in: keep yourself in view while you walk somewhere.
+      if (this.indoor || this.doing) this.view.follow(this.player.root.position, dt);
       this.tickDoing();
       const ring = this.tapRing;
       if (ring?.visible) {
@@ -685,6 +710,7 @@ export class Game {
       this.hudTimer += dt;
       if (this.hudTimer > 0.25) {
         this.hudTimer = 0;
+        this.checkDeliveries();
         this.refreshHud();
       }
     }
@@ -1066,6 +1092,53 @@ export class Game {
     this.walkInside(target.x, target.z, open, q.clone());
   }
 
+  /** The fridge: leftovers, ingredients, a free snack, InstaDash. */
+  private openKitchenFridge(uid: string): void {
+    const home = this.interior as HomeInterior;
+    const item = home.items.find((i) => i.uid === uid);
+    const def = item ? FURNITURE.get(item.item) : undefined;
+    if (!def) return;
+    receiveOrders(this.state);
+    openFridge(this.state, def.name, def.emoji, {
+      eat: (mealId) => this.useFurniture(uid, eatActionId(mealId)),
+      snack: () => this.useFurniture(uid, 'snack'),
+      extra: def.actions.filter((a) => a !== 'snack').map((a) => ({ actionId: a, run: () => this.useFurniture(uid, a) })),
+      order: () => this.openPhoneApp('instadash'),
+    });
+  }
+
+  /** The stove: pick a meal (time, ingredients and hunger shown first), then cook it. */
+  private openKitchenStove(uid: string): void {
+    const home = this.interior as HomeInterior;
+    const item = home.items.find((i) => i.uid === uid);
+    const def = item ? FURNITURE.get(item.item) : undefined;
+    if (!def || !item) return;
+    receiveOrders(this.state);
+    openStove(this.state, def.name, def.emoji, item.item, def.quality ?? 'basic', {
+      cook: (mealId) => this.useFurniture(uid, cookActionId(mealId)),
+      order: () => this.openPhoneApp('instadash'),
+    });
+  }
+
+  /** A meal's done: eat a portion now, or leave them all in the fridge. */
+  private offerMeal(mealId: string, uid: string): void {
+    const food = mealOfAction(eatActionId(mealId));
+    if (!food) return;
+    const m = food.meal;
+    const n = this.state.kitchen?.leftovers[mealId] ?? 0;
+    const sheet = openSheet({
+      emoji: m.emoji,
+      title: `${m.name} is ready`,
+      sub: `${n} portion${n === 1 ? '' : 's'} · +${m.hunger} hunger each`,
+      body: `<div class="row"><button class="btn primary" style="flex:1" data-act="eat">🍽️ Eat one now</button><button class="btn" style="flex:1" data-act="keep">🧊 Keep ${n === 1 ? 'it' : 'them'} for later</button></div>`,
+    });
+    onAct(sheet.body, (act) => {
+      sheet.close();
+      if (act === 'eat') this.useFurniture(uid, eatActionId(mealId));
+      else toast(`${m.emoji} In the fridge for later`, { ms: 1800 });
+    });
+  }
+
   private openObjectSheet(label: string, emoji: string, actionIds: string[], movableId?: string): void {
     const place = this.state.location.placeId ? PLACE_BY_ID[this.state.location.placeId] : null;
     const open = place ? isOpen(place, nycTime().hour) : true;
@@ -1077,6 +1150,9 @@ export class Game {
     // Home furniture that opens a screen (the closet).
     const homeItem = movableId && this.interior && 'items' in this.interior ? (this.interior as HomeInterior).items.find((i) => i.uid === movableId) : undefined;
     const homeDef = homeItem ? FURNITURE.get(homeItem.item) : undefined;
+    // The fridge and the stove have their own screens (ui/kitchen.ts).
+    if (homeItem && homeDef?.opens === 'fridge') return this.openKitchenFridge(homeItem.uid);
+    if (homeItem && homeDef?.opens === 'stove') return this.openKitchenStove(homeItem.uid);
     const opensCloset = homeDef?.opens === 'closet';
     // Quality: how much it gives back (cheap pieces can leave a downside).
     const q = homeDef?.quality ?? 'basic';
@@ -1308,7 +1384,7 @@ export class Game {
    * width, so the camera backs off (and widens its lens) until the room
    * fits side to side, looking down at a Sims-like angle.
    */
-  private fitInteriorCamera(): void {
+  private fitInteriorCamera(keep = false): void {
     const cam = this.interiorCamera;
     const el = this.engine.renderer.domElement;
     const aspect = el.clientWidth / Math.max(1, el.clientHeight);
@@ -1317,10 +1393,72 @@ export class Game {
     const roomHalfWidth = this.interior?.halfWidth ?? 7.2;
     const hFov = 2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(cam.fov) / 2) * aspect);
     const dist = Math.max(9, roomHalfWidth / Math.tan(hFov / 2)); // small homes fill the screen too
-    cam.position.set(0, dist * 0.72, dist * 0.7);
-    cam.lookAt(0, 0.6, -0.5);
     cam.far = dist * 4;
     cam.updateProjectionMatrix();
+    // Zoom and pan (big homes only) on top of the whole-room framing.
+    const layout = this.interior && 'layout' in this.interior ? (this.interior as HomeInterior).layout : null;
+    this.view.frame(new THREE.Vector3(0, 0.6, -0.5), new THREE.Vector3(0, dist * 0.72, dist * 0.7), (layout?.width ?? 12) / 2, (layout?.depth ?? 10) / 2, !!layout?.zoomable, keep);
+  }
+
+  /**
+   * Pinch to zoom and drag to pan inside the big homes (two fingers, or
+   * one finger once zoomed in; the mouse wheel on a computer). A drag on
+   * a piece you're moving moves the piece instead. Gestures never walk or
+   * pick anything: the engine drops any press that moved.
+   */
+  private setupInteriorGestures(): void {
+    const el = this.engine.renderer.domElement;
+    const pts = new Map<number, { x: number; y: number }>();
+    const ndc = (x: number, y: number) => {
+      const r = el.getBoundingClientRect();
+      return [((x - r.left) / r.width) * 2 - 1, -((y - r.top) / r.height) * 2 + 1] as const;
+    };
+    const active = () => this.engine.mode === 'interior' && this.view.enabled && this.engine.altCamera === this.interiorCamera;
+    el.addEventListener('pointerdown', (e) => {
+      if (active()) pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    });
+    el.addEventListener('pointermove', (e) => {
+      const prev = pts.get(e.pointerId);
+      if (!prev || !active()) return;
+      if (pts.size >= 2) {
+        // Pinch: zoom by how much the fingers spread, around their midpoint.
+        const others = [...pts.entries()].filter(([id]) => id !== e.pointerId);
+        const o = others[0][1];
+        const before = Math.hypot(prev.x - o.x, prev.y - o.y);
+        const after = Math.hypot(e.clientX - o.x, e.clientY - o.y);
+        const [mx, my] = ndc((e.clientX + o.x) / 2, (e.clientY + o.y) / 2);
+        if (before > 10) this.view.zoomAt(after / before, mx, my);
+        // ...and pan by half the finger's move (the midpoint moves half as far).
+        const [ax, ay] = ndc((prev.x + o.x) / 2, (prev.y + o.y) / 2);
+        this.view.dragBy(ax, ay, mx, my);
+      } else if (!this.drag && Math.hypot(e.clientX - this.downAt(e.pointerId, prev).x, e.clientY - this.downAt(e.pointerId, prev).y) > 8) {
+        const [ax, ay] = ndc(prev.x, prev.y);
+        const [bx, by] = ndc(e.clientX, e.clientY);
+        this.view.dragBy(ax, ay, bx, by);
+      }
+      pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    });
+    const up = (e: PointerEvent) => {
+      pts.delete(e.pointerId);
+      this.gestureStart.delete(e.pointerId);
+    };
+    el.addEventListener('pointerup', up);
+    el.addEventListener('pointercancel', up);
+    el.addEventListener('wheel', (e) => {
+      if (!active()) return;
+      e.preventDefault();
+      const [x, y] = ndc(e.clientX, e.clientY);
+      this.view.zoomAt(e.deltaY < 0 ? 1.12 : 1 / 1.12, x, y);
+    }, { passive: false });
+    // iOS Safari: don't let a pinch zoom the whole page.
+    document.addEventListener('gesturestart', (e) => e.preventDefault());
+  }
+
+  /** Where a finger first went down (so a tiny wobble doesn't pan). */
+  private gestureStart = new Map<number, { x: number; y: number }>();
+  private downAt(id: number, now: { x: number; y: number }): { x: number; y: number } {
+    if (!this.gestureStart.has(id)) this.gestureStart.set(id, { ...now });
+    return this.gestureStart.get(id)!;
   }
 
   /**
@@ -1683,6 +1821,8 @@ export class Game {
     }
     this.save();
     this.refreshHud(true);
+    const food = mealOfAction(a.id);
+    if (food?.kind === 'cook' && d.uid) this.offerMeal(food.meal.id, d.uid);
   }
 
   /** Stop using a piece early: keep what you got so far. */
@@ -1698,7 +1838,8 @@ export class Game {
     const pct = Math.round((this.state.activity ? tickActivity(this.state) : 0) * 100);
     const a = stopActivity(this.state);
     this.unpose(d);
-    if (announce && a) toast(`${a.emoji} Stopped ${a.label.toLowerCase()} · ${pct}% done`, { ms: 1800 });
+    const cooking = a && mealOfAction(a.id)?.kind === 'cook';
+    if (announce && a) toast(cooking ? `${a.emoji} Stopped cooking · the ingredients are back in the fridge` : `${a.emoji} Stopped ${a.label.toLowerCase()} · ${pct}% done`, { ms: 2200 });
     this.save();
     this.refreshHud(true);
   }
@@ -2326,6 +2467,15 @@ export class Game {
       body: `<div class="card" style="background:${ad.bg};color:${ad.fg}"><h3 style="color:${ad.fg}">${esc(ad.brand)}</h3><p style="color:${ad.fg};opacity:.85">${esc(ad.line)}</p></div><p class="fine">${ad.link ? `<a href="${ad.link}" target="_blank" rel="noopener noreferrer sponsored">Visit advertiser ↗</a>` : 'This is a placeholder ad for a made-up brand. Real advertisers can book this screen when advertising opens.'}</p>`,
     });
     void sheet;
+  }
+
+  /** InstaDash orders that have arrived go in the fridge. */
+  private checkDeliveries(): void {
+    if (!this.state.kitchen?.orders.length) return;
+    if (!receiveOrders(this.state)) return;
+    sfx.notify();
+    toast(hasDoorman(this.state) ? 'The doorman took in your InstaDash bag. It’s in your fridge.' : 'InstaDash dropped off your groceries. They’re in your fridge.', { icon: '🛵', tone: 'good', ms: 4000 });
+    this.save();
   }
 
   private refreshHud(force = false): void {

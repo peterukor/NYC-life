@@ -27,7 +27,16 @@ How to add or change content: **`docs/ADDING-CONTENT.md`**.
   | Billionaire | penthouse | penthouse (18×12) | luxury toy pieces | housekeeper (once-a-day mood), doorman, park-view windows |
 
 - Code: `sim/home-conditions.ts` (rules), `world/roommates.ts` (NPCs), `HomeConditions` and `windows` on `HomeLayout`.
-- Open question: the 14 m and 18 m homes look small on a phone held upright. Zooming in or a portrait floor plan could help.
+- Big homes (`zoomable: true`: uesTwoBed, penthouse) open whole, then pinch / wheel to zoom (up to 2.8×) and drag to pan, kept inside the room (`world/interior-view.ts`). The camera follows you if you walk off screen. Walk-up and studio keep the fixed view.
+- The rolled class is kept in localStorage (`nyc-life.bornClass`) until the life is saved, so refreshing on the reveal can't reroll it.
+
+## Groceries and cooking (2026-10-13)
+- **InstaDash** phone app (`ui/instadash.ts`), not a place: 8 ingredients in packs (`data/groceries.ts`), $2.99 delivery, the bag reaches your fridge about 40 s later (doorman variant in rich homes).
+- **Fridge** (`ui/kitchen.ts`): leftovers (eat one), ingredients, order shortcut, the free snack (always there).
+- **Stove**: 4 meals (sandwich, eggs and toast, pasta ×2 portions, roast chicken and veggies ×2 at Cooking 2). Each card shows time on this stove, ingredients (have/need), portions, hunger. When done: eat one now, or keep.
+- Rules (`sim/kitchen.ts`, `sim/home-activity.ts`): cooking takes ingredients at the start and gives them back if stopped; finishing puts every portion in the fridge; eating takes one portion at the start. Nice/luxury stoves cook faster and burn half as often. All in the save, including cooking in progress.
+- Starter fridges differ by class (`STARTER_PANTRY`). Spoilage: later.
+- QA: `qa-kitchen.mjs` (CLASS=…), `qa-zoom.mjs`, `qa-born-keep.mjs`.
 
 ## Current state (2026-10-11, overnight session)
 - **City look (Megapolis/Supercell direction).** A procedural NYC generator in `src/world/nycgen/` has replaced the Kenney buildings.

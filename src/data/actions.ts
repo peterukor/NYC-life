@@ -17,6 +17,7 @@
 // =====================================================================
 
 import type { GameState, NeedKey, SkillKey } from '../sim/types.ts';
+import { mealActions } from './groceries.ts';
 
 export interface ActionDef {
   id: string;
@@ -135,7 +136,8 @@ const LIST: ActionDef[] = [
   { id: 'tipPerformer', label: 'Tip the performer $5', emoji: '💵', seconds: 2, cost: 500, needs: { fun: 6, social: 6 }, moodlet: { id: 'goodDeed', label: 'Supported local art', emoji: '💛', value: 6, minutes: 60 }, tags: ['social'] },
 ];
 
-export const ACTIONS: Record<string, ActionDef> = Object.fromEntries(LIST.map((a) => [a.id, a]));
+// Home cooking: a cook_ and an eat_ action per meal (data/groceries.ts).
+export const ACTIONS: Record<string, ActionDef> = Object.fromEntries([...LIST, ...mealActions()].map((a) => [a.id, a]));
 
 /** Is this action available right now (time window and skill)? Returns a reason if not. */
 export function actionLock(a: ActionDef, s: GameState, hour: number): string | null {

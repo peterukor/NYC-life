@@ -13,6 +13,10 @@
 // =====================================================================
 
 import { Registry } from '../core/registry.ts';
+import { cookActionId, MEALS } from './groceries.ts';
+
+/** A stove cooks every home meal (data/groceries.ts). */
+const COOK_ACTIONS = MEALS.map((m) => cookActionId(m.id));
 
 /** Kenney furniture is modelled small: this makes a double bed ~2 m long. */
 export const FURN_SCALE = 2;
@@ -65,7 +69,7 @@ export interface FurnitureDef {
   /** Where the screen sits on a TV piece (metres from its centre): width, height, x, y, z. */
   screen?: [number, number, number, number, number];
   /** Opens a screen when tapped (the closet opens your wardrobe). */
-  opens?: 'closet';
+  opens?: 'closet' | 'fridge' | 'stove';
   /** Venue counters: offers whatever the PLACE sells (its actions list) instead of `actions`. */
   placeActions?: boolean;
 }
@@ -109,8 +113,8 @@ FURNITURE.add(
   { id: 'nightstand', name: 'Nightstand', emoji: '🗄️', price: 8_000, parts: [{ model: 'cabinetBedDrawer' }, { model: 'lampSquareTable', y: 0.52 }], actions: [] },
   { id: 'closet', name: 'Closet', emoji: '👕', price: 35_000, parts: [{ model: 'bookcaseClosedWide' }], actions: [], opens: 'closet' },
   // ---- kitchen
-  { id: 'stove', name: 'Stove', emoji: '🍳', price: 45_000, parts: [{ model: 'kitchenStove' }], actions: ['cookPasta', 'cookFancy'], fixed: true },
-  { id: 'fridge', name: 'Fridge', emoji: '🧊', price: 50_000, parts: [{ model: 'kitchenFridge' }], actions: ['snack'] },
+  { id: 'stove', name: 'Stove', emoji: '🍳', price: 45_000, parts: [{ model: 'kitchenStove' }], actions: COOK_ACTIONS, opens: 'stove', fixed: true },
+  { id: 'fridge', name: 'Fridge', emoji: '🧊', price: 50_000, parts: [{ model: 'kitchenFridge' }], actions: ['snack'], opens: 'fridge' },
   { id: 'kitchenSink', name: 'Kitchen sink', emoji: '🚰', price: 20_000, parts: [{ model: 'kitchenSink' }], actions: [], fixed: true },
   { id: 'counter', name: 'Counter', emoji: '🗄️', price: 15_000, parts: [{ model: 'kitchenCabinetDrawer' }, { model: 'kitchenCoffeeMachine', y: 0.9, x: -0.1 }], actions: [] },
   { id: 'counterMicrowave', name: 'Counter + microwave', emoji: '🗄️', price: 22_000, parts: [{ model: 'kitchenCabinet' }, { model: 'kitchenMicrowave', y: 0.9 }], actions: ['snack'] },
@@ -171,8 +175,8 @@ FURNITURE.add(
   { id: 'shoePile', name: 'Shoes by the door', emoji: '👟', price: 0, parts: [{ model: 'toyShoePile' }], actions: [], flat: true, quality: 'cheap' },
   { id: 'wornRug', name: 'Worn rug', emoji: '🟫', price: 3_000, parts: [{ model: 'toyWornRug' }], actions: [], flat: true, quality: 'cheap' },
   { id: 'trashBags', name: 'Trash', emoji: '🗑️', price: 0, parts: [{ model: 'toyTrashBags' }], actions: [], quality: 'cheap' },
-  { id: 'oldStove', name: 'Old stove', emoji: '🍳', price: 20_000, parts: [{ model: 'toyOldStove' }], actions: ['cookPasta', 'cookFancy'], fixed: true, quality: 'cheap' },
-  { id: 'oldFridge', name: 'Old fridge', emoji: '🧊', price: 20_000, parts: [{ model: 'toyOldFridge' }], actions: ['snack'], fixed: true, quality: 'cheap' },
+  { id: 'oldStove', name: 'Old stove', emoji: '🍳', price: 20_000, parts: [{ model: 'toyOldStove' }], actions: COOK_ACTIONS, opens: 'stove', fixed: true, quality: 'cheap' },
+  { id: 'oldFridge', name: 'Old fridge', emoji: '🧊', price: 20_000, parts: [{ model: 'toyOldFridge' }], actions: ['snack'], opens: 'fridge', fixed: true, quality: 'cheap' },
   { id: 'sinkCounter', name: 'Sink and counter', emoji: '🚰', price: 12_000, parts: [{ model: 'toySinkCounter' }], actions: [], fixed: true, quality: 'cheap' },
   { id: 'oldToilet', name: 'Toilet', emoji: '🚽', price: 10_000, parts: [{ model: 'toyToilet' }], actions: ['toilet'], use: 'sitOn', fixed: true, quality: 'cheap' },
   { id: 'tubShower', name: 'Tub and shower', emoji: '🛁', price: 25_000, parts: [{ model: 'toyTubShower' }], actions: ['shower'], use: 'stepIn', fixed: true, quality: 'cheap', quirk: { chance: 0.1, moodlet: { id: 'coldShower', label: 'The hot water ran out early', emoji: '🥶', value: -2, minutes: 30 } } },
@@ -187,8 +191,8 @@ FURNITURE.add(
   { id: 'kingBed', name: 'King bed', emoji: '🛏️', price: 1_800_000, parts: [{ model: 'toyKingBed' }], actions: ['sleep', 'nap'], use: 'lie', kind: 'bed', quality: 'luxury' },
   { id: 'velvetSectional', name: 'Velvet sectional', emoji: '🛋️', price: 1_200_000, parts: [{ model: 'toyVelvetSectional' }], actions: ['callMom', 'guitar', 'workout'], use: 'sitOn', seat: true, kind: 'couch', quality: 'luxury' },
   { id: 'mediaWall', name: 'Home cinema', emoji: '📺', price: 900_000, parts: [{ model: 'toyMediaWall' }], actions: ['watchTv', 'gameConsole'], tv: true, screen: [2.0, 1.1, 0, 1.33, 0.0], kind: 'tv', quality: 'luxury' },
-  { id: 'chefRange', name: 'Chef’s range', emoji: '🍳', price: 1_500_000, parts: [{ model: 'toyChefRange' }], actions: ['cookPasta', 'cookFancy'], fixed: true, quality: 'luxury' },
-  { id: 'chefFridge', name: 'Chef’s fridge', emoji: '🧊', price: 1_200_000, parts: [{ model: 'toyChefFridge' }], actions: ['chefMeal', 'snack'], fixed: true, quality: 'luxury' },
+  { id: 'chefRange', name: 'Chef’s range', emoji: '🍳', price: 1_500_000, parts: [{ model: 'toyChefRange' }], actions: COOK_ACTIONS, opens: 'stove', fixed: true, quality: 'luxury' },
+  { id: 'chefFridge', name: 'Chef’s fridge', emoji: '🧊', price: 1_200_000, parts: [{ model: 'toyChefFridge' }], actions: ['chefMeal', 'snack'], opens: 'fridge', fixed: true, quality: 'luxury' },
   { id: 'marbleIsland', name: 'Marble island', emoji: '🍽️', price: 800_000, parts: [{ model: 'toyMarbleIsland' }], actions: [], fixed: true, quality: 'luxury' },
   { id: 'soakingTub', name: 'Soaking tub', emoji: '🛁', price: 1_000_000, parts: [{ model: 'toySoakingTub' }], actions: ['soak', 'shower'], use: 'stepIn', fixed: true, quality: 'luxury' },
   { id: 'doubleVanity', name: 'Double vanity', emoji: '🪥', price: 600_000, parts: [{ model: 'toyDoubleVanity' }], actions: [], fixed: true, quality: 'luxury' },

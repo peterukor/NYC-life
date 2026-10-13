@@ -11,6 +11,7 @@ import { starterWardrobe, type SpawnClass } from '../data/wardrobe.ts';
 import { newPathsState } from './paths.ts';
 import { newBusinessState } from './business.ts';
 import { NEED_KEYS, SKILL_KEYS, type GameState, type Look, type NeedKey, type Origin, type SkillKey } from './types.ts';
+import { newKitchen } from './kitchen.ts';
 
 export interface NewLifeOptions {
   name: string;
@@ -142,6 +143,7 @@ export function newLife(opts: NewLifeOptions): GameState {
     // Starting broke: a couple of things still in boxes from the move.
     storage: spawnClass === 'poor' ? ['floorLamp', 'plant'] : [],
     activity: null,
+    kitchen: newKitchen(spawnClass),
     auto: { on: false, routine: [], since: 0 },
     portfolio: {},
     paths: newPathsState(),
