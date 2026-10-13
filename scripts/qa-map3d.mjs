@@ -25,7 +25,7 @@ await page.screenshot({ path: 'test-results/map3d-1-sky.png' });
 // Zoom out to see the island.
 const box = await (await page.$('canvas')).boundingBox();
 await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-for (let i = 0; i < 6; i++) { await page.mouse.wheel({ deltaY: 300 }); await wait(150); }
+for (let i = 0; i < 14; i++) { await page.mouse.wheel({ deltaY: 300 }); await wait(150); }
 await wait(3500);
 await page.screenshot({ path: 'test-results/map3d-2-island.png' });
 for (let i = 0; i < 9; i++) { await page.mouse.wheel({ deltaY: -300 }); await wait(150); }

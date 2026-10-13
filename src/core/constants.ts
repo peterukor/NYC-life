@@ -154,11 +154,11 @@ export const CAMERA = { minDistance: 16, maxDistance: 520, startDistance: 60 } a
 
 /**
  * The sky map's furthest zoom (metres from the ground point it looks at):
- * about two neighbourhoods on a phone (Peter, 2026-10-12). Zoomed further
+ * about one and a half neighbourhoods on a phone (Peter, 2026-10-12: "max 1.5 neighborhood"). Zoomed further
  * the 3D city turns into grey noise and gets heavy for cheap phones; the
  * 🗺️ City button opens the flat map of the whole city instead.
  */
-export const MAP_MAX_DISTANCE = 900;
+export const MAP_MAX_DISTANCE = 675;
 
 /**
  * Player travel speed on foot, metres per second. Faster than a real walk
