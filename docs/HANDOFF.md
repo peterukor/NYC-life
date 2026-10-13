@@ -1,16 +1,33 @@
 # NYC Life — handoff notes (read this first)
 
-Branch: **`feat/nyc-generator`** (branched from `feat/prototype-foundation`).
+Branch: **`feat/starter-homes`** (latest work). Older notes below mention `feat/nyc-generator`.
 
 Build and test:
 - `npm run build && npx vite preview --port 4173 &`
 - `node scripts/qa-smoke.mjs`: 11 play checks.
 - `node scripts/qa-shots.mjs`: screenshots.
 - `node scripts/qa-home.mjs`: homes and move mode.
+- `node scripts/qa-homes.mjs`: the four starter homes (born reveal, clashes, reachability, roommates, shots). `CLASSES=rich,billionaire` to narrow.
+- `node scripts/qa-roommates.mjs`: roommates wander and chat.
+- `CLASS=billionaire node scripts/qa-smoke.mjs`: smoke for any class.
 - `Q=low node scripts/qa-perf.mjs`: triangles and draw calls.
 - `npm test`
 
 How to add or change content: **`docs/ADDING-CONTENT.md`**.
+
+## Four starter homes (2026-10-13)
+- The class is **rolled at random** after character creation and revealed ("…you were born"): Broke 55%, Middle 35%, Rich 9%, Billionaire 1% (`sim/state.ts` → `CLASS_ODDS`, `rollClass`). `?class=` forces one.
+- Homes (`data/homes.ts`):
+
+  | Class | Place | Layout | Furniture | Conditions |
+  |---|---|---|---|---|
+  | Broke | sharedApt | harlemWalkup | cheap toy pieces | 2 roommates (Danny, Keisha) who wander and chat; shared bathroom (20%: +5 s wait) |
+  | Middle | hkStudio | studio | basic | street noise: 10% chance a full sleep leaves a small bad mood |
+  | Rich | uesApt | uesTwoBed (14×10) | nice | doorman (signs for deliveries) |
+  | Billionaire | penthouse | penthouse (18×12) | luxury toy pieces | housekeeper (once-a-day mood), doorman, park-view windows |
+
+- Code: `sim/home-conditions.ts` (rules), `world/roommates.ts` (NPCs), `HomeConditions` and `windows` on `HomeLayout`.
+- Open question: the 14 m and 18 m homes look small on a phone held upright. Zooming in or a portrait floor plan could help.
 
 ## Current state (2026-10-11, overnight session)
 - **City look (Megapolis/Supercell direction).** A procedural NYC generator in `src/world/nycgen/` has replaced the Kenney buildings.

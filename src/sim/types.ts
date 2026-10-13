@@ -147,7 +147,7 @@ export interface GameState {
   skills: Record<SkillKey, number>;
 
   job: JobState | null;
-  home: { area: AreaId; placeId: string; weeklyRent: number; rentDueDay: string };
+  home: { area: AreaId; placeId: string; weeklyRent: number; rentDueDay: string; /** Penthouse: the day the housekeeper last cleaned (NYC date). */ cleanedDay?: string };
 
   /** Where the player is: which area, which building (null = outside), and street position. */
   location: { area: AreaId; placeId: string | null; x: number; z: number };

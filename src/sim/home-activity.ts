@@ -19,6 +19,7 @@ import { FURNITURE, FURNITURE_QUALITY, type Quality } from '../data/furniture.ts
 import { nowMs } from '../core/clock.ts';
 import { finishAction, foodieBonus, startAction, type ActionOutcome } from './activity.ts';
 import { addMoodlet, applyNeeds } from './needs.ts';
+import { BATHROOM_WAIT, bathroomTaken, nightNoise } from './home-conditions.ts';
 import type { GameState, NeedKey } from './types.ts';
 
 export interface Activity {
@@ -33,6 +34,8 @@ export interface Activity {
   seconds: number;
   /** How much of the needs has been given so far (0–1). */
   done: number;
+  /** Shared bathroom: the roommate who was in there first (you waited a moment). */
+  waitedFor?: string;
 }
 
 /** What one go of an action gives, after the furniture's quality. */
@@ -51,11 +54,18 @@ export function activitySeconds(a: ActionDef, item?: string): number {
 }
 
 /** Start using something. Charges the cost now (like any action). */
-export function beginActivity(s: GameState, actionId: string, opts: { uid?: string; item?: string; placeId?: string | null } = {}): { ok: true; action: ActionDef } | { ok: false; why: string } {
+export function beginActivity(
+  s: GameState,
+  actionId: string,
+  opts: { uid?: string; item?: string; placeId?: string | null; rand?: () => number } = {},
+): { ok: true; action: ActionDef; waitedFor?: string } | { ok: false; why: string } {
   const r = startAction(s, actionId);
   if (!r.ok) return r;
-  s.activity = { actionId, uid: opts.uid, item: opts.item, placeId: opts.placeId ?? null, startedAt: nowMs(), seconds: activitySeconds(r.action, opts.item), done: 0 };
-  return r;
+  // A shared bathroom is sometimes taken: it takes a few seconds longer.
+  const waitedFor = bathroomTaken(opts.placeId, r.action, opts.rand) ?? undefined;
+  const seconds = activitySeconds(r.action, opts.item) + (waitedFor ? BATHROOM_WAIT : 0);
+  s.activity = { actionId, uid: opts.uid, item: opts.item, placeId: opts.placeId ?? null, startedAt: nowMs(), seconds, done: 0, waitedFor };
+  return { ...r, waitedFor };
 }
 
 /** How far along it is (0–1) at a moment. */
@@ -107,6 +117,8 @@ export function completeActivity(s: GameState, rand = Math.random): ActivityResu
   if (def?.quirk && rand() < def.quirk.chance) {
     addMoodlet(s, def.quirk.moodlet);
     quirk = def.quirk.moodlet;
+  } else if ((quirk = nightNoise(s, act.placeId, a, rand))) {
+    // Street noise at night (the studio): woke you once.
   } else if (a.tags.includes('cook') && rand() < Math.max(0.03, 0.18 - 0.04 * Math.floor(s.skills.cooking))) {
     // Cooking can go a little wrong, less often as you get better at it.
     const m = { id: 'smokeAlarm', label: 'Burnt it a little and set off the smoke alarm', emoji: '🚨', value: -3, minutes: 30 };

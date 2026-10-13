@@ -56,6 +56,8 @@ import { layoutForPlace } from './data/homes.ts';
 import { VENUE_LAYOUT_FOR, VENUE_LAYOUTS } from './data/venues.ts';
 import { FURNITURE, FURNITURE_QUALITY, qualityLine, SHOP_ITEMS } from './data/furniture.ts';
 import { buyFurniture } from './sim/shop.ts';
+import { arriveHome, hasDoorman } from './sim/home-conditions.ts';
+import { Roommates } from './world/roommates.ts';
 import { openFurnitureShop } from './ui/furniture-shop.ts';
 import { beginActivity, completeActivity, stopActivity, tickActivity, activityProgress } from './sim/home-activity.ts';
 import { abandonShift, baseWage, finishDeliShift, startDeliShift } from './sim/shift.ts';
@@ -112,6 +114,8 @@ export class Game {
   private folk: FolkKit | null = null;
   private hud!: Hud;
   private interior: Interior | null = null;
+  /** The people you live with (the walk-up), while you're home. */
+  private roommates: Roommates | null = null;
   private transit: TransitScene | null = null;
   private interiorCamera = new THREE.PerspectiveCamera(48, 1, 0.1, 200);
   /** The closet mirror's view (see openClosetMirror). */
@@ -165,6 +169,8 @@ export class Game {
         if (o) this.openObjectSheet(o.label, o.emoji, o.actions, this.interior && (this.interior as HomeInterior).movable ? o.id : undefined);
         return !!o;
       },
+      /** The first thing in the room that offers an action (QA). */
+      objectWith: (actionId: string) => this.interior?.objects.find((o) => o.actions.includes(actionId))?.id ?? null,
       openPlace: (id: string) => this.openPlace(PLACE_BY_ID[id]),
       /** Names of the meshes whose world bounds cover (x, z) (debugging the map). */
       meshesAt: (x: number, z: number) => {
@@ -359,6 +365,8 @@ export class Game {
       storage: () => [...(this.state.storage ?? [])],
       homeItems: () => (this.interior && 'items' in this.interior ? (this.interior as HomeInterior).items.map((i) => ({ ...i })) : null),
       blockedUse: () => (this.interior && 'blockedUse' in this.interior ? (this.interior as HomeInterior).blockedUse() : null),
+      roommates: () => this.roommates?.list.map((r) => ({ name: r.def.name, x: +r.avatar.root.position.x.toFixed(2), z: +r.avatar.root.position.z.toFixed(2), walking: r.path.length > 0 })) ?? [],
+      chatRoommate: (name: string) => this.chatWithRoommate(name),
       /** Try a spot for a piece the way a drag-and-drop would: returns why not (null = placed). */
       tryPlace: (uid: string, x: number, z: number) => {
         const home = this.interior as HomeInterior;
@@ -819,6 +827,8 @@ export class Game {
     if (this.engine.mode === 'interior' && this.interior) {
       // Tapping anything while busy with a piece: get up first.
       if (this.doing) this.stopDoing(true);
+      const mateHit = this.roommates ? this.engine.pick(x, y, this.roommates.hits, this.interiorCamera) : null;
+      if (mateHit && this.roommates) return this.chatWithRoommate(mateHit.object.userData.roommate as string);
       const hit = this.engine.pick(x, y, this.interior.objects.map((o) => o.mesh), this.interiorCamera);
       const id = hit?.object.userData.objectId as string | undefined;
       const obj = id ? this.interior.objects.find((o) => o.id === id) : undefined;
@@ -1026,6 +1036,36 @@ export class Game {
     return `<div class="actions">${extra}${cards}</div>`;
   }
 
+  /** Tap a roommate: walk over, they stop and turn to you, then you can chat. */
+  private chatWithRoommate(name: string): void {
+    const rm = this.roommates?.byName(name);
+    if (!rm) return;
+    const p = this.player.root.position;
+    const q = rm.avatar.root.position;
+    // Stand a step away from them, on your side.
+    const d = Math.hypot(p.x - q.x, p.z - q.z) || 1;
+    const sx = q.x + ((p.x - q.x) / d) * 0.8, sz = q.z + ((p.z - q.z) / d) * 0.8;
+    this.roommates!.hold(name, p.x, p.z, 6);
+    const open = () => {
+      this.roommates?.hold(name, this.player.root.position.x, this.player.root.position.z, 10);
+      const sheet = openSheet({
+        emoji: rm.def.body === 'f' ? '🙋‍♀️' : '🙋‍♂️',
+        title: rm.def.name,
+        sub: `Your roommate · ${esc(rm.def.habit)}`,
+        body: this.actionGrid(['chatRoommate'], true, ''),
+      });
+      onAct(sheet.body, (act, el) => {
+        sheet.close();
+        if (act.startsWith('do:')) {
+          this.roommates?.hold(name, this.player.root.position.x, this.player.root.position.z, 9);
+          void this.runAction(act.slice(3), el);
+        }
+      });
+    };
+    const target = this.interior && 'spotFree' in this.interior && (this.interior as HomeInterior).spotFree(sx, sz) ? { x: sx, z: sz } : { x: p.x, z: p.z };
+    this.walkInside(target.x, target.z, open, q.clone());
+  }
+
   private openObjectSheet(label: string, emoji: string, actionIds: string[], movableId?: string): void {
     const place = this.state.location.placeId ? PLACE_BY_ID[this.state.location.placeId] : null;
     const open = place ? isOpen(place, nycTime().hour) : true;
@@ -1041,7 +1081,7 @@ export class Game {
     // Quality: how much it gives back (cheap pieces can leave a downside).
     const q = homeDef?.quality ?? 'basic';
     const qualityNote = homeDef && actionIds.length ? `<p class="blurb quality-note q-${q}"><b>${FURNITURE_QUALITY[q].label}</b> · ${qualityLine(q)}</p>` : '';
-    const canMove = !!movableId && !homeDef?.fixed;
+    const canMove = !!homeItem && !homeDef?.fixed;
     // Any workplace (an office, the deli…): work a shift if it's your job,
     // or ask about the job if it isn't yet.
     const careerHere = place ? CAREERS.find((c) => c.placeId === place.id) : undefined;
@@ -1214,7 +1254,21 @@ export class Game {
       if (place.interior === 'apartment' && this.furniture) {
         // Sims-style home: its own floor plan, real furniture, saved arrangement.
         const layout = layoutForPlace(place.id);
-        this.interior = buildHome(place, layout, this.state.homes[place.id] ?? layout.furniture, this.furniture);
+        const home = buildHome(place, layout, this.state.homes[place.id] ?? layout.furniture, this.furniture);
+        this.interior = home;
+        // Roommates (the walk-up): they live there too, and wander the shared rooms.
+        const mates = layout.conditions?.roommates;
+        if (mates?.length) {
+          const rm = new Roommates(home, mates);
+          this.roommates = rm;
+          const update = home.update, dispose = home.dispose;
+          home.update = (dt) => (update(dt), rm.update(dt));
+          home.dispose = () => {
+            rm.dispose();
+            if (this.roommates === rm) this.roommates = null;
+            dispose();
+          };
+        }
       } else if (venue && this.furniture) {
         // Shops, cafés, bars and offices: same Sims look, the counter sells what the place sells.
         this.interior = buildHome(place, venue, venue.furniture, this.furniture, { venue: true, placeActions: place.actions });
@@ -1236,6 +1290,8 @@ export class Game {
       bus.emit('place:entered', { placeId: place.id });
       this.refreshHud(true);
       this.resumeActivity(place.id);
+      const clean = arriveHome(this.state, place.id);
+      if (clean) window.setTimeout(() => toast(clean.label, { icon: clean.emoji, tone: 'good', ms: 3000 }), 700);
     };
     if (!animate) return go();
     fade(true);
@@ -1361,7 +1417,8 @@ export class Game {
         sfx.cash();
         this.save(); // money and the delivery are saved together
         this.refreshHud(true);
-        toast(`${r.def.emoji} ${r.def.name} bought: it’s waiting in your Storage at home`, { icon: '📦', tone: 'good', ms: 3500 });
+        const where = hasDoorman(this.state) ? 'the doorman signed for it. It’s in your Storage at home' : 'it’s waiting in your Storage at home';
+        toast(`${r.def.emoji} ${r.def.name} bought: ${where}`, { icon: '📦', tone: 'good', ms: 3500 });
         return null;
       },
     }, focus);
@@ -1495,6 +1552,7 @@ export class Game {
     if (!resume) {
       const r = beginActivity(this.state, actionId, { uid, item: info.item, placeId: this.state.location.placeId });
       if (!r.ok) return toast(r.why, { icon: '🔒', tone: 'bad' });
+      if (r.waitedFor) toast(`${r.waitedFor} was in the bathroom. You waited a minute.`, { icon: '🚪', ms: 2800 });
     }
     const act = this.state.activity!;
     if (act.actionId === 'watchTv') this.interior?.playTvAd?.();

@@ -122,8 +122,13 @@ export class Engine {
     const r = this.renderer.domElement.getBoundingClientRect();
     this.pointer.set(((x - r.left) / r.width) * 2 - 1, -((y - r.top) / r.height) * 2 + 1);
     this.raycaster.setFromCamera(this.pointer, camera);
-    const hits = this.raycaster.intersectObjects(objects, true);
-    return hits.length ? { point: hits[0].point, object: hits[0].object, faceIndex: hits[0].faceIndex ?? undefined } : null;
+    // A mesh can say which of its hits count (the city skips buildings that
+    // are hidden or faded out: switched-off far stand-ins, see-through walls).
+    const hit = this.raycaster.intersectObjects(objects, true).find((h) => {
+      const f = h.object.userData.pickFilter as ((h: THREE.Intersection) => boolean) | undefined;
+      return !f || f(h);
+    });
+    return hit ? { point: hit.point, object: hit.object, faceIndex: hit.faceIndex ?? undefined } : null;
   }
 
   activeCamera(): THREE.PerspectiveCamera {

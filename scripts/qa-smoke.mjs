@@ -75,7 +75,8 @@ s = await state();
 check('eating raises hunger', s.needs.hunger > hungerBefore, `${hungerBefore.toFixed(0)} → ${s.needs.hunger.toFixed(0)}`);
 
 // ---- Shower.
-await nyc(() => window.__nyc.openObject('shower'));
+// Whatever this home showers in (a shower, the walk-up's tub, a soaking tub).
+await nyc(() => window.__nyc.openObject(window.__nyc.objectWith('shower')));
 await wait(400);
 await click('[data-act="do:shower"]');
 // Poll instead of a fixed wait: software rendering can be slow.
@@ -123,7 +124,7 @@ if (hour >= 6 && hour < 23) {
 
 // ---- Go outside and walk by tapping the street.
 await click('[data-nav="leave"]');
-await wait(1200);
+for (let i = 0; i < 20 && (await nyc(() => window.__nyc.mode())) !== 'city'; i++) await wait(750);
 check('back on the street', (await nyc(() => window.__nyc.mode())) === 'city');
 const before = (await state()).location;
 // Pick a spot on the street that isn't a door, then really tap it.

@@ -168,12 +168,26 @@ export class CityBlocks {
       if (!geo) continue;
       const mesh = new THREE.Mesh(geo, this.material);
       mesh.name = 'nyc-far';
+      mesh.userData.pickFilter = this.solidHit;
       mesh.receiveShadow = true;
       this.group.add(mesh);
       this.farMeshes.push(mesh);
       this.pickables.push(mesh);
     }
   }
+
+  /**
+   * Does a tap on this hit count? Not if the mesh is switched off, or the
+   * building it hit is hidden (a far stand-in under a detailed block) or
+   * fading (see-through, between the camera and you).
+   */
+  private readonly solidHit = (h: THREE.Intersection): boolean => {
+    if (!h.object.visible) return false;
+    const info = (h.object as THREE.Mesh).geometry?.getAttribute('aInfo');
+    if (!info || !h.face) return true;
+    const bid = Math.round(info.getY(h.face.a));
+    return this.fades.get(bid) < 0.3;
+  };
 
   private propOptions(b: BlockEntry, simple: boolean) {
     return { b: b.rect, sidewalk: SIDEWALK, doors: this.opts.doors, buildings: b.buildings, yard: b.yard, greens: b.greens, avoid: this.opts.avoid, kind: b.kind, trees: this.opts.trees, simple };
@@ -193,6 +207,7 @@ export class CityBlocks {
     const geo = bld.build();
     const mesh = new THREE.Mesh(geo ?? new THREE.BufferGeometry(), this.material);
     mesh.name = `nyc-block-${b.key}`;
+    mesh.userData.pickFilter = this.solidHit;
     mesh.castShadow = this.opts.shadows;
     mesh.receiveShadow = true;
     mesh.visible = false;
