@@ -22,7 +22,7 @@ import { adTexture, HOUSE_ADS, signTexture } from '../render/textures.ts';
 import { HAIR_COLORS, makeAvatar, OUTFIT_COLORS, SKIN_TONES } from './avatar.ts';
 import type { FurnitureKit } from '../assets/furniture-kit.ts';
 import type { Interior, InteriorObject } from './interior.ts';
-import { rectAt, snapToWall, spotFree, whyNot, type FitKind, type FitWorld, type Footprint } from './furniture-fit.ts';
+import { rectAt, snapToWall, spotFree, WalkGrid, whyNot, type FitKind, type FitWorld, type Footprint } from './furniture-fit.ts';
 
 const WALL_H = 2.9;
 const LOW_WALL = 0.55;
@@ -48,6 +48,8 @@ export interface HomeInterior extends Interior {
   itemPos: (uid: string) => { x: number; z: number } | null;
   /** Is this standing spot clear? */
   spotFree: (x: number, z: number) => boolean;
+  /** A walk around the furniture from one spot to another (null = no way there). */
+  walkPath: (fx: number, fz: number, tx: number, tz: number) => { x: number; z: number }[] | null;
   /** Pieces standing where they shouldn't (for QA of the home layouts). */
   clashes: () => { uid: string; why: string }[];
   /** Glow the piece being moved (null = none). */
@@ -197,7 +199,10 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
     const v = new THREE.Vector3(0, 0, fb.maxZ + 0.45).applyAxisAngle(up, it.rot);
     return out.set(THREE.MathUtils.clamp(it.x + v.x, -hw + 0.4, hw - 0.4), 0, THREE.MathUtils.clamp(it.z + v.z, -hd + 0.4, hd - 0.4));
   };
+  // Where you can walk: rebuilt (lazily) whenever furniture moves.
+  let grid: WalkGrid | null = null;
   const refreshStands = () => {
+    grid = null;
     for (const it of items) {
       const obj = objects.find((o) => o.id === it.uid);
       if (obj) standFor(it, obj.stand);
@@ -410,6 +415,7 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
       return it ? { x: it.x, z: it.z } : null;
     },
     spotFree: (x, z) => spotFree(fit, x, z),
+    walkPath: (fx, fz, tx, tz) => (grid ??= new WalkGrid(fit)).path(fx, fz, tx, tz),
     clashes: () => items.flatMap((i) => {
       const why = whyNot(fit, i.uid, i.x, i.z, i.rot);
       const fp = fit.footprint(i.item);

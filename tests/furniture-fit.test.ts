@@ -53,3 +53,21 @@ test('standing spots avoid furniture and walls', () => {
   assert.equal(spotFree(w, 0, 0), false);
   assert.equal(spotFree(w, -3, -1.2), true);
 });
+
+import { WalkGrid } from '../src/world/furniture-fit.ts';
+
+test('walking indoors goes round furniture and through doorways, never through walls', () => {
+  const w = world();
+  const g = new WalkGrid(w);
+  // From the back room (z < 0) to the front room (z > 0): the only way is the doorway at x -1..0.
+  const path = g.path(-3, -1.2, 2, 1.2)!;
+  assert.ok(path, 'there is a way');
+  const pts = [{ x: -3, z: -1.2 }, ...path];
+  for (let k = 1; k < pts.length; k++) assert.ok(g.clearLine(pts[k - 1], pts[k]), `leg ${k} is clear`);
+  const crossing = pts.findIndex((p) => p.z > 0);
+  assert.ok(crossing > 0 && pts[crossing - 1].x > -1.2 && pts[crossing - 1].x < 0.2, 'crosses at the doorway');
+  // Aiming at furniture ends on the nearest free spot next to it.
+  const toBox = g.path(0, 2, 2, 2)!;
+  const end = toBox[toBox.length - 1];
+  assert.ok(Math.abs(end.x - 2) > 0.5 || Math.abs(end.z - 2) > 0.3, 'stops beside the box, not inside it');
+});

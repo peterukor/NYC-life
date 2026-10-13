@@ -165,6 +165,8 @@ export const MAP_MAX_DISTANCE = 600;
  * so short trips don't drag; the character plays a light jog at this
  * speed (see world/folk.ts → Actor.move). Long trips: take the subway.
  */
+/** Walking speed inside homes (m/s): a relaxed indoor stroll. */
+export const INDOOR_WALK = 1.9;
 export const WALK_SPEED = 6.5; // was 5: blocks got bigger (2026-10-12)
 
 /** Billboards: how long each ad shows before the next one rotates in (seconds). */

@@ -23,7 +23,7 @@ import { VEHICLES } from './data/vehicles.ts';
 import { vehicleGeometry, vehicleMaterial } from './world/vehicle-models.ts';
 import { bus } from './core/bus.ts';
 import { isRushHour, nowMs, nycTime } from './core/clock.ts';
-import { MAP_MAX_DISTANCE, DETAIL_RADIUS, RIDESHARE, SUBWAY_FARE, WALK_SPEED, SHIFT_GAME_HOURS, SHIFT_SECONDS, DIRECTOR_TICK_SECONDS, CAMERA } from './core/constants.ts';
+import { MAP_MAX_DISTANCE, DETAIL_RADIUS, RIDESHARE, SUBWAY_FARE, WALK_SPEED, INDOOR_WALK, SHIFT_GAME_HOURS, SHIFT_SECONDS, DIRECTOR_TICK_SECONDS, CAMERA } from './core/constants.ts';
 import { esc, money } from './core/format.ts';
 import { ACTIONS, actionLock } from './data/actions.ts';
 import { CAREER_BY_ID } from './data/careers.ts';
@@ -113,6 +113,7 @@ export class Game {
   /** The furniture piece being moved in move mode (home only). */
   private moving: { uid: string; bar: HTMLElement } | null = null;
   /** A finger dragging the held piece (move mode). */
+  private indoor: { points: { x: number; z: number }[]; then?: () => void; face?: THREE.Vector3 } | null = null;
   private drag: { id: number; dx: number; dz: number; moved: boolean; sx: number; sy: number } | null = null;
 
   private path: { x: number; z: number }[] = [];
@@ -330,6 +331,8 @@ export class Game {
         const r = this.engine.renderer.domElement.getBoundingClientRect();
         return { x: r.left + ((v.x + 1) / 2) * r.width, y: r.top + ((1 - v.y) / 2) * r.height };
       },
+      walking: () => !!this.indoor,
+      indoorRoute: () => (this.indoor ? this.indoor.points.map((q) => ({ ...q })) : null),
       /** Open the closet (with the mirror, when at home). */
       closet: () => this.openClosetMirror(),
       wardrobe: () => [...this.state.wardrobe],
@@ -607,7 +610,15 @@ export class Game {
       });
     } else if (this.engine.mode === 'interior' && this.interior) {
       this.interior.update(dt);
-      this.player.animate(0, dt);
+      this.player.animate(this.walkIndoors(dt), dt);
+      const ring = this.tapRing;
+      if (ring?.visible) {
+        ring.userData.t += dt;
+        const k = ring.userData.t / 0.6;
+        ring.scale.setScalar(1 + k * 0.8);
+        (ring.material as THREE.MeshBasicMaterial).opacity = Math.max(0, 1 - k);
+        if (k >= 1) ring.visible = false;
+      }
     } else if (this.engine.mode === 'transit' && this.transit) {
       this.transit.update(dt);
     }
@@ -628,6 +639,72 @@ export class Game {
         this.refreshHud();
       }
     }
+  }
+
+  /**
+   * Walking around inside: follow the waypoints (picked around furniture
+   * and walls by the home's walk grid), turning smoothly, then run
+   * whatever was waiting for you to arrive (opening a piece's actions).
+   * Returns the ground speed for the walk animation.
+   */
+  private walkIndoors(dt: number): number {
+    const route = this.indoor;
+    if (!route) return 0;
+    const p = this.player.root.position;
+    const wp = route.points[0];
+    const dx = wp.x - p.x, dz = wp.z - p.z;
+    const dist = Math.hypot(dx, dz);
+    if (dist < 0.06) {
+      route.points.shift();
+      if (!route.points.length) {
+        this.indoor = null;
+        if (route.face) this.player.root.rotation.y = Math.atan2(route.face.x - p.x, route.face.z - p.z);
+        route.then?.();
+      }
+      return route.points.length ? INDOOR_WALK : 0;
+    }
+    const step = Math.min(dist, INDOOR_WALK * dt);
+    p.x += (dx / dist) * step;
+    p.z += (dz / dist) * step;
+    let diff = Math.atan2(dx, dz) - this.player.root.rotation.y;
+    while (diff > Math.PI) diff -= Math.PI * 2;
+    while (diff < -Math.PI) diff += Math.PI * 2;
+    this.player.root.rotation.y += diff * Math.min(1, dt * 12);
+    return INDOOR_WALK;
+  }
+
+  /** A ring that pops where you tapped the floor indoors, then fades. */
+  private tapRing: THREE.Mesh | null = null;
+  private showTapRing(at: THREE.Vector3): void {
+    if (!this.interior) return;
+    if (!this.tapRing) {
+      this.tapRing = new THREE.Mesh(new THREE.RingGeometry(0.16, 0.24, 28), new THREE.MeshBasicMaterial({ color: '#ffd400', transparent: true, depthWrite: false }));
+      this.tapRing.rotation.x = -Math.PI / 2;
+      this.tapRing.renderOrder = 4;
+    }
+    const r = this.tapRing;
+    if (r.parent !== this.interior.scene) this.interior.scene.add(r);
+    r.position.set(at.x, 0.05, at.z);
+    r.userData.t = 0;
+    r.visible = true;
+  }
+
+  /** Walk somewhere indoors (around the furniture). Homes walk; other rooms jump straight there. */
+  private walkInside(x: number, z: number, then?: () => void, face?: THREE.Vector3): void {
+    const home = this.interior as HomeInterior | null;
+    const p = this.player.root.position;
+    const pts = home && 'walkPath' in home ? home.walkPath(p.x, p.z, x, z) : [{ x, z }];
+    if (!pts || !pts.length) {
+      this.indoor = null;
+      return toast('Can’t get there', { icon: '🚧', ms: 1400 });
+    }
+    if (!home || !('walkPath' in home)) {
+      p.set(x, 0, z);
+      if (face) this.player.root.rotation.y = Math.atan2(face.x - x, face.z - z);
+      return then?.();
+    }
+    this.player.setAction(null);
+    this.indoor = { points: pts, then, face };
   }
 
   private updatePlayer(dt: number): void {
@@ -703,9 +780,17 @@ export class Game {
       const id = hit?.object.userData.objectId as string | undefined;
       const obj = id ? this.interior.objects.find((o) => o.id === id) : undefined;
       if (obj) {
-        this.player.root.position.copy(obj.stand);
-        this.player.root.lookAt(obj.mesh.getWorldPosition(new THREE.Vector3()).setY(0));
-        this.openObjectSheet(obj.label, obj.emoji, obj.actions, (this.interior as HomeInterior).movable ? obj.id : undefined);
+        // Walk over to it, face it, then show what you can do with it.
+        const centre = obj.mesh.getWorldPosition(new THREE.Vector3()).setY(0);
+        const movable = (this.interior as HomeInterior).movable ? obj.id : undefined;
+        return this.walkInside(obj.stand.x, obj.stand.z, () => this.openObjectSheet(obj.label, obj.emoji, obj.actions, movable), centre);
+      }
+      // The floor: just walk there.
+      const home = this.interior as HomeInterior;
+      const floorHit = 'floors' in home ? this.engine.pick(x, y, home.floors, this.interiorCamera) : null;
+      if (floorHit) {
+        this.showTapRing(floorHit.point);
+        this.walkInside(floorHit.point.x, floorHit.point.z);
       }
       return;
     }
@@ -769,7 +854,15 @@ export class Game {
   private onNav(which: 'here' | 'map' | 'phone' | 'leave'): void {
     if (this.busy) return;
     sfx.tap();
-    if (which === 'leave') return this.leaveInterior();
+    if (which === 'leave') {
+      // At home, stroll to the front door first.
+      const home = this.interior as HomeInterior | null;
+      if (home && 'walkPath' in home && this.engine.mode === 'interior') {
+        const hd = home.layout.depth / 2;
+        return this.walkInside(0, hd - 0.35, () => this.leaveInterior());
+      }
+      return this.leaveInterior();
+    }
     if (which === 'phone') return this.openPhoneApp();
     if (which === 'map') return this.openCityMap();
     // "Here": the nearest place within a short walk, else the cross streets.
@@ -929,6 +1022,7 @@ export class Game {
     const home = this.interior as HomeInterior | null;
     if (!home || !('floors' in home)) return;
     this.stopMoving(false);
+    this.indoor = null;
     const bar = html(`<div class="move-bar"><span>Drag it, or tap the floor</span><button class="btn" data-mv="turn" aria-label="Turn">↻</button><button class="btn" data-mv="cancel" aria-label="Cancel">✕</button><button class="btn primary" data-mv="done">✓ Done</button></div>`);
     root().appendChild(bar);
     bar.querySelector('[data-mv="turn"]')!.addEventListener('click', (e) => {
@@ -1043,6 +1137,7 @@ export class Game {
         // Shops, cafés, bars and offices: same Sims look, the counter sells what the place sells.
         this.interior = buildHome(place, venue, venue.furniture, this.furniture, { venue: true, placeActions: place.actions });
       } else this.interior = buildInterior(place, place.actions);
+      this.indoor = null;
       this.interior.scene.add(this.player.root);
       this.player.root.position.copy(this.interior.spawn);
       this.player.root.rotation.set(0, Math.PI, 0);
@@ -1144,6 +1239,7 @@ export class Game {
 
   private leaveInterior(): void {
     if (!this.interior) return;
+    this.indoor = null;
     this.stopMoving(true);
     const placeId = this.state.location.placeId;
     fade(true);

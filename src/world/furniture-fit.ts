@@ -138,3 +138,129 @@ export function spotFree(w: FitWorld, x: number, z: number, r = 0.22): boolean {
   }
   return true;
 }
+
+/**
+ * Walking indoors: a grid of standing spots (20 cm squares) that are clear
+ * of walls and furniture, and a shortest path across it (A*, 8 directions,
+ * no cutting corners). Rebuild the grid after furniture moves.
+ */
+export class WalkGrid {
+  readonly cell: number;
+  readonly cols: number;
+  readonly rows: number;
+  private x0: number;
+  private z0: number;
+  private free: Uint8Array;
+
+  constructor(w: FitWorld, cell = 0.2, radius = 0.2) {
+    this.cell = cell;
+    const hw = w.layout.width / 2, hd = w.layout.depth / 2;
+    this.x0 = -hw;
+    this.z0 = -hd;
+    this.cols = Math.ceil(w.layout.width / cell);
+    this.rows = Math.ceil(w.layout.depth / cell);
+    this.free = new Uint8Array(this.cols * this.rows);
+    for (let r = 0; r < this.rows; r++) for (let c = 0; c < this.cols; c++) {
+      const p = this.centre(c, r);
+      this.free[r * this.cols + c] = spotFree(w, p.x, p.z, radius) ? 1 : 0;
+    }
+  }
+
+  centre(c: number, r: number): { x: number; z: number } {
+    return { x: this.x0 + (c + 0.5) * this.cell, z: this.z0 + (r + 0.5) * this.cell };
+  }
+
+  private at(x: number, z: number): [number, number] {
+    return [Math.min(this.cols - 1, Math.max(0, Math.floor((x - this.x0) / this.cell))), Math.min(this.rows - 1, Math.max(0, Math.floor((z - this.z0) / this.cell)))];
+  }
+
+  isFree(c: number, r: number): boolean {
+    return c >= 0 && r >= 0 && c < this.cols && r < this.rows && this.free[r * this.cols + c] === 1;
+  }
+
+  /** The free cell nearest a spot (searching outwards), or null if the home is full. */
+  nearestFree(x: number, z: number): [number, number] | null {
+    const [c0, r0] = this.at(x, z);
+    if (this.isFree(c0, r0)) return [c0, r0];
+    let best: [number, number] | null = null, bd = Infinity;
+    for (let ring = 1; ring < Math.max(this.cols, this.rows); ring++) {
+      for (let r = r0 - ring; r <= r0 + ring; r++) for (let c = c0 - ring; c <= c0 + ring; c++) {
+        if (Math.max(Math.abs(c - c0), Math.abs(r - r0)) !== ring || !this.isFree(c, r)) continue;
+        const p = this.centre(c, r);
+        const d = Math.hypot(p.x - x, p.z - z);
+        if (d < bd) { bd = d; best = [c, r]; }
+      }
+      if (best) return best;
+    }
+    return null;
+  }
+
+  /**
+   * Shortest walk from one spot to another, as waypoints (the last is the
+   * goal, or the nearest reachable free spot to it). Null if there's no way.
+   */
+  path(fx: number, fz: number, tx: number, tz: number): { x: number; z: number }[] | null {
+    const s = this.nearestFree(fx, fz), g = this.nearestFree(tx, tz);
+    if (!s || !g) return null;
+    const n = this.cols * this.rows;
+    const id = (c: number, r: number) => r * this.cols + c;
+    const gs = new Float64Array(n).fill(Infinity);
+    const from = new Int32Array(n).fill(-1);
+    const closed = new Uint8Array(n);
+    const open: number[] = [id(s[0], s[1])];
+    gs[open[0]] = 0;
+    const h = (i: number) => Math.hypot((i % this.cols) - g[0], Math.floor(i / this.cols) - g[1]);
+    const goal = id(g[0], g[1]);
+    while (open.length) {
+      // Small grids (a few thousand cells): a linear scan for the best is fine.
+      let bi = 0;
+      for (let k = 1; k < open.length; k++) if (gs[open[k]] + h(open[k]) < gs[open[bi]] + h(open[bi])) bi = k;
+      const cur = open.splice(bi, 1)[0];
+      if (cur === goal) break;
+      if (closed[cur]) continue;
+      closed[cur] = 1;
+      const c = cur % this.cols, r = Math.floor(cur / this.cols);
+      for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+        if (!dc && !dr) continue;
+        const nc = c + dc, nr = r + dr;
+        if (!this.isFree(nc, nr)) continue;
+        if (dc && dr && (!this.isFree(c + dc, r) || !this.isFree(c, r + dr))) continue; // no corner cutting
+        const ni = id(nc, nr);
+        const ng = gs[cur] + (dc && dr ? Math.SQRT2 : 1);
+        if (ng < gs[ni]) {
+          gs[ni] = ng;
+          from[ni] = cur;
+          open.push(ni);
+        }
+      }
+    }
+    if (gs[goal] === Infinity) return null;
+    const cells: number[] = [];
+    for (let i = goal; i !== -1; i = from[i]) cells.unshift(i);
+    // Keep only the corners: drop cells you can walk straight past.
+    const pts = cells.map((i) => this.centre(i % this.cols, Math.floor(i / this.cols)));
+    const out: { x: number; z: number }[] = [];
+    let anchor = { x: fx, z: fz };
+    for (let k = 1; k < pts.length; k++) {
+      if (!this.clearLine(anchor, pts[k])) {
+        out.push(pts[k - 1]);
+        anchor = pts[k - 1];
+      }
+    }
+    // End exactly on the goal when it's free, else on the nearest free spot.
+    const [gc, gr] = this.at(tx, tz);
+    out.push(gc === g[0] && gr === g[1] ? { x: tx, z: tz } : pts[pts.length - 1]);
+    return out;
+  }
+
+  /** Can you walk in a straight line between two spots? (Samples every half cell.) */
+  clearLine(a: { x: number; z: number }, b: { x: number; z: number }): boolean {
+    const d = Math.hypot(b.x - a.x, b.z - a.z);
+    const steps = Math.max(1, Math.ceil(d / (this.cell * 0.5)));
+    for (let k = 0; k <= steps; k++) {
+      const [c, r] = this.at(a.x + ((b.x - a.x) * k) / steps, a.z + ((b.z - a.z) * k) / steps);
+      if (!this.isFree(c, r)) return false;
+    }
+    return true;
+  }
+}
