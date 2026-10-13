@@ -156,6 +156,134 @@ export interface PropOptions {
   simple: boolean;
 }
 
+/** A stable 0..1 from a position (same answer for the near and far block). */
+function spot(x: number, z: number): number {
+  const v = Math.sin(x * 12.9898 + z * 78.233) * 43758.5453;
+  return v - Math.floor(v);
+}
+
+type Yard = 'garden' | 'court' | 'parking' | 'playground' | 'pool';
+
+/** Basketball hoop on a pole, facing +x (dir 1) or -x (dir -1). */
+function hoop(b: CityMeshBuilder, x: number, z: number, dir: number): void {
+  b.cyl(x, z, 0.2, 3.4, 0.09, 0.09, METAL, 6, false);
+  b.box(x + dir * 0.05 - 0.05, x + dir * 0.05 + 0.05, 2.9, 4.0, z - 0.9, z + 0.9, '#ffffff');
+  b.cyl(x + dir * 0.55, z, 3.0, 3.06, 0.3, 0.3, '#ff6b1a', 8, false);
+}
+
+function courtyard(bld: CityMeshBuilder, y: Rect, o: PropOptions, rng: Rng): void {
+  const w = y.maxX - y.minX, d = y.maxZ - y.minZ;
+  const cx = (y.minX + y.maxX) / 2, cz = (y.minZ + y.maxZ) / 2;
+  const roll = spot(y.minX, y.minZ);
+  const big = w > 34 && d > 18;
+  const kind: Yard = !big ? (roll < 0.75 ? 'garden' : 'parking') : roll < 0.38 ? 'garden' : roll < 0.56 ? 'court' : roll < 0.72 ? 'parking' : roll < 0.88 ? 'playground' : 'pool';
+  const T = (x: number, z: number, s = 1) => {
+    if (o.trees) (o.simple ? treeSimple : tree)(bld, x, z, 0.2, s * rng.range(0.85, 1.15), rng);
+    else bld.blob(x, 0.9, z, 1, 0.7, 1, '#5cb85c');
+  };
+  // Lawn everywhere first; each design lays its own ground on top.
+  bld.flat(y.minX, y.maxX, y.minZ, y.maxZ, 0.2, '#86cf73', TILE.solid);
+  // Trees round the edge (fewer when far away).
+  const ring = (step: number, inset: number) => {
+    for (let x = y.minX + inset; x <= y.maxX - inset + 0.1; x += step) {
+      T(x, y.minZ + inset);
+      if (d > inset * 2 + 4) T(x, y.maxZ - inset);
+    }
+  };
+  switch (kind) {
+    case 'garden': {
+      // A paved path in a loop, trees and benches.
+      const pi = Math.min(3.5, d * 0.2);
+      if (w > 14 && d > 10) {
+        bld.flat(y.minX + pi, y.maxX - pi, y.minZ + pi, y.minZ + pi + 1.6, 0.23, '#e9dcc0', TILE.paver, 2);
+        bld.flat(y.minX + pi, y.maxX - pi, y.maxZ - pi - 1.6, y.maxZ - pi, 0.23, '#e9dcc0', TILE.paver, 2);
+        bld.flat(y.minX + pi, y.minX + pi + 1.6, y.minZ + pi, y.maxZ - pi, 0.23, '#e9dcc0', TILE.paver, 2);
+        bld.flat(y.maxX - pi - 1.6, y.maxX - pi, y.minZ + pi, y.maxZ - pi, 0.23, '#e9dcc0', TILE.paver, 2);
+      }
+      for (let x = y.minX + 4; x < y.maxX - 3; x += rng.range(7, 11)) T(x, cz + rng.range(-1, 1), 1.1);
+      if (!o.simple && w > 14) {
+        bench(bld, cx - w * 0.2, y.minZ + pi + 0.8, 'x');
+        bench(bld, cx + w * 0.2, y.maxZ - pi - 0.8, 'x');
+        planter(bld, cx, cz, rng);
+      }
+      break;
+    }
+    case 'court': {
+      // Basketball court: blue court, orange key, white lines, two hoops.
+      const cw = Math.min(28, w - 6), cd = Math.min(15, d - 4);
+      const x0 = cx - cw / 2, x1 = cx + cw / 2, z0 = cz - cd / 2, z1 = cz + cd / 2;
+      bld.flat(x0 - 1.5, x1 + 1.5, z0 - 1.5, z1 + 1.5, 0.22, '#7d8597', TILE.solid);
+      bld.flat(x0, x1, z0, z1, 0.24, '#3a7bd5', TILE.solid);
+      bld.flat(x0, x0 + cw * 0.18, cz - cd * 0.18, cz + cd * 0.18, 0.25, '#ff8c42', TILE.solid);
+      bld.flat(x1 - cw * 0.18, x1, cz - cd * 0.18, cz + cd * 0.18, 0.25, '#ff8c42', TILE.solid);
+      bld.flat(cx - 0.12, cx + 0.12, z0, z1, 0.26, '#ffffff', TILE.solid);
+      for (const [a, b2, c, e] of [[x0, x1, z0, z0 + 0.25], [x0, x1, z1 - 0.25, z1], [x0, x0 + 0.25, z0, z1], [x1 - 0.25, x1, z0, z1]]) bld.flat(a, b2, c, e, 0.26, '#ffffff', TILE.solid);
+      if (!o.simple) {
+        hoop(bld, x0 - 0.6, cz, 1);
+        hoop(bld, x1 + 0.6, cz, -1);
+        // A chain-link fence: posts round the court.
+        for (let x = x0 - 1.5; x <= x1 + 1.6; x += 3) for (const z of [z0 - 1.5, z1 + 1.5]) bld.cyl(x, z, 0.2, 2.4, 0.06, 0.06, METAL, 4, false);
+      }
+      if (w > cw + 14) { T(y.minX + 3, cz); T(y.maxX - 3, cz); }
+      break;
+    }
+    case 'parking': {
+      // A small car park: asphalt, white bays, a row of cars.
+      bld.flat(y.minX + 1, y.maxX - 1, y.minZ + 1, y.maxZ - 1, 0.22, '#5d6371', TILE.solid);
+      const rows = d > 16 ? [y.minZ + 4.2, y.maxZ - 4.2] : [cz];
+      for (const rz of rows) {
+        for (let x = y.minX + 3; x < y.maxX - 3; x += 3.4) {
+          bld.flat(x - 0.08, x + 0.08, rz - 2.4, rz + 2.4, 0.24, '#e9e9e2', TILE.solid);
+          if (!o.simple && rng.chance(0.6) && x + 3.4 < y.maxX - 3) parkedCar(bld, x + 1.7, rz, 'z', rng);
+        }
+      }
+      if (o.simple) for (let x = y.minX + 5; x < y.maxX - 4; x += 9) bld.box(x - 1, x + 1, 0.2, 1.4, cz - 2, cz + 2, rng.pick(['#e63946', '#3a86ff', '#f1f1f1', '#2b2d42']));
+      break;
+    }
+    case 'playground': {
+      // Rubber play surface, a swing frame, a slide, sandbox, trees round it.
+      const pw = Math.min(24, w - 8), pd = Math.min(14, d - 6);
+      const x0 = cx - pw / 2, x1 = cx + pw / 2, z0 = cz - pd / 2, z1 = cz + pd / 2;
+      bld.flat(x0, x1, z0, z1, 0.23, '#e76f51', TILE.solid);
+      bld.flat(x0 + 1, x0 + 7, z0 + 1, z0 + 6, 0.25, '#f4d58d', TILE.solid);
+      if (!o.simple) {
+        // Swings: an A-frame bar with two seats.
+        const sx = x1 - 6;
+        for (const [px, pz] of [[sx - 3, z0 + 2], [sx + 3, z0 + 2]]) {
+          bld.beam(px, 0.2, pz - 1, px, 3, pz, 0.1, '#2a9d8f');
+          bld.beam(px, 0.2, pz + 1, px, 3, pz, 0.1, '#2a9d8f');
+        }
+        bld.beam(sx - 3, 3, z0 + 2, sx + 3, 3, z0 + 2, 0.12, '#2a9d8f');
+        for (const ox of [-1.4, 1.4]) bld.box(sx + ox - 0.4, sx + ox + 0.4, 0.9, 1.0, z0 + 1.8, z0 + 2.2, '#ffbe0b');
+        // Slide: a tower and a ramp.
+        const tx = cx - 2, tz = z1 - 3;
+        bld.box(tx - 1, tx + 1, 0.2, 2.2, tz - 1, tz + 1, '#ff006e');
+        bld.quad({ x: tx + 1, y: 2.2, z: tz + 0.6 }, { x: tx + 1, y: 2.2, z: tz - 0.6 }, { x: tx + 4.5, y: 0.3, z: tz - 0.6 }, { x: tx + 4.5, y: 0.3, z: tz + 0.6 }, '#ffbe0b');
+      }
+      ring(9, 2.5);
+      break;
+    }
+    case 'pool': {
+      // A shared pool: paving, blue water, loungers and umbrellas.
+      const pw = Math.min(22, w - 10), pd = Math.min(9, d - 8);
+      bld.flat(cx - pw / 2 - 2.5, cx + pw / 2 + 2.5, cz - pd / 2 - 2.5, cz + pd / 2 + 2.5, 0.22, '#f1e3c8', TILE.paver, 2);
+      bld.flat(cx - pw / 2, cx + pw / 2, cz - pd / 2, cz + pd / 2, 0.24, '#4cc9f0', TILE.solid);
+      bld.flat(cx - pw / 2 + 0.6, cx + pw / 2 - 0.6, cz - pd / 2 + 0.6, cz + pd / 2 - 0.6, 0.25, '#7ad7f0', TILE.solid);
+      if (!o.simple) {
+        for (let x = cx - pw / 2 + 1.5; x < cx + pw / 2 - 1; x += 4) {
+          bld.box(x - 0.5, x + 0.5, 0.2, 0.55, cz + pd / 2 + 0.6, cz + pd / 2 + 2.3, '#ffffff');
+          if (rng.chance(0.5)) {
+            bld.cyl(x, cz + pd / 2 + 1.5, 0.2, 2.4, 0.05, 0.05, '#dddddd', 4, false);
+            bld.cone(x, cz + pd / 2 + 1.5, 2.1, 2.7, 1.3, rng.pick(['#ff6b6b', '#ffd166', '#ffffff', '#06d6a0']), 8);
+          }
+        }
+      }
+      ring(10, 2.5);
+      break;
+    }
+  }
+}
+
 /** Everything on the sidewalks and kerbs around one block, plus back yards. */
 export function emitBlockProps(bld: CityMeshBuilder, o: PropOptions, rng: Rng): void {
   bld.bid = 0;
@@ -164,15 +292,10 @@ export function emitBlockProps(bld: CityMeshBuilder, o: PropOptions, rng: Rng): 
   const { b, sidewalk } = o;
   const near = (x: number, z: number, r: number) => o.doors.some((d) => Math.abs(d.x - x) < r && Math.abs(d.z - z) < r);
 
-  // ---- back yards (green strip in the middle of the block)
-  if (o.yard && o.kind === 'buildings') {
-    const y = o.yard;
-    bld.flat(y.minX, y.maxX, y.minZ, y.maxZ, 0.2, '#86cf73', TILE.solid);
-    for (let x = y.minX + 3; x < y.maxX - 2; x += rng.range(5, 9)) {
-      if (o.trees) (o.simple ? treeSimple : tree)(bld, x, (y.minZ + y.maxZ) / 2 + rng.range(-0.6, 0.6), 0.2, rng.range(0.8, 1.15), rng);
-      else bld.blob(x, 0.9, (y.minZ + y.maxZ) / 2, 1, 0.7, 1, '#5cb85c');
-    }
-  }
+  // ---- the courtyard in the middle of the block (2026-10-12 clean-up):
+  // one of a few designs, picked from the yard's position so the near and
+  // far versions always agree.
+  if (o.yard && o.kind === 'buildings') courtyard(bld, o.yard, o, rng);
 
   // ---- pocket gardens: grass, a few trees and a bench where a lot is open
   const inBuilding = (x: number, z: number) => o.buildings.some((p) => x > p.rect.minX - 1.6 && x < p.rect.maxX + 1.6 && z > p.rect.minZ - 1.6 && z < p.rect.maxZ + 1.6);
