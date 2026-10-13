@@ -82,10 +82,6 @@ export function openMap(opts: MapOptions): () => void {
     const sc = Math.min((W() - pad * 2) / (b.maxX - b.minX), (H() - pad * 2 - 60) / (b.maxZ - b.minZ));
     return { sc, ox: W() / 2 - ((b.minX + b.maxX) / 2) * sc, oy: H() / 2 + 20 - ((b.minZ + b.maxZ) / 2) * sc };
   };
-  const cityBox = () => {
-    const bs = BOROUGHS.map((b) => boroughBounds(b.id));
-    return { minX: Math.min(...bs.map((b) => b.minX)), maxX: Math.max(...bs.map((b) => b.maxX)), minZ: Math.min(...bs.map((b) => b.minZ)), maxZ: Math.max(...bs.map((b) => b.maxZ)) };
-  };
   const setView = (v: { sc: number; ox: number; oy: number }) => {
     scale = v.sc;
     ox = v.ox;
@@ -113,7 +109,7 @@ export function openMap(opts: MapOptions): () => void {
     // Include landmarks standing off the coast (the Statue of Liberty).
     const b = { ...boroughBounds(id) };
     const area = AREA_OF[id];
-    for (const p of area ? placesIn(area) : []) {
+    for (const p of area && id !== 'manhattan' ? placesIn(area) : []) {
       if (!p.model) continue;
       const m = project(p.model[0], p.model[1]);
       b.minX = Math.min(b.minX, m.x - 30);
@@ -121,9 +117,9 @@ export function openMap(opts: MapOptions): () => void {
       b.minZ = Math.min(b.minZ, m.z - 30);
       b.maxZ = Math.max(b.maxZ, m.z + 30);
     }
-    return fitBox(b, 24);
+    return fitBox(b, id === 'manhattan' ? 6 : 24);
   };
-  const isWhole = () => scale < wholeScale * 1.9;
+  const isWhole = () => false; // no five-borough view any more: Manhattan is the city
 
   // ---------- drawing helpers ----------
   const ring = (pts: { x: number; z: number }[]) => {
@@ -378,15 +374,14 @@ export function openMap(opts: MapOptions): () => void {
     const w = W();
     const h = H();
     const whole = isWhole();
-    if (!whole) {
-      const c = boroughAt((w / 2 - ox) / scale, (h / 2 - oy) / scale);
-      if (c) focus = c;
-    }
+    // Manhattan only (Peter, 2026-10-12): the map is the island, framed
+    // tight, and never zooms out past it to the other boroughs.
+    focus = 'manhattan';
     const d = Object.values(DISTRICTS).find((x) => x.borough === focus) ?? null;
     // Title, buttons, legend.
     el.querySelector('[data-title]')!.textContent = whole ? 'New York City' : BOROUGHS.find((b) => b.id === focus)!.name;
     (el.querySelector('[data-act="fly"]') as HTMLElement).hidden = whole || !opts.onFlyover || DISTRICTS[opts.area].borough !== focus;
-    el.querySelector('[data-legend]')!.textContent = whole ? 'Tap a borough to explore it' : gangView ? (d && SAFE_AREAS.includes(d.id) ? `${BOROUGHS.find((b) => b.id === focus)!.name} is a SAFE ZONE — no crews here` : 'Coloured blocks are crew turf. ⭐ = their headquarters') : 'Tap a place to go there · pinch out for the whole city';
+    el.querySelector('[data-legend]')!.textContent = whole ? 'Tap a borough to explore it' : gangView ? (d && SAFE_AREAS.includes(d.id) ? `${BOROUGHS.find((b) => b.id === focus)!.name} is a SAFE ZONE — no crews here` : 'Coloured blocks are crew turf. ⭐ = their headquarters') : 'Tap a place to go there · pinch to zoom';
 
     // Water with a few waves.
     g.fillStyle = '#8fd0f0';
@@ -638,7 +633,7 @@ export function openMap(opts: MapOptions): () => void {
   }, { passive: false });
 
   function zoomAt(px: number, py: number, factor: number): void {
-    const next = Math.min(wholeScale * 40, Math.max(wholeScale * 0.8, scale * factor));
+    const next = Math.min(wholeScale * 40, Math.max(wholeScale, scale * factor));
     const f = next / scale;
     ox = px - (px - ox) * f;
     oy = py - (py - oy) * f;
@@ -648,7 +643,7 @@ export function openMap(opts: MapOptions): () => void {
 
   onAct(el, (act) => {
     if (act === 'close') return void close();
-    if (act === 'city') return flyTo(fitBox(cityBox(), 14));
+    if (act === 'city') return flyTo(boroughView('manhattan'));
     if (act === 'fly') {
       close();
       return opts.onFlyover?.();
@@ -677,8 +672,9 @@ export function openMap(opts: MapOptions): () => void {
   };
   window.addEventListener('resize', resize);
   requestAnimationFrame(() => {
-    wholeScale = fitBox(cityBox(), 14).sc;
-    setView(opts.whole ? fitBox(cityBox(), 14) : boroughView(focus));
+    focus = 'manhattan';
+    wholeScale = boroughView('manhattan').sc;
+    setView(boroughView('manhattan'));
     resize();
   });
 

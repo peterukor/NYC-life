@@ -150,15 +150,15 @@ export const CROWD_RADIUS = 170;
  * zoom and spin, but the tilt stays between ~26° and ~56° from straight
  * down, so streets, ads and your character are always in view.
  */
-export const CAMERA = { minDistance: 16, maxDistance: 520, startDistance: 60 } as const;
+export const CAMERA = { minDistance: 16, maxDistance: 450, startDistance: 60 } as const; // max: one neighbourhood (Peter, 2026-10-12)
 
 /**
  * The sky map's furthest zoom (metres from the ground point it looks at):
- * about one and a half neighbourhoods on a phone (Peter, 2026-10-12: "max 1.5 neighborhood"). Zoomed further
+ * about one neighbourhood on a phone (Peter, 2026-10-12: "1 neighborhood max"). Zoomed further
  * the 3D city turns into grey noise and gets heavy for cheap phones; the
  * 🗺️ City button opens the flat map of the whole city instead.
  */
-export const MAP_MAX_DISTANCE = 675;
+export const MAP_MAX_DISTANCE = 450;
 
 /**
  * Player travel speed on foot, metres per second. Faster than a real walk
