@@ -19,7 +19,7 @@ import { doorOf, isOpen, placesIn, PLACE_BY_ID } from '../data/places.ts';
 import { HOODS } from '../data/neighborhoods.ts';
 import type { AreaId, GameState } from '../sim/types.ts';
 import { SAFE_AREAS, turfMap } from '../sim/gangs.ts';
-import { BOROUGHS, boroughAt, boroughBounds, outline, pointInRing, project, type BoroughId } from '../world/geo-proj.ts';
+import { BOROUGHS, X_STRETCH, boroughAt, boroughBounds, outline, pointInRing, project, type BoroughId } from '../world/geo-proj.ts';
 import { streetStubs, stubRect, blockRect, districtBounds, DISTRICTS, isPark, type DistrictDef } from '../world/layout.ts';
 import { corridorsIn } from '../world/corridors.ts';
 import { islandWeekly, plotsIn } from '../data/plots.ts';
@@ -126,7 +126,8 @@ export function openMap(opts: MapOptions): () => void {
    */
   const closeView = () => {
     const b = boroughBounds('manhattan');
-    const sc = (W() - 16) / (b.maxX - b.minX);
+    // Same closeness as before the island was widened (X_STRETCH): scroll sideways for the rest.
+    const sc = (W() - 16) / ((b.maxX - b.minX) / X_STRETCH);
     return clampView({ sc, ox: W() / 2 - s.location.x * sc, oy: H() / 2 + 20 - s.location.z * sc });
   };
   /** Keep Manhattan on screen: no scrolling off into the water. */

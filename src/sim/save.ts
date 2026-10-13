@@ -88,8 +88,9 @@ function migrate(data: GameState): GameState | null {
   // switched off, and their homes, bar and office moved to Manhattan).
   // Street positions moved, so everyone wakes up at home once more; a home
   // that's still in a closed borough falls back to the Hell's Kitchen studio.
-  // (v4, same day: the smoothed shore, the grid up to Inwood and streets running to the highway.)
-  if ((data.layoutVersion ?? 1) < 4 || !isOpenArea(data.location.area)) {
+  // (v4, same day: the smoothed shore, the grid up to Inwood and streets running to the highway;
+  //  v5: the island 1.8x wider east-west.)
+  if ((data.layoutVersion ?? 1) < 5 || !isOpenArea(data.location.area)) {
     let home = PLACE_BY_ID[data.home?.placeId];
     if (!home || !isOpenArea(home.area)) {
       home = PLACE_BY_ID.hkStudio;
@@ -99,7 +100,7 @@ function migrate(data: GameState): GameState | null {
     }
     const door = doorOf(home);
     data.location = { area: home.area, placeId: home.id, x: door.x, z: door.z };
-    data.layoutVersion = 4;
+    data.layoutVersion = 5;
   }
   data.people ??= {};
   data.joinedEvents ??= [];

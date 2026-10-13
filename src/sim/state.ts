@@ -136,7 +136,7 @@ export function newLife(opts: NewLifeOptions): GameState {
     gang: newGangState(),
     people: {},
     joinedEvents: [],
-    layoutVersion: 4,
+    layoutVersion: 5,
     news: [],
     tutorialStep: 0,
     settings: { quality: 'auto', sound: true },
