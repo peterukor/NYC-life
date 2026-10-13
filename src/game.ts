@@ -150,6 +150,50 @@ export class Game {
         return !!o;
       },
       openPlace: (id: string) => this.openPlace(PLACE_BY_ID[id]),
+      /** Names of the meshes whose world bounds cover (x, z) (debugging the map). */
+      meshesAt: (x: number, z: number) => {
+        const out: string[] = [];
+        const box = new THREE.Box3();
+        this.engine.cityScene.traverse((o) => {
+          const m = o as THREE.Mesh;
+          if (!m.isMesh || !m.geometry) return;
+          const im = m as unknown as THREE.InstancedMesh;
+          if (im.isInstancedMesh) {
+            const mm = new THREE.Matrix4(), p = new THREE.Vector3();
+            let hits = 0;
+            for (let i = 0; i < im.count; i++) {
+              im.getMatrixAt(i, mm);
+              p.setFromMatrixPosition(mm).applyMatrix4(im.matrixWorld);
+              if (Math.abs(p.x - x) < 60 && Math.abs(p.z - z) < 3) hits++;
+            }
+            if (hits) out.push(`instanced ${im.name || im.parent?.name} ×${hits}`);
+            return;
+          }
+          const pos = m.geometry.getAttribute('position');
+          if (pos) {
+            const v = new THREE.Vector3();
+            let hits = 0;
+            for (let i = 0; i < pos.count; i++) {
+              v.fromBufferAttribute(pos, i).applyMatrix4(m.matrixWorld);
+              if (Math.abs(v.z - z) < 1.5 && Math.abs(v.x - x) < 150) hits++;
+            }
+            if (hits) out.push(`verts ${m.name || m.parent?.name || '?'} ×${hits}`);
+          }
+          m.geometry.computeBoundingBox();
+          box.copy(m.geometry.boundingBox!).applyMatrix4(m.matrixWorld);
+          if (x >= box.min.x && x <= box.max.x && z >= box.min.z && z <= box.max.z && box.max.z - box.min.z < 40) out.push(`${m.name || m.parent?.name || '?'} z ${box.min.z.toFixed(0)}..${box.max.z.toFixed(0)} x ${box.min.x.toFixed(0)}..${box.max.x.toFixed(0)}`);
+        });
+        return out;
+      },
+      /** Sky map camera over (x, z) from `d` metres, `tilt` 0 = straight down (scripts/qa-shore.mjs). */
+      sky: (x: number, z: number, d = 500, tilt = 0.6) => {
+        if (this.engine.mode !== 'city' || !this.map3d) this.openCityMap();
+        const { camera, controls } = this.engine;
+        controls.maxDistance = Math.max(controls.maxDistance, d);
+        controls.target.set(x, 0, z);
+        camera.position.set(x, Math.cos(tilt) * d, z + Math.sin(tilt) * d);
+        controls.update();
+      },
       travel: (id: string) => this.travelSheet(PLACE_BY_ID[id]),
       event: (id: string, where: EventContext['where'] = 'street') => {
         const ev = EVENTS.find((e) => e.id === id);

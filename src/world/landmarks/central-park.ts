@@ -9,17 +9,35 @@
 // =====================================================================
 
 import * as THREE from 'three';
-import { blockRect } from '../layout.ts';
+import { blockAt, blockRect, colAt, isPark, rowAt } from '../layout.ts';
+import { project } from '../geo-proj.ts';
 import { LANDMARKS } from './registry.ts';
 import { Toy } from './toy.ts';
 
 LANDMARKS.add({
   id: 'centralPark',
   build({ district, group, track, animate }) {
-    // The park covers blocks c=1..4, r=0..1 (see layout.ts).
-    const a = blockRect(district, 1, 0);
-    const b = blockRect(district, 4, 1);
-    const park = { minX: a.minX, maxX: b.maxX, minZ: a.minZ, maxZ: b.maxZ };
+    // The park: every park block joined to the one at the real Central
+    // Park's middle (was hard-coded block numbers, which broke whenever the
+    // grid changed and stretched the wall to Inwood).
+    const mid = project(40.7829, -73.9654);
+    const start = blockAt(district, mid.x, mid.z) ?? { c: colAt(district, mid.x), r: rowAt(district, mid.z) };
+    const park = { minX: Infinity, maxX: -Infinity, minZ: Infinity, maxZ: -Infinity };
+    const seen = new Set<string>();
+    const todo = [start];
+    while (todo.length) {
+      const { c, r } = todo.pop()!;
+      const k = `${c},${r}`;
+      if (seen.has(k) || !isPark(district, c, r)) continue;
+      seen.add(k);
+      const b = blockRect(district, c, r);
+      park.minX = Math.min(park.minX, b.minX);
+      park.maxX = Math.max(park.maxX, b.maxX);
+      park.minZ = Math.min(park.minZ, b.minZ);
+      park.maxZ = Math.max(park.maxZ, b.maxZ);
+      todo.push({ c: c + 1, r }, { c: c - 1, r }, { c, r: r + 1 }, { c, r: r - 1 });
+    }
+    if (!seen.size) return;
     const toy = new Toy();
 
     // Low stone wall around the park, with gaps for entrances.

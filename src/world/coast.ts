@@ -15,9 +15,10 @@
 
 import * as THREE from 'three';
 import { Rng } from '../core/rng.ts';
-import { BOROUGHS, onLand, outline, unproject, type XZ } from './geo-proj.ts';
+import { BOROUGHS, onLand, outline, pointInRing, unproject, type XZ } from './geo-proj.ts';
+import { MANHATTAN_SHORE } from '../data/geo/manhattan-shore.ts';
 import { onCorridor, rectOnCorridor } from './corridors.ts';
-import { blockRect, colAt, districtBounds, forSaleBlock, rowAt, SIDEWALK, type DistrictDef } from './layout.ts';
+import { blockRect, colAt, districtBounds, forSaleBlock, rowAt, SIDEWALK, streetStubs, stubRect, type DistrictDef, type Rect } from './layout.ts';
 
 type Track = <T extends { dispose(): void }>(x: T) => T;
 
@@ -220,6 +221,32 @@ export function shoreFeatures(d: DistrictDef): ShoreFeatures {
         oz /= l;
         if (!onLand(d.borough, x - ox * 8, z - oz * 8) || onLand(d.borough, x + ox * 14, z + oz * 14)) continue;
         out.piers.push({ x, z, ox, oz, L: zone.length * rng.range(0.85, 1.1), ferry: !!zone.ferries && rng.chance(0.45) });
+      }
+    }
+  }
+  // Riverside green between the street grid and the ring highway
+  // (Manhattan): a loose park of trees, so it reads as waterfront park
+  // rather than bare lawn.
+  if (d.id === 'manhattan') {
+    const ringPts = MANHATTAN_SHORE.ring.map(([x, z]) => ({ x, z }));
+    const pads: Rect[] = [];
+    for (let c = 0; c < d.cols; c++) for (let r = 0; r < d.rows; r++) {
+      if (d.kind(c, r) === 'water') continue;
+      const b = blockRect(d, c, r);
+      pads.push({ minX: b.minX - d.avenueW / 2 - 3, maxX: b.maxX + d.avenueW / 2 + 3, minZ: b.minZ - d.streetW / 2 - 3, maxZ: b.maxZ + d.streetW / 2 + 3 });
+    }
+    for (const st of streetStubs(d)) {
+      const b = stubRect(st);
+      pads.push({ minX: b.minX - 3, maxX: b.maxX + 3, minZ: b.minZ - 3, maxZ: b.maxZ + 3 });
+    }
+    const inPad = (x: number, z: number) => pads.some((p) => x > p.minX && x < p.maxX && z > p.minZ && z < p.maxZ);
+    const SP = 13;
+    for (let z = built.minZ - 60; z < built.maxZ + 60; z += SP * 0.87) {
+      for (let x = built.minX - 60; x < built.maxX + 60; x += SP) {
+        const tx = x + rng.range(-SP * 0.35, SP * 0.35), tz = z + rng.range(-SP * 0.35, SP * 0.35);
+        if (!rng.chance(0.62)) continue;
+        if (!pointInRing(tx, tz, ringPts) || inPad(tx, tz) || onCorridor(d.id, tx, tz, 3)) continue;
+        out.trees.push({ x: tx, z: tz, s: rng.range(0.85, 1.3), rot: rng.range(0, 6.28) });
       }
     }
   }

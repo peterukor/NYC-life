@@ -20,7 +20,7 @@ import { HOODS } from '../data/neighborhoods.ts';
 import type { AreaId, GameState } from '../sim/types.ts';
 import { SAFE_AREAS, turfMap } from '../sim/gangs.ts';
 import { BOROUGHS, boroughAt, boroughBounds, outline, pointInRing, project, type BoroughId } from '../world/geo-proj.ts';
-import { blockRect, districtBounds, DISTRICTS, isPark, type DistrictDef } from '../world/layout.ts';
+import { streetStubs, stubRect, blockRect, districtBounds, DISTRICTS, isPark, type DistrictDef } from '../world/layout.ts';
 import { corridorsIn } from '../world/corridors.ts';
 import { islandWeekly, plotsIn } from '../data/plots.ts';
 import { lotsFor, shoreFeatures, shoreKinds, type ShoreKind } from '../world/coast.ts';
@@ -194,6 +194,11 @@ export function openMap(opts: MapOptions): () => void {
         const b = blockRect(d, c, r);
         g.fillRect(sx(b.minX - d.avenueW / 2), sy(b.minZ - d.streetW / 2), (b.maxX - b.minX + d.avenueW) * scale, (b.maxZ - b.minZ + d.streetW) * scale);
       }
+    }
+    // Streets running on to the ring highway (layout.ts streetStubs).
+    for (const st of streetStubs(d)) {
+      const b = stubRect(st);
+      g.fillRect(sx(b.minX), sy(b.minZ), (b.maxX - b.minX) * scale, (b.maxZ - b.minZ) * scale);
     }
     // 2. Blocks.
     for (let c = 0; c < d.cols; c++) {

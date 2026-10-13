@@ -17,6 +17,7 @@
 // =====================================================================
 
 import { NYC_GEO } from '../data/geo/nyc-boroughs.ts';
+import { MANHATTAN_SHORE } from '../data/geo/manhattan-shore.ts';
 
 export const ORIGIN = NYC_GEO.origin;
 export const SCALE = NYC_GEO.scale;
@@ -58,7 +59,10 @@ export const BOROUGHS: BoroughInfo[] = [
 
 /** A borough's outline rings (biggest first) in game metres. */
 export function outline(id: BoroughId): XZ[][] {
-  return (NYC_GEO.boroughs[id] ?? []).map((ring) => ring.map(([x, z]) => ({ x, z })));
+  // Manhattan uses the smoothed cartoon coast (scripts/build-manhattan-shore.py):
+  // no piers or inlets, so the shore, the ring highway and the grid fit together.
+  const rings = id === 'manhattan' ? MANHATTAN_SHORE.land : NYC_GEO.boroughs[id] ?? [];
+  return rings.map((ring) => ring.map(([x, z]) => ({ x, z })));
 }
 
 export function pointInRing(x: number, z: number, poly: XZ[]): boolean {

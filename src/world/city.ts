@@ -20,7 +20,7 @@ import { doorOf, placesIn } from '../data/places.ts';
 import type { AreaId } from '../sim/types.ts';
 import { comingSoonTexture, facadeTextures, signTexture, type FacadeStyle } from '../render/textures.ts';
 import { GeoBuilder } from './geo.ts';
-import { avenueX, blockRect, districtBounds, DISTRICTS, inParkGap, isPark, onRoad, SIDEWALK, streetZ, type DistrictDef, type Rect } from './layout.ts';
+import { avenueX, blockRect, districtBounds, DISTRICTS, inParkGap, isPark, onRoad, SIDEWALK, streetStubs, streetZ, stubRect, type DistrictDef, type Rect } from './layout.ts';
 import { buildNavGrid, type NavGrid } from './nav.ts';
 import { kitMaterial, type Kits } from '../assets/kit.ts';
 import { CityBlocks } from './nycgen/city-blocks.ts';
@@ -171,6 +171,11 @@ export function buildCity(area: AreaId, opts: { trees: boolean; shadows?: boolea
       roadGeo.flat(b.minX - d.avenueW / 2 - 0.5, b.maxX + d.avenueW / 2 + 0.5, b.minZ - d.streetW / 2 - 0.5, b.maxZ + d.streetW / 2 + 0.5, 0.02, 7);
     }
   }
+  // Streets running on from the grid to the ring highway (layout.ts streetStubs).
+  for (const st of streetStubs(d)) {
+    const b = stubRect(st);
+    roadGeo.flat(b.minX, b.maxX, b.minZ, b.maxZ, 0.02, 7);
+  }
   const roads = new THREE.Mesh(track(roadGeo.build()), asphalt);
   roads.receiveShadow = true;
   roads.name = 'roads';
@@ -245,6 +250,23 @@ export function buildCity(area: AreaId, opts: { trees: boolean; shadows?: boolea
       const x1 = avenueX(d, i + 1) - d.avenueW / 2 - 3.6;
       if (!onRoad(d, x0, sz) || !onRoad(d, x1, sz) || inParkGap(d, (x0 + x1) / 2, sz)) continue;
       for (const off of [-0.22, 0.22]) yellow.flat(x0, x1, sz + off - 0.09, sz + off + 0.09, 0.045);
+    }
+  }
+  // Double yellow down the street stubs too, stopping short of the highway.
+  for (const st of streetStubs(d)) {
+    const L = Math.abs(st.axis === 'x' ? st.x1 - st.x0 : st.z1 - st.z0);
+    if (L < 14) continue;
+    const dir = Math.sign(st.axis === 'x' ? st.x1 - st.x0 : st.z1 - st.z0);
+    const a = 3.6, b2 = L - 11; // from the crossing to just before the highway's edge
+    if (b2 <= a) continue;
+    for (const off of [-0.22, 0.22]) {
+      if (st.axis === 'x') {
+        const xa = st.x0 + dir * a, xb = st.x0 + dir * b2;
+        yellow.flat(Math.min(xa, xb), Math.max(xa, xb), st.z0 + off - 0.09, st.z0 + off + 0.09, 0.045);
+      } else {
+        const za = st.z0 + dir * a, zb = st.z0 + dir * b2;
+        yellow.flat(st.x0 + off - 0.09, st.x0 + off + 0.09, Math.min(za, zb), Math.max(za, zb), 0.045);
+      }
     }
   }
   const markMesh = new THREE.Mesh(track(marks.build()), track(new THREE.MeshLambertMaterial({ color: '#f4f2ea' })));

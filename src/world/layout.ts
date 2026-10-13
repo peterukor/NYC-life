@@ -24,6 +24,7 @@
 import type { AreaId } from '../sim/types.ts';
 import { boroughBounds, onLand as onAnyLand, outline, pointInRing, project, unproject, type BoroughId, type XZ } from './geo-proj.ts';
 import { Rng } from '../core/rng.ts';
+import { MANHATTAN_SHORE } from '../data/geo/manhattan-shore.ts';
 
 export type Zone = 'tall' | 'midrise' | 'brownstone' | 'waterfront';
 
@@ -159,11 +160,26 @@ function gridFor(borough: BoroughId, anchor: { x: number; z: number }, play: { m
   return { borough, allXs, allZs, c0: near(allXs, play.minX), c1: near(allXs, play.maxX), r0: near(allZs, play.minZ), r1: near(allZs, play.maxZ) };
 }
 
+/** Where street blocks may stand (a point test), and how much shore to keep round them. */
+type Fits = { at: (x: number, z: number) => boolean; pad: number };
+const landFits = (borough: BoroughId): Fits => ({ at: (x, z) => onLand(borough, x, z), pad: 4 });
+
+/**
+ * Manhattan's blocks stay inside the ring highway (Peter, 2026-10-12: the
+ * highway used to run through blocks). The core polygon is the smoothed
+ * island shrunk past the highway, a kerb gap and the street round the block
+ * (scripts/build-manhattan-shore.py), so a block inside it never touches
+ * the highway or the water.
+ */
+const MANHATTAN_CORE: XZ[] = MANHATTAN_SHORE.core.map(([x, z]) => ({ x, z }));
+const coreFits: Fits = { at: (x, z) => pointInRing(x, z, MANHATTAN_CORE), pad: 0 };
+
 /** Is the whole block between lines (shrunk a little) on land? */
-function cellOnLand(borough: BoroughId, xs: number[], zs: number[], c: number, r: number): boolean {
+function cellOnLand(fits: Fits, xs: number[], zs: number[], c: number, r: number): boolean {
   const x0 = xs[c] + AVE_W / 2 + 2, x1 = xs[c + 1] - AVE_W / 2 - 2;
   const z0 = zs[r] + ST_W / 2 + 2, z1 = zs[r + 1] - ST_W / 2 - 2;
-  return [[x0, z0], [x1, z0], [x0, z1], [x1, z1], [(x0 + x1) / 2, (z0 + z1) / 2]].every(([x, z]) => onLand(borough, x, z));
+  const pts: [number, number][] = [[x0, z0], [x1, z0], [x0, z1], [x1, z1], [(x0 + x1) / 2, (z0 + z1) / 2], [(x0 + x1) / 2, z0], [(x0 + x1) / 2, z1], [x0, (z0 + z1) / 2], [x1, (z0 + z1) / 2]];
+  return pts.every(([x, z]) => fits.at(x, z));
 }
 
 /**
@@ -173,9 +189,9 @@ function cellOnLand(borough: BoroughId, xs: number[], zs: number[], c: number, r
  * Lower Manhattan is narrow and slanted, so without this most of downtown
  * would be lost. Returns null when too little is left to build on.
  */
-function trimToLand(borough: BoroughId, full: { minX: number; maxX: number; minZ: number; maxZ: number }): { minX: number; maxX: number; minZ: number; maxZ: number } | null {
+function trimToLand(fits: Fits, full: { minX: number; maxX: number; minZ: number; maxZ: number }): { minX: number; maxX: number; minZ: number; maxZ: number } | null {
   const r = { ...full };
-  const STEP = 6, MIN_W = 60, MIN_D = 46, PAD = 4;
+  const STEP = 4, MIN_W = 38, MIN_D = 40, PAD = fits.pad;
   const N = 5;
   for (let guard = 0; guard < 80; guard++) {
     // Count the water samples near each side of the rect (+ a small shore pad).
@@ -185,7 +201,7 @@ function trimToLand(borough: BoroughId, full: { minX: number; maxX: number; minZ
       for (let j = 0; j < N; j++) {
         const x = r.minX - PAD + ((r.maxX - r.minX + PAD * 2) * i) / (N - 1);
         const z = r.minZ - PAD + ((r.maxZ - r.minZ + PAD * 2) * j) / (N - 1);
-        if (onLand(borough, x, z)) continue;
+        if (fits.at(x, z)) continue;
         total++;
         if (i === 0) miss.w++;
         if (i === N - 1) miss.e++;
@@ -294,17 +310,20 @@ function district(base: Omit<DistrictDef, 'origin' | 'trimmed' | 'setKind' | 'xs
   hubAt: { x: number; z: number; name: string };
   /** How often streets / avenues are closed into long or wide blocks. */
   joinRate?: { s: number; e: number };
+  /** Where blocks may stand (default: on the borough's main land). */
+  fits?: Fits;
 }): DistrictDef {
   const g = base.grid;
+  const fits = base.fits ?? landFits(g.borough);
   const xs = g.allXs.slice(g.c0, g.c1 + 1);
   const zs = g.allZs.slice(g.r0, g.r1 + 1);
   const cols = xs.length - 1;
   const rows = zs.length - 1;
-  const land = Array.from({ length: cols }, (_, c) => Array.from({ length: rows }, (_, r) => cellOnLand(g.borough, xs, zs, c, r)));
+  const land = Array.from({ length: cols }, (_, c) => Array.from({ length: rows }, (_, r) => cellOnLand(fits, xs, zs, c, r)));
   // Blocks on the shore that are only partly land get trimmed, not dropped.
   const trims = Array.from({ length: cols }, (_, c) =>
     Array.from({ length: rows }, (_, r) =>
-      land[c][r] ? null : trimToLand(g.borough, { minX: xs[c] + AVE_W / 2, maxX: xs[c + 1] - AVE_W / 2, minZ: zs[r] + ST_W / 2, maxZ: zs[r + 1] - ST_W / 2 }),
+      land[c][r] ? null : trimToLand(fits, { minX: xs[c] + AVE_W / 2, maxX: xs[c + 1] - AVE_W / 2, minZ: zs[r] + ST_W / 2, maxZ: zs[r + 1] - ST_W / 2 }),
     ),
   );
   const hub = { c: cellOf(xs, base.hubAt.x), r: cellOf(zs, base.hubAt.z), name: base.hubAt.name };
@@ -358,6 +377,9 @@ const M_HY = project(40.7535, -74.001);
 const M_WSP = project(40.7308, -73.9973); // Washington Square Park
 const M_CITYHALL = project(40.7128, -74.006); // City Hall Park
 const M_BATTERY = project(40.7033, -74.017); // The Battery
+const M_INWOOD = project(40.8715, -73.9235); // Inwood Hill Park
+const M_TRYON = project(40.8620, -73.9320); // Fort Tryon Park
+const M_HIGHBRIDGE = project(40.8425, -73.9310); // Highbridge Park
 
 const MANHATTAN = district({
   id: 'manhattan',
@@ -368,7 +390,10 @@ const MANHATTAN = district({
   // playable from Harlem (about 155th St) all the way down to the Battery
   // (the lines are the same seeded lines as before, the grid just reaches
   // further north and south).
-  grid: playable(gridFor('manhattan', { x: -56, z: -226 }, { minX: -470, maxX: 480, minZ: -1750, maxZ: 1340 }, 'manhattan-grid-v3'), MANHATTAN_GRID),
+  // 2026-10-12: the grid now runs the whole island, up to Inwood, and
+  // stays inside the ring highway (coreFits).
+  grid: playable(gridFor('manhattan', { x: -56, z: -226 }, { minX: -470, maxX: 480, minZ: -2860, maxZ: 1340 }, 'manhattan-grid-v3'), MANHATTAN_GRID),
+  fits: coreFits,
   blockW: 150,
   blockD: 70,
   avenueW: AVE_W,
@@ -400,6 +425,7 @@ const MANHATTAN = district({
     if (inBlock(M_FUNLAND)) return 'plaza';
     if (inBlock(M_HY)) return 'vacant';
     if (inBlock(M_WSP) || inBlock(M_CITYHALL) || inBlock(M_BATTERY)) return 'park';
+    if (inBlock(M_INWOOD) || inBlock(M_TRYON) || inBlock(M_HIGHBRIDGE)) return 'park'; // up north: Inwood Hill, Fort Tryon, Highbridge
     if (manhattanForSale(x, z)) return 'lot';
     return 'buildings';
   },
@@ -753,4 +779,99 @@ export function inParkGap(d: DistrictDef, x: number, z: number): boolean {
   if (ave >= 0) return closedE(d, ave - 1, r);
   if (st >= 0) return closedS(d, c, st - 1);
   return isPark(d, c, r);
+}
+
+/**
+ * Street ends (Peter, 2026-10-12: streets used to dead-end in the grass by
+ * the river). Where a street or avenue runs off the outside of the grid,
+ * it carries on, straight, until it meets the ring highway, like real
+ * cross streets meeting the West Side Highway and the FDR. Only Manhattan
+ * has the ring. Each stub is a strip of asphalt `w` wide from (x0, z0) to
+ * (x1, z1) along x or z.
+ */
+export interface StreetStub {
+  x0: number;
+  z0: number;
+  x1: number;
+  z1: number;
+  w: number;
+  /** Along x (a street) or along z (an avenue). */
+  axis: 'x' | 'z';
+}
+const stubCache = new Map<AreaId, StreetStub[]>();
+export function streetStubs(d: DistrictDef): StreetStub[] {
+  const hit = stubCache.get(d.id);
+  if (hit) return hit;
+  const out: StreetStub[] = [];
+  stubCache.set(d.id, out);
+  if (d.id !== 'manhattan') return out;
+  const ring = MANHATTAN_SHORE.ring;
+  const n = ring.length;
+  /** Distance along a ray to the ring highway's centre line (Infinity if it misses). */
+  const toRing = (x: number, z: number, dx: number, dz: number): number => {
+    let best = Infinity;
+    for (let i = 0; i < n; i++) {
+      const [ax, az] = ring[i], [bx, bz] = ring[(i + 1) % n];
+      const ex = bx - ax, ez = bz - az;
+      const den = dx * ez - dz * ex;
+      if (Math.abs(den) < 1e-9) continue;
+      const t = ((ax - x) * ez - (az - z) * ex) / den;
+      const u = ((ax - x) * dz - (az - z) * dx) / den;
+      if (t > 0 && u >= 0 && u <= 1) best = Math.min(best, t);
+    }
+    return best;
+  };
+  // Every block's asphalt (the block plus half a road all round).
+  const pads: (Rect & { c: number; r: number })[] = [];
+  for (let c = 0; c < d.cols; c++) for (let r = 0; r < d.rows; r++) {
+    if (d.kind(c, r) === 'water') continue;
+    const b = blockRect(d, c, r);
+    pads.push({ c, r, minX: b.minX - d.avenueW / 2 - 0.5, maxX: b.maxX + d.avenueW / 2 + 0.5, minZ: b.minZ - d.streetW / 2 - 0.5, maxZ: b.maxZ + d.streetW / 2 + 0.5 });
+  }
+  // Avenues only run on past the last block of their column (the island's
+  // two ends): along the riverside strips they'd box the grass into squares.
+  const lastInCol = new Map<number, { min: number; max: number }>();
+  for (const q of pads) {
+    const e = lastInCol.get(q.c) ?? { min: Infinity, max: -Infinity };
+    lastInCol.set(q.c, { min: Math.min(e.min, q.r), max: Math.max(e.max, q.r) });
+  }
+  const hits = (r: Rect, self: Rect) => pads.some((p) => p !== self && r.minX < p.maxX - 0.6 && r.maxX > p.minX + 0.6 && r.minZ < p.maxZ - 0.6 && r.maxZ > p.minZ + 0.6);
+  const seen = new Set<string>();
+  const MAX = 170;
+  for (const p of pads) {
+    const cx = [p.minX + d.avenueW / 2 + 0.5, p.maxX - d.avenueW / 2 - 0.5]; // avenue centre lines either side
+    const cz = [p.minZ + d.streetW / 2 + 0.5, p.maxZ - d.streetW / 2 - 0.5]; // street centre lines either side
+    const tries: { x: number; z: number; dx: number; dz: number; w: number; axis: 'x' | 'z' }[] = [];
+    for (const z of cz) {
+      tries.push({ x: p.maxX, z, dx: 1, dz: 0, w: d.streetW, axis: 'x' }, { x: p.minX, z, dx: -1, dz: 0, w: d.streetW, axis: 'x' });
+    }
+    const ends = lastInCol.get(p.c)!;
+    for (const x of cx) {
+      if (p.r === ends.max) tries.push({ x, z: p.maxZ, dx: 0, dz: 1, w: d.avenueW, axis: 'z' });
+      if (p.r === ends.min) tries.push({ x, z: p.minZ, dx: 0, dz: -1, w: d.avenueW, axis: 'z' });
+    }
+    for (const t of tries) {
+      const L = toRing(t.x, t.z, t.dx, t.dz);
+      if (!(L > 1 && L < MAX)) continue;
+      const ex = t.x + t.dx * L, ez = t.z + t.dz * L;
+      const half = t.w / 2;
+      const r: Rect = t.axis === 'x'
+        ? { minX: Math.min(t.x, ex), maxX: Math.max(t.x, ex), minZ: t.z - half, maxZ: t.z + half }
+        : { minX: t.x - half, maxX: t.x + half, minZ: Math.min(t.z, ez), maxZ: Math.max(t.z, ez) };
+      if (hits(r, p)) continue; // another block is in the way: not an outside edge
+      const key = `${t.axis}:${Math.round(t.axis === 'x' ? t.z : t.x)}:${Math.sign(t.dx + t.dz)}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push({ x0: t.x, z0: t.z, x1: ex, z1: ez, w: t.w, axis: t.axis });
+    }
+  }
+  return out;
+}
+
+/** A street stub's asphalt as a rect. */
+export function stubRect(s: StreetStub): Rect {
+  const h = s.w / 2;
+  return s.axis === 'x'
+    ? { minX: Math.min(s.x0, s.x1), maxX: Math.max(s.x0, s.x1), minZ: s.z0 - h, maxZ: s.z0 + h }
+    : { minX: s.x0 - h, maxX: s.x0 + h, minZ: Math.min(s.z0, s.z1), maxZ: Math.max(s.z0, s.z1) };
 }
