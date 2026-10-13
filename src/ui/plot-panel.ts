@@ -13,7 +13,7 @@
 // =====================================================================
 
 import { esc } from '../core/format.ts';
-import { AD_PRICES, AD_UNIT_NAMES, AD_UNITS, adPrice, BLOCK_SPACES, homePrice, homeWeekly, HOMES_PER_BOROUGH, HOUSES, islandWeekly, MAX_WEEKS, neighbourPlots, type HouseId, type Plot } from '../data/plots.ts';
+import { AD_PRICES, adUnitNames, AD_UNITS, adPrice, BLOCK_SPACES, homePrice, homeWeekly, HOMES_PER_BOROUGH, HOUSES, islandWeekly, MAX_WEEKS, neighbourPlots, type HouseId, type Plot } from '../data/plots.ts';
 import { homeRequestsIn, saveRequest } from '../sim/plot-requests.ts';
 import { openSheet, toast } from './dom.ts';
 
@@ -63,10 +63,10 @@ function adPanel(p: Plot, focusUnit: number): void {
     title: 'Ad space',
     sub: `${esc(p.name)} · ${TIER_LABEL[p.tier]}`,
     body: `
-      <p class="blurb">This whole block is ad space: your picture covers the ground, big enough to see from the map. Rent the left half, the right half or both: ${usd(price.unit)} a week for a half, ${usd(price.block)} a week for the whole block.</p>
+      <p class="blurb">This whole block is ad space: your picture covers the ground, big enough to see from the map. Rent the ${adUnitNames(p)[0].toLowerCase()}, the ${adUnitNames(p)[1].toLowerCase()} or both: ${usd(price.unit)} a week for a half, ${usd(price.block)} a week for the whole block.</p>
       ${auctionNote(p)}
       <div class="plot-units" role="group" aria-label="Halves of the block">
-        ${AD_UNIT_NAMES.map((n, i) => `<button class="plot-unit" data-u="${i}" aria-pressed="false"><b>${n}</b><small>${usd(price.unit)}/wk</small></button>`).join('')}
+        ${adUnitNames(p).map((n, i) => `<button class="plot-unit" data-u="${i}" aria-pressed="false"><b>${n}</b><small>${usd(price.unit)}/wk</small></button>`).join('')}
       </div>
       <div class="row"><button class="btn" data-all>Whole block · ${usd(price.block)}/wk</button></div>
       ${mates.map((m) => mergeButton(m, 'block')).join('')}
@@ -86,7 +86,7 @@ function adPanel(p: Plot, focusUnit: number): void {
     b.querySelectorAll<HTMLElement>('.plot-unit').forEach((el) => el.setAttribute('aria-pressed', String(picked.has(Number(el.dataset.u)))));
     showWeeks(b, st);
     go.disabled = !picked.size || !!p.auction || !!st.merge?.auction;
-    const what = st.merge ? 'both blocks, merged' : picked.size === AD_UNITS ? 'the whole block' : picked.size ? AD_UNIT_NAMES[[...picked][0]].toLowerCase() : '';
+    const what = st.merge ? 'both blocks, merged' : picked.size === AD_UNITS ? 'the whole block' : picked.size ? adUnitNames(p)[[...picked][0]].toLowerCase() : '';
     go.textContent = p.auction ? 'Auction opens soon' : picked.size ? `Subscribe to ${what} · ${usd(weekly())}/week` : 'Pick a half';
   };
   b.querySelectorAll<HTMLElement>('.plot-unit').forEach((el) =>

@@ -22,7 +22,7 @@ import { SAFE_AREAS, turfMap } from '../sim/gangs.ts';
 import { BOROUGHS, X_STRETCH, boroughAt, boroughBounds, outline, pointInRing, project, type BoroughId } from '../world/geo-proj.ts';
 import { streetStubs, stubRect, blockRect, districtBounds, DISTRICTS, isPark, type DistrictDef } from '../world/layout.ts';
 import { corridorsIn } from '../world/corridors.ts';
-import { islandWeekly, plotsIn } from '../data/plots.ts';
+import { adBoardRect, adSplit, islandWeekly, plotsIn } from '../data/plots.ts';
 import { lotsFor, shoreFeatures, shoreKinds, type ShoreKind } from '../world/coast.ts';
 import { pondsFor } from '../data/parks.ts';
 import { html, onAct, root } from './dom.ts';
@@ -245,14 +245,22 @@ export function openMap(opts: MapOptions): () => void {
           g.stroke();
           g.setLineDash([]);
         } else if (kind === 'ads') {
-          // Ad block: the block is the ad, a bright left half and right half.
+          // Ad block: the block is the ad, two bright halves (split across the longer side).
           const cols = ['#ff4f8b', '#3b82f6'];
           const pad = 3 * scale;
+          const alongX = adSplit(b) === 'x';
           for (let k = 0; k < 2; k++) {
             g.fillStyle = cols[k];
-            rr(x + pad + ((w - pad * 3) / 2 + pad) * k, y + pad, (w - pad * 3) / 2, h - pad * 2, 2 * scale);
+            const half = alongX
+              ? { minX: b.minX + 3 + ((b.maxX - b.minX - 9) / 2 + 3) * k, minZ: b.minZ + 3, maxX: 0, maxZ: b.maxZ - 3 }
+              : { minX: b.minX + 3, minZ: b.minZ + 3 + ((b.maxZ - b.minZ - 9) / 2 + 3) * k, maxX: b.maxX - 3, maxZ: 0 };
+            if (alongX) half.maxX = half.minX + (b.maxX - b.minX - 9) / 2;
+            else half.maxZ = half.minZ + (b.maxZ - b.minZ - 9) / 2;
+            const q = adBoardRect(half); // square-ish, like the 3D boards
+            rr(sx(q.minX), sy(q.minZ), (q.maxX - q.minX) * scale, (q.maxZ - q.minZ) * scale, 2 * scale);
             g.fill();
           }
+          void pad;
         } else if (kind === 'vacant') {
           g.save();
           rr(x, y, w, h, 3 * scale);

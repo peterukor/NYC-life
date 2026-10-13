@@ -15,7 +15,7 @@
 // =====================================================================
 
 import * as THREE from 'three';
-import { AD_PRICES, AD_UNIT_NAMES, adUnitRects, islandWeekly, type Plot } from '../data/plots.ts';
+import { AD_PRICES, adBoardRect, adSplit, adUnitNames, adUnitRects, islandWeekly, type Plot } from '../data/plots.ts';
 import { SIDEWALK } from './layout.ts';
 
 type Track = <T extends { dispose(): void }>(x: T) => T;
@@ -61,7 +61,12 @@ export function buildAdBoards(plots: Plot[], track: Track): AdBoards {
     if (p.kind === 'ad' && p.rect) {
       adUnitRects(p).forEach((u, unit) => {
         // Inside the sidewalk, with a 1 m gap down the middle between the halves.
-        list.push({ plot: p, unit, minX: u.minX + (unit === 0 ? SIDEWALK : 0.5), maxX: u.maxX - (unit === 1 ? SIDEWALK : 0.5), minZ: u.minZ + SIDEWALK, maxZ: u.maxZ - SIDEWALK });
+        const alongX = adSplit(p.rect!) === 'x';
+        const inner = (first: boolean) => (first ? SIDEWALK : 0.5);
+        const half = alongX
+          ? { minX: u.minX + inner(unit === 0), maxX: u.maxX - inner(unit === 1), minZ: u.minZ + SIDEWALK, maxZ: u.maxZ - SIDEWALK }
+          : { minX: u.minX + SIDEWALK, maxX: u.maxX - SIDEWALK, minZ: u.minZ + inner(unit === 0), maxZ: u.maxZ - inner(unit === 1) };
+        list.push({ plot: p, unit, ...adBoardRect(half) });
       });
     } else if (p.kind === 'island') {
       const w = 60, h = 40;
@@ -121,7 +126,7 @@ export function buildAdBoards(plots: Plot[], track: Track): AdBoards {
       line('FOR RENT', '900 22px sans-serif', 108);
       line(`$${islandWeekly(b.plot.islandPrice ?? 0).toFixed(2)}/wk`, '800 16px sans-serif', 136);
     } else {
-      line(`📢 ${AD_UNIT_NAMES[b.unit].toUpperCase()}`, '900 15px sans-serif', 30);
+      line(`📢 ${adUnitNames(b.plot)[b.unit].toUpperCase()}`, '900 15px sans-serif', 30);
       line('YOUR', '900 30px sans-serif', 68);
       line('AD HERE', '900 30px sans-serif', 100);
       line(`$${AD_PRICES[b.plot.tier].unit}/week`, '800 16px sans-serif', 132);

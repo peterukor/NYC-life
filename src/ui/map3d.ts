@@ -97,7 +97,7 @@ export function openMap3D(o: Map3DOptions): Map3D {
       pl.kind === 'island'
         ? `🏝️ ${esc(pl.name)}<small>FOR RENT · $${islandWeekly(pl.islandPrice ?? 0).toFixed(2)}/wk</small>`
         : pl.kind === 'ad'
-          ? `📢 AD SPACE<small>left & right halves · from $${AD_PRICES[pl.tier].unit}/wk</small>`
+          ? `📢 AD SPACE<small>2 halves · from $${AD_PRICES[pl.tier].unit}/wk</small>`
           : '🏠 Lot for rent';
     const card = html(`<button class="m3-plot ${pl.kind === 'island' ? 'island' : pl.kind === 'home' ? 'lot' : ''}" data-act="plot:${esc(pl.id)}"><span>${label}</span></button>`);
     layer.appendChild(card);

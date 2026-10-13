@@ -85,6 +85,21 @@ export const AD_UNITS = 2;
 export const AD_UNIT_NAMES = ['Left half', 'Right half'];
 
 /**
+ * Which way an ad block is cut in two (Peter, 2026-10-12: halves should be
+ * as square as possible, not tall strips): across its longer side. Wide
+ * blocks split into left / right, tall blocks into top / bottom.
+ */
+export function adSplit(r: { minX: number; maxX: number; minZ: number; maxZ: number }): 'x' | 'z' {
+  const w = r.maxX - r.minX, d = r.maxZ - r.minZ;
+  const aspect = (a: number, b: number) => Math.max(a, b) / Math.min(a, b);
+  return aspect(w / 2, d) <= aspect(w, d / 2) ? 'x' : 'z';
+}
+/** The names of an ad block's two halves, in unit order. */
+export function adUnitNames(p: { rect?: { minX: number; maxX: number; minZ: number; maxZ: number } }): string[] {
+  return p.rect && adSplit(p.rect) === 'z' ? ['Top half', 'Bottom half'] : AD_UNIT_NAMES;
+}
+
+/**
  * House types you can put on a lot, with the weekly price in the
  * cheapest area. A home block has room for 16 spaces: a tiny home takes 1
  * (16 per block), a townhouse 2 (8), a villa 4 (4), a mansion 8 (2). Mix
@@ -185,6 +200,8 @@ function build(): Plot[] {
         if (d.kind(c, r) !== 'buildings' || busy.has(`${c},${r}`)) continue;
         if (Math.abs(c - d.hub.c) <= 1 && Math.abs(r - d.hub.r) <= 1) continue;
         const b = blockRect(d, c, r);
+        // Ad blocks stay south of ~150th St (Peter, 2026-10-12: "2 ads blocks
+        // up north, move them a lil more south"); see the ad pick below.
         // Keep ad blocks and lots off Broadway and the highway.
         if (rectOnCorridor(d.id, { minX: b.minX + 6, maxX: b.maxX - 6, minZ: b.minZ + 6, maxZ: b.maxZ - 6 })) continue;
         free.push({ c, r, id: blockId(d, c, r), x: (b.minX + b.maxX) / 2, z: (b.minZ + b.maxZ) / 2 });
@@ -196,12 +213,14 @@ function build(): Plot[] {
     // side by side that a renter of both can MERGE into one giant board.
     const ads: typeof free = [];
     const freeAt = new Map(free.map((f) => [`${f.c},${f.r}`, f]));
+    const farNorth = (f: (typeof free)[number]) => d.id === 'manhattan' && manhattanStreetAt(f.z) > 150;
     for (const f of free) {
       if (ads.length >= pick.ads) break;
+      if (farNorth(f)) continue;
       if (ads.some((a) => Math.hypot(a.x - f.x, a.z - f.z) < 190)) continue;
       ads.push(f);
       if (ads.length % 2 === 0 || ads.length >= pick.ads) continue;
-      const mate = [freeAt.get(`${f.c + 1},${f.r}`), freeAt.get(`${f.c - 1},${f.r}`), freeAt.get(`${f.c},${f.r + 1}`), freeAt.get(`${f.c},${f.r - 1}`)].find((m) => m && !ads.includes(m));
+      const mate = [freeAt.get(`${f.c + 1},${f.r}`), freeAt.get(`${f.c - 1},${f.r}`), freeAt.get(`${f.c},${f.r + 1}`), freeAt.get(`${f.c},${f.r - 1}`)].find((m) => m && !ads.includes(m) && !farNorth(m));
       if (mate) ads.push(mate);
     }
     for (const a of ads) d.setKind(a.c, a.r, 'ads');
@@ -279,9 +298,36 @@ export function neighbourPlots(p: Plot): Plot[] {
   return PLOTS.filter((q) => q !== p && q.kind === p.kind && q.area === p.area && q.block && Math.abs(q.block[0] - c) + Math.abs(q.block[1] - r) === 1);
 }
 
-/** The two halves of an ad block, split down the middle: 0 = left (west), 1 = right (east). */
+/**
+ * The board drawn on an ad half: the half's rect (inside the sidewalk),
+ * trimmed along its long side so it's never more than MAX_AD_ASPECT long
+ * for its width, centred. Square-ish boards, never long strips (Peter,
+ * 2026-10-12); what's trimmed off stays paved.
+ */
+export const MAX_AD_ASPECT = 1.35;
+export function adBoardRect(u: { minX: number; maxX: number; minZ: number; maxZ: number }): { minX: number; maxX: number; minZ: number; maxZ: number } {
+  const w = u.maxX - u.minX, d = u.maxZ - u.minZ;
+  if (d > w * MAX_AD_ASPECT) {
+    const cz = (u.minZ + u.maxZ) / 2, h = (w * MAX_AD_ASPECT) / 2;
+    return { ...u, minZ: cz - h, maxZ: cz + h };
+  }
+  if (w > d * MAX_AD_ASPECT) {
+    const cx = (u.minX + u.maxX) / 2, h = (d * MAX_AD_ASPECT) / 2;
+    return { ...u, minX: cx - h, maxX: cx + h };
+  }
+  return u;
+}
+
+/** The two halves of an ad block (adSplit): 0 = left / top, 1 = right / bottom. */
 export function adUnitRects(p: Plot): { minX: number; maxX: number; minZ: number; maxZ: number }[] {
   const r = p.rect!;
+  if (adSplit(r) === 'z') {
+    const mz = (r.minZ + r.maxZ) / 2;
+    return [
+      { minX: r.minX, maxX: r.maxX, minZ: r.minZ, maxZ: mz },
+      { minX: r.minX, maxX: r.maxX, minZ: mz, maxZ: r.maxZ },
+    ];
+  }
   const mx = (r.minX + r.maxX) / 2;
   return [
     { minX: r.minX, maxX: mx, minZ: r.minZ, maxZ: r.maxZ },
