@@ -217,7 +217,7 @@ export function planNycBlock(inner: Rect, zone: string, rng: Rng, nearHub: boole
     if (lot.full) buildings.push(makePlan(lot, inner.minZ, inner.maxZ, rng.chance(0.5) ? 'n' : 's', corner));
     else if (!gap(i, north.length)) {
       const sb = setback(lot.style);
-      buildings.push(makePlan(lot, inner.minZ + sb, inner.minZ + sb + depth(), 'n', corner));
+      buildings.push(makePlan(lot, inner.minZ + sb, Math.min(inner.minZ + sb + depth(), inner.minZ + rowD - 0.1), 'n', corner));
     } else greens.push({ minX: lot.x0, maxX: lot.x1, minZ: inner.minZ, maxZ: inner.minZ + rowD });
   }
   // The south row skips the x ranges a full-depth tower already took.
@@ -226,11 +226,19 @@ export function planNycBlock(inner: Rect, zone: string, rng: Rng, nearHub: boole
   const taken = (a: number, b: number) => fullLots.some((f) => a < f.x1 - 0.1 && b > f.x0 + 0.1);
   for (const lot of lotsFor(false)) {
     if (taken(lot.x0, lot.x1)) {
-      // Trim the lot to the free part on either side of the tower.
+      // Keep only the parts of the lot that no tower covers (all towers at
+      // once: trimming against each in turn put pieces inside the others).
+      let parts = [[lot.x0, lot.x1]];
       for (const f of fullLots) {
-        if (lot.x0 < f.x0 && f.x0 - lot.x0 > 5) southLots.push({ ...lot, x1: f.x0 });
-        if (lot.x1 > f.x1 && lot.x1 - f.x1 > 5) southLots.push({ ...lot, x0: f.x1 });
+        parts = parts.flatMap(([a, b]) => {
+          if (b <= f.x0 || a >= f.x1) return [[a, b]];
+          const out: number[][] = [];
+          if (f.x0 - a > 0) out.push([a, f.x0]);
+          if (b - f.x1 > 0) out.push([f.x1, b]);
+          return out;
+        });
       }
+      for (const [a, b] of parts) if (b - a > 5) southLots.push({ ...lot, x0: a, x1: b });
       continue;
     }
     southLots.push(lot);
@@ -243,7 +251,7 @@ export function planNycBlock(inner: Rect, zone: string, rng: Rng, nearHub: boole
       continue;
     }
     const sb = setback(lot.style);
-    buildings.push(makePlan(lot, inner.maxZ - sb - depth(), inner.maxZ - sb, 's', corner));
+    buildings.push(makePlan(lot, Math.max(inner.maxZ - sb - depth(), inner.maxZ - rowD + 0.1), inner.maxZ - sb, 's', corner));
   }
   x = 0;
   // Avenue sides (2026-10-12 clean-up): the bigger blocks left long empty

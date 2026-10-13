@@ -334,7 +334,11 @@ function district(base: Omit<DistrictDef, 'origin' | 'trimmed' | 'setKind' | 'xs
     Array.from({ length: rows }, (_, r) => {
       const t = trims[c][r];
       if (land[c][r]) return base.kindAt((xs[c] + xs[c + 1]) / 2, (zs[r] + zs[r + 1]) / 2, c, r);
-      return t ? base.kindAt((t.minX + t.maxX) / 2, (t.minZ + t.maxZ) / 2, c, r) : 'water';
+      if (!t) return 'water';
+      // A sliver the river left (2026-10-12 clean-up): too small for proper
+      // buildings, so it's a little waterfront park instead.
+      if (Math.min(t.maxX - t.minX, t.maxZ - t.minZ) < 42) return 'park';
+      return base.kindAt((t.minX + t.maxX) / 2, (t.minZ + t.maxZ) / 2, c, r);
     }),
   );
   // The hub and the block north of it are the bright plaza.
