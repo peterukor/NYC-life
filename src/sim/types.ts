@@ -108,6 +108,8 @@ export interface GameState {
   profile: { name: string; origin: Origin; traits: string[]; look: Look; birthYear: number; /** poor | middle | upper | wealthy (see data/wardrobe.ts). */ spawnClass?: 'poor' | 'middle' | 'upper' | 'wealthy' };
   /** Clothing ids you own (data/wardrobe.ts). */
   wardrobe: string[];
+  /** Saved outfits in the closet (4 slots; null = empty). */
+  outfits?: (Look | null)[];
   /** Life paths (Crime Boss, CEO, Celebrity): see sim/paths.ts. */
   paths: import('./paths.ts').PathsState;
   /** Businesses you own, staff, and tax status: see sim/business.ts. */

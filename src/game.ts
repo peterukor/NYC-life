@@ -106,6 +106,8 @@ export class Game {
   private interior: Interior | null = null;
   private transit: TransitScene | null = null;
   private interiorCamera = new THREE.PerspectiveCamera(48, 1, 0.1, 200);
+  /** The closet mirror's view (see openClosetMirror). */
+  private mirrorCamera = new THREE.PerspectiveCamera(40, 1, 0.05, 60);
   /** Home furniture models (loaded at boot; null = use the simple room). */
   private furniture: FurnitureKit | null = null;
   /** The furniture piece being moved in move mode (home only). */
@@ -308,6 +310,9 @@ export class Game {
       /** Try on clothes without saving (for screenshots). */
       /** Force an activity animation on the player (null = back to normal). */
       anim: (name: FolkAnim | null) => this.player.setAction(name),
+      /** Open the closet (with the mirror, when at home). */
+      closet: () => this.openClosetMirror(),
+      wardrobe: () => [...this.state.wardrobe],
       tryLook: (patch: Partial<Look>) => this.player.setLook({ ...this.state.profile.look, ...patch }),
       /** Heaviest visible meshes (name, triangles) — for performance checks. */
       /** Visible, in-frustum meshes counted by name (what the draw calls are). */
@@ -881,10 +886,7 @@ export class Game {
       }
       if (act === 'work') return void this.goToWork();
       if (act === 'move-furniture' && movableId) return this.startMoving(movableId);
-      if (act === 'closet') return openCloset(this.state, (look) => {
-        this.player.setLook(look);
-        this.save();
-      });
+      if (act === 'closet') return this.openClosetMirror();
       if (act.startsWith('do:')) void this.runAction(act.slice(3), el);
     });
   }
@@ -995,6 +997,60 @@ export class Game {
     cam.lookAt(0, 0.6, -0.5);
     cam.far = dist * 4;
     cam.updateProjectionMatrix();
+  }
+
+  /**
+   * The closet, with a mirror: the camera swings round in front of you
+   * (framed in the top half of the screen, above the closet sheet) and
+   * you turn to face it, so every change shows up close.
+   */
+  private openClosetMirror(): void {
+    const inside = this.engine.mode === 'interior' && !!this.interior;
+    const cam = this.mirrorCamera;
+    const prevYaw = this.player.root.rotation.y;
+    let yaw = 0; // facing +z, towards the mirror
+    const frame = () => {
+      const el = this.engine.renderer.domElement;
+      const w = Math.max(1, el.clientWidth), hgt = Math.max(1, el.clientHeight);
+      cam.aspect = w / hgt;
+      cam.fov = 30;
+      this.player.root.rotation.y = yaw;
+      // Measure the character as it stands (homes may scale it).
+      const box = new THREE.Box3().setFromObject(this.player.root);
+      const size = box.getSize(new THREE.Vector3());
+      const mid = box.getCenter(new THREE.Vector3());
+      // The sheet covers the bottom ~54%: fit the character into the top part.
+      const share = 0.4; // of the screen's height
+      const tall = size.y / share;
+      const d = tall / (2 * Math.tan(THREE.MathUtils.degToRad(cam.fov) / 2));
+      cam.position.set(mid.x, mid.y + size.y * 0.12, mid.z + d);
+      cam.lookAt(mid.x, mid.y, mid.z);
+      // Shift the picture up so the character sits centred in the top 46%.
+      cam.setViewOffset(w, hgt, 0, hgt * 0.27, w, hgt);
+      cam.near = Math.max(0.05, d * 0.2);
+      cam.far = d * 6;
+      cam.updateProjectionMatrix();
+    };
+    if (inside) {
+      this.path = [];
+      this.player.setAction(null);
+      frame();
+      this.engine.altCamera = cam;
+      document.body.classList.add('mirror');
+    }
+    openCloset(this.state, {
+      apply: (look) => {
+        this.player.setLook(look);
+        this.save();
+      },
+      turn: inside ? () => { yaw += Math.PI / 2; frame(); } : undefined,
+      onClose: () => {
+        document.body.classList.remove('mirror');
+        if (!inside || this.engine.altCamera !== cam) return;
+        this.engine.altCamera = this.interiorCamera;
+        this.player.root.rotation.y = prevYaw;
+      },
+    });
   }
 
   private leaveInterior(): void {

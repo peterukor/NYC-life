@@ -363,7 +363,15 @@ export function buildOutfit(mesh: THREE.SkinnedMesh, src: THREE.BufferGeometry, 
     const hc = b.boneCentre('Hips');
     void hc;
     // Drawstring on joggers (belts would sit under the top: no top is tucked in).
-    if (bottom.id === 'joggers') for (const sx of [-1, 1]) s.rigid(rbox(0.008 * H, 0.07 * H, 0.008 * H, hc.x + sx * 0.02 * H, wy - 0.04 * H, fz + 0.012 * H, 0.4), '#f4f1ea', hips);
+    if ((bottom.id === 'joggers' || bottom.id === 'sweatShorts') && !top?.long) for (const sx of [-1, 1]) s.rigid(rbox(0.008 * H, 0.07 * H, 0.008 * H, hc.x + sx * 0.02 * H, wy - 0.04 * H, fz + 0.012 * H, 0.4), '#f4f1ea', hips);
+    if (bottom.id === 'cargoPants') for (const side of ['L', 'R'] as const) {
+      // Bellows pockets on the outside of each thigh.
+      const lc = b.boneCentre(`UpperLeg.${side}`);
+      const sx = Math.sign(lc.x) || 1;
+      const leg = b.bone(`UpperLeg.${side}`);
+      s.rigid(rbox(0.03 * H, 0.09 * H, 0.08 * H, lc.x + sx * 0.068 * H, lc.y - 0.015 * H, lc.z, 0.35), shade(look.bottom, 0.92), leg);
+      s.rigid(rbox(0.034 * H, 0.025 * H, 0.084 * H, lc.x + sx * 0.07 * H, lc.y + 0.035 * H, lc.z, 0.35), shade(look.bottom, 0.82), leg);
+    }
     if (bottom.skirt) skirt(s, b, H, bottom.skirt, look.bottom, yAt(U.waist) - 0.01 * H);
   }
 
@@ -381,10 +389,17 @@ export function buildOutfit(mesh: THREE.SkinnedMesh, src: THREE.BufferGeometry, 
     // Open jackets leave a strip down the front: the shirt underneath shows.
     const jacket = (i: number) => covers(i) && !(open && b.cat[i] === 'torso' && b.pos[i * 3 + 2] > fz * 0.45 && Math.abs(b.pos[i * 3]) < 0.045 * H);
     const jersey = top.id === 'jersey';
+    // Ribbed hem and cuffs (sweatshirts, cardigans) or darker cuffs (flannel).
+    const ribbed = top.id === 'crewneck' || top.id === 'cardigan' || top.id === 'flannel';
+    const cuffCol = shade(look.top, top.id === 'flannel' ? 0.78 : 0.86);
     shell(s, b, H, {
       covers: jacket, thick, hem: puffer ? 0.012 : 0.01, color: look.top,
       puff: puffer ? (p) => 0.35 * Math.abs(Math.sin(((p.y - b.footY) / H) * Math.PI * 9)) : undefined,
-      detail: jersey ? (_i, p) => (Math.abs(((p.y - b.footY) / H) - hemU) < 0.03 || ((p.y - b.footY) / H) > 0.96 ? '#ffffff' : null) : undefined,
+      detail: jersey
+        ? (_i, p) => (Math.abs(((p.y - b.footY) / H) - hemU) < 0.03 || ((p.y - b.footY) / H) > 0.96 ? '#ffffff' : null)
+        : ribbed
+          ? (i, p) => ((b.cat[i] === 'arm' && a(i) > sleeveA - 0.07) || (b.cat[i] === 'torso' && ((p.y - b.footY) / H) - hemU < 0.035) ? cuffCol : null)
+          : undefined,
     }, covered);
     mark(jacket, look.top);
     if (open) {
@@ -394,11 +409,23 @@ export function buildOutfit(mesh: THREE.SkinnedMesh, src: THREE.BufferGeometry, 
       mark(shirt, inner);
       // Lapels / collar points and buttons.
       for (const sx of [-1, 1]) s.rigid(rbox(0.035 * H, 0.09 * H, 0.012 * H, sx * 0.055 * H, yAt(0.93), fz + 0.03 * H, 0.3).rotateZ(sx * -0.35), shade(look.top, 0.85), torso);
+      if (top.id === 'cardigan') for (const uu of [0.6, 0.68, 0.76, 0.84]) s.rigid(new THREE.SphereGeometry(0.01 * H, 8, 6).translate(0.05 * H, yAt(uu), fz + 0.03 * H), shade(look.top, 0.6), uu > 0.7 ? torso : abdomen);
+      if (top.id === 'flannel') for (const sx of [-1, 1]) {
+        // Chest pockets with flaps.
+        s.rigid(rbox(0.07 * H, 0.07 * H, 0.012 * H, sx * 0.1 * H, yAt(0.82), fz + 0.022 * H, 0.3), shade(look.top, 0.9), torso);
+        s.rigid(rbox(0.075 * H, 0.025 * H, 0.016 * H, sx * 0.1 * H, yAt(0.86), fz + 0.026 * H, 0.3), shade(look.top, 0.75), torso);
+      }
       if (top.id === 'blazer' || top.id === 'designerSuit' || top.id === 'trenchCoat') for (const uu of [0.66, 0.76]) s.rigid(new THREE.SphereGeometry(0.012 * H, 8, 6).translate(0.05 * H, yAt(uu), fz + 0.035 * H), '#d9c27a', abdomen);
     }
     const tc = b.boneCentre('Torso');
     // Collars.
-    if (top.id === 'tee' || top.id === 'longsleeve' || jersey) s.rigid(new THREE.TorusGeometry(0.07 * H, 0.012 * H, 6, 18).rotateX(Math.PI / 2).translate(tc.x, b.neckY - 0.01 * H, tc.z), jersey ? '#ffffff' : shade(look.top, 0.88), torso);
+    if (top.id === 'polo') {
+      // Folded collar points and a short button placket.
+      for (const sx of [-1, 1]) s.rigid(rbox(0.06 * H, 0.05 * H, 0.012 * H, tc.x + sx * 0.04 * H, b.neckY - 0.03 * H, fz * 0.75 + 0.02 * H, 0.3).rotateZ(sx * 0.5), shade(look.top, 0.92), torso);
+      s.rigid(new THREE.TorusGeometry(0.075 * H, 0.014 * H, 6, 18).rotateX(Math.PI / 2).translate(tc.x, b.neckY, tc.z), shade(look.top, 0.92), torso);
+      for (const uu of [0.86, 0.9]) s.rigid(new THREE.SphereGeometry(0.008 * H, 6, 5).translate(tc.x, yAt(uu), fz + 0.02 * H), '#f4f1ea', torso);
+    }
+    if (top.id === 'tee' || top.id === 'longsleeve' || top.id === 'crewneck' || jersey) s.rigid(new THREE.TorusGeometry(0.07 * H, 0.012 * H, 6, 18).rotateX(Math.PI / 2).translate(tc.x, b.neckY - 0.01 * H, tc.z), jersey ? '#ffffff' : shade(look.top, 0.88), torso);
     if (top.id === 'turtleneck') s.rigid(new THREE.CylinderGeometry(0.075 * H, 0.085 * H, 0.08 * H, 16, 1, true).translate(tc.x, b.neckY + 0.02 * H, tc.z), look.top, b.bone('Neck'));
     if (top.id === 'denimJacket' || top.id === 'leatherJacket' || top.id === 'trenchCoat') s.rigid(new THREE.TorusGeometry(0.085 * H, 0.022 * H, 6, 18, Math.PI * 1.3).rotateX(Math.PI / 2).rotateY(Math.PI * 0.35).translate(tc.x, b.neckY - 0.015 * H, tc.z - 0.01 * H), shade(look.top, 0.9), torso);
     // Hood bunched behind the neck, drawstrings, a kangaroo pocket.
@@ -422,47 +449,72 @@ export function buildOutfit(mesh: THREE.SkinnedMesh, src: THREE.BufferGeometry, 
       const L = 0.2 * H, W = 0.12 * H, sole = 0.03 * H;
       const cz = fc.z + 0.035 * H; // toes forward
       const y0 = b.footY;
+      if (shoes.style === 'slides') {
+        // A flat footbed and one wide strap over the socks.
+        s.rigid(rbox(W + 0.01 * H, sole * 0.9, L + 0.015 * H, fc.x, y0 + sole * 0.45, cz, 0.35), shoes.sole, bi);
+        s.rigid(rbox(W + 0.014 * H, 0.05 * H, L * 0.42, fc.x, y0 + sole + 0.02 * H, cz + L * 0.12, 0.5), color, bi);
+        s.rigid(rbox(W * 0.5, 0.008 * H, L * 0.2, fc.x, y0 + sole + 0.046 * H, cz + L * 0.12, 0.4), '#ffffff', bi); // logo
+        continue;
+      }
       s.rigid(rbox(W + 0.008 * H, sole, L + 0.01 * H, fc.x, y0 + sole / 2, cz, 0.35), shoes.sole, bi);
       const high = shoes.high ? 0.12 * H : 0.065 * H;
       s.rigid(rbox(W, high, L * 0.95, fc.x, y0 + sole + high / 2 - 0.004 * H, cz - 0.005 * H, 0.45), color, bi);
       s.rigid(rbox(W * 0.88, 0.04 * H, L * 0.42, fc.x, y0 + sole + 0.025 * H, cz + L * 0.3, 0.5), color, bi); // toe cap
+      if (shoes.style === 'canvas') {
+        // White rubber toe and a stripe round the sole.
+        s.rigid(rbox(W * 0.9, 0.035 * H, L * 0.22, fc.x, y0 + sole + 0.016 * H, cz + L * 0.4, 0.5), shoes.sole, bi);
+        s.rigid(rbox(W + 0.012 * H, 0.008 * H, L + 0.014 * H, fc.x, y0 + sole * 0.7, cz, 0.3), '#c23b3b', bi);
+      }
       if (shoes.id !== 'loafers' && shoes.id !== 'boots') {
         for (let k = 0; k < 3; k++) s.rigid(rbox(W * 0.55, 0.006 * H, 0.008 * H, fc.x, y0 + sole + high - 0.004 * H - k * 0.012 * H, cz + L * 0.12 - k * 0.025 * H, 0.4), '#ffffff', bi); // laces
-        s.rigid(rbox(0.005 * H, high * 0.5, L * 0.35, fc.x + (side === 'L' ? 1 : -1) * W * 0.51, y0 + sole + high * 0.45, cz - L * 0.05, 0.4), shoes.sole === '#111111' ? '#ffffff' : shade(color, 0.7), bi); // side swoosh
+        if (shoes.style !== 'canvas') s.rigid(rbox(0.005 * H, high * 0.5, L * 0.35, fc.x + (side === 'L' ? 1 : -1) * W * 0.51, y0 + sole + high * 0.45, cz - L * 0.05, 0.4), shoes.sole === '#111111' ? '#ffffff' : shade(color, 0.7), bi); // side swoosh
       }
     }
-    mark((i) => b.cat[i] === 'foot' && u(i) <= (shoes.high ? SHOE_U * 2.2 : SHOE_U), look.shoes ?? shoes.colors[0]);
+    // Slides: the feet show, in socks.
+    mark((i) => b.cat[i] === 'foot' && u(i) <= (shoes.high ? SHOE_U * 2.2 : SHOE_U), shoes.style === 'slides' ? '#f4f1ea' : look.shoes ?? shoes.colors[0]);
   }
 
   // ------------------------------------------------ hats & extras (stuck to the head / torso)
+  // The head itself (skin, not the hairdo): its middle, top and radius.
+  // The middle is the head's own bounding box, not the bone (which sits
+  // back by the neck and would make every hat too big).
   const hc = b.boneCentre('Head');
-  // The head itself (skin, not the hairdo): its top and radius.
   let headTop = -Infinity, headR = 0;
-  for (let i = 0; i < b.n; i++) if (b.cat[i] === 'head' && b.slot[i] !== SLOT_HAIR && b.slot[i] !== SLOT_EYES) {
-    headTop = Math.max(headTop, b.pos[i * 3 + 1]);
-    headR = Math.max(headR, Math.hypot(b.pos[i * 3] - hc.x, b.pos[i * 3 + 2] - hc.z));
+  {
+    let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+    for (let i = 0; i < b.n; i++) if (b.cat[i] === 'head' && b.slot[i] !== SLOT_HAIR && b.slot[i] !== SLOT_EYES) {
+      const x = b.pos[i * 3], y = b.pos[i * 3 + 1], z = b.pos[i * 3 + 2];
+      headTop = Math.max(headTop, y);
+      x0 = Math.min(x0, x); x1 = Math.max(x1, x); z0 = Math.min(z0, z); z1 = Math.max(z1, z);
+    }
+    hc.x = (x0 + x1) / 2;
+    hc.z = (z0 + z1) / 2;
+    headR = Math.max((x1 - x0) / 2, (z1 - z0) / 2);
   }
   const hat = itemOf(look.hatId, 'hat');
   let hatLine: Dressing['hatLine'] = null;
   if (hat) {
     const hcol = look.hat ?? hat.colors[0];
     // Hats hug the head (just over the hairline); the hairdo shows round the edge.
-    const r = headR * 1.12;
-    const yb = headTop - r * 0.72;
-    hatLine = { y: yb - 0.01 * H, x: hc.x, z: hc.z, r: r * 0.86 };
+    const r = headR * 1.06;
+    const yb = headTop - r * 0.64;
+    // A durag wraps all the hair; other hats let it hang out below.
+    hatLine = hat.style === 'durag' ? { y: yb - r * 0.4, x: hc.x, z: hc.z, r: r * 0.92 } : { y: yb - 0.01 * H, x: hc.x, z: hc.z, r: r * 0.86 };
     if (hat.style === 'cap') {
-      s.rigid(new THREE.SphereGeometry(r, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2).scale(1, 0.62, 1).translate(hc.x, yb, hc.z), hcol, head);
+      s.rigid(new THREE.SphereGeometry(r, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2).scale(1, 0.8, 1).translate(hc.x, yb, hc.z), hcol, head);
       s.rigid(rbox(r * 1.1, 0.02 * H, r * 0.9, hc.x, yb + 0.005 * H, hc.z + r * 1.15, 0.3), shade(hcol, 0.85), head);
-      s.rigid(new THREE.SphereGeometry(0.02 * H, 8, 6).translate(hc.x, yb + r * 0.62, hc.z), shade(hcol, 0.8), head);
+      s.rigid(new THREE.SphereGeometry(0.02 * H, 8, 6).translate(hc.x, yb + r * 0.8, hc.z), shade(hcol, 0.8), head);
     } else if (hat.style === 'beanie') {
       s.rigid(new THREE.SphereGeometry(r * 1.01, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2).scale(1, 0.85, 1).translate(hc.x, yb, hc.z), hcol, head);
-      s.rigid(new THREE.TorusGeometry(r * 1.0, 0.035 * H, 6, 24).rotateX(Math.PI / 2).translate(hc.x, yb + 0.02 * H, hc.z), shade(hcol, 0.88), head);
+      // Folded cuff: a snug band, not a brim.
+      s.rigid(new THREE.CylinderGeometry(r * 1.02, r * 1.03, 0.07 * H, 24, 1, true).translate(hc.x, yb + 0.03 * H, hc.z), shade(hcol, 0.88), head);
+      s.rigid(new THREE.TorusGeometry(r * 1.025, 0.008 * H, 5, 24).rotateX(Math.PI / 2).translate(hc.x, yb + 0.067 * H, hc.z), shade(hcol, 0.8), head);
       s.rigid(new THREE.SphereGeometry(0.05 * H, 8, 6).translate(hc.x, yb + r * 0.85, hc.z), shade(hcol, 1.15), head);
     } else if (hat.style === 'bucket') {
       s.rigid(new THREE.CylinderGeometry(r * 0.85, r * 1.0, r * 0.6, 18).translate(hc.x, yb + r * 0.3, hc.z), hcol, head);
       s.rigid(new THREE.CylinderGeometry(r * 1.35, r * 1.45, 0.02 * H, 20).translate(hc.x, yb, hc.z), shade(hcol, 0.9), head);
     } else {
-      s.rigid(new THREE.SphereGeometry(r * 1.0, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2).scale(1, 0.7, 1).translate(hc.x, yb, hc.z), hcol, head);
+      s.rigid(new THREE.SphereGeometry(r * 1.0, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2).scale(1, 0.84, 1).translate(hc.x, yb, hc.z), hcol, head);
       for (const sx of [-1, 1]) s.rigid(rbox(0.04 * H, 0.18 * H, 0.015 * H, hc.x + sx * 0.03 * H, yb - 0.08 * H, hc.z - r * 0.95, 0.4), hcol, head);
     }
   }
@@ -483,6 +535,14 @@ export function buildOutfit(mesh: THREE.SkinnedMesh, src: THREE.BufferGeometry, 
       const tc = b.boneCentre('Torso');
       s.rigid(new THREE.TorusGeometry(0.095 * H, 0.01 * H, 6, 24).rotateX(Math.PI / 2 - 0.5).translate(tc.x, b.neckY - 0.05 * H, tc.z + 0.03 * H), ecol, torso);
       s.rigid(new THREE.SphereGeometry(0.022 * H, 8, 6).translate(tc.x, b.neckY - 0.13 * H, fz + 0.035 * H), ecol, torso);
+    } else if (extra.style === 'headphones') {
+      // A chunky band over the top of the head and two big ear cups.
+      const r = headR * 1.08;
+      s.rigid(new THREE.TorusGeometry(r, 0.018 * H, 6, 20, Math.PI).translate(hc.x, ey, hc.z), shade(ecol, 0.85), head);
+      for (const sx of [-1, 1]) {
+        s.rigid(new THREE.CylinderGeometry(0.055 * H, 0.055 * H, 0.04 * H, 14).rotateZ(Math.PI / 2).translate(hc.x + sx * r, ey, hc.z), ecol, head);
+        s.rigid(new THREE.CylinderGeometry(0.035 * H, 0.035 * H, 0.012 * H, 12).rotateZ(Math.PI / 2).translate(hc.x + sx * (r + 0.022 * H), ey, hc.z), shade(ecol, 0.7), head);
+      }
     } else if (extra.style === 'backpack') {
       const tc = b.boneCentre('Torso');
       s.rigid(rbox(0.26 * H, 0.32 * H, 0.13 * H, tc.x, yAt(0.78), -fz - 0.07 * H, 0.35), ecol, torso);

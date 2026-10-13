@@ -28,7 +28,8 @@ for (const [name, patch, anim] of outfits) {
   await page.evaluate((x, z) => window.__nyc.interiorCam(x, 1.15, z + 2.6, x, z), p.x, p.z);
   await wait(700);
   await page.screenshot({ path: `test-results/outfit-${name}.png` });
-  await page.evaluate((x, z) => window.__nyc.interiorCam(x + 0.3, 1.25, z - 2.6, x, z), p.x, p.z);
+  const far = process.env.CLOSE ? 1.3 : 2.6;
+  await page.evaluate((x, z, d) => window.__nyc.interiorCam(x + 0.3 * d / 2.6, d < 2 ? 1.2 : 1.25, z - d, x, z), p.x, p.z, far);
   await wait(500);
   await page.screenshot({ path: `test-results/outfit-${name}-back.png` });
 }

@@ -42,11 +42,11 @@ export interface Sheet {
 let openSheetClose: (() => void) | null = null;
 
 /** Bottom sheet that slides up. Only one is open at a time. */
-export function openSheet(opts: { emoji: string; title: string; sub?: string; body: string; onClose?: () => void }): Sheet {
+export function openSheet(opts: { emoji: string; title: string; sub?: string; body: string; onClose?: () => void; className?: string }): Sheet {
   openSheetClose?.();
   const backdrop = html('<div class="backdrop"></div>');
   const el = html(`
-    <section class="sheet" role="dialog" aria-modal="true" aria-label="${esc(opts.title)}">
+    <section class="sheet${opts.className ? ` ${opts.className}` : ''}" role="dialog" aria-modal="true" aria-label="${esc(opts.title)}">
       <div class="sheet-head">
         <div class="emoji" aria-hidden="true">${opts.emoji}</div>
         <div><h2>${esc(opts.title)}</h2>${opts.sub ? `<p>${opts.sub}</p>` : ''}</div>

@@ -2,12 +2,12 @@
 // wardrobe.ts — every piece of clothing (and hairstyle) in the game.
 //
 // HOW CLOTHES WORK
-//   The character is one smooth body. Clothes "paint" parts of it: a
-//   long-sleeve top colours the arms down to the wrist, shorts colour the
-//   legs only above the knee, boots colour the lower shin, and so on.
-//   A few items also add a small extra shape (a skirt, a hood, a cap's
-//   brim, sunglasses). So a new item is usually just a few settings —
-//   no 3D modelling needed.
+//   Clothes are real 3D pieces worn over the body (world/clothes.ts), not
+//   paint: a top is a thin shell grown off the torso and arms down to its
+//   sleeve length, trousers wrap the legs down to their cuff, shoes, hats
+//   and glasses are small models stuck to the feet and head. The settings
+//   below (sleeve, leg, hood, open, dress, skirt, high…) decide the shape,
+//   so a new item is usually just a few settings — no 3D modelling needed.
 //
 // HOW TO ADD AN ITEM
 //   Add an entry to the right list below (TOPS, BOTTOMS, SHOES, HATS,
@@ -17,7 +17,7 @@
 //
 // HOW TO ADD A NEW KIND OF SHAPE (e.g. a new hat style)
 //   Add the style name to the type here, then draw it in
-//   world/avatar.ts → folkLookOf() (which cartoon head/outfit an item uses).
+//   world/clothes.ts → buildOutfit().
 // =====================================================================
 
 import { Registry } from '../core/registry.ts';
@@ -73,6 +73,8 @@ export interface ShoesItem extends Base {
   /** Boots also cover the ankle and lower shin. */
   high?: boolean;
   sole: string;
+  /** Shape: trainers (default), slides (open, worn with socks) or canvas low-tops. */
+  style?: 'trainer' | 'slides' | 'canvas';
 }
 
 export interface HatItem extends Base {
@@ -87,7 +89,7 @@ export interface HairItem extends Base {
 
 export interface ExtraItem extends Base {
   slot: 'extra';
-  style: 'shades' | 'glasses' | 'backpack' | 'chain';
+  style: 'shades' | 'glasses' | 'backpack' | 'chain' | 'headphones';
 }
 
 export type ClothingItem = TopItem | BottomItem | ShoesItem | HatItem | HairItem | ExtraItem;
@@ -125,6 +127,10 @@ CLOTHES.add(
   { id: 'trenchCoat', slot: 'top', name: 'Trench coat', emoji: '🧥', price: 15000, colors: ['#c2a878', '#111111', '#5c4033'], sleeve: 'long', open: true, long: true },
   { id: 'designerSuit', slot: 'top', name: 'Designer suit jacket', emoji: '🤵', price: 120000, tier: 'exclusive', colors: ['#0b132b', '#3a0ca3', '#7f1d1d', '#111111'], sleeve: 'long', open: true, long: true },
   { id: 'silkGown', slot: 'top', name: 'Silk gown', emoji: '👗', price: 150000, tier: 'exclusive', colors: ['#c9a227', '#9b2226', '#0b132b', '#e5e5e5'], sleeve: 'none', dress: 0.85 },
+  { id: 'flannel', slot: 'top', name: 'Flannel shirt', emoji: '👔', price: 3200, colors: ['#9b2226', '#1d3557', '#2d6a4f', '#5c4033', '#6d597a'], sleeve: 'long', open: true },
+  { id: 'polo', slot: 'top', name: 'Polo shirt', emoji: '👕', price: 3800, colors: ['#ffffff', '#1d3557', '#2a9d8f', '#e9c46a', '#111111'], sleeve: 'short' },
+  { id: 'crewneck', slot: 'top', name: 'Crewneck sweatshirt', emoji: '🧶', price: 3500, colors: ['#8d99ae', '#2b2d42', '#6b705c', '#e9c46a', '#b5838d'], sleeve: 'long', long: true },
+  { id: 'cardigan', slot: 'top', name: 'Cardigan', emoji: '🧶', price: 5000, colors: ['#c2b280', '#6d597a', '#2b2d42', '#9b2226'], sleeve: 'long', open: true },
   { id: 'slipDress', slot: 'top', name: 'Evening dress', emoji: '👗', price: 11000, colors: ['#111111', '#9b2226', '#3a0ca3', '#c9a227'], sleeve: 'none', dress: 0.72 },
 
   // ---- Bottoms
@@ -136,12 +142,16 @@ CLOTHES.add(
   { id: 'capris', slot: 'bottom', name: 'Cropped pants', emoji: '👖', price: 3800, colors: NEUTRAL, leg: 'capri' },
   { id: 'miniSkirt', slot: 'bottom', name: 'Mini skirt', emoji: '👗', price: 3500, colors: ['#111111', '#9b2226', '#1d3557', '#d6d2c4'], leg: 'shorts', skirt: 0.32 },
   { id: 'midiSkirt', slot: 'bottom', name: 'Midi skirt', emoji: '👗', price: 4800, colors: ['#111111', '#6d597a', '#c2b280', '#2a9d8f'], leg: 'shorts', skirt: 0.58 },
+  { id: 'sweatShorts', slot: 'bottom', name: 'Sweat shorts', emoji: '🩳', price: 1500, colors: ['#8d99ae', '#111111', '#1d3557'], leg: 'shorts' },
+  { id: 'cargoPants', slot: 'bottom', name: 'Cargo pants', emoji: '👖', price: 4200, colors: ['#6b705c', '#111111', '#c2b280', '#5c4033'], leg: 'long' },
 
   // ---- Shoes
   { id: 'sneakers', slot: 'shoes', name: 'Sneakers', emoji: '👟', price: 0, colors: ['#f2f2f2', '#111111', '#e63946', '#3a86ff'], sole: '#f7f7f7' },
   { id: 'kicks', slot: 'shoes', name: 'High-top kicks', emoji: '👟', price: 13000, colors: ['#e63946', '#111111', '#ffffff', '#1d3557'], sole: '#ffffff', high: true },
   { id: 'boots', slot: 'shoes', name: 'Work boots', emoji: '🥾', price: 9500, colors: ['#c68b3b', '#3b2a1a', '#111111'], sole: '#2b2118', high: true },
   { id: 'limitedKicks', slot: 'shoes', name: 'Limited-drop sneakers', emoji: '👟', price: 90000, tier: 'exclusive', colors: ['#c9a227', '#7f1d1d', '#ffffff'], sole: '#111111', high: true },
+  { id: 'slides', slot: 'shoes', name: 'Slides & socks', emoji: '🩴', price: 1200, colors: ['#111111', '#1d3557', '#9b2226', '#ffffff'], sole: '#2b2d42', style: 'slides' },
+  { id: 'canvas', slot: 'shoes', name: 'Canvas low-tops', emoji: '👟', price: 2500, colors: ['#111111', '#9b2226', '#1d3557', '#f1e9da'], sole: '#f7f4ea', style: 'canvas' },
   { id: 'loafers', slot: 'shoes', name: 'Loafers', emoji: '👞', price: 8000, colors: ['#3b2a1a', '#111111', '#7f4f24'], sole: '#1a1410' },
 
   // ---- Hats
@@ -154,6 +164,7 @@ CLOTHES.add(
   { id: 'shades', slot: 'extra', name: 'Sunglasses', emoji: '🕶️', price: 2500, colors: ['#111111'], style: 'shades' },
   { id: 'glasses', slot: 'extra', name: 'Glasses', emoji: '👓', price: 6000, colors: ['#222222', '#7f4f24', '#c9a227'], style: 'glasses' },
   { id: 'backpack', slot: 'extra', name: 'Backpack', emoji: '🎒', price: 4000, colors: ['#111111', '#e63946', '#2a9d8f', '#f4a261'], style: 'backpack' },
+  { id: 'headphones', slot: 'extra', name: 'Headphones', emoji: '🎧', price: 9000, colors: ['#111111', '#ffffff', '#e63946', '#3a86ff'], style: 'headphones' },
   { id: 'chain', slot: 'extra', name: 'Gold chain', emoji: '📿', price: 25000, tier: 'exclusive', colors: ['#d4af37'], style: 'chain' },
   { id: 'diamondShades', slot: 'extra', name: 'Designer sunglasses', emoji: '🕶️', price: 60000, tier: 'exclusive', colors: ['#c9a227'], style: 'shades' },
 );
@@ -172,9 +183,18 @@ export function tierOf(item: ClothingItem): Tier {
   return item.price <= 5500 ? 'plain' : item.price <= 20000 ? 'premium' : 'exclusive';
 }
 
+/**
+ * Hand-picked starting closets. Starting broke in an East Harlem walk-up:
+ * a rack of hand-me-down basics, enough to dress for work, the gym and a
+ * night out, nothing fancy. (Classes not listed get random items per tier.)
+ */
+export const STARTER_CLOSETS: Partial<Record<SpawnClass, string[]>> = {
+  poor: ['tee', 'tank', 'flannel', 'crewneck', 'hoodie', 'jeans', 'joggers', 'sweatShorts', 'sneakers', 'slides', 'beanie', 'durag', 'backpack'],
+};
+
 /** How many items of each tier you start with, by spawn class. */
 export const STARTING_WARDROBE: Record<SpawnClass, Record<Tier, number>> = {
-  poor: { plain: 5, premium: 0, exclusive: 0 },
+  poor: { plain: 13, premium: 0, exclusive: 0 },
   middle: { plain: 6, premium: 2, exclusive: 0 },
   upper: { plain: 10, premium: 5, exclusive: 1 },
   wealthy: { plain: 0, premium: 15, exclusive: 5 },
@@ -189,7 +209,9 @@ export const STARTING_WARDROBE: Record<SpawnClass, Record<Tier, number>> = {
 export function starterWardrobe(cls: SpawnClass, wearing: string[], rand: () => number): string[] {
   const owned = new Set<string>(CLOTHES.where((c) => c.slot === 'hair').map((c) => c.id));
   for (const id of wearing) if (CLOTHES.has(id)) owned.add(id);
-  for (const [tier, n] of Object.entries(STARTING_WARDROBE[cls]) as [Tier, number][]) {
+  const curated = STARTER_CLOSETS[cls];
+  if (curated) for (const id of curated) owned.add(id);
+  else for (const [tier, n] of Object.entries(STARTING_WARDROBE[cls]) as [Tier, number][]) {
     const pool = CLOTHES.where((c) => c.slot !== 'hair' && tierOf(c) === tier && !owned.has(c.id));
     // Basics first so nobody starts without trousers.
     pool.sort((a, b) => (['top', 'bottom', 'shoes'].includes(b.slot) ? 1 : 0) - (['top', 'bottom', 'shoes'].includes(a.slot) ? 1 : 0) + (rand() - 0.5) * 1.5);
