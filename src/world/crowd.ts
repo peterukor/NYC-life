@@ -180,7 +180,9 @@ export class Crowd {
       const ang = Math.random() * Math.PI * 2;
       const r = CROWD_RADIUS * (0.3 + Math.random() * 0.65);
       const p = nearestWalkable(this.nav, focus.x + Math.cos(ang) * r, focus.z + Math.sin(ang) * r);
-      if (Math.hypot(p.x - focus.x, p.z - focus.z) < CROWD_RADIUS) {
+      // nearestWalkable hands back the point itself when there's no ground
+      // nearby (camera over the river): never put anyone on the water.
+      if (isWalkable(this.nav, p.x, p.z) && Math.hypot(p.x - focus.x, p.z - focus.z) < CROWD_RADIUS) {
         a.x = p.x + (Math.random() - 0.5) * 2;
         a.z = p.z + (Math.random() - 0.5) * 2;
         a.path = [];
@@ -188,6 +190,8 @@ export class Crowd {
         return;
       }
     }
+    // Nowhere to stand near the camera: keep them out of sight for a bit and try again.
+    a.insideUntil = this.time + 3;
   }
 
   update(dt: number, focus: THREE.Vector3, hour: number, hubBoost: (x: number, z: number) => number): void {
