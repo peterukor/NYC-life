@@ -522,13 +522,15 @@ export function buildOutfit(mesh: THREE.SkinnedMesh, src: THREE.BufferGeometry, 
   if (extra) {
     const ecol = look.extra ?? extra.colors[0];
     // Eyes: the eye vertices' middle height and front.
-    let ey = 0, ez = -Infinity, en = 0;
-    for (let i = 0; i < b.n; i++) if (b.slot[i] === SLOT_EYES) { ey += b.pos[i * 3 + 1]; ez = Math.max(ez, b.pos[i * 3 + 2]); en++; }
-    ey = en ? ey / en : hc.y;
+    // (Middle of the eyes' full height, brows included, so shades cover them.)
+    let ey0 = Infinity, ey1 = -Infinity, ez = -Infinity;
+    for (let i = 0; i < b.n; i++) if (b.slot[i] === SLOT_EYES) { const y = b.pos[i * 3 + 1]; ey0 = Math.min(ey0, y); ey1 = Math.max(ey1, y); ez = Math.max(ez, b.pos[i * 3 + 2]); }
+    const ey = ey1 > ey0 ? (ey0 + ey1) / 2 : hc.y;
+    const eh = ey1 > ey0 ? ey1 - ey0 : 0.07 * H;
     if (extra.style === 'shades' || extra.style === 'glasses') {
       for (const sx of [-1, 1]) {
-        if (extra.style === 'shades') s.rigid(rbox(0.11 * H, 0.07 * H, 0.012 * H, hc.x + sx * 0.08 * H, ey, ez + 0.012 * H, 0.4), '#15171c', head);
-        else s.rigid(new THREE.TorusGeometry(0.045 * H, 0.008 * H, 6, 16).translate(hc.x + sx * 0.08 * H, ey, ez + 0.012 * H), ecol, head);
+        if (extra.style === 'shades') s.rigid(rbox(0.11 * H, Math.max(0.07 * H, eh * 1.15), 0.012 * H, hc.x + sx * 0.08 * H, ey, ez + 0.012 * H, 0.4), '#15171c', head);
+        else s.rigid(new THREE.TorusGeometry(Math.max(0.045 * H, eh * 0.62), 0.008 * H, 6, 16).translate(hc.x + sx * 0.08 * H, ey, ez + 0.012 * H), ecol, head);
       }
       s.rigid(rbox(0.06 * H, 0.012 * H, 0.012 * H, hc.x, ey + 0.01 * H, ez + 0.014 * H, 0.3), ecol, head);
     } else if (extra.style === 'chain') {
