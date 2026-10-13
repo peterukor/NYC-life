@@ -20,6 +20,12 @@ import { NYC_GEO } from '../data/geo/nyc-boroughs.ts';
 import { MANHATTAN_SHORE } from '../data/geo/manhattan-shore.ts';
 
 export const ORIGIN = NYC_GEO.origin;
+/**
+ * East–west stretch on top of the real projection (Peter, 2026-10-12: a
+ * wider island with more land across, same-size blocks and roads). Set by
+ * scripts/build-manhattan-shore.py [stretch]; 1 = true proportions.
+ */
+export const X_STRETCH = MANHATTAN_SHORE.xStretch ?? 1;
 export const SCALE = NYC_GEO.scale;
 const th = (NYC_GEO.rotateDeg * Math.PI) / 180;
 const cosLat = Math.cos((ORIGIN.lat * Math.PI) / 180);
@@ -33,7 +39,7 @@ export interface XZ {
 export function project(lat: number, lon: number): XZ {
   const E = (lon - ORIGIN.lon) * cosLat * 111320;
   const N = (lat - ORIGIN.lat) * 110540;
-  return { x: (E * Math.cos(th) - N * Math.sin(th)) * SCALE, z: -(E * Math.sin(th) + N * Math.cos(th)) * SCALE };
+  return { x: (E * Math.cos(th) - N * Math.sin(th)) * SCALE * X_STRETCH, z: -(E * Math.sin(th) + N * Math.cos(th)) * SCALE };
 }
 
 export type BoroughId = 'manhattan' | 'brooklyn' | 'queens' | 'bronx' | 'statenIsland';
@@ -61,8 +67,8 @@ export const BOROUGHS: BoroughInfo[] = [
 export function outline(id: BoroughId): XZ[][] {
   // Manhattan uses the smoothed cartoon coast (scripts/build-manhattan-shore.py):
   // no piers or inlets, so the shore, the ring highway and the grid fit together.
-  const rings = id === 'manhattan' ? MANHATTAN_SHORE.land : NYC_GEO.boroughs[id] ?? [];
-  return rings.map((ring) => ring.map(([x, z]) => ({ x, z })));
+  if (id === 'manhattan') return MANHATTAN_SHORE.land.map((ring) => ring.map(([x, z]) => ({ x, z })));
+  return (NYC_GEO.boroughs[id] ?? []).map((ring) => ring.map(([x, z]) => ({ x: x * X_STRETCH, z })));
 }
 
 export function pointInRing(x: number, z: number, poly: XZ[]): boolean {
@@ -97,7 +103,7 @@ export function boroughBounds(id: BoroughId): { minX: number; maxX: number; minZ
 
 /** Game x/z → real latitude/longitude (inverse of project). */
 export function unproject(x: number, z: number): { lat: number; lon: number } {
-  const e = x / SCALE;
+  const e = x / X_STRETCH / SCALE;
   const n = -z / SCALE;
   const E = e * Math.cos(th) + n * Math.sin(th);
   const N = -e * Math.sin(th) + n * Math.cos(th);

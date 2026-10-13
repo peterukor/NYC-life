@@ -5,7 +5,7 @@
 // =====================================================================
 
 import type { AreaId } from '../sim/types.ts';
-import { project } from '../world/geo-proj.ts';
+import { X_STRETCH, project } from '../world/geo-proj.ts';
 import { blockRect, colAt, isPark, rowAt, type DistrictDef } from '../world/layout.ts';
 
 /** Size in game metres (rx across, rz along). */
@@ -33,7 +33,7 @@ export function pondsFor(d: DistrictDef): { x: number; z: number; rx: number; rz
       }
       if (!found) continue;
     }
-    out.push({ x, z: at.z, rx: p.rx, rz: p.rz, name: p.name });
+    out.push({ x, z: at.z, rx: p.rx * X_STRETCH, rz: p.rz, name: p.name }); // wider with the map
   }
   return out;
 }

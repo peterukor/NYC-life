@@ -22,7 +22,10 @@
 // =====================================================================
 
 import type { AreaId } from '../sim/types.ts';
-import { boroughBounds, onLand as onAnyLand, outline, pointInRing, project, unproject, type BoroughId, type XZ } from './geo-proj.ts';
+import { boroughBounds, onLand as onAnyLand, outline, pointInRing, project, unproject, X_STRETCH, type BoroughId, type XZ } from './geo-proj.ts';
+
+/** A hand-placed east–west position (measured at true proportions), stretched with the map (geo-proj X_STRETCH). */
+const X = (v: number): number => v * X_STRETCH;
 import { Rng } from '../core/rng.ts';
 import { MANHATTAN_SHORE } from '../data/geo/manhattan-shore.ts';
 
@@ -259,11 +262,11 @@ function makeJoins(cols: number, rows: number, seed: string, ok: (c: number, r: 
 /** Real street number at z (14th St … 110th St, linear: 15.87 game m per street). */
 export const manhattanStreetAt = (z: number) => 14 + (488 - z) / 15.87;
 /** Real avenues by x (measured at the projected intersections). West → east. */
-const M_AVES: [string, number][] = [['12th Ave', -287], ['11th Ave', -230], ['10th Ave', -172], ['9th Ave', -114], ['8th Ave', -56], ['7th Ave', -4], ['6th Ave', 56], ['5th Ave', 116], ['Madison Ave', 146], ['Park Ave', 176], ['Lexington Ave', 206], ['3rd Ave', 246], ['2nd Ave', 290], ['1st Ave', 335], ['York Ave', 380]];
+const M_AVES: [string, number][] = [['12th Ave', X(-287)], ['11th Ave', X(-230)], ['10th Ave', X(-172)], ['9th Ave', X(-114)], ['8th Ave', X(-56)], ['7th Ave', X(-4)], ['6th Ave', X(56)], ['5th Ave', X(116)], ['Madison Ave', X(146)], ['Park Ave', X(176)], ['Lexington Ave', X(206)], ['3rd Ave', X(246)], ['2nd Ave', X(290)], ['1st Ave', X(335)], ['York Ave', X(380)]];
 const ordinal = (n: number) => `${n}${n % 100 >= 11 && n % 100 <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] ?? 'th'}`;
 /** Downtown (below 14th St) the grid stops being numbered: real names, west → east. */
-const M_AVES_VILLAGE: [string, number][] = [['West St', -170], ['Washington St', -120], ['Hudson St', -60], ['7th Ave S', 0], ['6th Ave', 56], ['5th Ave', 116], ['Broadway', 172], ['Lafayette St', 212], ['Bowery', 268], ['1st Ave', 335], ['Ave A', 375], ['Ave B', 430], ['Ave C', 495]];
-const M_AVES_DOWNTOWN: [string, number][] = [['West St', 15], ['Greenwich St', 70], ['W Broadway', 115], ['Broadway', 172], ['Lafayette St', 212], ['Bowery', 284], ['Allen St', 347], ['Essex St', 394], ['Pitt St', 480]];
+const M_AVES_VILLAGE: [string, number][] = [['West St', X(-170)], ['Washington St', X(-120)], ['Hudson St', X(-60)], ['7th Ave S', X(0)], ['6th Ave', X(56)], ['5th Ave', X(116)], ['Broadway', X(172)], ['Lafayette St', X(212)], ['Bowery', X(268)], ['1st Ave', X(335)], ['Ave A', X(375)], ['Ave B', X(430)], ['Ave C', X(495)]];
+const M_AVES_DOWNTOWN: [string, number][] = [['West St', X(15)], ['Greenwich St', X(70)], ['W Broadway', X(115)], ['Broadway', X(172)], ['Lafayette St', X(212)], ['Bowery', X(284)], ['Allen St', X(347)], ['Essex St', X(394)], ['Pitt St', X(480)]];
 /** Downtown cross streets by z (measured where each meets Broadway). */
 const M_DOWNTOWN_STREETS: [string, number][] = [
   ['14th St', 488], ['12th St', 523], ['10th St', 558], ['8th St', 593], ['4th St', 650], ['Bleecker St', 694], ['Houston St', 724], ['Spring St', 781], ['Broome St', 815],
@@ -272,7 +275,7 @@ const M_DOWNTOWN_STREETS: [string, number][] = [
 ];
 const nearestName = (list: [string, number][], v: number) => list.reduce((b, a) => (Math.abs(a[1] - v) < Math.abs(b[1] - v) ? a : b))[0];
 /** Above 110th St the avenues take their Harlem names. */
-const M_AVES_HARLEM: [string, number][] = [['Riverside Dr', -287], ['Broadway', -230], ['Amsterdam Ave', -172], ['St Nicholas Ave', -114], ['Frederick Douglass Blvd', -56], ['Adam Clayton Powell Jr Blvd', -4], ['Malcolm X Blvd', 56], ['5th Ave', 116], ['Madison Ave', 146], ['Park Ave', 176], ['Lexington Ave', 206], ['3rd Ave', 246], ['2nd Ave', 290], ['1st Ave', 335], ['Pleasant Ave', 380]];
+const M_AVES_HARLEM: [string, number][] = [['Riverside Dr', X(-287)], ['Broadway', X(-230)], ['Amsterdam Ave', X(-172)], ['St Nicholas Ave', X(-114)], ['Frederick Douglass Blvd', X(-56)], ['Adam Clayton Powell Jr Blvd', X(-4)], ['Malcolm X Blvd', X(56)], ['5th Ave', X(116)], ['Madison Ave', X(146)], ['Park Ave', X(176)], ['Lexington Ave', X(206)], ['3rd Ave', X(246)], ['2nd Ave', X(290)], ['1st Ave', X(335)], ['Pleasant Ave', X(380)]];
 function manhattanAvenue(x: number, z = 0): string {
   if (z < -1060) return nearestName(M_AVES_HARLEM, x);
   if (z > 860) return nearestName(M_AVES_DOWNTOWN, x);
@@ -283,13 +286,13 @@ function manhattanStreet(x: number, z: number): string {
   if (z > 500) {
     const s = nearestName(M_DOWNTOWN_STREETS, z);
     // Numbered streets keep their East / West (5th Ave splits them).
-    return /^\d/.test(s) ? `${x < 116 ? 'W' : 'E'} ${s}` : s;
+    return /^\d/.test(s) ? `${x < X(116) ? 'W' : 'E'} ${s}` : s;
   }
   const n = Math.round(manhattanStreetAt(z));
-  const inPark = x > -56 && x < 116;
+  const inPark = x > X(-56) && x < X(116);
   if (n === 59 && inPark) return 'Central Park S';
   if (n === 110 && inPark) return 'Central Park N';
-  return `${x < 116 ? 'W' : 'E'} ${ordinal(n)} St`;
+  return `${x < X(116) ? 'W' : 'E'} ${ordinal(n)} St`;
 }
 
 /**
@@ -298,7 +301,7 @@ function manhattanStreet(x: number, z: number): string {
  * The line follows the real Bowery, which leans east as it goes south.
  */
 export function manhattanForSale(x: number, z: number): boolean {
-  return z > 500 && z < 960 && x > 262 + (z - 656) * 0.12;
+  return z > 500 && z < 960 && x > X(262 + (z - 656) * 0.12);
 }
 
 /** Build a district from its grid spec and its own rules. */
@@ -392,7 +395,7 @@ const MANHATTAN = district({
   // further north and south).
   // 2026-10-12: the grid now runs the whole island, up to Inwood, and
   // stays inside the ring highway (coreFits).
-  grid: playable(gridFor('manhattan', { x: -56, z: -226 }, { minX: -470, maxX: 480, minZ: -2860, maxZ: 1340 }, 'manhattan-grid-v3'), MANHATTAN_GRID),
+  grid: playable(gridFor('manhattan', { x: X(-56), z: -226 }, { minX: X(-470), maxX: X(480), minZ: -2860, maxZ: 1340 }, 'manhattan-grid-v3'), MANHATTAN_GRID),
   fits: coreFits,
   blockW: 150,
   blockD: 70,
@@ -406,21 +409,21 @@ const MANHATTAN = district({
     const z = (d.zs[r] + d.zs[r + 1]) / 2;
     const n = manhattanStreetAt(z);
     // Harlem, above 110th St: brownstones, East Harlem mid-rise.
-    if (n > 110) return x > 150 ? 'midrise' : 'brownstone';
+    if (n > 110) return x > X(150) ? 'midrise' : 'brownstone';
     // Downtown, below 14th St.
     if (z > 1000) return 'tall'; // Financial District
-    if (z > 840) return x < 240 ? 'midrise' : 'brownstone'; // Tribeca / Chinatown
-    if (z > 500) return x < 60 ? 'brownstone' : 'midrise'; // West Village / SoHo & NoHo
-    if (x < -240) return 'waterfront';
-    if (n >= 30 && n <= 59 && x > -60) return 'tall'; // Midtown
-    if (n > 59) return x > 150 ? 'midrise' : 'brownstone'; // Upper West / Upper East Side
-    if (n < 30) return x < -60 ? 'brownstone' : 'midrise'; // Chelsea / Flatiron & Gramercy
-    return x < -60 ? 'midrise' : 'tall'; // Hell's Kitchen / Murray Hill
+    if (z > 840) return x < X(240) ? 'midrise' : 'brownstone'; // Tribeca / Chinatown
+    if (z > 500) return x < X(60) ? 'brownstone' : 'midrise'; // West Village / SoHo & NoHo
+    if (x < X(-240)) return 'waterfront';
+    if (n >= 30 && n <= 59 && x > X(-60)) return 'tall'; // Midtown
+    if (n > 59) return x > X(150) ? 'midrise' : 'brownstone'; // Upper West / Upper East Side
+    if (n < 30) return x < X(-60) ? 'brownstone' : 'midrise'; // Chelsea / Flatiron & Gramercy
+    return x < X(-60) ? 'midrise' : 'tall'; // Hell's Kitchen / Murray Hill
   },
   kindAt: (x, z, c, r) => {
     const n = manhattanStreetAt(z);
     const inBlock = (p: { x: number; z: number }) => cellOf(MANHATTAN_GRID.xs, p.x) === c && cellOf(MANHATTAN_GRID.zs, p.z) === r;
-    if (n > 59 && n < 111 && x > -56 && x < 116) return 'park'; // Central Park, 59th → 110th, 8th → 5th Ave
+    if (n > 59 && n < 111 && x > X(-56) && x < X(116)) return 'park'; // Central Park, 59th → 110th, 8th → 5th Ave
     if (inBlock(M_BRYANT)) return 'park';
     if (inBlock(M_FUNLAND)) return 'plaza';
     if (inBlock(M_HY)) return 'vacant';
@@ -490,7 +493,7 @@ const BROOKLYN = district({
   // web of diagonal avenues cuts across the grid (world/corridors.ts).
   // Playable from Greenpoint/Williamsburg down to Prospect Park, and east
   // to Bed-Stuy.
-  grid: playable(gridFor('brooklyn', { x: 480, z: 980 }, { minX: 470, maxX: 1520, minZ: 520, maxZ: 1880 }, 'brooklyn-grid-v4', SX([104, 214]), SZ([52, 124])), BROOKLYN_GRID),
+  grid: playable(gridFor('brooklyn', { x: X(480), z: 980 }, { minX: X(470), maxX: X(1520), minZ: 520, maxZ: 1880 }, 'brooklyn-grid-v4', SX([104, 214]), SZ([52, 124])), BROOKLYN_GRID),
   joinRate: { s: 0.2, e: 0.12 },
   blockW: 150,
   blockD: 70,
@@ -502,9 +505,9 @@ const BROOKLYN = district({
     const d = BROOKLYN;
     const x = (d.xs[c] + d.xs[c + 1]) / 2;
     const z = (d.zs[r] + d.zs[r + 1]) / 2;
-    if (z < 1110 && x < 760) return 'waterfront'; // DUMBO / Vinegar Hill warehouses
-    if (z < 900 && x < 900) return x < 760 ? 'waterfront' : 'midrise'; // Williamsburg waterfront towers & lofts
-    if (x > 560 && x < 1000 && z > 1200 && z < 1420) return 'tall'; // Downtown Brooklyn & Barclays
+    if (z < 1110 && x < X(760)) return 'waterfront'; // DUMBO / Vinegar Hill warehouses
+    if (z < 900 && x < X(900)) return x < X(760) ? 'waterfront' : 'midrise'; // Williamsburg waterfront towers & lofts
+    if (x > X(560) && x < X(1000) && z > 1200 && z < 1420) return 'tall'; // Downtown Brooklyn & Barclays
     return 'brownstone'; // Brooklyn Heights, Fort Greene, Park Slope, Bed-Stuy
   },
   kindAt: (x, z, c, r) => {
@@ -558,7 +561,7 @@ const BRONX = district({
   // The Bronx grid is the least regular yet: wide spread of block sizes,
   // lots of closed streets, and the Concourse, Fordham Rd, Southern Blvd,
   // the Deegan and the Cross Bronx cutting across (world/corridors.ts).
-  grid: playable(gridFor('bronx', { x: 180, z: -1860 }, { minX: -10, maxX: 900, minZ: -2960, maxZ: -1440 }, 'bronx-grid-v1', SX([100, 220]), SZ([55, 130])), BRONX_GRID),
+  grid: playable(gridFor('bronx', { x: X(180), z: -1860 }, { minX: X(-10), maxX: X(900), minZ: -2960, maxZ: -1440 }, 'bronx-grid-v1', SX([100, 220]), SZ([55, 130])), BRONX_GRID),
   joinRate: { s: 0.22, e: 0.14 },
   blockW: 150,
   blockD: 70,
@@ -570,8 +573,8 @@ const BRONX = district({
     const d = BRONX;
     const x = (d.xs[c] + d.xs[c + 1]) / 2;
     const z = (d.zs[r] + d.zs[r + 1]) / 2;
-    if (z > -1640) return x > 500 ? 'waterfront' : 'midrise'; // Mott Haven & Port Morris
-    if (x < 300 && z > -2300) return 'midrise'; // Grand Concourse art-deco apartment houses
+    if (z > -1640) return x > X(500) ? 'waterfront' : 'midrise'; // Mott Haven & Port Morris
+    if (x < X(300) && z > -2300) return 'midrise'; // Grand Concourse art-deco apartment houses
     if (Math.hypot(x - X_HUB.x, z - X_HUB.z) < 220) return 'tall'; // The Hub, 149th & 3rd
     return 'brownstone'; // walk-ups and row houses
   },
@@ -626,7 +629,7 @@ const QUEENS = district({
   // Queens: LIC towers by the river, Astoria and Sunnyside row houses,
   // Jackson Heights. Irregular blocks plus Queens Blvd, Northern Blvd and
   // friends cutting across (world/corridors.ts).
-  grid: playable(gridFor('queens', { x: 700, z: -100 }, { minX: 520, maxX: 1700, minZ: -1000, maxZ: 150 }, 'queens-grid-v1', SX([104, 210]), SZ([55, 125])), QUEENS_GRID),
+  grid: playable(gridFor('queens', { x: X(700), z: -100 }, { minX: X(520), maxX: X(1700), minZ: -1000, maxZ: 150 }, 'queens-grid-v1', SX([104, 210]), SZ([55, 125])), QUEENS_GRID),
   joinRate: { s: 0.2, e: 0.12 },
   blockW: 150,
   blockD: 70,
@@ -638,10 +641,10 @@ const QUEENS = district({
     const d = QUEENS;
     const x = (d.xs[c] + d.xs[c + 1]) / 2;
     const z = (d.zs[r] + d.zs[r + 1]) / 2;
-    if (x < 860 && z > -300) return x < 640 ? 'waterfront' : 'tall'; // LIC towers & the Gantry waterfront
-    if (x > 1400) return 'midrise'; // Jackson Heights co-ops
+    if (x < X(860) && z > -300) return x < X(640) ? 'waterfront' : 'tall'; // LIC towers & the Gantry waterfront
+    if (x > X(1400)) return 'midrise'; // Jackson Heights co-ops
     if (z < -500) return 'brownstone'; // Astoria row houses
-    return x < 1000 ? 'midrise' : 'brownstone'; // Sunnyside & Woodside
+    return x < X(1000) ? 'midrise' : 'brownstone'; // Sunnyside & Woodside
   },
   kindAt: (x, z, c, r) => {
     void x;
