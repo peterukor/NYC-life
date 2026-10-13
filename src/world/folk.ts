@@ -183,6 +183,13 @@ export class Actor {
       this.current = null;
       this.character = name;
       this.model = cloneSkinned(this.kit.templates.get(name)!);
+      // The pack's characters share one rig, but glTF names every copy's
+      // bones uniquely (Hips, Hips_1, Hips_2…). The clips target the plain
+      // names, so without this every character but the first stood frozen
+      // mid-stride: give each clone's bones their plain names back.
+      this.model.traverse((o) => {
+        if ((o as THREE.Bone).isBone) o.name = o.name.replace(/_\d+$/, '');
+      });
       this.model.scale.setScalar(FOLK_SCALE);
       this.model.position.set(0, 0, 0);
       this.root.add(this.model);
@@ -306,6 +313,20 @@ export class Actor {
 
   update(dt: number): void {
     this.mixer.update(dt);
+  }
+
+  /** What's playing (for QA). */
+  debug(): { current: string | null; actions: [string, number, number, boolean, boolean][] } {
+    return { current: this.current, actions: [...this.actions].map(([n, a]) => [n, +a.getEffectiveWeight().toFixed(2), +a.time.toFixed(2), a.paused, a.isRunning()]) };
+  }
+
+  /** Freeze a clip at a fraction of its length (0–1): a held pose (sitting, lying). */
+  hold(name: FolkAnim, at: number): void {
+    this.play(name, 0.2);
+    const action = this.actions.get(name);
+    if (!action) return;
+    action.time = action.getClip().duration * at;
+    action.paused = true;
   }
 
   set visible(v: boolean) {

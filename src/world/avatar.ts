@@ -33,6 +33,9 @@ export interface Avatar {
    * still, or null to go back to normal. Walking always overrides it.
    */
   setAction: (name: FolkAnim | null) => void;
+  /** Hold a clip still at a fraction of its length (a pose), or null to let it play. */
+  setHold: (at: number | null) => void;
+  debug?: () => unknown;
   dispose: () => void;
 }
 
@@ -51,6 +54,7 @@ export function makeAvatar(look: Look): Avatar {
   let actor: Actor | null = null;
   let current = look;
   let action: FolkAnim | null = null;
+  let holdAt: number | null = null;
 
   loadFolk()
     .then((kit: FolkKit) => {
@@ -65,6 +69,7 @@ export function makeAvatar(look: Look): Avatar {
     animate(speed, dt) {
       if (!actor) return simple.animate(speed, dt);
       if (speed > 0.15 || !action) actor.move(speed);
+      else if (holdAt !== null) actor.hold(action, holdAt);
       else actor.play(action, 0.25);
       actor.update(dt);
     },
@@ -78,7 +83,12 @@ export function makeAvatar(look: Look): Avatar {
     },
     setAction(name) {
       action = name;
+      holdAt = null;
     },
+    setHold(at) {
+      holdAt = at;
+    },
+    debug: () => ({ action, holdAt, actor: actor?.debug() ?? null }),
     dispose() {
       simple.dispose();
       actor?.dispose();
@@ -114,7 +124,7 @@ function hangingCapsule(radius: number, length: number, mat: THREE.Material, rad
 }
 
 /** The simple built-in figure (about 1.75 m tall), used until the 3D body loads. */
-function makeSimpleAvatar(look: Look): Omit<Avatar, 'setAction'> {
+function makeSimpleAvatar(look: Look): Omit<Avatar, 'setAction' | 'setHold'> {
   const root = new THREE.Group();
   const mats = {
     skin: soft(look.skin, 0.6),
