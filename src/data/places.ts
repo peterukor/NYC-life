@@ -273,19 +273,22 @@ const RAW: RawPlace[] = [
 
   // ======================= BROOKLYN =======================
   {
-    id: 'wburgLoft', area: 'brooklyn', name: 'Fulton St loft (for rent)', emoji: '🏠', type: 'home',
+    // Moved from Brooklyn to Tribeca when Manhattan became the whole game (2026-10-12).
+    id: 'wburgLoft', area: 'manhattan', name: 'Tribeca loft (for rent)', emoji: '🏠', type: 'home',
     blurb: 'Big windows, exposed pipes, and a roof you’re technically not allowed on.',
-    at: [40.689, -73.983], interior: 'apartment', actions: [], color: '#5d6d7e', rent: 90_000,
+    at: [40.7195, -74.0085], interior: 'apartment', actions: [], color: '#5d6d7e', rent: 90_000,
   },
   {
-    id: 'sharedApt', area: 'brooklyn', name: 'Room in a shared apartment', emoji: '🏠', type: 'home',
+    // Moved from Brooklyn to Harlem (2026-10-12).
+    id: 'sharedApt', area: 'manhattan', name: 'Room in a shared Harlem apartment', emoji: '🏠', type: 'home',
     blurb: 'Three roommates, one bathroom, great vibes (mostly).',
-    at: [40.6855, -73.985], interior: 'apartment', actions: [], color: '#a0522d', rent: 18_000,
+    at: [40.8075, -73.9450], interior: 'apartment', actions: [], color: '#a0522d', rent: 18_000,
   },
   {
-    id: 'theStoop', area: 'brooklyn', name: 'The Stoop', emoji: '🍸', type: 'nightlife',
+    // Moved from Brooklyn to the East Village (2026-10-12).
+    id: 'theStoop', area: 'manhattan', name: 'The Stoop', emoji: '🍸', type: 'nightlife',
     blurb: 'Neighbourhood bar with a backyard, a dog, and a bartender who remembers you.',
-    at: [40.6893, -73.9745], hours: [15, 4], interior: 'bar', color: '#4a7c59',
+    at: [40.7265, -73.9845], hours: [15, 4], interior: 'bar', color: '#4a7c59',
     actions: ['happyHour', 'karaoke'],
   },
   {
@@ -313,9 +316,10 @@ const RAW: RawPlace[] = [
     actions: ['dollarSlice', 'fullPie', 'foldDebate'],
   },
   {
-    id: 'dumboWorks', area: 'brooklyn', name: 'DUMBO Works', emoji: '💻', type: 'work',
+    // Moved from DUMBO to Chelsea (2026-10-12); the id stays for old saves.
+    id: 'dumboWorks', area: 'manhattan', name: 'Chelsea Works', emoji: '💻', type: 'work',
     blurb: 'Converted factory full of startups, bikes and free cold brew.',
-    at: [40.703, -73.988], interior: 'office', color: '#264653', actions: [],
+    at: [40.7440, -74.0020], interior: 'office', color: '#264653', actions: [],
   },
   {
     id: 'brooklynBridge', area: 'brooklyn', name: 'Brooklyn Bridge', emoji: '🌉', type: 'landmark',

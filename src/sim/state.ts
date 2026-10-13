@@ -59,7 +59,7 @@ export const CLASSES: Record<SpawnClass, {
 }> = {
   poor: {
     title: 'Broke & Hungry', emoji: '🎒', tagline: 'Came with a duffel bag and a dream.',
-    perks: ['$300 cash + a $12,000 student loan', 'Room in a shared Brooklyn apartment', 'Hustle and Street Smarts start at 2', 'Learn every skill 25% faster', '5 plain outfits'],
+    perks: ['$300 cash + a $12,000 student loan', 'Room in a shared Harlem apartment', 'Hustle and Street Smarts start at 2', 'Learn every skill 25% faster', '5 plain outfits'],
     cash: 30_000, bank: 0, loan: true, homeId: 'sharedApt', rentPaid: false, origin: 'hustler', skills: { hustle: 2, streetSmarts: 2 },
   },
   middle: {
@@ -74,7 +74,7 @@ export const CLASSES: Record<SpawnClass, {
   },
   wealthy: {
     title: 'Old Money', emoji: '🥂', tagline: 'Your family name is on a museum wing.',
-    perks: ['$250,000 in the bank', 'Brooklyn loft, rent paid by the family', 'Charisma 3, but no street smarts', '15 premium + 5 exclusive outfits'],
+    perks: ['$250,000 in the bank', 'Tribeca loft, rent paid by the family', 'Charisma 3, but no street smarts', '15 premium + 5 exclusive outfits'],
     cash: 500_000, bank: 25_000_000, loan: false, homeId: 'wburgLoft', rentPaid: true, origin: 'trustFund', skills: { charisma: 3 },
   },
 };
@@ -136,7 +136,7 @@ export function newLife(opts: NewLifeOptions): GameState {
     gang: newGangState(),
     people: {},
     joinedEvents: [],
-    layoutVersion: 2,
+    layoutVersion: 3,
     news: [],
     tutorialStep: 0,
     settings: { quality: 'auto', sound: true },

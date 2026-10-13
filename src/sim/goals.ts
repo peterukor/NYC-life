@@ -26,7 +26,8 @@ export const GOALS: Goal[] = [
   { title: 'Step outside', hint: 'Tap “Leave”, then tap the street to walk', reward: 500, done: (s) => s.location.placeId === null || s.stats.placesVisited.length > 1 },
   { title: 'Visit the bodega', hint: 'Map → Kings Deli & Grocery', reward: 1_000, done: (s) => s.stats.placesVisited.includes('bodegaHk') || s.stats.placesVisited.includes('bodegaBk') },
   { title: 'Work a shift', hint: 'Tap “Go to work” (6 AM – 11 PM)', reward: 1_500, done: (s) => (s.stats.actionsDone['__shift'] ?? 0) > 0 },
-  { title: 'Ride the subway to Brooklyn', hint: 'Map → Brooklyn → pick a place → Subway', reward: 2_000, done: (s) => s.stats.placesVisited.some((p) => p === 'atlanticStation') || s.location.area === 'brooklyn' },
+  // Was "Ride the subway to Brooklyn" until Manhattan became the whole game (2026-10-12).
+  { title: 'See Times Square', hint: 'Map → Times Square', reward: 2_000, done: (s) => s.stats.placesVisited.includes('timesSquare') || s.stats.placesVisited.includes('atlanticStation') },
   { title: 'Bank your cash', hint: 'Phone → Bank → Deposit (cash can be pickpocketed)', reward: 1_000, done: (s) => s.bank > 0 },
 ];
 

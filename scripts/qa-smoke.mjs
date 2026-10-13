@@ -171,13 +171,16 @@ check('scam shows red flags afterwards', !!hasFlags);
 await shot('10-event-result');
 await click('.modal [data-act="ok"]');
 
-// ---- Map, then the subway to Brooklyn.
+// ---- Map, then the subway across Manhattan (the other boroughs are switched off).
 await click('[data-nav="map"]');
 await wait(700);
 await shot('11-map');
 check('map opens as the sky view of the city', !!(await page.$('.map3d .m3-pin')));
 await click('.map3d [data-act="close"]');
 await nyc(() => window.__nyc.travel('fortGreenePark'));
+await wait(400);
+check('Brooklyn is closed (no travel sheet)', !(await page.$('.sheet [data-act="subway"]')));
+await nyc(() => window.__nyc.travel('theStoop'));
 await wait(500);
 await click('.sheet [data-act="subway"]');
 await wait(1500);
@@ -186,13 +189,14 @@ await shot('12-subway-ride');
 for (let i = 0; i < 60; i++) {
   if (await page.$('.modal .choice')) { await shot('12b-subway-event'); await click('.modal .choice'); await wait(300); }
   if (await page.$('.modal [data-act="ok"]')) await click('.modal [data-act="ok"]');
-  if (await nyc(() => window.__nyc.mode() === 'city' && window.__nyc.state().location.area === 'brooklyn')) break;
+  if (await nyc(() => window.__nyc.mode() === 'city' && window.__nyc.state().stats.placesVisited.includes('timesSqStation'))) break;
   await wait(500);
 }
 await wait(2500);
 s = await state();
-check('arrived in Brooklyn by subway', s.location.area === 'brooklyn');
-await shot('13-brooklyn');
+// Manhattan has one station (Times Sq); from there you walk on to the bar.
+check('rode the subway and walks on to the East Village', s.location.area === 'manhattan' && s.stats.placesVisited.includes('timesSqStation') && (await nyc(() => window.__nyc.path().length)) > 0);
+await shot('13-east-village');
 
 console.log('\nsave:', { money: s.money, bank: s.bank, job: s.job?.careerId, area: s.location.area, step: s.tutorialStep });
 console.log('console errors/warnings:', errors.length ? '\n' + errors.join('\n') : 'none');

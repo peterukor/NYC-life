@@ -74,7 +74,7 @@ export const CAREERS: CareerDef[] = [
     emoji: '💻',
     placeId: 'dumboWorks',
     skill: 'coding',
-    blurb: 'Startup office in DUMBO with a bridge view. Ship features, survive standups.',
+    blurb: 'Startup office in an old Chelsea factory. Ship features, survive standups.',
     requires: { skill: 'coding', level: 2 },
     ladder: [
       { title: 'Junior Developer', pay: 20_000 },
@@ -105,7 +105,7 @@ export const CAREERS: CareerDef[] = [
     emoji: '🍸',
     placeId: 'theStoop',
     skill: 'charisma',
-    blurb: 'Brooklyn bar with a stoop out front. Shake cocktails, keep the regulars happy.',
+    blurb: 'East Village bar with a stoop out front. Shake cocktails, keep the regulars happy.',
     ladder: [
       { title: 'Barback', pay: 9_000 },
       { title: 'Bartender', pay: 14_000 },

@@ -13,7 +13,7 @@
 import { bus } from '../core/bus.ts';
 import { nowMs } from '../core/clock.ts';
 import { Rng } from '../core/rng.ts';
-import { AREA_IDS, type AreaId, type GameState, type NewsItem } from './types.ts';
+import { OPEN_AREAS, type AreaId, type GameState, type NewsItem } from './types.ts';
 import { weatherDef, weatherFor } from './weather.ts';
 
 const KEEP = 40;
@@ -83,7 +83,7 @@ export function postDailyNews(s: GameState, dateKey: string): void {
   postNews(s, { id: `w-${dateKey}`, scope: 'city', emoji: wi.emoji, headline: `Today in NYC: ${wi.label}${wi.tip ? ` — ${wi.tip}` : ''}` });
   const [ce, ch] = rng.pick(CITY_POOL);
   postNews(s, { id: `c-${dateKey}`, scope: 'city', emoji: ce, headline: ch });
-  for (const area of AREA_IDS) {
+  for (const area of OPEN_AREAS) {
     const [e, h] = rng.pick(AREA_POOL[area]);
     postNews(s, { id: `${area}-${dateKey}`, scope: area, emoji: e, headline: h });
   }

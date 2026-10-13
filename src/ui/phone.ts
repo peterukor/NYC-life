@@ -14,7 +14,7 @@ import { deposit, withdraw } from '../sim/economy.ts';
 import { computeMood, NEED_INFO } from '../sim/needs.ts';
 import { PREPAID_PHONE_PRICE, reportToPolice, trackWithFindMy } from '../sim/phone.ts';
 import { CLASSES, ORIGINS, TRAITS } from '../sim/state.ts';
-import { AREA_IDS, NEED_KEYS, SKILL_KEYS, type AreaId, type GameState, type SkillKey } from '../sim/types.ts';
+import { OPEN_AREAS, isOpenArea, NEED_KEYS, SKILL_KEYS, type AreaId, type GameState, type SkillKey } from '../sim/types.ts';
 import { DISTRICTS } from '../world/layout.ts';
 import { WEATHER_INFO, weatherFor } from '../sim/weather.ts';
 import { applyForJob, hireBlocker, jobTitle, quitJob, shiftPay } from '../sim/work.ts';
@@ -100,7 +100,7 @@ export function openPhone(host: PhoneHost, startApp?: string): () => void {
       const t = nycTime();
       page('Rideshare', `
         <p class="blurb">Pick where you’re going. Prices rise at rush hour and in bad weather. Luxury rides are fancier (and faster to find).</p>
-        ${PLACES.filter((p) => p.type !== 'home' || p.id === s.home.placeId)
+        ${PLACES.filter((p) => isOpenArea(p.area) && (p.type !== 'home' || p.id === s.home.placeId))
           .map((p) => {
             const q = host.rideQuote(p.id, false);
             const here = s.location.placeId === p.id;
@@ -189,7 +189,7 @@ export function openPhone(host: PhoneHost, startApp?: string): () => void {
         }).join('')}`);
     },
     news() {
-      const tabs: ('all' | 'city' | AreaId)[] = ['all', 'city', ...AREA_IDS];
+      const tabs: ('all' | 'city' | AreaId)[] = ['all', 'city', ...OPEN_AREAS];
       let tab: (typeof tabs)[number] = 'all';
       const render = () => {
         const items = s.news.filter((n) => tab === 'all' || n.scope === tab);

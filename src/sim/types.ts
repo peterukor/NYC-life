@@ -20,6 +20,14 @@ export type Origin = 'trustFund' | 'hustler';
 export type AreaId = 'manhattan' | 'brooklyn' | 'bronx' | 'queens';
 /** Every playable area, in map order (add new boroughs here). */
 export const AREA_IDS: AreaId[] = ['manhattan', 'brooklyn', 'bronx', 'queens'];
+/**
+ * The areas you can actually go to right now. Peter, 2026-10-12: "focus on
+ * only Manhattan" — the other boroughs are switched off (still drawn at the
+ * edges of the map, but no travel, places or plots there). Add an area back
+ * here to reopen it; its code and data are all still in place.
+ */
+export const OPEN_AREAS: AreaId[] = ['manhattan'];
+export const isOpenArea = (a: AreaId): boolean => OPEN_AREAS.includes(a);
 
 /**
  * How a character looks. The colours are always set; the clothing ids

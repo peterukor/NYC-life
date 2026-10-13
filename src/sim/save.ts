@@ -14,7 +14,7 @@ import { SAVE_KEY, SAVE_VERSION } from '../core/constants.ts';
 import { STARTER_ITEMS } from '../data/wardrobe.ts';
 import { newPathsState } from './paths.ts';
 import { newBusinessState } from './business.ts';
-import type { GameState } from './types.ts';
+import { isOpenArea, type GameState } from './types.ts';
 
 function storage(): Storage | null {
   // Private browsing and some embedded views throw when touching storage.
@@ -83,6 +83,22 @@ function migrate(data: GameState): GameState | null {
     const door = doorOf(home);
     data.location = { area: home.area, placeId: home.id, x: door.x, z: door.z };
     data.layoutVersion = 2;
+  }
+  // 2026-10-12: bigger blocks, Manhattan only (the other boroughs are
+  // switched off, and their homes, bar and office moved to Manhattan).
+  // Street positions moved, so everyone wakes up at home once more; a home
+  // that's still in a closed borough falls back to the Hell's Kitchen studio.
+  if ((data.layoutVersion ?? 1) < 3 || !isOpenArea(data.location.area)) {
+    let home = PLACE_BY_ID[data.home?.placeId];
+    if (!home || !isOpenArea(home.area)) {
+      home = PLACE_BY_ID.hkStudio;
+      data.home = { ...data.home, area: home.area, placeId: home.id, weeklyRent: data.home?.weeklyRent ? (home.rent ?? 0) : 0 };
+    } else if (data.home.area !== home.area) {
+      data.home.area = home.area;
+    }
+    const door = doorOf(home);
+    data.location = { area: home.area, placeId: home.id, x: door.x, z: door.z };
+    data.layoutVersion = 3;
   }
   data.people ??= {};
   data.joinedEvents ??= [];
