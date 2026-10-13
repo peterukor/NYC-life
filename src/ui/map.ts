@@ -119,6 +119,26 @@ export function openMap(opts: MapOptions): () => void {
     }
     return fitBox(b, id === 'manhattan' ? 6 : 24);
   };
+  /**
+   * Manhattan map view (Peter, 2026-10-12: "bring it closer, it's okay if
+   * they have to scroll"): the island's width fills the screen, centred on
+   * where you are; scroll up and down for the rest.
+   */
+  const closeView = () => {
+    const b = boroughBounds('manhattan');
+    const sc = (W() - 16) / (b.maxX - b.minX);
+    return clampView({ sc, ox: W() / 2 - s.location.x * sc, oy: H() / 2 + 20 - s.location.z * sc });
+  };
+  /** Keep Manhattan on screen: no scrolling off into the water. */
+  const clampView = (v: { sc: number; ox: number; oy: number }) => {
+    const b = boroughBounds('manhattan');
+    const fit = (o: number, lo: number, hi: number, size: number, top: number, bottom: number) => {
+      const span = (hi - lo) * v.sc;
+      if (span <= size - top - bottom) return top + (size - top - bottom) / 2 - ((lo + hi) / 2) * v.sc;
+      return Math.min(top + 8 - lo * v.sc, Math.max(size - bottom - 8 - hi * v.sc, o));
+    };
+    return { sc: v.sc, ox: fit(v.ox, b.minX, b.maxX, W(), 0, 0), oy: fit(v.oy, b.minZ, b.maxZ, H(), 64, 52) };
+  };
   const isWhole = () => false; // no five-borough view any more: Manhattan is the city
 
   // ---------- drawing helpers ----------
@@ -572,8 +592,7 @@ export function openMap(opts: MapOptions): () => void {
     const cur = { x: e.clientX, y: e.clientY };
     pointers.set(e.pointerId, cur);
     if (pointers.size === 1) {
-      ox += cur.x - prev.x;
-      oy += cur.y - prev.y;
+      ({ ox, oy } = clampView({ sc: scale, ox: ox + cur.x - prev.x, oy: oy + cur.y - prev.y }));
       if (Math.abs(cur.x - prev.x) + Math.abs(cur.y - prev.y) > 2) moved = true;
       draw();
     } else if (pointers.size === 2) {
@@ -635,15 +654,14 @@ export function openMap(opts: MapOptions): () => void {
   function zoomAt(px: number, py: number, factor: number): void {
     const next = Math.min(wholeScale * 40, Math.max(wholeScale, scale * factor));
     const f = next / scale;
-    ox = px - (px - ox) * f;
-    oy = py - (py - oy) * f;
+    ({ ox, oy } = clampView({ sc: next, ox: px - (px - ox) * f, oy: py - (py - oy) * f }));
     scale = next;
     draw();
   }
 
   onAct(el, (act) => {
     if (act === 'close') return void close();
-    if (act === 'city') return flyTo(boroughView('manhattan'));
+    if (act === 'city') return flyTo(closeView());
     if (act === 'fly') {
       close();
       return opts.onFlyover?.();
@@ -673,8 +691,9 @@ export function openMap(opts: MapOptions): () => void {
   window.addEventListener('resize', resize);
   requestAnimationFrame(() => {
     focus = 'manhattan';
-    wholeScale = boroughView('manhattan').sc;
-    setView(boroughView('manhattan'));
+    // Furthest zoom-out: the close view (no shrinking the island to a strip).
+    wholeScale = closeView().sc;
+    setView(closeView());
     resize();
   });
 
