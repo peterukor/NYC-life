@@ -404,13 +404,54 @@ function buildLots(d: DistrictDef, track: Track): THREE.Group {
   const pos: number[] = [];
   const col: number[] = [];
   const signs: THREE.Matrix4[] = [];
+  const lotTrees: THREE.Matrix4[] = [];
   const c = new THREE.Color();
-  for (const { x0, z0, x1, z1, grid } of lotsFor(d)) {
-    c.set(rng.pick(LOT_COLORS));
-    const y = grid ? 0.2 : 0.08; // grid lots sit on their sidewalk slab
+  const quad = (x0: number, x1: number, z0: number, z1: number, y: number, color: THREE.Color) => {
     pos.push(x0, y, z0, x0, y, z1, x1, y, z1, x0, y, z0, x1, y, z1, x1, y, z0);
-    for (let k = 0; k < 6; k++) col.push(c.r, c.g, c.b);
-    if (grid || rng.chance(0.18)) signs.push(new THREE.Matrix4().makeTranslation(x0 + 6, 0, z1 - 4));
+    for (let k = 0; k < 6; k++) col.push(color.r, color.g, color.b);
+  };
+  /** A low box (hedge): top and four sides as quads in the same mesh. */
+  const hedge = (x0: number, x1: number, z0: number, z1: number, y0: number, h: number, color: THREE.Color) => {
+    const y1 = y0 + h;
+    const P = (a: number[]) => { pos.push(...a); for (let k = 0; k < 6; k++) col.push(color.r, color.g, color.b); };
+    P([x0, y1, z0, x0, y1, z1, x1, y1, z1, x0, y1, z0, x1, y1, z1, x1, y1, z0]);
+    P([x0, y0, z1, x1, y0, z1, x1, y1, z1, x0, y0, z1, x1, y1, z1, x0, y1, z1]);
+    P([x1, y0, z0, x0, y0, z0, x0, y1, z0, x1, y0, z0, x0, y1, z0, x1, y1, z0]);
+    P([x1, y0, z1, x1, y0, z0, x1, y1, z0, x1, y0, z1, x1, y1, z0, x1, y1, z1]);
+    P([x0, y0, z0, x0, y0, z1, x0, y1, z1, x0, y0, z0, x0, y1, z1, x0, y1, z0]);
+  };
+  const lawnA = new THREE.Color('#8fcf6e'), lawnB = new THREE.Color('#9ed97c'), hedgeC = new THREE.Color('#4f8f3e');
+  for (const { x0, z0, x1, z1, grid } of lotsFor(d)) {
+    if (!grid) {
+      // Land beyond the playable streets: plain rough grass.
+      c.set(rng.pick(LOT_COLORS));
+      quad(x0, x1, z0, z1, 0.08, c);
+      if (rng.chance(0.18)) signs.push(new THREE.Matrix4().makeTranslation(x0 + 6, 0, z1 - 4));
+      continue;
+    }
+    // A lot for rent on the grid (2026-10-12 clean-up): a mown lawn with
+    // stripes, a low hedge with a gap for the gate, trees in the corners
+    // and the FOR RENT board by the gate. Empty on purpose, but cared for.
+    const y = 0.2;
+    const horiz = x1 - x0 > z1 - z0;
+    const bands = Math.max(4, Math.round((horiz ? x1 - x0 : z1 - z0) / 5));
+    for (let i = 0; i < bands; i++) {
+      const t0 = i / bands, t1 = (i + 1) / bands;
+      const col2 = i % 2 ? lawnA : lawnB;
+      if (horiz) quad(x0 + (x1 - x0) * t0, x0 + (x1 - x0) * t1, z0, z1, y, col2);
+      else quad(x0, x1, z0 + (z1 - z0) * t0, z0 + (z1 - z0) * t1, y, col2);
+    }
+    const hw = 0.7, hh = 0.9;
+    const gx = (x0 + x1) / 2; // gate in the middle of the south side
+    hedge(x0, x1, z0, z0 + hw, y, hh, hedgeC);
+    hedge(x0, gx - 2, z1 - hw, z1, y, hh, hedgeC);
+    hedge(gx + 2, x1, z1 - hw, z1, y, hh, hedgeC);
+    hedge(x0, x0 + hw, z0 + hw, z1 - hw, y, hh, hedgeC);
+    hedge(x1 - hw, x1, z0 + hw, z1 - hw, y, hh, hedgeC);
+    for (const [tx, tz] of [[x0 + 4, z0 + 4], [x1 - 4, z0 + 4], [x0 + 4, z1 - 4], [x1 - 4, z1 - 4]]) {
+      lotTrees.push(new THREE.Matrix4().compose(new THREE.Vector3(tx, y, tz), new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), rng.range(0, 6.28)), new THREE.Vector3(1, 1, 1).multiplyScalar(rng.range(0.9, 1.2))));
+    }
+    signs.push(new THREE.Matrix4().makeTranslation(gx + 4, y, z1 - 1.6));
   }
   if (pos.length) {
     const geo = track(new THREE.BufferGeometry());
@@ -421,6 +462,16 @@ function buildLots(d: DistrictDef, track: Track): THREE.Group {
     mesh.receiveShadow = true;
     mesh.name = 'lots';
     out.add(mesh);
+  }
+  if (lotTrees.length) {
+    const crown = new THREE.InstancedMesh(track(new THREE.IcosahedronGeometry(3, 0).scale(1, 0.9, 1).translate(0, 5.6, 0)), track(new THREE.MeshLambertMaterial({ color: '#5fae4f', flatShading: true })), lotTrees.length);
+    const trunk = new THREE.InstancedMesh(track(new THREE.CylinderGeometry(0.35, 0.45, 4, 5).translate(0, 2, 0)), track(new THREE.MeshLambertMaterial({ color: '#6b4f3a' })), lotTrees.length);
+    lotTrees.forEach((m, i) => {
+      crown.setMatrixAt(i, m);
+      trunk.setMatrixAt(i, m);
+    });
+    crown.name = 'lot-trees';
+    out.add(crown, trunk);
   }
   if (signs.length && typeof document !== 'undefined') {
     // A little "FOR RENT" board on a post (instanced): rent the lot, pick a house (data/plots.ts).
