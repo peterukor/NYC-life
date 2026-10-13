@@ -226,7 +226,14 @@ function build(): Plot[] {
     for (const a of ads) d.setKind(a.c, a.r, 'ads');
     // 2. Home lots: a share of Harlem's blocks, plus a few anywhere else
     // (picked in a fixed shuffled order, so it's the same every time).
-    const left = free.filter((f) => d.kind(f.c, f.r) === 'buildings').sort((x, y) => hash01(`${x.id}-lot`) - hash01(`${y.id}-lot`));
+    // Lots need a proper house plot: no long thin strips by the river
+    // (2026-10-12 clean-up); those keep their buildings.
+    const plotShaped = (f: (typeof free)[number]) => {
+      const r = blockRect(d, f.c, f.r);
+      const w = r.maxX - r.minX, dd = r.maxZ - r.minZ;
+      return Math.min(w, dd) >= 55 && Math.max(w, dd) / Math.min(w, dd) <= 2.2;
+    };
+    const left = free.filter((f) => d.kind(f.c, f.r) === 'buildings' && plotShaped(f)).sort((x, y) => hash01(`${x.id}-lot`) - hash01(`${y.id}-lot`));
     const isHarlem = (f: (typeof free)[number]) => d.id === 'manhattan' && manhattanStreetAt(f.z) > 110;
     const harlem = left.filter(isHarlem);
     for (const f of harlem.slice(0, Math.max(pick.harlemLots ? 4 : 0, Math.round(harlem.length * pick.harlemLots)))) d.setKind(f.c, f.r, 'lot');

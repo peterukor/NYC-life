@@ -421,6 +421,8 @@ function buildLots(d: DistrictDef, track: Track): THREE.Group {
     P([x0, y0, z0, x0, y0, z1, x0, y1, z1, x0, y0, z0, x0, y1, z1, x0, y1, z0]);
   };
   const lawnA = new THREE.Color('#8fcf6e'), lawnB = new THREE.Color('#9ed97c'), hedgeC = new THREE.Color('#4f8f3e');
+  const meadow = new THREE.Color('#86c466'), meadowDark = new THREE.Color('#74b356'), bedWood = new THREE.Color('#9b6b43'), soil = new THREE.Color('#6b4a2f'), sprouts = new THREE.Color('#5fb04a');
+  const flowers = ['#ffd166', '#ef476f', '#ffffff', '#c77dff', '#ff9f1c'].map((h) => new THREE.Color(h));
   for (const { x0, z0, x1, z1, grid } of lotsFor(d)) {
     if (!grid) {
       // Land beyond the playable streets: plain rough grass.
@@ -433,13 +435,41 @@ function buildLots(d: DistrictDef, track: Track): THREE.Group {
     // stripes, a low hedge with a gap for the gate, trees in the corners
     // and the FOR RENT board by the gate. Empty on purpose, but cared for.
     const y = 0.2;
-    const horiz = x1 - x0 > z1 - z0;
-    const bands = Math.max(4, Math.round((horiz ? x1 - x0 : z1 - z0) / 5));
-    for (let i = 0; i < bands; i++) {
-      const t0 = i / bands, t1 = (i + 1) / bands;
-      const col2 = i % 2 ? lawnA : lawnB;
-      if (horiz) quad(x0 + (x1 - x0) * t0, x0 + (x1 - x0) * t1, z0, z1, y, col2);
-      else quad(x0, x1, z0 + (z1 - z0) * t0, z0 + (z1 - z0) * t1, y, col2);
+    // Three looks, so a row of lots isn't twelve copies: a striped lawn, a
+    // wildflower meadow, or a community garden with raised beds.
+    const look = Math.floor(((Math.sin(x0 * 0.123 + z0 * 0.071) * 43758.5453) % 1 + 1) % 1 * 3);
+    if (look === 0) {
+      const horiz = x1 - x0 > z1 - z0;
+      const bands = Math.max(4, Math.round((horiz ? x1 - x0 : z1 - z0) / 5));
+      for (let i = 0; i < bands; i++) {
+        const t0 = i / bands, t1 = (i + 1) / bands;
+        const col2 = i % 2 ? lawnA : lawnB;
+        if (horiz) quad(x0 + (x1 - x0) * t0, x0 + (x1 - x0) * t1, z0, z1, y, col2);
+        else quad(x0, x1, z0 + (z1 - z0) * t0, z0 + (z1 - z0) * t1, y, col2);
+      }
+    } else if (look === 1) {
+      quad(x0, x1, z0, z1, y, meadow);
+      // Flowers in a few clumps (one colour each), not scattered dots.
+      const clumps = Math.max(4, Math.round(((x1 - x0) * (z1 - z0)) / 450));
+      for (let k = 0; k < clumps; k++) {
+        const cx2 = rng.range(x0 + 6, x1 - 6), cz2 = rng.range(z0 + 6, z1 - 6);
+        const f = rng.pick(flowers);
+        quad(cx2 - 2.6, cx2 + 2.6, cz2 - 2.6, cz2 + 2.6, y + 0.01, meadowDark);
+        for (let i = 0; i < 9; i++) {
+          const fx = cx2 + rng.range(-2.2, 2.2), fz = cz2 + rng.range(-2.2, 2.2);
+          quad(fx - 0.55, fx + 0.55, fz - 0.55, fz + 0.55, y + 0.03, f);
+        }
+      }
+    } else {
+      quad(x0, x1, z0, z1, y, lawnA);
+      const rows = Math.max(2, Math.floor((z1 - z0 - 8) / 6));
+      for (let rI = 0; rI < rows; rI++) {
+        const bz = z0 + 5 + rI * 6;
+        for (let bx = x0 + 5; bx < x1 - 9; bx += 8) {
+          hedge(bx, bx + 6, bz, bz + 2.4, y, 0.45, bedWood);
+          quad(bx + 0.3, bx + 5.7, bz + 0.3, bz + 2.1, y + 0.47, rng.chance(0.5) ? soil : sprouts);
+        }
+      }
     }
     const hw = 0.7, hh = 0.9;
     const gx = (x0 + x1) / 2; // gate in the middle of the south side

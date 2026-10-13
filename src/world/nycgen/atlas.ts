@@ -386,12 +386,19 @@ void main() {
   base = mix(base, vec3(0.97, 0.98, 1.0), min(1.0, uSnow * 1.15) * smoothstep(0.45, 0.8, vUp));
   base *= mix(vec3(1.0), vec3(0.84, 0.88, 0.95), uWet);
   diffuseColor.rgb = base;
-  float windowLit = (1.0 - texel.a) * step(0.5, cellHash(floor(vCell) + vSeed * 0.731)) * step(0.5, tile) * step(tile, 6.5);
+  // Half the windows are lit at night. Far away one pixel covers several
+  // windows, and picking lit/dark per pixel sparkles like static; blend
+  // to the average glow as windows get smaller than a pixel.
+  float isWindowTile = step(0.5, tile) * step(tile, 6.5);
+  float litSharp = step(0.5, cellHash(floor(vCell) + vSeed * 0.731));
+  float cover = max(length(dFdx(vCell)), length(dFdy(vCell)));
+  float lit = mix(litSharp, 0.5, smoothstep(0.18, 0.6, cover));
+  float windowLit = (1.0 - texel.a) * lit * isWindowTile;
   `,
       )
       .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n  totalEmissiveRadiance += windowLit * uNight * vec3(1.0, 0.8, 0.45) * 0.95;');
   };
-  m.customProgramCacheKey = () => 'nyc-city-v2';
+  m.customProgramCacheKey = () => 'nyc-city-v3';
   return m;
 }
 
