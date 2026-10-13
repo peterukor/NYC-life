@@ -56,6 +56,10 @@ export interface FurnitureDef {
   seat?: boolean;
   /** Built in (plumbing, the stove, doors): can't be moved or put in storage. */
   fixed?: boolean;
+  /** What it is, for swapping one for another from Storage (a new bed for the old one). */
+  kind?: 'bed' | 'couch' | 'tv' | 'chair' | 'lamp' | 'rug' | 'plant' | 'shelf';
+  /** One line on what it's for, shown in the shop. */
+  pitch?: string;
   /** Pieces with a screen: the TV ad plays on these. */
   tv?: boolean;
   /** Where the screen sits on a TV piece (metres from its centre): width, height, x, y, z. */
@@ -69,17 +73,24 @@ export interface FurnitureDef {
 export type Quality = 'cheap' | 'basic' | 'nice' | 'luxury';
 
 /**
- * What quality does (Peter, 2026-10-13: "cheap furniture … add just a lil
- * bit"). `gain` scales what a piece gives back (energy from a bed, fun from
- * a TV); costs like hunger while sleeping are not scaled. Cheap pieces
- * may also leave a downside (their `quirk`), luxury ones a little treat.
+ * What quality does (Peter, 2026-10-13). `gain` scales what a piece gives
+ * back (energy from a bed, fun from a TV); costs like hunger while
+ * sleeping are not scaled. `speed` is how fast: a cheap mattress takes
+ * longer to rest you, a nice one is quicker. Cheap is modest, not a
+ * punishment: a few pieces have an occasional small discomfort (their
+ * `quirk`), luxury ones leave a little treat.
  */
-export const FURNITURE_QUALITY: Record<Quality, { label: string; gain: number; treat?: { id: string; label: string; emoji: string; value: number; minutes: number } }> = {
-  cheap: { label: 'Cheap', gain: 0.7 },
-  basic: { label: 'Basic', gain: 1 },
-  nice: { label: 'Nice', gain: 1.25 },
-  luxury: { label: 'Luxury', gain: 1.5, treat: { id: 'luxe', label: 'Living in luxury', emoji: '✨', value: 6, minutes: 60 } },
+export const FURNITURE_QUALITY: Record<Quality, { label: string; gain: number; speed: number; treat?: { id: string; label: string; emoji: string; value: number; minutes: number } }> = {
+  cheap: { label: 'Cheap', gain: 0.85, speed: 0.8 },
+  basic: { label: 'Basic', gain: 1, speed: 1 },
+  nice: { label: 'Nice', gain: 1.2, speed: 1.2 },
+  luxury: { label: 'Luxury', gain: 1.35, speed: 1.35, treat: { id: 'luxe', label: 'Living in luxury', emoji: '✨', value: 6, minutes: 60 } },
 };
+
+/** Quality in plain words, for sheets and the shop. */
+export function qualityLine(q: Quality): string {
+  return { cheap: 'restores a bit less, a bit slower', basic: 'does the job', nice: 'restores more, and faster', luxury: 'restores the most, fastest, and feels great' }[q];
+}
 
 export const FURNITURE = new Registry<FurnitureDef>('furniture');
 
@@ -137,26 +148,26 @@ FURNITURE.add(
 // ---- Chunky cartoon pieces built in code (world/furniture-toys.ts):
 // the broke East Harlem walk-up (Peter, 2026-10-13).
 FURNITURE.add(
-  { id: 'twinBed', name: 'Twin bed', emoji: '🛏️', price: 18_000, parts: [{ model: 'toyTwinBed' }], actions: ['sleep', 'nap'], use: 'lie', quality: 'cheap', quirk: { chance: 0.35, moodlet: { id: 'stiffBack', label: 'Stiff back from the cheap mattress', emoji: '🥴', value: -6, minutes: 120 } } },
+  { id: 'twinBed', name: 'Twin bed', emoji: '🛏️', price: 18_000, parts: [{ model: 'toyTwinBed' }], actions: ['sleep', 'nap'], use: 'lie', quality: 'cheap', quirk: { chance: 0.12, moodlet: { id: 'stiffBack', label: 'A bit stiff from the old mattress', emoji: '🥴', value: -3, minutes: 60 } } },
   { id: 'crateNightstand', name: 'Milk-crate nightstand', emoji: '🧺', price: 1_500, parts: [{ model: 'toyCrateNightstand' }], actions: [], quality: 'cheap' },
   { id: 'clothesRack', name: 'Clothes rack', emoji: '👕', price: 4_000, parts: [{ model: 'toyClothesRack' }], actions: [], opens: 'closet', quality: 'cheap' },
-  { id: 'foldingDesk', name: 'Folding desk', emoji: '💻', price: 6_000, parts: [{ model: 'toyFoldingDesk' }], actions: ['codePractice', 'freelance', 'sellOnline', 'postContent', 'doomscroll'], use: 'sitAt', quality: 'cheap', quirk: { chance: 0.2, moodlet: { id: 'wobblyDesk', label: 'The folding desk wobbles', emoji: '😤', value: -3, minutes: 45 } } },
+  { id: 'foldingDesk', name: 'Folding desk', emoji: '💻', price: 6_000, parts: [{ model: 'toyFoldingDesk' }], actions: ['codePractice', 'freelance', 'sellOnline', 'postContent', 'doomscroll'], use: 'sitAt', quality: 'cheap' },
   { id: 'radiator', name: 'Radiator', emoji: '♨️', price: 0, parts: [{ model: 'toyRadiator' }], actions: [], fixed: true, quality: 'cheap' },
   { id: 'laundryPile', name: 'Laundry pile', emoji: '🧦', price: 0, parts: [{ model: 'toyLaundryPile' }], actions: [], quality: 'cheap' },
   { id: 'movingBoxes', name: 'Moving boxes', emoji: '📦', price: 0, parts: [{ model: 'toyMovingBoxes' }], actions: [], quality: 'cheap' },
-  { id: 'wornCouch', name: 'Worn couch', emoji: '🛋️', price: 15_000, parts: [{ model: 'toyWornCouch' }], actions: ['callMom', 'guitar', 'workout'], use: 'sitOn', seat: true, quality: 'cheap', quirk: { chance: 0.25, moodlet: { id: 'lumpyCouch', label: 'A spring poked you', emoji: '😣', value: -4, minutes: 60 } } },
-  { id: 'crateTv', name: 'Old TV on crates', emoji: '📺', price: 5_000, parts: [{ model: 'toyCrateTv' }], actions: ['watchTv', 'gameConsole'], tv: true, screen: [0.5, 0.36, 0, 0.65, 0.255], quality: 'cheap', quirk: { chance: 0.25, moodlet: { id: 'badSignal', label: 'The TV kept cutting out', emoji: '📶', value: -3, minutes: 45 } } },
+  { id: 'wornCouch', name: 'Worn couch', emoji: '🛋️', price: 15_000, parts: [{ model: 'toyWornCouch' }], actions: ['callMom', 'guitar', 'workout'], use: 'sitOn', seat: true, quality: 'cheap', quirk: { chance: 0.08, moodlet: { id: 'lumpyCouch', label: 'A spring poked you', emoji: '😣', value: -2, minutes: 30 } } },
+  { id: 'crateTv', name: 'Old TV on crates', emoji: '📺', price: 5_000, parts: [{ model: 'toyCrateTv' }], actions: ['watchTv', 'gameConsole'], tv: true, screen: [0.5, 0.36, 0, 0.65, 0.255], quality: 'cheap' },
   { id: 'smallTable', name: 'Kitchen table', emoji: '🍽️', price: 9_000, parts: [{ model: 'toySmallTable' }], actions: [], quality: 'cheap' },
   { id: 'roommateDoor', name: "Roommate's door", emoji: '🚪', price: 0, parts: [{ model: 'toyRoommateDoor' }], actions: [], fixed: true },
   { id: 'plantStool', name: 'Pothos', emoji: '🪴', price: 2_500, parts: [{ model: 'toyPlantStool' }], actions: [], quality: 'cheap' },
   { id: 'shoePile', name: 'Shoes by the door', emoji: '👟', price: 0, parts: [{ model: 'toyShoePile' }], actions: [], flat: true, quality: 'cheap' },
   { id: 'wornRug', name: 'Worn rug', emoji: '🟫', price: 3_000, parts: [{ model: 'toyWornRug' }], actions: [], flat: true, quality: 'cheap' },
   { id: 'trashBags', name: 'Trash', emoji: '🗑️', price: 0, parts: [{ model: 'toyTrashBags' }], actions: [], quality: 'cheap' },
-  { id: 'oldStove', name: 'Old stove', emoji: '🍳', price: 20_000, parts: [{ model: 'toyOldStove' }], actions: ['cookPasta', 'cookFancy'], fixed: true, quality: 'cheap', quirk: { chance: 0.2, moodlet: { id: 'smokeAlarm', label: 'Set off the smoke alarm', emoji: '🚨', value: -4, minutes: 45 } } },
-  { id: 'oldFridge', name: 'Old fridge', emoji: '🧊', price: 20_000, parts: [{ model: 'toyOldFridge' }], actions: ['snack'], fixed: true, quality: 'cheap', quirk: { chance: 0.15, moodlet: { id: 'offMilk', label: 'The milk was a little off', emoji: '🤢', value: -4, minutes: 60 } } },
+  { id: 'oldStove', name: 'Old stove', emoji: '🍳', price: 20_000, parts: [{ model: 'toyOldStove' }], actions: ['cookPasta', 'cookFancy'], fixed: true, quality: 'cheap' },
+  { id: 'oldFridge', name: 'Old fridge', emoji: '🧊', price: 20_000, parts: [{ model: 'toyOldFridge' }], actions: ['snack'], fixed: true, quality: 'cheap' },
   { id: 'sinkCounter', name: 'Sink and counter', emoji: '🚰', price: 12_000, parts: [{ model: 'toySinkCounter' }], actions: [], fixed: true, quality: 'cheap' },
   { id: 'oldToilet', name: 'Toilet', emoji: '🚽', price: 10_000, parts: [{ model: 'toyToilet' }], actions: ['toilet'], use: 'sitOn', fixed: true, quality: 'cheap' },
-  { id: 'tubShower', name: 'Tub and shower', emoji: '🛁', price: 25_000, parts: [{ model: 'toyTubShower' }], actions: ['shower'], use: 'stepIn', fixed: true, quality: 'cheap', quirk: { chance: 0.3, moodlet: { id: 'coldShower', label: 'The hot water ran out', emoji: '🥶', value: -5, minutes: 60 } } },
+  { id: 'tubShower', name: 'Tub and shower', emoji: '🛁', price: 25_000, parts: [{ model: 'toyTubShower' }], actions: ['shower'], use: 'stepIn', fixed: true, quality: 'cheap', quirk: { chance: 0.1, moodlet: { id: 'coldShower', label: 'The hot water ran out early', emoji: '🥶', value: -2, minutes: 30 } } },
   { id: 'posters', name: 'Posters', emoji: '🖼️', price: 1_500, parts: [{ model: 'toyPosters' }], actions: [], wall: true, quality: 'cheap' },
   { id: 'windowAC', name: 'Window AC', emoji: '❄️', price: 9_000, parts: [{ model: 'toyWindowAC' }], actions: [], wall: true, quality: 'cheap' },
   { id: 'pedestalSink', name: 'Bathroom sink', emoji: '🪥', price: 8_000, parts: [{ model: 'toyPedestalSink' }], actions: [], fixed: true, quality: 'cheap' },

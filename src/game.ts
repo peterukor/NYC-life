@@ -54,7 +54,7 @@ import { buildHome, type HomeInterior } from './world/home-interior.ts';
 import { loadFurnitureKit, type FurnitureKit } from './assets/furniture-kit.ts';
 import { layoutForPlace } from './data/homes.ts';
 import { VENUE_LAYOUT_FOR, VENUE_LAYOUTS } from './data/venues.ts';
-import { FURNITURE, FURNITURE_QUALITY } from './data/furniture.ts';
+import { FURNITURE, FURNITURE_QUALITY, qualityLine } from './data/furniture.ts';
 import { beginActivity, completeActivity, stopActivity, tickActivity, activityProgress } from './sim/home-activity.ts';
 import { openCloset } from './ui/closet.ts';
 import { openStore } from './ui/store.ts';
@@ -1022,7 +1022,7 @@ export class Game {
     const opensCloset = homeDef?.opens === 'closet';
     // Quality: how much it gives back (cheap pieces can leave a downside).
     const q = homeDef?.quality ?? 'basic';
-    const qualityNote = homeDef && actionIds.length ? `<p class="blurb quality-note q-${q}"><b>${FURNITURE_QUALITY[q].label}</b> · gives back ${Math.round(FURNITURE_QUALITY[q].gain * 100)}%${homeDef.quirk ? ` · ${esc(homeDef.quirk.moodlet.emoji)} sometimes: ${esc(homeDef.quirk.moodlet.label.toLowerCase())}` : ''}</p>` : '';
+    const qualityNote = homeDef && actionIds.length ? `<p class="blurb quality-note q-${q}"><b>${FURNITURE_QUALITY[q].label}</b> · ${qualityLine(q)}</p>` : '';
     const canMove = !!movableId && !homeDef?.fixed;
     const workBtn = isOffice && this.state.job && CAREER_BY_ID[this.state.job.careerId].placeId === place!.id ? '<button class="btn primary block" style="margin-bottom:10px" data-act="work">💼 Work a shift</button>' : '';
     const sheet = openSheet({

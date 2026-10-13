@@ -20,7 +20,7 @@ import type { AreaId } from '../sim/types.ts';
 import { DISTRICTS, blockRect, SIDEWALK } from '../world/layout.ts';
 import { project } from '../world/geo-proj.ts';
 
-export type InteriorKind = 'apartment' | 'bodega' | 'pizza' | 'cafe' | 'bar' | 'club' | 'office' | 'gym' | 'comedy' | 'none';
+export type InteriorKind = 'apartment' | 'bodega' | 'pizza' | 'cafe' | 'bar' | 'club' | 'office' | 'gym' | 'comedy' | 'furniture' | 'none';
 
 export type PlaceType = 'home' | 'food' | 'cafe' | 'nightlife' | 'work' | 'fitness' | 'park' | 'plaza' | 'landmark' | 'station' | 'shop';
 
@@ -283,6 +283,20 @@ const RAW: RawPlace[] = [
     id: 'sharedApt', area: 'manhattan', name: 'Room in an East Harlem walk-up', emoji: '🏠', type: 'home',
     blurb: 'Fourth floor, no elevator. Two roommates, one bathroom, a radiator that clanks all night, and the best bodega in El Barrio downstairs.',
     at: [40.7975, -73.9395], interior: 'apartment', actions: [], color: '#a0522d', rent: 18_000,
+  },
+  {
+    // The starter job (Peter, 2026-10-13): a deli round the corner from the walk-up.
+    id: 'barrioDeli', area: 'manhattan', name: 'El Barrio Deli & Grill', emoji: '🥪', type: 'food',
+    blurb: 'Chopped cheese, café con leche and the whole block’s gossip. Always hiring for the counter.',
+    at: [40.7968, -73.9402], hours: [6, 23], interior: 'bodega', color: '#d9480f',
+    actions: ['choppedCheese', 'bodegaCoffee', 'baconEggCheese'],
+  },
+  {
+    // The first furniture shop: basic and nice alternatives to the starter pieces.
+    id: 'homeGoods', area: 'manhattan', name: 'Lexington Home Goods', emoji: '🛋️', type: 'shop',
+    blurb: 'Beds, couches and TVs, delivered same day. Floor models, fair prices.',
+    at: [40.7955, -73.9428], hours: [9, 21], interior: 'furniture', color: '#2b7a78',
+    actions: [],
   },
   {
     // Moved from Brooklyn to the East Village (2026-10-12).

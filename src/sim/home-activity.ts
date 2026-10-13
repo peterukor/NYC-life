@@ -5,9 +5,10 @@
 // time: its needs fill in bit by bit while you do it, so stopping halfway
 // keeps half of it. When it finishes you also get its other rewards
 // (skill, pay, a mood). The furniture's quality scales what it gives back
-// (a cheap mattress restores less energy than a nice bed) and a cheap
-// piece can leave you with a small downside afterwards — a stiff back, a
-// cold shower (data/furniture.ts → FURNITURE_QUALITY, quirk).
+// and how fast (a cheap mattress rests you slower than a nice bed). A few
+// cheap pieces have an occasional small discomfort — a stiff back, the hot
+// water running out (data/furniture.ts → FURNITURE_QUALITY, quirk).
+// Cooking can go a little wrong too, less often the better you cook.
 //
 // The activity is part of the save (state.activity), so closing the game
 // mid-nap and coming back carries on (or finishes it, if the time is up).
@@ -43,11 +44,17 @@ export function scaledNeeds(s: GameState, a: ActionDef, item?: string): Partial<
   return out;
 }
 
+/** How long one go takes on a piece (cheap is slower, nice is quicker). */
+export function activitySeconds(a: ActionDef, item?: string): number {
+  const q: Quality = (item && FURNITURE.get(item)?.quality) || 'basic';
+  return Math.round((a.seconds / FURNITURE_QUALITY[q].speed) * 10) / 10;
+}
+
 /** Start using something. Charges the cost now (like any action). */
 export function beginActivity(s: GameState, actionId: string, opts: { uid?: string; item?: string; placeId?: string | null } = {}): { ok: true; action: ActionDef } | { ok: false; why: string } {
   const r = startAction(s, actionId);
   if (!r.ok) return r;
-  s.activity = { actionId, uid: opts.uid, item: opts.item, placeId: opts.placeId ?? null, startedAt: nowMs(), seconds: r.action.seconds, done: 0 };
+  s.activity = { actionId, uid: opts.uid, item: opts.item, placeId: opts.placeId ?? null, startedAt: nowMs(), seconds: activitySeconds(r.action, opts.item), done: 0 };
   return r;
 }
 
@@ -80,7 +87,7 @@ export function tickActivity(s: GameState, now = nowMs()): number {
 export interface ActivityResult extends ActionOutcome {
   action: ActionDef;
   /** A downside from cheap furniture, or a treat from luxury (shown as a toast). */
-  quirk: { label: string; emoji: string; value: number } | null;
+  quirk: { id: string; label: string; emoji: string; value: number } | null;
 }
 
 /** Finish: the rest of the needs, then the action's other rewards and any quirk. */
@@ -97,6 +104,11 @@ export function completeActivity(s: GameState, rand = Math.random): ActivityResu
   if (def?.quirk && rand() < def.quirk.chance) {
     addMoodlet(s, def.quirk.moodlet);
     quirk = def.quirk.moodlet;
+  } else if (a.tags.includes('cook') && rand() < Math.max(0.03, 0.18 - 0.04 * Math.floor(s.skills.cooking))) {
+    // Cooking can go a little wrong, less often as you get better at it.
+    const m = { id: 'smokeAlarm', label: 'Burnt it a little and set off the smoke alarm', emoji: '🚨', value: -3, minutes: 30 };
+    addMoodlet(s, m);
+    quirk = m;
   } else if (def?.quality && FURNITURE_QUALITY[def.quality].treat) {
     const t = FURNITURE_QUALITY[def.quality].treat!;
     addMoodlet(s, t);

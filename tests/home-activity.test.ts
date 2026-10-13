@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import { newLife } from '../src/sim/state.ts';
 import { beginActivity, completeActivity, scaledNeeds, stopActivity, tickActivity } from '../src/sim/home-activity.ts';
 import { ACTIONS } from '../src/data/actions.ts';
+import { FURNITURE_QUALITY } from '../src/data/furniture.ts';
+const CHEAP = FURNITURE_QUALITY.cheap.gain;
 
 const life = () => {
   const s = newLife({ name: 'T', origin: 'hustler', spawnClass: 'poor', look: { body: 'm', skin: '#000', top: '#000', bottom: '#000', hair: '#000' }, birthYear: 1990, traits: [] });
@@ -38,8 +40,8 @@ test('finishing gives the rest, plus a cheap piece’s downside when it rolls', 
   const s = life();
   beginActivity(s, 'sleep', { item: 'twinBed' });
   const res = completeActivity(s, () => 0)!;
-  assert.ok(Math.abs(s.needs.energy - Math.min(100, 20 + 70 * 0.7)) < 0.5);
-  assert.equal(res.quirk?.label.includes('Stiff back'), true);
+  assert.ok(Math.abs(s.needs.energy - Math.min(100, 20 + 70 * CHEAP)) < 0.5);
+  assert.equal(res.quirk?.label.includes('stiff'), true);
   assert.ok(s.moodlets.some((m) => m.id === 'stiffBack'));
   assert.equal(s.activity, null);
 });
@@ -51,5 +53,26 @@ test('an activity saved mid-way resumes from where it was (no double counting)',
   tickActivity(s, act.startedAt + act.seconds * 300);
   const saved = JSON.parse(JSON.stringify(s));
   tickActivity(saved, act.startedAt + act.seconds * 1000);
-  assert.ok(Math.abs(saved.needs.hygiene - Math.min(100, 20 + 75 * 0.7)) < 0.5);
+  assert.ok(Math.abs(saved.needs.hygiene - Math.min(100, 20 + 75 * CHEAP)) < 0.5);
+});
+
+test('cheap pieces are slower, nice ones quicker; cooking burns less as you get better', async () => {
+  const { activitySeconds } = await import('../src/sim/home-activity.ts');
+  const sleep = ACTIONS.sleep;
+  assert.ok(activitySeconds(sleep, 'twinBed') > activitySeconds(sleep, 'bedSingle'));
+  assert.ok(activitySeconds(sleep, 'bedDouble') < activitySeconds(sleep, 'bedSingle'));
+  const s = life();
+  let burns = 0;
+  for (let i = 0; i < 400; i++) {
+    beginActivity(s, 'cookPasta', { item: 'oldStove' });
+    if (completeActivity(s)?.quirk?.id === 'smokeAlarm') burns++;
+    s.money = 1_000_000;
+  }
+  s.skills.cooking = 5;
+  let pro = 0;
+  for (let i = 0; i < 400; i++) {
+    beginActivity(s, 'cookPasta', { item: 'oldStove' });
+    if (completeActivity(s)?.quirk?.id === 'smokeAlarm') pro++;
+  }
+  assert.ok(burns > pro, `beginner burns ${burns}, good cook ${pro}`);
 });

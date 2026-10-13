@@ -78,6 +78,12 @@ Shared difficulty curve:
 ## Jobs
 Each job has a temptation or downside. These are opt-in choices with consequences, not something that happens automatically.
 
+**Update (Peter, 2026-10-13): depression is the baseline, good habits keep it away.**
+- Each job slowly pushes you toward depression unless you do something good to balance it. The temptation is just one way out, never the required one.
+- Example, nurse/doctor: read, or hang out with your partner, to stay well. If you don't, you can cheat as a way to avoid getting depressed.
+- Depression affects how you interact with other people, and how much and how fast furniture replenishes your needs.
+- Not built yet. The starter deli job comes first; this layers on top of it.
+
 - **Healthcare (nurse/doctor):** temptation to cheat; skipping it raises your chance of getting sick.
 - **Construction:** long hours; womaniser or pick-me drama; work quality drops if you don't stray.
 - **Office worker:** boring life. Spreads false rumours, which travel far (a rumour system that spreads through NPC networks).
