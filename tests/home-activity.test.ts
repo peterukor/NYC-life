@@ -67,6 +67,7 @@ test('cheap pieces are slower, nice ones quicker; cooking burns less as you get 
   const rand = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
   let burns = 0;
   for (let i = 0; i < 400; i++) {
+    s.skills.cooking = 0; // (cooking itself trains the skill)
     beginActivity(s, 'cookPasta', { item: 'oldStove' });
     if (completeActivity(s, rand)?.quirk?.id === 'smokeAlarm') burns++;
     s.money = 1_000_000;
@@ -74,6 +75,7 @@ test('cheap pieces are slower, nice ones quicker; cooking burns less as you get 
   s.skills.cooking = 5;
   let pro = 0;
   for (let i = 0; i < 400; i++) {
+    s.skills.cooking = 5;
     beginActivity(s, 'cookPasta', { item: 'oldStove' });
     if (completeActivity(s, rand)?.quirk?.id === 'smokeAlarm') pro++;
   }
