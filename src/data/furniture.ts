@@ -38,6 +38,8 @@ export interface FurnitureDef {
   actions: string[];
   /** Flat things (rugs) can be walked over and sit under other furniture. */
   flat?: boolean;
+  /** Hangs on a wall (posters, a window AC): snaps to the outer walls when moved. */
+  wall?: boolean;
   /** Pieces with a screen: the TV ad plays on these. */
   tv?: boolean;
   /** Where the screen sits on a TV piece (metres from its centre): width, height, x, y, z. */
@@ -124,7 +126,7 @@ FURNITURE.add(
   { id: 'sinkCounter', name: 'Sink and counter', emoji: '🚰', price: 12_000, parts: [{ model: 'toySinkCounter' }], actions: [] },
   { id: 'oldToilet', name: 'Toilet', emoji: '🚽', price: 10_000, parts: [{ model: 'toyToilet' }], actions: ['toilet'] },
   { id: 'tubShower', name: 'Tub and shower', emoji: '🛁', price: 25_000, parts: [{ model: 'toyTubShower' }], actions: ['shower'] },
-  { id: 'posters', name: 'Posters', emoji: '🖼️', price: 1_500, parts: [{ model: 'toyPosters' }], actions: [] },
-  { id: 'windowAC', name: 'Window AC', emoji: '❄️', price: 9_000, parts: [{ model: 'toyWindowAC' }], actions: [] },
+  { id: 'posters', name: 'Posters', emoji: '🖼️', price: 1_500, parts: [{ model: 'toyPosters' }], actions: [], wall: true },
+  { id: 'windowAC', name: 'Window AC', emoji: '❄️', price: 9_000, parts: [{ model: 'toyWindowAC' }], actions: [], wall: true },
   { id: 'pedestalSink', name: 'Bathroom sink', emoji: '🪥', price: 8_000, parts: [{ model: 'toyPedestalSink' }], actions: [] },
 );

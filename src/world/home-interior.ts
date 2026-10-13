@@ -7,8 +7,11 @@
 //     and a shared apartment all feel different.
 //   • Real furniture (data/furniture.ts) that you tap to use: sleep in
 //     the bed, cook on the stove, watch TV on the sofa…
-//   • MOVE MODE: pick up any piece, tap the floor to put it down, turn
-//     it. The arrangement is saved per home (state.homes).
+//   • MOVE MODE: pick up any piece, drag it (or tap the floor) and turn
+//     it. A green shade on the floor means it fits there, red means it
+//     doesn't (walls, doorways, other furniture: world/furniture-fit.ts);
+//     let go on red and it slides back to where it was. The arrangement
+//     is saved per home (state.homes).
 // =====================================================================
 
 import * as THREE from 'three';
@@ -19,6 +22,7 @@ import { adTexture, HOUSE_ADS, signTexture } from '../render/textures.ts';
 import { HAIR_COLORS, makeAvatar, OUTFIT_COLORS, SKIN_TONES } from './avatar.ts';
 import type { FurnitureKit } from '../assets/furniture-kit.ts';
 import type { Interior, InteriorObject } from './interior.ts';
+import { rectAt, snapToWall, spotFree, whyNot, type FitKind, type FitWorld, type Footprint } from './furniture-fit.ts';
 
 const WALL_H = 2.9;
 const LOW_WALL = 0.55;
@@ -30,10 +34,22 @@ export interface HomeInterior extends Interior {
   items: HomeItem[];
   /** Floor meshes: tap targets when placing furniture. */
   floors: THREE.Object3D[];
-  /** Move a piece (clamped inside the home). */
-  moveItem: (uid: string, x: number, z: number) => void;
-  /** Turn a piece a quarter turn. */
-  rotateItem: (uid: string) => void;
+  /** Pick a piece up: remembers where it was and shows the floor shade. */
+  beginMove: (uid: string) => void;
+  /** Slide the held piece to a spot (snapped to a 10 cm grid). Returns whether it fits there. */
+  dragTo: (uid: string, x: number, z: number) => boolean;
+  /** Turn the held piece a quarter turn. Returns whether it fits. */
+  rotateItem: (uid: string) => boolean;
+  /** Put it down: if it fits it stays (and that's the new "before"), otherwise it slides back. Returns the reason it didn't fit, or null. */
+  drop: (uid: string) => string | null;
+  /** Leave move mode: `cancel` puts it back where it was when picked up. */
+  endMove: (uid: string, cancel: boolean) => void;
+  /** Where the held piece is now (to drag it by the point you grabbed). */
+  itemPos: (uid: string) => { x: number; z: number } | null;
+  /** Is this standing spot clear? */
+  spotFree: (x: number, z: number) => boolean;
+  /** Pieces standing where they shouldn't (for QA of the home layouts). */
+  clashes: () => { uid: string; why: string }[];
   /** Glow the piece being moved (null = none). */
   highlight: (uid: string | null) => void;
   /** Homes: you can move furniture. Venues (shops, bars): you can't. */
@@ -146,19 +162,53 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
     return box;
   };
 
+  const fpCache = new Map<string, Footprint | null>();
+  const fit: FitWorld = {
+    layout,
+    items,
+    footprint: (item) => {
+      if (!fpCache.has(item)) {
+        const def = FURNITURE.get(item);
+        const b = def ? footprint(def) : null;
+        fpCache.set(item, b && !b.isEmpty() ? { minX: b.min.x, maxX: b.max.x, minZ: b.min.z, maxZ: b.max.z } : null);
+      }
+      return fpCache.get(item)!;
+    },
+    kind: (item): FitKind => {
+      const def = FURNITURE.get(item);
+      return def?.flat ? 'flat' : def?.wall ? 'wall' : 'floor';
+    },
+  };
+
+  /** Where you stand to use a piece: in front if that's clear, else beside or behind it. */
+  const standFor = (it: HomeItem, out: THREE.Vector3) => {
+    const fb = fit.footprint(it.item) ?? { minX: -0.4, maxX: 0.4, minZ: -0.4, maxZ: 0.4 };
+    const up = new THREE.Vector3(0, 1, 0);
+    const tries: [number, number][] = [
+      [0, fb.maxZ + 0.45], [0, fb.maxZ + 0.8],
+      [fb.maxX + 0.4, 0], [fb.minX - 0.4, 0],
+      [fb.maxX + 0.4, fb.maxZ + 0.3], [fb.minX - 0.4, fb.maxZ + 0.3],
+      [0, fb.minZ - 0.45],
+    ];
+    for (const [lx, lz] of tries) {
+      const v = new THREE.Vector3(lx, 0, lz).applyAxisAngle(up, it.rot);
+      if (spotFree(fit, it.x + v.x, it.z + v.z)) return out.set(it.x + v.x, 0, it.z + v.z);
+    }
+    const v = new THREE.Vector3(0, 0, fb.maxZ + 0.45).applyAxisAngle(up, it.rot);
+    return out.set(THREE.MathUtils.clamp(it.x + v.x, -hw + 0.4, hw - 0.4), 0, THREE.MathUtils.clamp(it.z + v.z, -hd + 0.4, hd - 0.4));
+  };
+  const refreshStands = () => {
+    for (const it of items) {
+      const obj = objects.find((o) => o.id === it.uid);
+      if (obj) standFor(it, obj.stand);
+    }
+  };
+
   const placeGroup = (it: HomeItem) => {
     const g = groups.get(it.uid);
     if (!g) return;
     g.position.set(it.x, 0, it.z);
     g.rotation.y = it.rot;
-    const obj = objects.find((o) => o.id === it.uid);
-    if (obj) {
-      // Stand just in front of the piece to use it.
-      const def = FURNITURE.get(it.item)!;
-      const fb = footprint(def);
-      const front = new THREE.Vector3(0, 0, fb.max.z + 0.55).applyAxisAngle(new THREE.Vector3(0, 1, 0), it.rot);
-      obj.stand.set(THREE.MathUtils.clamp(it.x + front.x, -hw + 0.4, hw - 0.4), 0, THREE.MathUtils.clamp(it.z + front.z, -hd + 0.4, hd - 0.4));
-    }
   };
 
   for (const it of items) {
@@ -189,6 +239,7 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
     objects.push({ id: it.uid, label, emoji: def.placeActions ? place.emoji : def.emoji, mesh: g, actions: def.placeActions ? opts.placeActions ?? [] : def.actions, stand: new THREE.Vector3() });
     placeGroup(it);
   }
+  refreshStands();
 
   // TV: the ad shows only when you turn the TV on, briefly and clearly.
   const playTvAd = tvScreen
@@ -246,6 +297,56 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
     glow.scale.set(s, s, s);
   });
 
+  // The floor shade under a held piece: green = fits, red = doesn't.
+  // (Wall pieces get the shade on the floor right under them.)
+  const shadeMat = t(new THREE.MeshBasicMaterial({ color: '#36c46b', transparent: true, opacity: 0.55, depthWrite: false }));
+  // The held piece glows the same colour, so you see it even when it hides the shade.
+  const heldMat = t(kit.material.clone());
+  const tintHeld = (uid: string | null, ok = true) => {
+    for (const [id, g] of groups) {
+      const on = id === uid;
+      g.traverse((o) => {
+        if (!(o instanceof THREE.Mesh) || o.material === tvScreen) return;
+        if (o.material === kit.material || o.material === heldMat) o.material = on ? heldMat : kit.material;
+      });
+    }
+    heldMat.emissive.set(ok ? '#1f7a3e' : '#9b1c22');
+  };
+  const shade = new THREE.Mesh(t(new THREE.PlaneGeometry(1, 1)), shadeMat);
+  shade.rotation.x = -Math.PI / 2;
+  shade.renderOrder = 2;
+  shade.visible = false;
+  const edge = new THREE.LineSegments(t(new THREE.EdgesGeometry(new THREE.PlaneGeometry(1, 1))), t(new THREE.LineBasicMaterial({ color: '#1f8f4a', transparent: true, opacity: 0.9, depthWrite: false })));
+  edge.rotation.x = -Math.PI / 2;
+  edge.renderOrder = 3;
+  edge.visible = false;
+  scene.add(shade, edge);
+  // The piece in hand: where it was picked up, and the last spot it fitted.
+  let hold: { uid: string; startX: number; startZ: number; startRot: number; okX: number; okZ: number; okRot: number } | null = null;
+  const updateShade = (it: HomeItem): boolean => {
+    const fp = fit.footprint(it.item);
+    const ok = !whyNot(fit, it.uid, it.x, it.z, it.rot);
+    if (!fp) return ok;
+    const w = fp.maxX - fp.minX, d = fp.maxZ - fp.minZ;
+    const cx = (fp.minX + fp.maxX) / 2, cz = (fp.minZ + fp.maxZ) / 2;
+    const c = new THREE.Vector3(cx, 0, cz).applyAxisAngle(new THREE.Vector3(0, 1, 0), it.rot);
+    for (const m of [shade, edge]) {
+      m.visible = true;
+      m.position.set(it.x + c.x, 0.04, it.z + c.z);
+      m.rotation.z = it.rot; // the plane lies flat: its z turn is a turn about the floor's up
+      m.scale.set(w + 0.3, Math.max(d, 0.25) + 0.3, 1);
+    }
+    tintHeld(it.uid, ok);
+    shadeMat.color.set(ok ? '#36c46b' : '#e5484d');
+    (edge.material as THREE.LineBasicMaterial).color.set(ok ? '#1f8f4a' : '#a51d24');
+    return ok;
+  };
+  const heldItem = (uid: string) => (hold?.uid === uid ? items.find((i) => i.uid === uid) ?? null : null);
+  const putBack = (it: HomeItem, x: number, z: number, rot: number) => {
+    it.x = x; it.z = z; it.rot = rot;
+    placeGroup(it);
+  };
+
   return {
     scene,
     objects,
@@ -257,19 +358,64 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
     spawn: new THREE.Vector3(0, 0, hd - 1),
     halfWidth: hw + 1.1, // margin: the front of the room is nearer the camera, so it looks wider
     playTvAd,
-    moveItem(uid, x, z) {
+    beginMove(uid) {
       const it = items.find((i) => i.uid === uid);
       if (!it) return;
-      it.x = THREE.MathUtils.clamp(x, -hw + 0.4, hw - 0.4);
-      it.z = THREE.MathUtils.clamp(z, -hd + 0.4, hd - 0.4);
+      hold = { uid, startX: it.x, startZ: it.z, startRot: it.rot, okX: it.x, okZ: it.z, okRot: it.rot };
+      updateShade(it);
+    },
+    dragTo(uid, x, z) {
+      const it = heldItem(uid);
+      if (!it) return false;
+      if (fit.kind(it.item) === 'wall') {
+        const p = snapToWall(fit, it.item, x, z);
+        it.x = p.x; it.z = p.z; it.rot = p.rot;
+      } else {
+        // A 10 cm grid makes lining things up easy; stay inside the outer walls.
+        it.x = THREE.MathUtils.clamp(Math.round(x * 10) / 10, -hw + 0.2, hw - 0.2);
+        it.z = THREE.MathUtils.clamp(Math.round(z * 10) / 10, -hd + 0.2, hd - 0.2);
+      }
       placeGroup(it);
+      return updateShade(it);
     },
     rotateItem(uid) {
-      const it = items.find((i) => i.uid === uid);
-      if (!it) return;
-      it.rot = (it.rot + Math.PI / 2) % (Math.PI * 2);
+      const it = heldItem(uid);
+      if (!it || fit.kind(it.item) === 'wall') return it ? updateShade(it) : false;
+      it.rot = (Math.round((it.rot + Math.PI / 2) / (Math.PI / 2)) * (Math.PI / 2)) % (Math.PI * 2);
       placeGroup(it);
+      return updateShade(it);
     },
+    drop(uid) {
+      const it = heldItem(uid);
+      if (!it || !hold) return null;
+      const why = whyNot(fit, uid, it.x, it.z, it.rot);
+      if (why) putBack(it, hold.okX, hold.okZ, hold.okRot);
+      else Object.assign(hold, { okX: it.x, okZ: it.z, okRot: it.rot });
+      updateShade(it);
+      return why;
+    },
+    endMove(uid, cancel) {
+      const it = heldItem(uid);
+      if (it && hold) {
+        if (cancel) putBack(it, hold.startX, hold.startZ, hold.startRot);
+        else if (whyNot(fit, uid, it.x, it.z, it.rot)) putBack(it, hold.okX, hold.okZ, hold.okRot);
+      }
+      hold = null;
+      shade.visible = edge.visible = false;
+      tintHeld(null);
+      refreshStands();
+    },
+    itemPos(uid) {
+      const it = items.find((i) => i.uid === uid);
+      return it ? { x: it.x, z: it.z } : null;
+    },
+    spotFree: (x, z) => spotFree(fit, x, z),
+    clashes: () => items.flatMap((i) => {
+      const why = whyNot(fit, i.uid, i.x, i.z, i.rot);
+      const fp = fit.footprint(i.item);
+      const r = fp ? rectAt(fp, i.x, i.z, i.rot) : null;
+      return why ? [{ uid: i.uid, why: `${why} ${r ? [r.x0, r.z0, r.x1, r.z1].map((v) => v.toFixed(2)).join(',') : ''}` }] : [];
+    }),
     highlight(uid) {
       lit = uid;
       glow.visible = !!uid;

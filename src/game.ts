@@ -112,6 +112,8 @@ export class Game {
   private furniture: FurnitureKit | null = null;
   /** The furniture piece being moved in move mode (home only). */
   private moving: { uid: string; bar: HTMLElement } | null = null;
+  /** A finger dragging the held piece (move mode). */
+  private drag: { id: number; dx: number; dz: number; moved: boolean; sx: number; sy: number } | null = null;
 
   private path: { x: number; z: number }[] = [];
   /** Place to open when the player reaches its door. */
@@ -133,6 +135,7 @@ export class Game {
     this.player = makeAvatar({ body: 'f', skin: '#8d5524', top: '#e63946', bottom: '#111111', hair: '#111111' });
     this.engine.cityScene.add(this.player.root);
     this.engine.onTap((x, y) => this.onTap(x, y));
+    this.setupFurnitureDrag();
     // Re-frame rooms when the phone rotates or the window changes size.
     window.addEventListener('resize', () => {
       if (this.engine.mode === 'interior') this.fitInteriorCamera();
@@ -310,6 +313,23 @@ export class Game {
       /** Try on clothes without saving (for screenshots). */
       /** Force an activity animation on the player (null = back to normal). */
       anim: (name: FolkAnim | null) => this.player.setAction(name),
+      /** Furniture QA: start move mode, list clashing pieces, where a piece is on screen. */
+      moveFurniture: (uid: string) => this.startMoving(uid),
+      doneMoving: (keep: boolean) => this.stopMoving(keep),
+      furnitureClashes: () => (this.interior && 'clashes' in this.interior ? (this.interior as HomeInterior).clashes() : null),
+      furnitureAt: (uid: string) => (this.interior && 'items' in this.interior ? (this.interior as HomeInterior).items.find((i) => i.uid === uid) ?? null : null),
+      itemScreen: (uid: string) => {
+        const it = this.interior && 'items' in this.interior ? (this.interior as HomeInterior).items.find((i) => i.uid === uid) : null;
+        if (!it) return null;
+        const v = new THREE.Vector3(it.x, 0.3, it.z).project(this.interiorCamera);
+        const r = this.engine.renderer.domElement.getBoundingClientRect();
+        return { x: r.left + ((v.x + 1) / 2) * r.width, y: r.top + ((1 - v.y) / 2) * r.height };
+      },
+      floorScreen: (x: number, z: number) => {
+        const v = new THREE.Vector3(x, 0, z).project(this.interiorCamera);
+        const r = this.engine.renderer.domElement.getBoundingClientRect();
+        return { x: r.left + ((v.x + 1) / 2) * r.width, y: r.top + ((1 - v.y) / 2) * r.height };
+      },
       /** Open the closet (with the mirror, when at home). */
       closet: () => this.openClosetMirror(),
       wardrobe: () => [...this.state.wardrobe],
@@ -668,9 +688,14 @@ export class Game {
     sfx.tap();
     if (this.engine.mode === 'interior' && this.interior && this.moving) {
       // Move mode: tap the floor to put the piece there.
+      // (A press on the piece itself is a grab, not a tap: see setupFurnitureDrag.)
+      if (this.drag) return;
       const home = this.interior as HomeInterior;
       const hit = this.engine.pick(x, y, home.floors, this.interiorCamera);
-      if (hit) home.moveItem(this.moving.uid, hit.point.x, hit.point.z);
+      if (!hit) return;
+      home.dragTo(this.moving.uid, hit.point.x, hit.point.z);
+      const why = home.drop(this.moving.uid);
+      if (why) toast(`${why}, so it went back`, { icon: '↩️', ms: 2000 });
       return;
     }
     if (this.engine.mode === 'interior' && this.interior) {
@@ -895,34 +920,98 @@ export class Game {
   // Moving furniture (home only)
   // ===================================================================
 
-  /** Pick up a piece: tap the floor to place it, turn it, then Done. */
+  /**
+   * Pick up a piece. Drag it with your finger (or tap the floor where it
+   * should go), turn it, then Done. A green shade on the floor = it fits,
+   * red = it doesn't; let go on red and it slides back to where it was.
+   */
   private startMoving(uid: string): void {
     const home = this.interior as HomeInterior | null;
     if (!home || !('floors' in home)) return;
     this.stopMoving(false);
-    const bar = html(`<div class="move-bar"><span>Tap the floor to place it</span><button class="btn" data-mv="turn">↻ Turn</button><button class="btn primary" data-mv="done">✓ Done</button></div>`);
+    const bar = html(`<div class="move-bar"><span>Drag it, or tap the floor</span><button class="btn" data-mv="turn" aria-label="Turn">↻</button><button class="btn" data-mv="cancel" aria-label="Cancel">✕</button><button class="btn primary" data-mv="done">✓ Done</button></div>`);
     root().appendChild(bar);
     bar.querySelector('[data-mv="turn"]')!.addEventListener('click', (e) => {
       e.stopPropagation();
-      home.rotateItem(uid);
+      if (!home.rotateItem(uid)) toast('Doesn’t fit turned that way. Move it, or turn again', { icon: '🟥', ms: 1800 });
+    });
+    bar.querySelector('[data-mv="cancel"]')!.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.stopMoving(false);
     });
     bar.querySelector('[data-mv="done"]')!.addEventListener('click', (e) => {
       e.stopPropagation();
       this.stopMoving(true);
     });
     home.highlight(uid);
+    home.beginMove(uid);
     this.moving = { uid, bar };
   }
 
-  /** Leave move mode; `keep` saves the new arrangement for this home. */
+  /** Where a screen point lands on the floor (y = 0) through the interior camera. */
+  private floorPoint(x: number, y: number): THREE.Vector3 | null {
+    const r = this.engine.renderer.domElement.getBoundingClientRect();
+    const ray = new THREE.Raycaster();
+    ray.setFromCamera(new THREE.Vector2(((x - r.left) / r.width) * 2 - 1, -((y - r.top) / r.height) * 2 + 1), this.interiorCamera);
+    return ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), new THREE.Vector3());
+  }
+
+  /** Move mode drag: grab the held piece and slide it around the floor. */
+  private setupFurnitureDrag(): void {
+    const el = this.engine.renderer.domElement;
+    el.addEventListener('pointerdown', (e) => {
+      if (!e.isPrimary || !this.moving || this.engine.mode !== 'interior') return;
+      const home = this.interior as HomeInterior;
+      const p = this.floorPoint(e.clientX, e.clientY);
+      const at = home.itemPos(this.moving.uid);
+      if (!p || !at) return;
+      // Grab it if you pressed on the piece (or right next to it).
+      const g = home.objects.find((o) => o.id === this.moving!.uid)?.mesh;
+      const onIt = g && this.engine.pick(e.clientX, e.clientY, [g], this.interiorCamera);
+      if (!onIt && Math.hypot(p.x - at.x, p.z - at.z) > 0.9) return;
+      this.drag = { id: e.pointerId, dx: at.x - p.x, dz: at.z - p.z, moved: false, sx: e.clientX, sy: e.clientY };
+    });
+    el.addEventListener('pointermove', (e) => {
+      const d = this.drag;
+      if (!d || e.pointerId !== d.id || !this.moving) return;
+      if (!d.moved && Math.hypot(e.clientX - d.sx, e.clientY - d.sy) < 6) return;
+      d.moved = true;
+      const p = this.floorPoint(e.clientX, e.clientY);
+      if (p) (this.interior as HomeInterior).dragTo(this.moving.uid, p.x + d.dx, p.z + d.dz);
+    });
+    const release = (e: PointerEvent) => {
+      const d = this.drag;
+      if (!d || e.pointerId !== d.id) return;
+      // Let the tap handler (which runs first) see the grab, then clear it.
+      window.setTimeout(() => (this.drag = null), 0);
+      if (!d.moved || !this.moving) return;
+      const why = (this.interior as HomeInterior).drop(this.moving.uid);
+      if (why) toast(`${why}, so it went back`, { icon: '↩️', ms: 2000 });
+      else sfx.tap();
+    };
+    el.addEventListener('pointerup', release);
+    el.addEventListener('pointercancel', release);
+  }
+
+  /** Leave move mode; `keep` saves the new arrangement (otherwise the piece goes back). */
   private stopMoving(keep: boolean): void {
     if (!this.moving) return;
     this.moving.bar.remove();
     const home = this.interior as HomeInterior | null;
-    home?.highlight?.(null);
+    const uid = this.moving.uid;
     this.moving = null;
+    this.drag = null;
+    if (!home || !('items' in home)) return;
+    home.highlight?.(null);
+    home.endMove(uid, !keep);
+    // Don't leave yourself standing inside the furniture you just moved.
+    const p = this.player.root.position;
+    if (!home.spotFree(p.x, p.z)) {
+      const obj = home.objects.find((o) => o.id === uid);
+      if (obj) p.copy(obj.stand);
+    }
     const placeId = this.state.location.placeId;
-    if (keep && home && 'items' in home && placeId) {
+    if (keep && placeId) {
       this.state.homes[placeId] = home.items.map((i) => ({ ...i }));
       this.save();
       toast('Saved your new layout', { icon: '🛋️', tone: 'good', ms: 1800 });
