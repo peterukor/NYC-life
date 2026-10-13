@@ -145,6 +145,10 @@ export interface PropOptions {
   doors: { x: number; z: number }[];
   buildings: BuildingPlan[];
   yard: Rect | null;
+  /** Pocket gardens (open lots, leftovers by Broadway). */
+  greens?: Rect[];
+  /** Don't plant here (on a road). */
+  avoid?: (x: number, z: number) => boolean;
   kind: 'buildings' | 'park' | 'plaza' | 'vacant' | 'lot' | 'ads';
   /** Draw street trees (quality setting). */
   trees: boolean;
@@ -167,6 +171,27 @@ export function emitBlockProps(bld: CityMeshBuilder, o: PropOptions, rng: Rng): 
     for (let x = y.minX + 3; x < y.maxX - 2; x += rng.range(5, 9)) {
       if (o.trees) (o.simple ? treeSimple : tree)(bld, x, (y.minZ + y.maxZ) / 2 + rng.range(-0.6, 0.6), 0.2, rng.range(0.8, 1.15), rng);
       else bld.blob(x, 0.9, (y.minZ + y.maxZ) / 2, 1, 0.7, 1, '#5cb85c');
+    }
+  }
+
+  // ---- pocket gardens: grass, a few trees and a bench where a lot is open
+  const inBuilding = (x: number, z: number) => o.buildings.some((p) => x > p.rect.minX - 1.6 && x < p.rect.maxX + 1.6 && z > p.rect.minZ - 1.6 && z < p.rect.maxZ + 1.6);
+  if (o.kind === 'buildings') {
+    for (const g of o.greens ?? []) {
+      const w = g.maxX - g.minX, d = g.maxZ - g.minZ;
+      if (w < 3 || d < 3) continue;
+      bld.flat(g.minX + 0.4, g.maxX - 0.4, g.minZ + 0.4, g.maxZ - 0.4, 0.2, '#8fd27a', TILE.solid);
+      const n = Math.min(7, Math.max(1, Math.round((w * d) / 110)));
+      for (let i = 0; i < n; i++) {
+        const x = rng.range(g.minX + 2.2, g.maxX - 2.2), z = rng.range(g.minZ + 2.2, g.maxZ - 2.2);
+        if (o.avoid?.(x, z) || near(x, z, 3) || inBuilding(x, z)) continue;
+        if (o.trees) (o.simple ? treeSimple : tree)(bld, x, z, 0.2, rng.range(0.85, 1.2), rng);
+        else bld.blob(x, 0.9, z, 1, 0.7, 1, '#5cb85c');
+      }
+      if (!o.simple && w > 8 && d > 6) {
+        const bx = (g.minX + g.maxX) / 2, bz = (g.minZ + g.maxZ) / 2;
+        if (!o.avoid?.(bx, bz) && !inBuilding(bx, bz)) bench(bld, bx, bz, w > d ? 'x' : 'z');
+      }
     }
   }
 

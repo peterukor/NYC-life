@@ -27,7 +27,7 @@ import { CityBlocks } from './nycgen/city-blocks.ts';
 import { groundTextures } from './nycgen/atlas.ts';
 import { buildCoast, onLand } from './coast.ts';
 import { pondsFor } from '../data/parks.ts';
-import { corridorsIn } from './corridors.ts';
+import { corridorsIn, onCorridor } from './corridors.ts';
 import { plotsIn } from '../data/plots.ts';
 import { buildAdBoards, type AdBoards } from './ad-blocks.ts';
 import { LANDMARKS } from './landmarks/index.ts';
@@ -419,6 +419,7 @@ export function buildCity(area: AreaId, opts: { trees: boolean; shadows?: boolea
     nearHub,
     doors: doorSpots.map((x) => ({ x: x.door.x, z: x.door.z })),
     parkTrees: trees.map((t) => ({ x: t.x, z: t.z, y: t.y })),
+    avoid: (x, z) => !!onCorridor(area, x, z, 2),
     cache: opts.shadows ? 40 : 30,
   });
   group.add(nyc.group);

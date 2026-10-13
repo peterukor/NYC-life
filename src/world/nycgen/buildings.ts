@@ -115,6 +115,8 @@ function shade(hex: string, k: number): string {
 
 export interface BlockPlan {
   buildings: BuildingPlan[];
+  /** Lots left open (gaps in a row): pocket gardens (props.ts). */
+  greens?: Rect[];
   /** Open back-yard strip in the middle of the block (grass + trees), if any. */
   yard: Rect | null;
 }
@@ -136,6 +138,7 @@ export function planNycBlock(inner: Rect, zone: string, rng: Rng, nearHub: boole
   const depth = () => rowD * rng.range(0.7, 1);
   const gap = (i: number, n: number) => i > 0 && i < n - 1 && rng.chance(0.1);
   const buildings: BuildingPlan[] = [];
+  const greens: Rect[] = [];
 
   // Towers that fill the full depth (tall zones only), left to right.
   type Lot = { x0: number; x1: number; style: Style; full: boolean };
@@ -215,7 +218,7 @@ export function planNycBlock(inner: Rect, zone: string, rng: Rng, nearHub: boole
     else if (!gap(i, north.length)) {
       const sb = setback(lot.style);
       buildings.push(makePlan(lot, inner.minZ + sb, inner.minZ + sb + depth(), 'n', corner));
-    }
+    } else greens.push({ minX: lot.x0, maxX: lot.x1, minZ: inner.minZ, maxZ: inner.minZ + rowD });
   }
   // The south row skips the x ranges a full-depth tower already took.
   let x = inner.minX;
@@ -235,14 +238,55 @@ export function planNycBlock(inner: Rect, zone: string, rng: Rng, nearHub: boole
   void x;
   for (const [i, lot] of southLots.entries()) {
     const corner = lot.x0 <= inner.minX + 0.1 ? 'w' : lot.x1 >= inner.maxX - 0.1 ? 'e' : i === southLots.length - 1 ? 'e' : null;
-    if (gap(i, southLots.length)) continue;
+    if (gap(i, southLots.length)) {
+      greens.push({ minX: lot.x0, maxX: lot.x1, minZ: inner.maxZ - rowD, maxZ: inner.maxZ });
+      continue;
+    }
     const sb = setback(lot.style);
     buildings.push(makePlan(lot, inner.maxZ - sb - depth(), inner.maxZ - sb, 's', corner));
   }
   x = 0;
+  // Avenue sides (2026-10-12 clean-up): the bigger blocks left long empty
+  // avenue frontages with the yard showing through. Now a row of buildings
+  // faces each avenue between the two street rows, so the block is built
+  // up all round with a courtyard in the middle, like real Manhattan.
   const yardDepth = D - rowD * 2;
-  const yard = yardDepth > 2 ? { minX: inner.minX, maxX: inner.maxX, minZ: inner.minZ + rowD, maxZ: inner.maxZ - rowD } : null;
-  return { buildings, yard };
+  const blockW = inner.maxX - inner.minX;
+  const zA = inner.minZ + rowD, zB = inner.maxZ - rowD;
+  const sideD = Math.min(rowD * 0.85, blockW * 0.26);
+  let yardX0 = inner.minX, yardX1 = inner.maxX;
+  if (zB - zA > 14 && sideD > 9) {
+    for (const side of ['w', 'e'] as const) {
+      const sx0 = side === 'w' ? inner.minX : inner.maxX - sideD;
+      if (fullLots.some((f) => sx0 < f.x1 && sx0 + sideD > f.x0)) continue; // a tower already fills that corner
+      let z = zA;
+      const sideLots: { z0: number; z1: number; style: Style }[] = [];
+      while (z < zB - 4) {
+        let style = weighted(rng, mix);
+        if (style === 'glass' || style === 'deco') style = 'prewar';
+        const [w0, w1] = STYLE_RULES[style].width;
+        let w = rng.range(w0, w1);
+        if (zB - (z + w) < 8) w = zB - z;
+        w = Math.min(w, zB - z);
+        sideLots.push({ z0: z, z1: z + w, style });
+        z += w;
+      }
+      for (const [i, l] of sideLots.entries()) {
+        if (gap(i, sideLots.length)) {
+          greens.push({ minX: sx0, maxX: sx0 + sideD, minZ: l.z0, maxZ: l.z1 });
+          continue;
+        }
+        const sb = setback(l.style);
+        const dep = sideD * rng.range(0.75, 1);
+        const x0 = side === 'w' ? inner.minX + sb : inner.maxX - sb - dep;
+        buildings.push(makePlan({ x0, x1: x0 + dep, style: l.style, full: false }, l.z0 + 0.05, l.z1 - 0.05, side, null));
+      }
+      if (side === 'w') yardX0 = inner.minX + sideD;
+      else yardX1 = inner.maxX - sideD;
+    }
+  }
+  const yard = yardDepth > 2 ? { minX: yardX0, maxX: yardX1, minZ: zA, maxZ: zB } : null;
+  return { buildings, yard, greens };
 }
 
 // ---------------------------------------------------------------------

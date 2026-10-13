@@ -36,6 +36,8 @@ interface BlockEntry {
   kind: Exclude<BlockKind, 'water'>;
   buildings: BuildingPlan[];
   yard: Rect | null;
+  /** Pocket gardens: open lots, and what's left where Broadway cut a building away. */
+  greens: Rect[];
   /** Id that switches this block's far stand-in on/off. */
   farId: number;
   near: THREE.Mesh | null;
@@ -53,8 +55,50 @@ export interface CityBlocksOptions {
   doors: { x: number; z: number }[];
   /** Trees inside parks (positions decided by city.ts). */
   parkTrees?: { x: number; z: number; y: number }[];
+  /** Points where nothing may be planted (on Broadway or the highway). */
+  avoid?: (x: number, z: number) => boolean;
   /** How many detailed blocks to keep built (memory cap). */
   cache?: number;
+}
+
+/**
+ * Smaller buildings in place of one a road runs through: the lot cut into
+ * 2-4 pieces along its front, each tried at full, 70% and 50% depth (kept
+ * against the street), keeping the pieces that clear the road.
+ */
+function refit(p: BuildingPlan, clear: (r: Rect) => boolean, newId: () => number): BuildingPlan[] {
+  const out: BuildingPlan[] = [];
+  const alongX = p.front === 'n' || p.front === 's';
+  const a0 = alongX ? p.rect.minX : p.rect.minZ;
+  const a1 = alongX ? p.rect.maxX : p.rect.maxZ;
+  const depth = alongX ? p.rect.maxZ - p.rect.minZ : p.rect.maxX - p.rect.minX;
+  for (const n of [2, 3, 4]) {
+    const pieces: BuildingPlan[] = [];
+    const step = (a1 - a0) / n;
+    if (step < 7) break;
+    for (let i = 0; i < n; i++) {
+      const s = a0 + i * step + (i ? 0.05 : 0), e = a0 + (i + 1) * step - (i < n - 1 ? 0.05 : 0);
+      for (const k of [1, 0.7, 0.5]) {
+        const dep = depth * k;
+        if (dep < 7) continue;
+        const r: Rect = alongX
+          ? { minX: s, maxX: e, minZ: p.front === 'n' ? p.rect.minZ : p.rect.maxZ - dep, maxZ: p.front === 'n' ? p.rect.minZ + dep : p.rect.maxZ }
+          : { minX: p.front === 'w' ? p.rect.minX : p.rect.maxX - dep, maxX: p.front === 'w' ? p.rect.minX + dep : p.rect.maxX, minZ: s, maxZ: e };
+        if (!clear(r)) continue;
+        // Shorter pieces get fewer floors: no thin slab towers next to Broadway.
+        const scale = Math.min(1, ((e - s) * dep) / ((a1 - a0) * depth) + 0.45);
+        const tiers = p.tiers.map((t) => ({ inset: Math.min(t.inset, (e - s) * 0.12), floors: Math.max(2, Math.round(t.floors * scale)) }));
+        const floors = tiers.reduce((f, t) => f + t.floors, 0);
+        pieces.push({ ...p, id: newId(), rect: r, corner: null, tiers, floors, height: p.height * (floors / Math.max(1, p.floors)), seed: p.seed + i * 17 + n });
+        break;
+      }
+    }
+    if (pieces.length) {
+      out.push(...pieces);
+      break;
+    }
+  }
+  return out;
 }
 
 export class CityBlocks {
@@ -86,9 +130,22 @@ export class CityBlocks {
         const seed = `${d.seed}-nyc-${c}-${r}`;
         const plan = kind === 'buildings' && !opts.skip(c, r) ? planNycBlock(inner, d.zone(c, r), new Rng(seed), opts.nearHub(c, r), () => this.fades.allocate()) : { buildings: [], yard: null };
         // Nothing stands on Broadway or the ring highway (world/corridors.ts):
-        // the road cuts the block into the wedges real Manhattan has.
-        plan.buildings = plan.buildings.filter((p) => !rectOnCorridor(d.id, p.rect, 1.5));
-        this.blocks.push({ c, r, key: `${c},${r}`, rect, inner, kind, buildings: plan.buildings, yard: plan.yard, farId: this.fades.allocate(), near: null, parkTrees: (opts.parkTrees ?? []).filter((t) => t.x >= rect.minX - d.avenueW / 2 - 1 && t.x < rect.maxX + d.avenueW / 2 + 1 && t.z >= rect.minZ - d.streetW / 2 - 1 && t.z < rect.maxZ + d.streetW / 2 + 1), lastUsed: 0, seed });
+        // the road cuts the block into the wedges real Manhattan has. A
+        // building the road runs through is refitted as smaller pieces that
+        // stay clear of it; whatever's left becomes a pocket garden, not
+        // bare paving (2026-10-12 clean-up).
+        const greens: Rect[] = [...((plan as { greens?: Rect[] }).greens ?? [])];
+        const kept: BuildingPlan[] = [];
+        for (const p of plan.buildings) {
+          if (!rectOnCorridor(d.id, p.rect, 1.5)) {
+            kept.push(p);
+            continue;
+          }
+          kept.push(...refit(p, (q) => !rectOnCorridor(d.id, q, 1.5), () => this.fades.allocate()));
+          greens.push(p.rect);
+        }
+        plan.buildings = kept;
+        this.blocks.push({ c, r, key: `${c},${r}`, rect, inner, kind, buildings: plan.buildings, yard: plan.yard, greens, farId: this.fades.allocate(), near: null, parkTrees: (opts.parkTrees ?? []).filter((t) => t.x >= rect.minX - d.avenueW / 2 - 1 && t.x < rect.maxX + d.avenueW / 2 + 1 && t.z >= rect.minZ - d.streetW / 2 - 1 && t.z < rect.maxZ + d.streetW / 2 + 1), lastUsed: 0, seed });
       }
     }
     // 2. Far stand-ins, grouped 4×5 blocks per mesh so off-screen groups are skipped.
@@ -119,7 +176,7 @@ export class CityBlocks {
   }
 
   private propOptions(b: BlockEntry, simple: boolean) {
-    return { b: b.rect, sidewalk: SIDEWALK, doors: this.opts.doors, buildings: b.buildings, yard: b.yard, kind: b.kind, trees: this.opts.trees, simple };
+    return { b: b.rect, sidewalk: SIDEWALK, doors: this.opts.doors, buildings: b.buildings, yard: b.yard, greens: b.greens, avoid: this.opts.avoid, kind: b.kind, trees: this.opts.trees, simple };
   }
 
   /** All planned buildings (for rooftop billboards etc.). */
