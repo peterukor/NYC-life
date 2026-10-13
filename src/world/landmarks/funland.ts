@@ -15,17 +15,36 @@ const CANDY = ['#ff3d7f', '#ffd93d', '#4d96ff', '#6bcb77', '#c77dff', '#ff8a3d']
 LANDMARKS.add({
   id: 'funland',
   build({ place, district, group, track, animate }) {
-    // Covers the place's block and the one north of it (see layout.ts).
+    // Fills the place's own block (blocks got big enough on 2026-10-12;
+    // it used to spill into the block north of it, among the buildings).
     const [c, r] = place.block;
-    const a = blockRect(district, c, r - 1);
     const b = blockRect(district, c, r);
-    const area = { minX: a.minX + 4, maxX: a.maxX - 4, minZ: a.minZ + 4, maxZ: b.maxZ - 4 };
+    const area = { minX: b.minX + 4, maxX: b.maxX - 4, minZ: b.minZ + 4, maxZ: b.maxZ - 4 };
     const cx = (area.minX + area.maxX) / 2;
+    const W = area.maxX - area.minX, D = area.maxZ - area.minZ;
+
+    // ---- Ground: candy-coloured paths in a loop and across, planters, food stalls.
+    const ground = new Toy();
+    const path = '#f6d8a8';
+    const pz = area.minZ + D * 0.47;
+    ground.block(W - 4, 0.12, 4, cx, 0.2, pz, path, 0.05);
+    ground.block(4, 0.12, D - 4, cx, 0.2, (area.minZ + area.maxZ) / 2, path, 0.05);
+    for (const [x, z] of [[area.minX + 4, area.minZ + 4], [area.maxX - 4, area.minZ + 4], [area.minX + 4, area.maxZ - 4], [area.maxX - 4, area.maxZ - 4]]) {
+      ground.cyl(2.2, 2.4, 0.9, x, 0.2, z, '#c98b5b', 10);
+      ground.sphere(2.1, x, 2.2, z, '#5fae4f');
+    }
+    for (let i = 0; i < 4; i++) {
+      const x = area.minX + 10 + i * ((W - 20) / 3);
+      const z = pz + 6.5;
+      ground.block(4, 2.2, 3, x, 0.2, z, '#ffffff', 0.15);
+      ground.block(4.6, 0.5, 3.6, x, 2.5, z, CANDY[(i + 2) % CANDY.length], 0.15);
+    }
+    group.add(ground.build('funland-ground'));
 
     // ---- Ferris wheel (rotating)
-    const wheelX = cx + 14;
-    const wheelZ = area.minZ + 22;
-    const R = 16;
+    const R = Math.min(16, D * 0.17);
+    const wheelX = area.maxX - R - 3;
+    const wheelZ = area.minZ + 10;
     const hub = R + 4;
     const frame = new Toy();
     for (const s of [-1, 1]) {
@@ -58,11 +77,12 @@ LANDMARKS.add({
     // ---- Roller coaster: a looping track on supports.
     const coaster = new Toy();
     const pts: THREE.Vector3[] = [];
-    const cz0 = area.maxZ - 34;
+    const crx = Math.min(30, W * 0.36), crz = Math.min(16, D * 0.2);
+    const cz0 = area.maxZ - crz - 6;
     for (let i = 0; i <= 60; i++) {
       const t = (i / 60) * Math.PI * 2;
-      const x = cx + Math.cos(t) * 26;
-      const z = cz0 + Math.sin(t) * 14;
+      const x = cx + Math.cos(t) * crx;
+      const z = cz0 + Math.sin(t) * crz;
       const y = 6 + 10 * Math.max(0, Math.sin(t * 2 + 0.6)) + 6 * Math.max(0, Math.cos(t));
       pts.push(new THREE.Vector3(x, y, z));
     }
@@ -78,8 +98,8 @@ LANDMARKS.add({
     group.add(train);
 
     // ---- Carousel (rotating striped roof)
-    const carX = cx - 18;
-    const carZ = area.minZ + 18;
+    const carX = area.minX + 16;
+    const carZ = area.minZ + 16;
     const base = new Toy();
     base.cyl(9, 9.5, 1, carX, 0.18, carZ, '#ffffff', 24);
     base.cyl(0.8, 0.8, 7, carX, 1, carZ, '#ffd93d', 10);
@@ -99,9 +119,9 @@ LANDMARKS.add({
 
     // ---- Striped carnival tents
     const tents = new Toy();
-    for (let i = 0; i < 5; i++) {
-      const x = area.minX + 8 + i * ((area.maxX - area.minX - 16) / 4);
-      const z = (area.minZ + area.maxZ) / 2;
+    for (let i = 0; i < 3; i++) {
+      const x = cx - 14 + i * 9;
+      const z = area.minZ + 12;
       tents.block(6, 3, 6, x, 0.18, z, '#ffffff', 0.15);
       for (let k = 0; k < 8; k++) tents.add(new THREE.ConeGeometry(5, 3.4, 8, 1, false, (k / 8) * Math.PI * 2, Math.PI / 4).translate(x, 4.9, z), k % 2 ? CANDY[i] : '#ffffff');
     }
