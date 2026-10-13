@@ -94,15 +94,16 @@ export function makeAvatar(look: Look): Avatar {
 export function folkLookOf(look: Look): FolkLook {
   const f = look.body === 'f';
   const pick = (m: string, w: string) => (f ? w : m);
-  // The top decides the base model (a blazer is a suit, a hoodie is casual…).
-  const top = look.topId ?? 'tee';
+  // Real clothes (world/clothes.ts) go on top of the body, so the body
+  // model is picked by HAIR only (each model has its own hairdo); the
+  // clothes are the same on every body.
+  const hs = look.hairStyle ?? (f ? 'hair_long' : 'hair_short');
   const character =
-    top === 'blazer' || top === 'designerSuit' || top === 'trenchCoat' ? pick('Suit_Male', 'Suit_Female')
-    : top === 'longsleeve' || top === 'hoodie' || top === 'pufferJacket' || top === 'turtleneck' ? pick('Casual2_Male', 'Casual2_Female')
-    : top === 'denimJacket' || top === 'leatherJacket' ? pick('Casual3_Male', 'Casual3_Female')
-    : look.hairStyle === 'hair_bald' && !f ? 'Casual_Bald'
+    hs === 'hair_bald' && !f ? 'Casual_Bald'
+    : /buzz|bun|ponytail/.test(hs) ? pick('Casual2_Male', 'Casual2_Female')
+    : /curly|afro|braids/.test(hs) ? pick('Casual3_Male', 'Casual3_Female')
     : pick('Casual_Male', 'Casual_Female');
-  return { character, skin: look.skin, hair: look.hair, top: look.top, bottom: look.bottom, hat: look.hat };
+  return { character, skin: look.skin, hair: look.hair, top: look.top, bottom: look.bottom, hat: look.hat, dress: look };
 }
 
 /** A capsule hanging down from its top end (handy for limbs that rotate at the joint). */

@@ -29,6 +29,8 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { MeshoptSimplifier } from 'meshoptimizer/simplifier';
+import type { Look } from '../sim/types.ts';
+import { buildOutfit } from './clothes.ts';
 
 /** Model units → metres (the models are 3.1 units tall). */
 export const FOLK_SCALE = 0.56;
@@ -111,6 +113,11 @@ export interface FolkLook {
   top?: string;
   bottom?: string;
   hat?: string;
+  /**
+   * The full outfit (the player): real 3D clothes are built on the body
+   * (world/clothes.ts) instead of painting the model's own clothes.
+   */
+  dress?: Look;
 }
 
 function findSkinned(root: THREE.Object3D): THREE.SkinnedMesh {
@@ -153,6 +160,8 @@ export class Actor {
   private actions = new Map<FolkAnim, THREE.AnimationAction>();
   private current: FolkAnim | null = null;
   private character = '';
+  private clothes: THREE.SkinnedMesh | null = null;
+  private dressKey = '';
 
   constructor(
     private kit: FolkKit,
@@ -167,6 +176,7 @@ export class Actor {
     const name = this.kit.templates.has(look.character) ? look.character : FOLK_ROLES.casual[0];
     if (name !== this.character) {
       const playing = this.current;
+      this.undress();
       this.model?.removeFromParent();
       this.mixer?.stopAllAction();
       this.actions.clear();
@@ -191,7 +201,79 @@ export class Actor {
       this.mixer = new THREE.AnimationMixer(this.model);
       this.play(playing ?? 'idle', 0);
     }
-    paint(this.mesh.geometry.userData.src, look, this.mesh.geometry.getAttribute('color') as THREE.BufferAttribute);
+    const colors = this.mesh.geometry.getAttribute('color') as THREE.BufferAttribute;
+    paint(this.mesh.geometry.userData.src, look, colors);
+    if (look.dress) this.dress(look.dress, colors);
+    else this.undress();
+  }
+
+  /** Put real clothes on (rebuilt only when the outfit changes). */
+  private dress(d: Look, colors: THREE.BufferAttribute): void {
+    const src = this.mesh.geometry.userData.src as THREE.BufferGeometry;
+    const key = `${this.character}|${d.topId}|${d.top}|${d.topInner}|${d.bottomId}|${d.bottom}|${d.shoesId}|${d.shoes}|${d.hatId}|${d.hat}|${d.extraId}|${d.extra}|${d.skin}`;
+    const out = buildOutfit(this.mesh, src, d);
+    // Under the clothes: the cloth's colour (so nothing pokes through at
+    // the joints). Uncovered top/bottom areas are bare skin.
+    const slots = src.getAttribute('_slot') ?? src.getAttribute('_SLOT');
+    const skin = new THREE.Color(d.skin);
+    const c = new THREE.Color();
+    for (let i = 0; i < colors.count; i++) {
+      const sl = slots ? Math.round(slots.getX(i)) : 0;
+      const u = out.under[i];
+      if (u) colors.setXYZ(i, ...(c.set(u).toArray() as [number, number, number]));
+      else if (sl === SLOT.top || sl === SLOT.bottom || sl === SLOT.detail || sl === SLOT.hat) colors.setXYZ(i, skin.r, skin.g, skin.b);
+    }
+    colors.needsUpdate = true;
+    this.tuckHair(src, out.hatLine);
+    if (key === this.dressKey && this.clothes) return;
+    this.undress();
+    this.dressKey = key;
+    if (!out.geometry) return;
+    const m = new THREE.SkinnedMesh(out.geometry, this.kit.material);
+    m.name = 'clothes';
+    m.bind(this.mesh.skeleton, this.mesh.bindMatrix);
+    m.position.copy(this.mesh.position);
+    m.quaternion.copy(this.mesh.quaternion);
+    m.scale.copy(this.mesh.scale);
+    m.castShadow = this.shadows;
+    m.frustumCulled = false;
+    this.mesh.parent!.add(m);
+    this.clothes = m;
+  }
+
+  /** Under a hat, hair above the brim goes inside the hat (hair below it still hangs out). */
+  private tuckHair(src: THREE.BufferGeometry, line: { y: number; x: number; z: number; r: number } | null): void {
+    const g = this.mesh.geometry;
+    const shared = src.getAttribute('position');
+    if (!line) {
+      if (g.getAttribute('position') !== shared) g.setAttribute('position', shared);
+      return;
+    }
+    const slots = src.getAttribute('_slot') ?? src.getAttribute('_SLOT');
+    const n = shared.count;
+    const pos = new Float32Array(n * 3);
+    const v = new THREE.Vector3();
+    for (let i = 0; i < n; i++) {
+      v.fromBufferAttribute(shared, i);
+      if (slots && Math.round(slots.getX(i)) === SLOT.hair && v.y > line.y) {
+        const dx = v.x - line.x, dy = v.y - line.y, dz = v.z - line.z;
+        const d = Math.hypot(dx, dy * 1.75, dz);
+        if (d > line.r) {
+          const k = line.r / d;
+          v.set(line.x + dx * k, line.y + dy * k, line.z + dz * k);
+        }
+      }
+      pos.set([v.x, v.y, v.z], i * 3);
+    }
+    g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  }
+
+  private undress(): void {
+    if (!this.clothes) return;
+    this.clothes.removeFromParent();
+    this.clothes.geometry.dispose();
+    this.clothes = null;
+    this.dressKey = '';
   }
 
   play(name: FolkAnim, fade = 0.2, speed = 1): void {
@@ -232,6 +314,7 @@ export class Actor {
 
   dispose(): void {
     this.mixer.stopAllAction();
+    this.undress();
     this.root.removeFromParent();
     this.mesh.geometry.dispose();
   }

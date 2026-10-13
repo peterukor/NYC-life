@@ -296,11 +296,13 @@ export class Game {
         if (p) this.enterInterior(p, false);
         return !!p;
       },
+      /** Where the player stands (for screenshots). */
+      playerPos: () => ({ x: this.player.root.position.x, z: this.player.root.position.z }),
       /** Point the camera inside a home from (x, y, z) at (tx, 0.6, tz) — for close-up screenshots. */
       interiorCam: (x: number, y: number, z: number, tx: number, tz: number) => {
         const cam = this.engine.mode === 'interior' ? this.interiorCamera : this.engine.camera;
         cam.position.set(x, y, z);
-        cam.lookAt(tx, 0.6, tz);
+        cam.lookAt(tx, Math.min(0.8, y * 0.7), tz);
         cam.updateProjectionMatrix();
       },
       /** Try on clothes without saving (for screenshots). */
