@@ -23,7 +23,7 @@ import { VEHICLES } from './data/vehicles.ts';
 import { vehicleGeometry, vehicleMaterial } from './world/vehicle-models.ts';
 import { bus } from './core/bus.ts';
 import { clockLabel, isRushHour, nowMs, nycTime } from './core/clock.ts';
-import { MAP_MAX_DISTANCE, DETAIL_RADIUS, RIDESHARE, SUBWAY_FARE, WALK_SPEED, INDOOR_WALK, SHIFT_GAME_HOURS, MAX_SHIFTS_PER_DAY, DIRECTOR_TICK_SECONDS, CAMERA } from './core/constants.ts';
+import { MAP_MAX_DISTANCE, MAP_SPAN_FRACTION, MANHATTAN_BOUNDS, DETAIL_RADIUS, RIDESHARE, SUBWAY_FARE, WALK_SPEED, INDOOR_WALK, SHIFT_GAME_HOURS, MAX_SHIFTS_PER_DAY, DIRECTOR_TICK_SECONDS, CAMERA } from './core/constants.ts';
 import { esc, money } from './core/format.ts';
 import { ACTIONS, actionLock } from './data/actions.ts';
 import { CAREER_BY_ID, CAREERS } from './data/careers.ts';
@@ -659,7 +659,7 @@ export class Game {
         'wheel',
         (e) => {
           const t = e.target as HTMLElement | null;
-          if (!t?.closest?.('.map3d, .pin-layer, .map-strip') || e.target === this.engine.renderer.domElement) return;
+          if (!t?.closest?.('.map3d, .pin-layer, .map-fast') || e.target === this.engine.renderer.domElement) return;
           e.preventDefault();
           this.engine.renderer.domElement.dispatchEvent(new WheelEvent('wheel', e));
         },
@@ -2815,14 +2815,14 @@ export class Game {
     const fog = this.engine.cityScene.fog as THREE.Fog;
     const saved = {
       pos: camera.position.clone(), target: controls.target.clone(), follow: this.followCamera, min: controls.minDistance, max: controls.maxDistance,
-      minPolar: controls.minPolarAngle, maxPolar: controls.maxPolarAngle, pan: controls.enablePan, touches: { ...controls.touches }, mouse: { ...controls.mouseButtons },
+      minPolar: controls.minPolarAngle, maxPolar: controls.maxPolarAngle, pan: controls.enablePan, rotate: controls.enableRotate, ssp: controls.screenSpacePanning, touches: { ...controls.touches }, mouse: { ...controls.mouseButtons },
       near: fog.near, far: fog.far, camFar: camera.far, camNear: camera.near, mode: this.engine.mode,
     };
     this.map3dSaved = () => {
       camera.position.copy(saved.pos);
       controls.target.copy(saved.target);
       this.followCamera = saved.follow;
-      Object.assign(controls, { minDistance: saved.min, maxDistance: saved.max, minPolarAngle: saved.minPolar, maxPolarAngle: saved.maxPolar, enablePan: saved.pan });
+      Object.assign(controls, { minDistance: saved.min, maxDistance: saved.max, minPolarAngle: saved.minPolar, maxPolarAngle: saved.maxPolar, enablePan: saved.pan, enableRotate: saved.rotate, screenSpacePanning: saved.ssp });
       controls.touches = saved.touches;
       controls.mouseButtons = saved.mouse;
       fog.near = saved.near;
@@ -2836,9 +2836,10 @@ export class Game {
     // Lift the camera into the sky over where you are.
     this.engine.mode = 'city';
     this.followCamera = false;
-    Object.assign(controls, { minDistance: 70, maxDistance: MAP_MAX_DISTANCE, minPolarAngle: 0.15, maxPolarAngle: 1.05, enablePan: true, screenSpacePanning: false });
-    controls.touches = { ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY_ROTATE };
-    controls.mouseButtons = { LEFT: THREE.MOUSE.PAN, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.ROTATE };
+    // Straight down, north up, no tilting or spinning (Peter, 2026-10-14: "vertical, not slanted").
+    Object.assign(controls, { minDistance: 70, maxDistance: MAP_MAX_DISTANCE, minPolarAngle: 0.01, maxPolarAngle: 0.01, enablePan: true, enableRotate: false, screenSpacePanning: false });
+    controls.touches = { ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY_PAN };
+    controls.mouseButtons = { LEFT: THREE.MOUSE.PAN, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.PAN };
     fog.near = 4000;
     fog.far = 9000;
     camera.far = Math.max(camera.far, 9500); // zoomed all the way out you see the whole island
@@ -2847,8 +2848,14 @@ export class Game {
     const onStreet = saved.mode === 'city';
     const px = onStreet ? this.player.root.position.x : this.state.location.x;
     const pz = onStreet ? this.player.root.position.z : this.state.location.z;
-    controls.target.set(px, 0, pz);
-    camera.position.set(px + 60, 540, pz + 360);
+    // Open fully zoomed out (about three quarters of Manhattan), centred across
+    // the island and as close to you north-south as the edges allow.
+    const span = MAP_SPAN_FRACTION * (MANHATTAN_BOUNDS.maxZ - MANHATTAN_BOUNDS.minZ);
+    const manhattan = this.city.area === 'manhattan';
+    const cx = manhattan ? (MANHATTAN_BOUNDS.minX + MANHATTAN_BOUNDS.maxX) / 2 : px;
+    const cz = manhattan ? THREE.MathUtils.clamp(pz, MANHATTAN_BOUNDS.minZ + span / 2, MANHATTAN_BOUNDS.maxZ - span / 2) : pz;
+    controls.target.set(cx, 0, cz);
+    camera.position.set(cx, MAP_MAX_DISTANCE * Math.cos(0.01), cz + MAP_MAX_DISTANCE * Math.sin(0.01));
     controls.update();
     this.hud?.setVisible(false);
     const d = DISTRICTS[this.city.area];
@@ -2877,7 +2884,10 @@ export class Game {
     this.showMapStrip(() => this.closeCityMap());
   }
 
-  /** On either map: a strip of places you can fast-travel to (Peter, 2026-10-14). */
+  /**
+   * On either map: a 🚀 Fast travel button that opens a list of places you
+   * can go (home, work, plans, recent, nearby) and closes again (Peter, 2026-10-14).
+   */
   private mapStrip: HTMLElement | null = null;
   private showMapStrip(closeMap: () => void): void {
     this.hideMapStrip();
@@ -2885,14 +2895,27 @@ export class Game {
     const here = s.location.placeId;
     const rows = this.quickRows();
     if (!rows.length) return;
-    const el = document.createElement('nav');
-    el.className = 'map-strip';
-    el.setAttribute('aria-label', 'Fast travel');
-    el.innerHTML = rows
-      .map(({ place, tag }) => `<button data-go="${place.id}" ${place.id === here ? 'disabled' : ''}><span>${place.id === s.home.placeId ? '🏠' : place.emoji}</span><b>${esc(place.id === s.home.placeId ? 'Home' : place.name)}</b><small>${esc(place.id === here ? 'You’re here' : tag.replace(/^Nearby · /, ''))}</small></button>`)
-      .join('');
+    const el = document.createElement('div');
+    el.className = 'map-fast';
+    el.innerHTML = `<button class="map-fast-btn" data-fast aria-expanded="false">🚀 Fast travel</button>
+      <div class="map-fast-list" role="dialog" aria-label="Fast travel" hidden>
+        <div class="map-fast-head"><b>🚀 Fast travel</b><button class="close" data-fastclose aria-label="Close">✕</button></div>
+        <div class="map-fast-rows">${rows
+          .map(({ place, tag }) => `<button data-go="${place.id}" ${place.id === here ? 'disabled' : ''}><span>${place.id === s.home.placeId ? '🏠' : place.emoji}</span><b>${esc(place.id === s.home.placeId ? 'Home' : place.name)}</b><small>${esc(place.id === here ? 'You’re here' : tag)}</small></button>`)
+          .join('')}</div>
+      </div>`;
+    const list = el.querySelector<HTMLElement>('.map-fast-list')!;
+    const btn = el.querySelector<HTMLElement>('[data-fast]')!;
+    const setOpen = (open: boolean) => {
+      list.hidden = !open;
+      btn.hidden = open;
+      btn.setAttribute('aria-expanded', String(open));
+    };
     el.addEventListener('click', (e) => {
-      const id = (e.target as HTMLElement).closest<HTMLElement>('[data-go]')?.dataset.go;
+      const t = e.target as HTMLElement;
+      if (t.closest('[data-fast]')) return setOpen(true);
+      if (t.closest('[data-fastclose]')) return setOpen(false);
+      const id = t.closest<HTMLElement>('[data-go]')?.dataset.go;
       if (!id || !PLACE_BY_ID[id]) return;
       this.travelSheet(PLACE_BY_ID[id], {
         beforeGo: () => {

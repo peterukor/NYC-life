@@ -150,7 +150,7 @@ export const CROWD_RADIUS = 170;
  * zoom and spin, but the tilt stays between ~26° and ~56° from straight
  * down, so streets, ads and your character are always in view.
  */
-export const CAMERA = { minDistance: 16, maxDistance: 480, startDistance: 100 } as const; // 600 was a bit far out (Peter, 2026-10-14); // max: about 6-8 blocks (Peter, 2026-10-12)
+export const CAMERA = { minDistance: 16, maxDistance: 190, startDistance: 100 } as const; // max: a little further than where it starts, about 0.4 of the old 480 (Peter, 2026-10-14); // max: about 6-8 blocks (Peter, 2026-10-12)
 
 /**
  * The sky map's furthest zoom (metres from the ground point it looks at):
@@ -158,7 +158,15 @@ export const CAMERA = { minDistance: 16, maxDistance: 480, startDistance: 100 } 
  * the 3D city turns into grey noise and gets heavy for cheap phones; the
  * 🗺️ City button opens the flat map of the whole city instead.
  */
-export const MAP_MAX_DISTANCE = 5200; // the whole of Manhattan fits (Peter, 2026-10-14)
+/**
+ * Satellite map, straight down (Peter, 2026-10-14): fully zoomed out it shows
+ * about three quarters of Manhattan, and it opens that way. The camera
+ * distance follows from the 50° field of view: half the span / tan(25°).
+ */
+export const MAP_SPAN_FRACTION = 0.75;
+/** Manhattan's land in world units (data/geo/manhattan-shore.ts). */
+export const MANHATTAN_BOUNDS = { minX: -770, maxX: 1212, minZ: -2955, maxZ: 1754 } as const;
+export const MAP_MAX_DISTANCE = Math.round((MAP_SPAN_FRACTION * (MANHATTAN_BOUNDS.maxZ - MANHATTAN_BOUNDS.minZ)) / 2 / Math.tan((25 * Math.PI) / 180));
 
 /**
  * Player travel speed on foot, metres per second. Faster than a real walk
