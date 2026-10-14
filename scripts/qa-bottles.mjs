@@ -1,0 +1,55 @@
+// QA: bottle service at The Velvet Room and a 100× trade at the trading
+// floor: fireworks, spotlight, admirers, going home with someone.
+// Shots: test-results/bottle-*.png, trade-win.png
+import puppeteer from 'puppeteer-core';
+const browser = await puppeteer.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', headless: true, args: ['--no-sandbox', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
+const page = await browser.newPage();
+await page.setViewport({ width: 390, height: 780 });
+const errors = [];
+page.on('pageerror', (e) => errors.push(e.message));
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+const ev = (fn, ...a) => page.evaluate(fn, ...a);
+let fails = 0;
+const ok = (c, m) => { console.log(`${c ? '✓' : '✗'} ${m}`); if (!c) fails++; };
+const click = async (sel) => { await page.waitForSelector(sel, { timeout: 10000 }); await page.$eval(sel, (el) => el.click()); };
+await page.goto('http://localhost:4173/?qa=1&class=billionaire&hour=22&quality=medium', { waitUntil: 'load' });
+await ev(() => localStorage.clear()); await page.reload({ waitUntil: 'load' });
+await page.waitForSelector('#ob-year'); await page.select('#ob-year', '1995'); await page.type('#ob-name', 'Jack');
+await click('#ob-go'); await click('#ob-start');
+await wait(3500);
+await ev(() => window.__nyc.enterPlace('velvetRoom'));
+await wait(4000);
+await ev(() => window.__nyc.walkInside(0, 1.2));
+await wait(4000);
+await ev(() => window.__nyc.openObject('vip2'));
+await click('[data-act="do:bottleService"]');
+await page.waitForSelector('.sheet [data-act="bottle:goliath"]', { timeout: 5000 });
+await page.screenshot({ path: 'test-results/bottle-menu.png' });
+const bank0 = await ev(() => window.__nyc.state().bank);
+await click('.sheet [data-act="bottle:goliath"]');
+await wait(1800);
+await ev(() => window.__nyc.zoomAt(1.8, 0, 0));
+await wait(1500);
+await page.screenshot({ path: 'test-results/bottle-show.png' });
+ok((await ev(() => window.__nyc.state().bank)) < bank0, 'paid for the Gold Goliath');
+const fans = await ev(() => window.__nyc.admirers());
+ok(fans.length === 7, `7 people came over (${fans.join(', ')})`);
+await wait(6000);
+await page.screenshot({ path: 'test-results/bottle-admirers.png' });
+await ev((n) => window.__nyc.talkToAdmirer(n), fans[0]);
+await click('.sheet [data-act="home"]');
+await page.waitForSelector('.modal [data-act="ok"]', { timeout: 10000 });
+await page.screenshot({ path: 'test-results/bottle-home.png' });
+await click('.modal [data-act="ok"]');
+ok((await ev(() => window.__nyc.state().location.placeId)) === 'penthouse', 'home together (fade to black)');
+// A 100× trade at the trading floor.
+await ev(() => window.__nyc.enterPlace('midtownTower'));
+await wait(4000);
+await ev(() => window.__nyc.tradeWin(100));
+await wait(2500);
+await page.screenshot({ path: 'test-results/trade-win.png' });
+ok((await ev(() => window.__nyc.admirers())).length === 7, '100× trade: 7 people come over');
+console.log('errors:', [...new Set(errors)].join('\n') || 'none');
+console.log(fails ? `${fails} FAILED` : 'ALL OK');
+await browser.close();
+process.exit(fails ? 1 : 0);

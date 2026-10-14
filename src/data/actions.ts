@@ -87,6 +87,7 @@ const LIST: ActionDef[] = [
   { id: 'investNow', label: 'Invest with an advisor', emoji: '💼', seconds: 2, tags: ['service'] },
   { id: 'tradeStocks', label: 'Trade stocks', emoji: '📈', seconds: 2, tags: ['service'] },
   { id: 'reportCrime', label: 'Report someone', emoji: '📝', seconds: 6, tags: ['service'] },
+  { id: 'bottleService', label: 'Bottle service', emoji: '🍾', seconds: 2, tags: ['service'] },
   { id: 'dateHere', label: 'Invite someone on a date here', emoji: '💘', seconds: 2, tags: ['service'] },
 
   // ---------- Bodega ----------

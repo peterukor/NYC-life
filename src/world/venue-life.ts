@@ -82,6 +82,8 @@ export class VenueLife {
   private emitters: { at: THREE.Vector3; kind: 'steam' | 'notes'; every: number; t: number }[] = [];
   private popT = 0;
   private time = 0;
+  /** The room is cheering (someone popped a bottle) until this time. */
+  private cheerUntil = 0;
 
   constructor(
     private readonly home: HomeInterior,
@@ -239,10 +241,11 @@ export class VenueLife {
       v.avatar.animate(speed, dt);
     }
     // Emoji pops over someone's head.
-    const pops = this.layout.life?.pops ?? [];
+    const cheering = this.time < this.cheerUntil;
+    const pops = cheering ? ['🎉', '🙌', '🔥', '🥂', '😍'] : this.layout.life?.pops ?? [];
     this.popT -= dt;
     if (pops.length && this.popT <= 0) {
-      this.popT = 0.8 + this.rand() * 1.2;
+      this.popT = cheering ? 0.15 + this.rand() * 0.2 : 0.8 + this.rand() * 1.2;
       const people = [...this.visitors.map((v) => v.avatar.root), ...(this.coworkers?.list.map((c) => c.avatar.root) ?? [])];
       const who = people[Math.floor(this.rand() * people.length)];
       if (who) this.float(pops[Math.floor(this.rand() * pops.length)], who.position.clone().setY(2.0), { life: 1.8, vy: 0.35 });
@@ -282,6 +285,11 @@ export class VenueLife {
       }
     }
     if (this.discoBall) this.discoBall.rotation.y += dt * 0.8;
+  }
+
+  /** Everyone cheers for a while (🎉 over heads, faster). */
+  cheer(seconds: number): void {
+    this.cheerUntil = Math.max(this.cheerUntil, this.time + seconds);
   }
 
   /** Visitors on screen (QA). */

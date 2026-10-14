@@ -67,6 +67,9 @@ import { Coworkers } from './world/coworkers.ts';
 import { addMoodlet, applyNeeds } from './sim/needs.ts';
 import { assignRoom, assignVisitor, npcVisitors, type WorkRoom } from './sim/workroom.ts';
 import { VenueLife } from './world/venue-life.ts';
+import { CelebrationFx } from './world/celebration.ts';
+import { BOTTLES, tradeWinShow, type Celebration } from './data/bottles.ts';
+import { buyBottle, chatAdmirer, goHomeWith } from './sim/celebrate.ts';
 import { openFridge, openStove } from './ui/kitchen.ts';
 import { receiveOrders } from './sim/kitchen.ts';
 import { cookActionId, eatActionId, mealOfAction } from './data/groceries.ts';
@@ -130,6 +133,7 @@ export class Game {
   private workRooms: WorkRoom[] = [];
   private coworkers: Coworkers | null = null;
   private venueLife: VenueLife | null = null;
+  private party: CelebrationFx | null = null;
   /** Your worker spot in the room, when you're at your own job. */
   private myWorkSpot: { x: number; z: number; rot: number } | null = null;
   /** The people you live with (the walk-up), while you're home. */
@@ -372,6 +376,9 @@ export class Game {
       indoorRoute: () => (this.indoor ? this.indoor.points.map((q) => ({ ...q })) : null),
       resetCam: () => this.fitInteriorCamera(),
       phoneApp: (id: string) => this.openPhoneApp(id),
+      admirers: () => this.party?.admirers.map((x) => x.name) ?? [],
+      talkToAdmirer: (name: string) => this.talkToAdmirer(name),
+      tradeWin: (mult: number) => this.celebrateTrade(mult),
       coworkers: () => this.coworkers?.list.map((c) => c.name) ?? [],
       visitors: () => this.venueLife?.count ?? 0,
       myWorkSpot: () => this.myWorkSpot,
@@ -874,6 +881,8 @@ export class Game {
       if (this.doing) this.stopDoing(true);
       const mateHit = this.roommates ? this.engine.pick(x, y, this.roommates.hits, this.interiorCamera) : null;
       if (mateHit && this.roommates) return this.chatWithRoommate(mateHit.object.userData.roommate as string);
+      const fanHit = this.party?.admirers.length ? this.engine.pick(x, y, this.party.hits, this.interiorCamera) : null;
+      if (fanHit) return this.talkToAdmirer(fanHit.object.userData.admirer as string);
       const crewHit = this.coworkers ? this.engine.pick(x, y, this.coworkers.hits, this.interiorCamera) : null;
       if (crewHit) return this.greetCoworker(crewHit.object.userData.coworker as string);
       const hit = this.engine.pick(x, y, this.interior.objects.map((o) => o.mesh), this.interiorCamera);
@@ -1121,6 +1130,9 @@ export class Game {
       case 'tradeStocks':
         this.openPhoneApp('stocks');
         return true;
+      case 'bottleService':
+        this.openBottleMenu();
+        return true;
       case 'dateHere':
         this.openPhoneApp('contacts');
         toast('Pick someone from your contacts and plan a date.', { icon: '💘', ms: 3000 });
@@ -1149,6 +1161,94 @@ export class Game {
       }
     }
     return false;
+  }
+
+  /** 🍾 The bottle menu: seven bottles, $700 to $100,000. The bigger the bottle, the bigger the show. */
+  private openBottleMenu(): void {
+    const s = this.state;
+    const sheet = openSheet({
+      emoji: '🍾',
+      title: 'Bottle service',
+      sub: `Cash ${money(s.money)} · bank ${money(s.bank)}`,
+      body: `<div class="travel">${BOTTLES.map((b, i) => {
+        const can = s.money + s.bank >= b.price;
+        const show = [b.spotlight ? '💡 spotlight' : '', `🎆 ${['big', 'bigger', 'huge', 'huge', 'massive', 'massive', 'the whole sky'][i]} fireworks`, `👥 ${b.admirers} come over`].filter(Boolean).join(' · ');
+        return `<button class="opt" data-act="bottle:${b.id}" ${can ? '' : 'disabled aria-disabled="true"'}><span style="font-size:24px">${b.emoji}</span><span class="grow"><b>${esc(b.name)}</b><small>${esc(b.kind)} · ${show}</small></span><span class="cost">${money(b.price)}</span></button>`;
+      }).join('')}</div>`,
+    });
+    onAct(sheet.body, (act) => {
+      if (!act.startsWith('bottle:')) return;
+      sheet.close();
+      const r = buyBottle(s, act.slice(7));
+      if (!r.ok) return toast(r.why, { icon: '🍾', tone: 'bad' });
+      sfx.cash();
+      this.startShow(r.bottle, `${r.bottle.emoji} ${r.bottle.name} for ${s.profile.name}!`);
+      s.news.unshift({ id: `bottle-${nowMs()}`, at: nowMs(), scope: s.location.area, emoji: '🍾', headline: `${s.profile.name} popped a ${r.bottle.name} at ${PLACE_BY_ID[s.location.placeId ?? '']?.name ?? 'the club'}`, personal: true });
+      this.save();
+      this.refreshHud(true);
+    });
+  }
+
+  /** The show: fireworks, maybe a spotlight, admirers, and the room cheering. */
+  private startShow(show: Celebration, line: string): void {
+    if (!this.party) return void toast(line, { icon: '🎆', tone: 'good', ms: 3500 });
+    this.party.dismissAdmirers();
+    this.party.start(show);
+    this.venueLife?.cheer(show.fireworks.seconds);
+    toast(line, { icon: '🎆', tone: 'good', ms: 4000 });
+    sfx.notify();
+  }
+
+  /** 📈 A 10×–100× trade: the trading floor goes wild (elsewhere, just the news). */
+  private celebrateTrade(mult: number): void {
+    const win = tradeWinShow(mult);
+    if (!win) return;
+    const atFloor = this.state.location.placeId === 'midtownTower' && this.engine.mode === 'interior';
+    if (atFloor) {
+      closeSheet();
+      this.overlayClose?.();
+      this.overlayClose = null;
+      this.startShow(win.show, `📈 ${Math.floor(mult)}× trade! The floor goes wild.`);
+    } else toast(`📈 ${Math.floor(mult)}× trade! (At the trading floor that gets the full show.)`, { icon: '🎆', tone: 'good', ms: 4000 });
+    this.state.news.unshift({ id: `trade-${nowMs()}`, at: nowMs(), scope: this.state.location.area, emoji: '📈', headline: `${this.state.profile.name} made ${Math.floor(mult)}× on one trade`, personal: true });
+    this.save();
+  }
+
+  /** Someone who came over after the show: chat, or go home together (fade to black). */
+  private talkToAdmirer(name: string): void {
+    const sheet = openSheet({
+      emoji: '😍',
+      title: name,
+      sub: 'Came over to say hi',
+      body: `<div class="travel">
+        <button class="opt" data-act="chat"><span style="font-size:24px">💬</span><span class="grow"><b>Chat</b><small>+social, +fun</small></span></button>
+        <button class="opt" data-act="home"><span style="font-size:24px">🌙</span><span class="grow"><b>Take ${esc(name)} home</b><small>The night ends at your place</small></span></button>
+      </div>`,
+    });
+    onAct(sheet.body, (act) => {
+      sheet.close();
+      if (act === 'chat') {
+        chatAdmirer(this.state);
+        toast(`${name}: ${['“So what do you do?”', '“That was a whole moment.”', '“You come here a lot?”', '“Okay, big spender.”'][Math.floor(Math.random() * 4)]}`, { icon: '💬', ms: 2600 });
+        this.refreshHud(true);
+        return;
+      }
+      const r = goHomeWith(this.state, name);
+      this.party?.dismissAdmirers();
+      const home = PLACE_BY_ID[this.state.home.placeId];
+      fade(true, 'Heading home…', '');
+      window.setTimeout(() => {
+        this.state.location = { ...this.state.location, area: home.area, placeId: home.id, x: doorOf(home).x, z: doorOf(home).z };
+        this.enterInterior(home, false);
+        fade(false);
+        // Fade to black: nothing shown.
+        void this.showJobScene('🌙', 'Later that night…', `${name} came back to your place. The rest of the night is between you two.`).then(() => {
+          if (r.jealous) toast('Word got back to your partner. They’re not happy.', { icon: '😬', tone: 'bad', ms: 4000 });
+          this.save();
+          this.refreshHud(true);
+        });
+      }, 700);
+    });
   }
 
   /** Tap a coworker: a quick hello (a little social). */
@@ -1462,11 +1562,16 @@ export class Game {
           const tierShare = { low: 0.4, medium: 0.7, high: 1 }[this.engine.quality.tier] ?? 0.7;
           const life = venue.life ? new VenueLife(shop, venue, npcVisitors(room.room, Math.round(venue.life.visitors * tierShare)), crew) : null;
           this.venueLife = life;
+          // Bottle service and big trades: fireworks, a spotlight, admirers.
+          const party = new CelebrationFx(shop, this.player.root);
+          this.party = party;
           const update = shop.update, dispose = shop.dispose;
-          shop.update = (dt) => (update(dt), crew.update(dt), life?.update(dt));
+          shop.update = (dt) => (update(dt), crew.update(dt), life?.update(dt), party.update(dt));
           shop.dispose = () => {
             crew.dispose();
             life?.dispose();
+            party.dispose();
+            if (this.party === party) this.party = null;
             if (this.coworkers === crew) this.coworkers = null;
             if (this.venueLife === life) this.venueLife = null;
             for (const r of this.workRooms) r.visitors = r.visitors.filter((v) => v.id !== 'me');
@@ -2695,6 +2800,7 @@ export class Game {
         },
         save: () => this.save(),
         refresh: () => this.refreshHud(true),
+        onTradeWin: (mult) => this.celebrateTrade(mult),
       },
       app,
     );

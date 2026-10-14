@@ -43,6 +43,8 @@ export interface PhoneHost {
   resetLife: () => void;
   save: () => void;
   refresh: () => void;
+  /** A stock sold for `mult`× what you paid (10×+ gets fireworks at the trading floor). */
+  onTradeWin?: (mult: number) => void;
 }
 
 const SKILL_LABEL: Record<SkillKey, string> = { charisma: 'Charisma', hustle: 'Hustle', fitness: 'Fitness', cooking: 'Cooking', coding: 'Coding', music: 'Music', streetSmarts: 'Street Smarts' };
@@ -351,7 +353,8 @@ export function openPhone(host: PhoneHost, startApp?: string): () => void {
         toast(err ?? `Bought ${money(Number(amt))} of ${STOCKS.get(id)?.ticker}`, { icon: '📈', tone: err ? 'bad' : 'good' });
       } else {
         const r = sellStock(s, id);
-        toast('error' in r ? r.error : `Sold for ${money(r.got)}`, { icon: '📈', tone: 'error' in r ? 'bad' : 'good' });
+        toast('error' in r ? r.error : `Sold for ${money(r.got)}${r.mult >= 2 ? ` (${Math.floor(r.mult)}× your money)` : ''}`, { icon: '📈', tone: 'error' in r ? 'bad' : 'good' });
+        if (!('error' in r) && r.mult >= 10) host.onTradeWin?.(r.mult);
       }
       host.save();
       host.refresh();

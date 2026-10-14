@@ -104,6 +104,8 @@ Each job has a temptation or downside. These are opt-in choices with consequence
   - Losing: hurt (health/energy down, maybe a hospital bill), mood down, and that show's tips are smaller. Winning: a small rep and mood boost.
   - Too strong scares customers: above 80% fitness, tips shrink (×0.7 at 100%). The sweet spot is strong enough to win often, not so strong nobody tips.
   - Fights stay non-graphic (a short scene and a result line), with "rowdy customers" as the opponents.
+- **Players first, then computers (Peter, 2026-10-14):** wherever a person is needed (a customer at your bar, a coworker, a visitor, someone who comes over after a bottle), a real player fills it when one is there; otherwise an NPC does. E.g. a player orders a margarita at your bar: it lands in your queue with their name, you make it, they pay and choose the tip.
+- **Bottle service (Peter, 2026-10-14):** 7 bottles, $700 to $100,000 (parody names: Mowêt Impérial, Veuve Kliko, Dom Perinyon, Don Julyo 1942, Ace of Shades, Cristalle Rosé, Gold Goliath Jeroboam). Fireworks in the bottle's colours, bigger and longer with the price (even the smallest is a proper burst); a spotlight from the 3rd bottle, longer each step; 2, 2, 3, 4, 5, 6, 7 people come over (men and women, 21+), who can be taken home (fade to black). The whole room cheers. 📈 Trade wins at the trading floor get the same show: 10× → 2 people, 30× → 3, 50× → 4, 80× → 5, 100× → 7. Data: `data/bottles.ts`.
 - **Extra jobs (owner said 1–2 more; my suggestions):**
   - **Rideshare/taxi driver:** ties into cars, speeding and tickets. Temptation: overcharging tourists.
   - **Content creator:** feeds the celebrity ladder. Temptation: fake drama for views.

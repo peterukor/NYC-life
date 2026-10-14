@@ -310,7 +310,7 @@ const RAW: RawPlace[] = [
     id: 'velvetRoom', area: 'manhattan', name: 'The Velvet Room', emoji: '🌙', type: 'nightlife',
     blurb: 'Purple lights, a mirrored stage, a DJ who only plays bangers. Doors at 8 PM.',
     at: [40.7562, -73.9895], hours: [20, 4], interior: 'club', color: '#7b2cbf',
-    actions: ['dancefloor', 'happyHour'],
+    actions: ['bottleService', 'dancefloor', 'happyHour'],
   },
   {
     // Alley Pharmacist's spot. Every product here is made up.

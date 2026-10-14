@@ -121,15 +121,17 @@ export function buyStock(s: GameState, id: string, cents: number): string | null
 }
 
 /** Sell everything you hold in a stock. Returns the cash received, or an error. */
-export function sellStock(s: GameState, id: string): { got: number } | { error: string } {
+export function sellStock(s: GameState, id: string): { got: number; mult: number } | { error: string } {
   const h = s.portfolio[id];
   if (!h || h.shares <= 0) return { error: 'You don’t own any.' };
   const value = Math.round(h.shares * priceOf(id));
+  // How many times your money you made (10×, 30×… get a show at the trading floor).
+  const mult = h.cost > 0 ? value / h.cost : 1;
   const got = Math.max(0, value - tradeFee(value, s));
   const r = changeMoney(s, got, `Sold ${STOCKS.get(id)!.ticker}`);
   if (!r.ok) return { error: r.why };
   delete s.portfolio[id];
-  return { got };
+  return { got, mult };
 }
 
 export function portfolioValue(s: GameState): number {
