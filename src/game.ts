@@ -977,6 +977,8 @@ export class Game {
 
   private openPlace(place: PlaceDef): void {
     const s = this.state;
+    // On the way to work: no sheet, straight in (the shift starts inside).
+    if (this.pendingShift === place.id && place.interior !== 'none') return this.enterInterior(place, true);
     if (!s.stats.placesVisited.includes(place.id)) s.stats.placesVisited.push(place.id);
     const t = nycTime();
     const open = isOpen(place, t.hour);
@@ -1366,6 +1368,12 @@ export class Game {
       bus.emit('place:entered', { placeId: place.id });
       this.refreshHud(true);
       this.resumeActivity(place.id);
+      // Arrived at work: the shift starts.
+      if (this.pendingShift) {
+        const startShift = this.pendingShift === place.id;
+        this.pendingShift = null;
+        if (startShift) window.setTimeout(() => void this.runShiftHere(), 900);
+      }
       const clean = arriveHome(this.state, place.id);
       if (clean) window.setTimeout(() => toast(clean.label, { icon: clean.emoji, tone: 'good', ms: 3000 }), 700);
     };
@@ -1903,31 +1911,31 @@ export class Game {
   // Work
   // ===================================================================
 
+  /**
+   * The 💼 Go to work button: already there, the shift starts. Otherwise
+   * pick how to get there (walk, subway, rideshare, your car); the shift
+   * starts when you walk in. No job yet: the phone's Jobs app opens.
+   */
   private async goToWork(): Promise<void> {
     if (this.busy) return;
     const s = this.state;
+    if (!s.job) return this.openPhoneApp('jobs');
     const block = shiftBlocker(s);
     if (block) return toast(block, { icon: '💼', tone: 'bad' });
-    const career = CAREER_BY_ID[s.job!.careerId];
-    const workplace = PLACE_BY_ID[career.placeId];
+    const workplace = PLACE_BY_ID[CAREER_BY_ID[s.job.careerId].placeId];
     closeSheet();
-    // Commute: free inside the same area, a train ride to another borough.
-    if (s.location.placeId !== workplace.id) {
-      if (workplace.area !== s.location.area) {
-        await this.rideTrain(workplace.area, workplace.id, true);
-      } else {
-        fade(true, 'Heading to work…', workplace.name);
-        await wait(700);
-        this.state.location.x = doorOf(workplace).x;
-        this.state.location.z = doorOf(workplace).z;
-        if (this.engine.mode === 'interior') {
-          this.interior?.dispose();
-          this.interior = null;
-        }
-        this.enterInterior(workplace, false);
-        fade(false);
-      }
-    }
+    if (s.location.placeId === workplace.id && this.engine.mode === 'interior') return this.runShift();
+    this.travelSheet(workplace, { work: true });
+  }
+
+  /** Heading to work: when you walk into this place, the shift starts. */
+  private pendingShift: string | null = null;
+
+  /** Start a shift where you are (after the commute), if you still can. */
+  private async runShiftHere(): Promise<void> {
+    const block = shiftBlocker(this.state);
+    if (block) return toast(block, { icon: '💼', tone: 'bad' });
+    if (this.busy) return;
     await this.runShift();
   }
 
@@ -2208,7 +2216,7 @@ export class Game {
     return { cost, minutes, surge };
   }
 
-  private travelSheet(place: PlaceDef): void {
+  private travelSheet(place: PlaceDef, opts: { work?: boolean } = {}): void {
     if (!isOpenArea(place.area)) return void toast(`${DISTRICTS[place.area].name} isn’t open yet — it’s Manhattan only for now.`, { icon: '🚧' });
     const s = this.state;
     const same = place.area === s.location.area;
@@ -2218,10 +2226,10 @@ export class Game {
     const walkMin = Math.max(1, Math.round(Math.hypot(d.x - s.location.x, d.z - s.location.z) / 80));
     const open = isOpen(place, nycTime().hour);
     const sheet = openSheet({
-      emoji: place.emoji,
-      title: place.name,
-      sub: `${DISTRICTS[place.area].name} · ${open ? 'open now' : 'closed now'}`,
-      body: `<p class="blurb">${esc(place.blurb)}</p>
+      emoji: opts.work ? '💼' : place.emoji,
+      title: opts.work ? `Go to work: ${place.name}` : place.name,
+      sub: `${DISTRICTS[place.area].name} · ${opts.work ? 'your shift starts when you get there' : open ? 'open now' : 'closed now'}`,
+      body: `${opts.work ? '' : `<p class="blurb">${esc(place.blurb)}</p>`}
         <div class="travel">
           ${same ? `<button class="opt" data-act="walk"><span style="font-size:24px">🚶</span><span class="grow"><b>Walk</b><small>about ${walkMin} min</small></span><span class="cost">Free</span></button>` : ''}
           ${s.garage.cars.length ? `<button class="opt" data-act="drive"><span style="font-size:24px">🚗</span><span class="grow"><b>Drive there</b><small>your own car${licenceSuspended(s) ? ' · ⚠️ licence suspended' : ''}</small></span><span class="cost">${money(GARAGE.tripCost)}</span></button>
@@ -2233,6 +2241,7 @@ export class Game {
     });
     onAct(sheet.body, (act) => {
       sheet.close();
+      this.pendingShift = opts.work ? place.id : null;
       if (act === 'walk') {
         if (this.engine.mode === 'interior') this.leaveInterior();
         window.setTimeout(() => this.walkToPlace(place.id), this.engine.mode === 'interior' ? 400 : 0);
@@ -2304,7 +2313,8 @@ export class Game {
     this.save();
     if (placeId) {
       const dest = PLACE_BY_ID[placeId];
-      if (dest.type === 'work' && dest.id === CAREER_BY_ID[this.state.job?.careerId ?? '']?.placeId && this.state.job) {
+      // Going to work: the stop is right by the door, so you walk straight in.
+      if (this.pendingShift === dest.id || (dest.type === 'work' && dest.id === CAREER_BY_ID[this.state.job?.careerId ?? '']?.placeId && this.state.job)) {
         this.state.location.x = doorOf(dest).x;
         this.state.location.z = doorOf(dest).z;
         this.enterInterior(dest, false);
@@ -2491,8 +2501,8 @@ export class Game {
     this.hud.update(s, where, {
       inside,
       atHome: inside && !!this.interior && 'removePiece' in this.interior && (this.interior as HomeInterior).movable,
-      canWork: !!s.job && !blocker && !this.busy,
-      workLabel: s.job ? `Work a shift for ${money(CAREER_BY_ID[s.job.careerId].ladder[Math.min(s.job.level, 4)].pay)}` : '',
+      canWork: !this.busy && (!s.job || !blocker),
+      workLabel: !s.job ? 'Find a job' : s.location.placeId === CAREER_BY_ID[s.job.careerId].placeId ? `Work a shift for ${money(CAREER_BY_ID[s.job.careerId].ladder[Math.min(s.job.level, 4)].pay)}` : `Go to work · ${money(CAREER_BY_ID[s.job.careerId].ladder[Math.min(s.job.level, 4)].pay)}`,
       goal: goal ? { title: goal.title, hint: goal.hint } : null,
     });
     void force;

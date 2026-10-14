@@ -94,7 +94,7 @@ export function openPhone(host: PhoneHost, startApp?: string): () => void {
           const block = hireBlocker(s, c);
           const mine = s.job?.careerId === c.id;
           const where = PLACE_BY_ID[c.placeId];
-          return `<div class="list-item"><div class="grow"><div class="title">${c.emoji} ${c.name} — ${c.ladder[0].title}</div><div class="sub">${esc(c.blurb)}<br>${money(c.ladder[0].pay)}/shift → ${c.ladder[c.ladder.length - 1].title} ${money(c.ladder[c.ladder.length - 1].pay)} · ${DISTRICTS[where.area].name}</div>${block ? `<div class="sub" style="color:var(--bad);font-weight:700">🔒 ${esc(block)}</div>` : ''}</div>${mine ? '<span class="tag open">Your job</span>' : `<button class="btn ${block ? '' : 'primary'}" data-act="hire:${c.id}" ${block ? 'disabled' : ''}>Apply</button>`}</div>`;
+          return `<div class="list-item"><div class="grow"><div class="title">${c.emoji} ${c.name} — ${c.ladder[0].title}</div><div class="sub">${esc(c.blurb)}<br>${money(c.ladder[0].pay)}/shift → ${c.ladder[c.ladder.length - 1].title} ${money(c.ladder[c.ladder.length - 1].pay)} · 📍 ${esc(where.name)}</div>${block ? `<div class="sub" style="color:var(--bad);font-weight:700">🔒 ${esc(block)}</div>` : ''}</div>${mine ? '<span class="tag open">Your job</span>' : `<button class="btn ${block ? '' : 'primary'}" data-act="hire:${c.id}" ${block ? 'disabled' : ''}>Apply</button>`}</div>`;
         }).join('')}`);
     },
     ride() {
@@ -287,7 +287,7 @@ export function openPhone(host: PhoneHost, startApp?: string): () => void {
       const err = applyForJob(s, id);
       if (err) return toast(err, { icon: '🔒', tone: 'bad' });
       const c = CAREER_BY_ID[id];
-      toast(`Hired! ${c.ladder[0].title} at ${PLACE_BY_ID[c.placeId].name}`, { icon: c.emoji, tone: 'good', ms: 4000 });
+      toast(`Hired! ${c.ladder[0].title} at ${PLACE_BY_ID[c.placeId].name}. Tap 💼 Go to work when you're ready.`, { icon: c.emoji, tone: 'good', ms: 4500 });
       host.save();
       host.refresh();
       return apps.jobs();
