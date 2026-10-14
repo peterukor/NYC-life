@@ -42,7 +42,7 @@ How to add or change content: **`docs/ADDING-CONTENT.md`**.
 - **What visitors come for:** 🥪 eat (bodega window counter), 💼 invest (Business app) and 📈 trade (Stocks app) at the trading floor's client desks, 🍸🌙 party, 💘 date (booths, VIP, high-tops → Contacts), 📝 report someone (precinct window), 📱 fix or replace a phone (Chelsea Works Fix-It Bar). `game.ts → serviceAction`. QA: `qa-services.mjs`, `qa-lively.mjs`.
 
 ## Shifts: auto or play, every job hands-on (2026-10-14)
-- One shift per game day (`MAX_SHIFTS_PER_DAY` = 1). `sim/shift.ts → payBand()/careerBand()`: auto $50, played up to $300 at rung 0; raises scale both by ladder pay ÷ rung-0 pay.
+- 6 shifts per game day (`MAX_SHIFTS_PER_DAY`). Pay per job in `data/careers.ts → shift` ({auto, max, rep}); `careerBand()` scales by the ladder. Auto = 30 s progress bar (`game.ts → autoShift`, `?autosec=N` in QA), stop or leave = unpaid. Tips/overtime scale with the job's room (`tipScale`). Played shifts add rep (`Payslip.rep`). `rep.ts → respect()` = street rep + fitness.
 - Every career uses the counter game (`ui/deli-shift.ts`): menus for bodega and bar in `sim/shift.ts`, the other six in `data/shift-menus.ts`. Played shifts last `SHIFT_PLAY_SECONDS` (360); customers get less patient (16 s → 10 s); 3 choices at ¼, ½, ¾; "Clock out early". QA shortens with `?qa=1&shiftsec=N`.
 - Job twists (fight, bust, bribe) run after the shift via `game.ts → resolveTwist()` and multiply the payslip.
 - 🍸 The bar: orders come from tables; a waiter (UI line + a 3D NPC in `world/venue-life.ts`, `life.runner`) carries drinks over.

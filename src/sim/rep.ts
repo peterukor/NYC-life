@@ -6,6 +6,11 @@
 // 💼 Corporate rep: what Wall Street thinks of you. Profitable trades
 //    earn it (more for bigger profits, a lot for 10×–100× wins).
 //
+// Played shifts add rep too (data/careers.ts → shift.rep): tip and
+// nightlife jobs give street rep, office jobs give corporate rep.
+// 💪 Respect (respect()): street rep plus fitness. People think twice
+// before messing with someone fit.
+//
 // Both only go up for now. Planned uses (not wired yet): how often bad
 // things happen to you (robbed, spilled on, pickpocketed), which
 // properties you can buy and which places let you in.
@@ -59,4 +64,14 @@ export function tradeRep(profitCents: number, mult: number): number {
   const base = Math.min(300, profitCents / 10_000);
   const bonus = WIN_BONUS.find(([m]) => mult >= m)?.[1] ?? 0;
   return Math.round(base + bonus);
+}
+
+/**
+ * 💪 Respect 0–100: street rep rank (up to 60) plus fitness (up to 40).
+ * The hook for later: fewer robberies, pickpockets and spills.
+ */
+export function respect(s: GameState): number {
+  const street = (repRank(s, 'street') / (REP_RANKS.length - 1)) * 60;
+  const fit = Math.min(10, Math.max(0, s.skills.fitness)) * 4;
+  return Math.round(street + fit);
 }

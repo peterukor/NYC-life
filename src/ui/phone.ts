@@ -32,7 +32,7 @@ import { raiseBlocker } from '../sim/raise.ts';
 import './instadash.ts'; // registers the InstaDash app
 import { bankruptcyBlocker, DEBT } from '../sim/debt.ts';
 import { buyStock, dayChange, deskTip, eventFor, marketDay, netWorth, portfolioValue, priceOf, recentPrices, sellStock, tradeFee, TRADE_FEE } from '../sim/market.ts';
-import { REP_EMOJI, REP_RANKS, repOf, repRank, repTitle, type RepKind } from '../sim/rep.ts';
+import { REP_EMOJI, REP_RANKS, repOf, repRank, repTitle, respect, type RepKind } from '../sim/rep.ts';
 
 export interface PhoneHost {
   state: GameState;
@@ -221,7 +221,8 @@ export function openPhone(host: PhoneHost, startApp?: string): () => void {
         <div class="card"><h3>${esc(s.profile.name)} · ${s.profile.spawnClass ? `${CLASSES[s.profile.spawnClass].emoji} ${CLASSES[s.profile.spawnClass].title}` : `${ORIGINS[s.profile.origin].emoji} ${ORIGINS[s.profile.origin].title}`}</h3><p>${mood.emoji} ${mood.label} · ${esc(jobTitle(s))}<br>${s.profile.traits.map((t) => `${TRAITS[t]?.emoji ?? ''} ${TRAITS[t]?.label ?? t}`).join(' · ')}</p></div>
         <h3 style="margin:14px 0 8px;font-size:15px">Rep</h3>
         ${(['street', 'corporate'] as RepKind[]).map((k) => { const v = repOf(s)[k]; const r = repRank(s, k); const next = REP_RANKS[r + 1]; const lo = REP_RANKS[r]; return `<div class="skill-row"><span>${REP_EMOJI[k]} ${repTitle(s, k)}</span><div class="bar"><i style="width:${next ? Math.round(((v - lo) / (next - lo)) * 100) : 100}%;background:${k === 'street' ? '#ff6a3d' : '#3d7bff'}"></i></div><span>${v}</span></div>`; }).join('')}
-        <p class="blurb">🔥 Street rep comes from bottle service. 💼 Corporate rep comes from profitable trades.</p>
+        <div class="skill-row"><span>💪 Respect</span><div class="bar"><i style="width:${respect(s)}%;background:#2a9d8f"></i></div><span>${respect(s)}</span></div>
+        <p class="blurb">🔥 Street rep: bottle service and nightlife shifts. 💼 Corporate rep: profitable trades and office shifts. 💪 Respect: street rep plus fitness.</p>
         <h3 style="margin:14px 0 8px;font-size:15px">Needs</h3>
         ${NEED_KEYS.map((k) => `<div class="skill-row"><span>${NEED_INFO[k].emoji} ${NEED_INFO[k].label}</span><div class="bar"><i style="width:${Math.round(s.needs[k])}%;background:${NEED_INFO[k].color}"></i></div><span>${Math.round(s.needs[k])}</span></div>`).join('')}
         <h3 style="margin:14px 0 8px;font-size:15px">Skills</h3>

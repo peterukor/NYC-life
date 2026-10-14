@@ -121,7 +121,9 @@ if (hour >= 15 || hour < 4) {
     // A hands-on counter job (the bar): auto-pilot pays the base wage, then the payslip.
     await shot('05a-clock-in');
     await click('.modal [data-act="auto"]');
-    await page.waitForSelector('.slip', { timeout: 20000 });
+    // Auto takes 30 real seconds (you have to stay in the game).
+    await page.waitForSelector('.progress', { timeout: 5000 });
+    await page.waitForSelector('.slip', { timeout: 45000 });
     await shot('05-shift-choice');
     await click('.modal [data-act="ok"]');
     await wait(800);

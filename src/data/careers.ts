@@ -21,6 +21,13 @@ export interface CareerDef {
   ladder: { title: string; pay: number }[];
   /** Shift hours (New York time) [from, to), past midnight allowed. Default: 6 AM to 11 PM. */
   hours?: [number, number];
+  /**
+   * What a shift pays at the first rung (cents): `auto` (30 s, the lowest)
+   * and `max` (a great played shift). Raises scale both by the ladder.
+   * Tip jobs start lower with more upside; skilled jobs start higher.
+   * `rep`: what a played shift adds to your 🔥 street or 💼 corporate rep.
+   */
+  shift: { auto: number; max: number; rep?: { kind: 'street' | 'corporate'; max: number } };
 }
 
 export const CAREERS: CareerDef[] = [
@@ -36,6 +43,7 @@ export const CAREERS: CareerDef[] = [
     name: 'Bodega',
     emoji: '🏪',
     placeId: 'barrioDeli',
+    shift: { auto: 3_000, max: 9_000, rep: { kind: 'street', max: 1 } },
     skill: 'hustle',
     blurb: 'Work the counter at El Barrio Deli & Grill: build the orders right, keep the line moving, earn the tips.',
     ladder: [
@@ -52,6 +60,7 @@ export const CAREERS: CareerDef[] = [
     name: 'Bartending',
     emoji: '🍸',
     placeId: 'theStoop',
+    shift: { auto: 2_500, max: 10_000, rep: { kind: 'street', max: 2 } },
     hours: [15, 4],
     skill: 'charisma',
     blurb: 'East Village bar with a stoop out front. Pour drinks, read the room, keep the regulars happy. Tips double after 10 PM.',
@@ -69,6 +78,7 @@ export const CAREERS: CareerDef[] = [
     name: 'Fitness',
     emoji: '🏋️',
     placeId: 'ironGym',
+    shift: { auto: 3_000, max: 9_000, rep: { kind: 'street', max: 1 } },
     skill: 'fitness',
     blurb: 'Early mornings coaching at Iron Hell’s Kitchen. Get strong, get clients, get asked about protein.',
     requires: { skill: 'fitness', level: 1 },
@@ -86,6 +96,7 @@ export const CAREERS: CareerDef[] = [
     name: 'Tech',
     emoji: '💻',
     placeId: 'dumboWorks',
+    shift: { auto: 4_500, max: 12_000, rep: { kind: 'corporate', max: 2 } },
     skill: 'coding',
     blurb: 'Startup office in an old Chelsea factory. Ship features, survive standups. Perks: freelance gigs pay 30%+ more, and you can work from home once a day.',
     requires: { skill: 'coding', level: 2 },
@@ -103,6 +114,7 @@ export const CAREERS: CareerDef[] = [
     name: 'Finance',
     emoji: '📈',
     placeId: 'midtownTower',
+    shift: { auto: 5_000, max: 13_500, rep: { kind: 'corporate', max: 3 } },
     skill: 'charisma',
     blurb: 'A trading floor on Sixth Avenue: screens, shouting and a vest. Perks: lower fees on your own trades, and desk chatter about tomorrow’s market.',
     requires: { skill: 'charisma', level: 2 },
@@ -120,6 +132,7 @@ export const CAREERS: CareerDef[] = [
     name: 'Night Dancer',
     emoji: '🌙',
     placeId: 'velvetRoom',
+    shift: { auto: 2_000, max: 11_000, rep: { kind: 'street', max: 3 } },
     hours: [20, 4],
     skill: 'fitness',
     blurb: 'Perform at the Velvet Room in Midtown. Cash tips every show. Rowdy customers sometimes start fights; fit dancers win them, the very strongest scare the tippers.',
@@ -137,6 +150,7 @@ export const CAREERS: CareerDef[] = [
     name: 'Alley Pharmacist',
     emoji: '💊',
     placeId: 'theAlley',
+    shift: { auto: 4_000, max: 12_000, rep: { kind: 'street', max: 3 } },
     hours: [0, 24],
     skill: 'streetSmarts',
     blurb: 'Sell five made-up products from a Lower East Side alley. Fast money; every sale raises your heat with the police.',
@@ -154,6 +168,7 @@ export const CAREERS: CareerDef[] = [
     name: 'Cop',
     emoji: '🚓',
     placeId: 'precinct',
+    shift: { auto: 4_000, max: 9_000, rep: { kind: 'corporate', max: 1 } },
     hours: [0, 24],
     skill: 'streetSmarts',
     blurb: 'Patrol out of the 18th Precinct. Stay honest, or take the envelopes: corruption pays more until Internal Affairs notices.',

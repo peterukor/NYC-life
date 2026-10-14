@@ -14,7 +14,7 @@
 // =====================================================================
 
 import { esc, money } from '../core/format.ts';
-import { ORDER_SECONDS, ORDER_SECONDS_END, SHIFT_PLAY_SECONDS, SHIFT_PAY, makeOrder, menuFor, orderRight, orderTip, type CounterMenu, type ServedOrder, type ShiftPlay, type Payslip } from '../sim/shift.ts';
+import { AUTO_SHIFT_SECONDS, ORDER_SECONDS, ORDER_SECONDS_END, SHIFT_PLAY_SECONDS, makeOrder, tipScale, menuFor, orderRight, orderTip, type CounterMenu, type ServedOrder, type ShiftPlay, type Payslip } from '../sim/shift.ts';
 import { NEED_INFO } from '../sim/needs.ts';
 import type { NeedKey } from '../sim/types.ts';
 import { openModal } from './dom.ts';
@@ -32,6 +32,8 @@ export interface ShiftIntro {
   careerId: string;
   /** Tips multiplier tonight (the bar's late crowd), for the running total. */
   tipMult?: number;
+  /** Shifts left today. */
+  left?: number;
 }
 
 const clock = (min: number) => {
@@ -47,6 +49,13 @@ function playSeconds(): number {
   return q.get('qa') === '1' && n > 0 ? n : SHIFT_PLAY_SECONDS;
 }
 
+/** Real seconds an auto shift lasts (QA can shorten it with ?autosec=N). */
+export function autoSeconds(): number {
+  const q = new URLSearchParams(location.search);
+  const n = Number(q.get('autosec'));
+  return q.get('qa') === '1' && n > 0 ? n : AUTO_SHIFT_SECONDS;
+}
+
 /** Ask: play the shift, or auto-pilot it for the lowest pay. Null = not now. */
 export function shiftIntro(info: ShiftIntro): Promise<'play' | 'auto' | null> {
   return new Promise((resolve) => {
@@ -55,11 +64,11 @@ export function shiftIntro(info: ShiftIntro): Promise<'play' | 'auto' | null> {
     const m = openModal(`
       <div class="big">${menu.emoji}</div>
       <h2>${esc(info.title)} at ${esc(info.place)}</h2>
-      <p>${clock(info.startMinute)} → ${clock(info.startMinute + info.hours * 60)} · one shift a day<br>
+      <p>${clock(info.startMinute)} → ${clock(info.startMinute + info.hours * 60)}${info.left !== undefined ? ` · ${info.left} shift${info.left === 1 ? '' : 's'} left today` : ''}<br>
       <span class="shift-cost">⚡ tiring · 🍔 makes you hungry</span></p>
       <div class="choices">
         <button class="choice" data-act="play">🎮 <span>Play the shift<span class="hint">${esc(menu.clockIn)} · about ${mins} min · ${money(info.auto)} + ${esc((menu.tipWord ?? 'tips').toLowerCase())}, up to <b>${money(info.max)}</b></span></span></button>
-        <button class="choice" data-act="auto">⏩ <span>Auto<span class="hint">Done right now · ${money(info.auto)}</span></span></button>
+        <button class="choice" data-act="auto">⏩ <span>Auto<span class="hint">${autoSeconds()} seconds, stay in the game · ${money(info.auto)} · no performance or rep</span></span></button>
         <button class="choice" data-act="no">↩️ <span>Not now</span></button>
       </div>`);
     m.el.addEventListener('click', (e) => {
@@ -76,7 +85,7 @@ export function playDeliShift(info: ShiftIntro): Promise<ShiftPlay> {
   const menu: CounterMenu = menuFor(info.careerId);
   const INGREDIENTS = menu.ingredients;
   const TOTAL = playSeconds();
-  const scale = info.auto / SHIFT_PAY.auto;
+  const scale = tipScale(info);
   const room = info.max - info.auto;
   const tipWord = menu.tipWord ?? 'Tips';
   return new Promise((resolve) => {
@@ -223,7 +232,7 @@ export function playDeliShift(info: ShiftIntro): Promise<ShiftPlay> {
 }
 
 /** The payslip. `collect` pays (once); the button can't be pressed twice. */
-export function showPayslip(slip: Payslip, opts: { title: string; tipWord?: string; auto?: boolean }): Promise<void> {
+export function showPayslip(slip: Payslip, opts: { title: string; tipWord?: string; auto?: boolean; max?: number }): Promise<void> {
   return new Promise((resolve) => {
     const needLine = (Object.entries(slip.needs) as [NeedKey, number][])
       .filter(([, v]) => Math.round(v) !== 0)
@@ -242,7 +251,8 @@ export function showPayslip(slip: Payslip, opts: { title: string; tipWord?: stri
         <div class="slip-row total"><span>Paid to your cash</span><b>${money(slip.total)}</b></div>
       </div>
       ${slip.capped ? '<p><b>💯 Max pay for a shift!</b></p>' : ''}
-      ${opts.auto ? '<p class="sub">Play the shift next time for up to 6× this.</p>' : ''}
+      ${slip.rep ? `<p><b>+${slip.rep.points} ${slip.rep.kind === 'street' ? '🔥 street' : '💼 corporate'} rep</b>${slip.rep.rankUp ? ` · you’re now ${esc(slip.rep.rankUp)}` : ''}</p>` : ''}
+      ${opts.auto && opts.max ? `<p class="sub">Play the shift for up to ${money(opts.max)}, performance and rep.</p>` : ''}
       <p class="slip-needs">${needLine}</p>
       ${slip.promoted ? `<p><b>📈 Promoted to ${esc(slip.promoted)}!</b></p>` : ''}
       <button class="btn primary block" data-act="ok">Nice</button>`);

@@ -56,14 +56,21 @@ const m = /(\d+)\/(\d+) right/.exec(right);
 ok(m && m[1] === m[2] && +m[1] >= 5, `all drinks right (${right})`);
 await click('.modal [data-act="ok"]');
 const paid = (await ev(() => window.__nyc.state().money)) - cash0;
-ok(paid > 5_000 && paid <= 30_000, `paid between $50 and $300 (${paid / 100})`);
+ok(paid > 2_500 && paid <= 10_000, `paid between $25 and $100 (${paid / 100})`);
 // The 3D waiter has been running drinks the whole time.
 ok((await ev(() => window.__nyc.runnerDrinks())) > 0, `the 3D waiter delivered drinks (${await ev(() => window.__nyc.runnerDrinks())})`);
-// One shift a day.
+// Six shifts a day: the next one says how many are left. Stopping an auto shift pays nothing.
 await ev(() => window.__nyc.openObject('bar'));
 await click('[data-act="work"]');
-await wait(500);
-ok(!(await page.$('.modal [data-act="play"]')), 'no second shift today');
+await page.waitForSelector('.modal [data-act="auto"]', { timeout: 8000 });
+ok(/5 shifts left today/.test(await ev(() => document.querySelector('.modal')?.textContent ?? '')), '5 shifts left today');
+const cash1 = await ev(() => window.__nyc.state().money);
+await click('.modal [data-act="auto"]');
+await page.waitForSelector('.progress .skip', { timeout: 5000 });
+await wait(1500);
+await page.$eval('.progress .skip', (el) => el.click());
+await wait(800);
+ok((await ev(() => window.__nyc.state().money)) === cash1 && !(await page.$('.slip')), 'stopping an auto shift early pays nothing');
 // Off the clock: party at the club with the 20% staff discount.
 await ev(() => window.__nyc.enterPlace('velvetRoom'));
 await wait(4000);

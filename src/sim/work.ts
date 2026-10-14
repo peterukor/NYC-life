@@ -57,7 +57,7 @@ export function shiftBlocker(s: GameState): string | null {
     s.job.dayKey = t.dateKey;
     s.job.shiftsToday = 0;
   }
-  if (s.job.shiftsToday >= MAX_SHIFTS_PER_DAY) return MAX_SHIFTS_PER_DAY === 1 ? 'You already worked today. One shift a day: come back tomorrow (game time).' : `Done for today (${MAX_SHIFTS_PER_DAY} shifts max)`;
+  if (s.job.shiftsToday >= MAX_SHIFTS_PER_DAY) return `Done for today: ${MAX_SHIFTS_PER_DAY} shifts a day. Come back tomorrow (game time).`;
   if (s.needs.energy < 12) return 'Too tired to work — get some sleep';
   return null;
 }

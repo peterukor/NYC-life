@@ -93,43 +93,63 @@ test('late-night bar tips are bigger', () => {
   initClockFromUrl('?hour=11');
 });
 
-import { COUNTER_MENUS, payBand, careerBand, SHIFT_PAY, SHIFT_PLAY_SECONDS } from '../src/sim/shift.ts';
+import { AUTO_SHIFT_SECONDS, COUNTER_MENUS, payBand, careerBand, SHIFT_PLAY_SECONDS } from '../src/sim/shift.ts';
 import { CAREERS } from '../src/data/careers.ts';
 import { shiftBlocker } from '../src/sim/work.ts';
 
-test("Peter's pay: auto $50, a played shift up to $300, raises scale both", () => {
-  assert.deepEqual(careerBand('deli', 0), { auto: 5_000, max: 30_000 });
+test("Peter's pay: about $30 auto and $90 played; tip jobs start lower, skilled jobs higher; raises scale both", () => {
+  assert.deepEqual(careerBand('deli', 0), { auto: 3_000, max: 9_000 });
+  assert.ok(careerBand('bartender').auto < careerBand('deli').auto, 'tips: lower base');
+  assert.ok(careerBand('dancer').auto < careerBand('deli').auto && careerBand('dancer').max > careerBand('deli').max, 'dancer: low base, big tips');
+  assert.ok(careerBand('tech').auto > careerBand('deli').auto && careerBand('finance').auto > careerBand('tech').auto, 'skilled jobs start higher');
   for (const c of CAREERS) {
     const b0 = careerBand(c.id, 0), b5 = careerBand(c.id, 5);
-    assert.equal(b0.auto, SHIFT_PAY.auto, c.id);
-    assert.equal(b0.max, SHIFT_PAY.max, c.id);
+    assert.ok(b0.max > b0.auto, c.id);
     assert.ok(b5.auto > b0.auto && b5.max > b0.max, c.id);
   }
   assert.ok(SHIFT_PLAY_SECONDS >= 300 && SHIFT_PLAY_SECONDS <= 420, '5–7 minutes');
+  assert.equal(AUTO_SHIFT_SECONDS, 30);
 });
 
-test('auto pays exactly the lowest wage; a great played shift is capped at the max', () => {
+test('auto pays exactly the lowest wage and never raises performance; a great played shift is capped at the max', () => {
   const s = life();
   const band = payBand(s);
+  const perf = s.job!.performance;
   let r = startDeliShift(s);
   assert.ok(r.ok);
   const auto = finishDeliShift(s, r.session.id, { orders: [], picks: {}, skipped: true })!;
   assert.equal(auto.total, band.auto);
-  s.job!.dayKey = 'yesterday'; // a new game day
+  assert.equal(s.job!.performance, perf);
+  assert.equal(auto.rep, null, 'auto gives no rep');
   r = startDeliShift(s);
   assert.ok(r.ok, (r as { why?: string }).why);
   const many = { orders: Array.from({ length: 60 }, () => ({ right: true, timeLeft: 1 })), picks: {} };
   const slip = finishDeliShift(s, r.session.id, many)!;
   assert.equal(slip.total, band.max);
   assert.ok(slip.capped);
+  assert.ok(slip.rep && slip.rep.kind === 'street' && slip.rep.points > 0, 'bodega shifts give street rep');
 });
 
-test('one shift a game day', () => {
+test('six shifts a game day', () => {
   const s = life();
+  for (let i = 0; i < 6; i++) {
+    s.needs.energy = 100;
+    const r = startDeliShift(s);
+    assert.ok(r.ok, `shift ${i + 1}`);
+    finishDeliShift(s, r.session.id, { orders: [], picks: {}, skipped: true });
+  }
+  assert.match(shiftBlocker(s) ?? '', /6 shifts a day/);
+});
+
+test('office jobs give corporate rep', () => {
+  const s = life();
+  s.skills.charisma = 3;
+  assert.equal(applyForJob(s, 'finance'), null);
   const r = startDeliShift(s);
-  assert.ok(r.ok);
-  finishDeliShift(s, r.session.id, { orders: [], picks: {}, skipped: true });
-  assert.match(shiftBlocker(s) ?? '', /One shift a day/);
+  assert.ok(r.ok, (r as { why?: string }).why);
+  const slip = finishDeliShift(s, r.session.id, { orders: Array.from({ length: 20 }, () => ({ right: true, timeLeft: 0.5 })), picks: {} })!;
+  assert.equal(slip.rep?.kind, 'corporate');
+  assert.ok((s.rep?.corporate ?? 0) > 0);
 });
 
 test('every job’s menu: real items, enough choices, every dish buildable', () => {

@@ -106,8 +106,8 @@ export const SHIFT_SECONDS = 20;
 /** How long a shift reads on the game clock (the timer "skips" these hours). */
 export const SHIFT_GAME_HOURS = 4;
 
-/** Shifts per GAME day (Peter, 2026-10-14: one). About 7 game days pass per real day. */
-export const MAX_SHIFTS_PER_DAY = 1;
+/** Shifts per GAME day (Peter, 2026-10-14: six). About 7 game days pass per real day. */
+export const MAX_SHIFTS_PER_DAY = 6;
 
 /** Shifts can only start between these New York hours. */
 export const WORK_HOURS = { start: 6, end: 23 } as const;

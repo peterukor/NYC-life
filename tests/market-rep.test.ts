@@ -5,7 +5,7 @@ import { STOCKS } from '../src/data/stocks.ts';
 import { BOTTLES } from '../src/data/bottles.ts';
 import { eventFor, priceAt } from '../src/sim/market.ts';
 import { buyBottle } from '../src/sim/celebrate.ts';
-import { addRep, repOf, repRank, repTitle, tradeRep } from '../src/sim/rep.ts';
+import { addRep, repOf, repRank, repTitle, respect, tradeRep } from '../src/sim/rep.ts';
 
 const life = () => newLife({ name: 'T', origin: 'hustler', spawnClass: 'billionaire', look: { body: 'm', skin: '#000', top: '#000', bottom: '#000', hair: '#000' }, birthYear: 1990, traits: [] });
 
@@ -65,4 +65,14 @@ test('rep ranks up with titles', () => {
   assert.equal(repTitle(s, 'corporate'), 'Retail Trader');
   addRep(s, 'street', 1e6);
   assert.equal(repTitle(s, 'street'), 'City Icon');
+});
+
+test('💪 respect: street rep plus fitness', () => {
+  const s = life();
+  s.skills.fitness = 0;
+  const weak = respect(s);
+  s.skills.fitness = 10;
+  assert.ok(respect(s) >= weak + 40);
+  addRep(s, 'street', 1e6);
+  assert.equal(respect(s), 100);
 });

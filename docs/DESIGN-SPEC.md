@@ -16,7 +16,7 @@ The owner's own wording, organised. Treat this as the source of truth for gamepl
 
 ## Time
 - One in-game day = 3 h 23 min real time (a single constant).
-- **Work (Peter, 2026-10-14):** one shift per game day, two ways to work it. ⏩ **Auto**: done at once, pays the lowest wage ($50 at the first rung). 🎮 **Play**: a 5–7 minute hands-on counter game (6 minutes now) for every job, each with its own items, asks and 3 mid-shift choices; pays the $50 plus tips/bonus/commission, up to $300. Raises scale both numbers by the career's ladder. The world clock is shared by everyone, so "skipping" ends the shift at once rather than moving the clock.
+- **Work (Peter, 2026-10-14, revised):** up to 6 shifts per game day, two ways to work each. ⏩ **Auto**: 30 real seconds and you must stay in the game (leaving or stopping pays nothing); pays the job's lowest wage (about $30) and never raises performance or rep. 🎮 **Play**: a 6-minute hands-on counter game for every job; pays up to about $90 and raises performance and rep. Pay differs by job: tip jobs (bartender, dancer) start lower with more upside; skilled jobs (tech, finance) start higher. Played shifts add 🔥 street rep (bodega, bar, gym, club, alley) or 💼 corporate rep (tech, finance, precinct). 💪 Respect = street rep + fitness (hook for robbery/pickpocket odds later).
 - **Bartenders work the bar only (Peter, 2026-10-14):** people order from their tables, the bartender makes the drink, and an NPC waiter carries it over. Bartenders and night dancers can still party at the club off the clock.
 - **Staff bottle discount (Peter, 2026-10-14):** 🍸 bartenders 20% off, 🌙 night dancers 25% off.
 

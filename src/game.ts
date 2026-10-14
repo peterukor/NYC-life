@@ -23,7 +23,7 @@ import { VEHICLES } from './data/vehicles.ts';
 import { vehicleGeometry, vehicleMaterial } from './world/vehicle-models.ts';
 import { bus } from './core/bus.ts';
 import { isRushHour, nowMs, nycTime } from './core/clock.ts';
-import { MAP_MAX_DISTANCE, DETAIL_RADIUS, RIDESHARE, SUBWAY_FARE, WALK_SPEED, INDOOR_WALK, SHIFT_GAME_HOURS, DIRECTOR_TICK_SECONDS, CAMERA } from './core/constants.ts';
+import { MAP_MAX_DISTANCE, DETAIL_RADIUS, RIDESHARE, SUBWAY_FARE, WALK_SPEED, INDOOR_WALK, SHIFT_GAME_HOURS, MAX_SHIFTS_PER_DAY, DIRECTOR_TICK_SECONDS, CAMERA } from './core/constants.ts';
 import { esc, money } from './core/format.ts';
 import { ACTIONS, actionLock } from './data/actions.ts';
 import { CAREER_BY_ID, CAREERS } from './data/careers.ts';
@@ -75,8 +75,8 @@ import { receiveOrders } from './sim/kitchen.ts';
 import { cookActionId, eatActionId, mealOfAction } from './data/groceries.ts';
 import { openFurnitureShop } from './ui/furniture-shop.ts';
 import { beginActivity, completeActivity, stopActivity, tickActivity, activityProgress } from './sim/home-activity.ts';
-import { abandonShift, finishDeliShift, menuFor, payBand, SHIFT_PAY, startDeliShift } from './sim/shift.ts';
-import { playDeliShift, shiftIntro, showPayslip } from './ui/deli-shift.ts';
+import { abandonShift, careerBand, finishDeliShift, menuFor, payBand, startDeliShift } from './sim/shift.ts';
+import { autoSeconds, playDeliShift, shiftIntro, showPayslip } from './ui/deli-shift.ts';
 import { openCloset } from './ui/closet.ts';
 import { openStore } from './ui/store.ts';
 import { openSidePanel } from './ui/side-panel.ts';
@@ -1365,7 +1365,7 @@ export class Game {
     const workBtn = worksHere
       ? `<button class="btn primary block" style="margin-bottom:10px" data-act="work">💼 Work a shift <small>(${money(payBand(this.state).auto)}–${money(payBand(this.state).max)})</small></button>`
       : careerHere && !isOffice
-        ? `<button class="btn primary block" style="margin-bottom:10px" data-act="hire">💼 Ask about a job: ${esc(careerHere.ladder[0].title)} · ${money(SHIFT_PAY.auto)}–${money(SHIFT_PAY.max)} a shift</button>`
+        ? `<button class="btn primary block" style="margin-bottom:10px" data-act="hire">💼 Ask about a job: ${esc(careerHere.ladder[0].title)} · ${money(careerBand(careerHere.id).auto)}–${money(careerBand(careerHere.id).max)} a shift</button>`
         : '';
     const sheet = openSheet({
       emoji,
@@ -2191,6 +2191,35 @@ export class Game {
   }
 
   /**
+   * ⏩ An auto shift: 30 real seconds on a bar (Peter: you have to be
+   * online for it to work). Closing the game mid-way abandons the shift
+   * unpaid (sim/shift.ts → abandonShift on load). Resolves false if you
+   * stopped early.
+   */
+  private autoShift(emoji: string): Promise<boolean> {
+    return new Promise((resolve) => {
+      let stopped = false;
+      const total = autoSeconds() * 1000;
+      const bar = progressBar(`${emoji} Working the shift…`, { skipLabel: 'Stop', onSkip: () => (stopped = true) });
+      const start = performance.now();
+      const tick = () => {
+        const f = (performance.now() - start) / total;
+        if (stopped) {
+          bar.remove();
+          return resolve(false);
+        }
+        bar.set(f, `${emoji} Working the shift… ${Math.max(0, Math.ceil((total - (performance.now() - start)) / 1000))}s`);
+        if (f >= 1) {
+          bar.remove();
+          return resolve(true);
+        }
+        requestAnimationFrame(tick);
+      };
+      tick();
+    });
+  }
+
+  /**
    * The job's own twist before the pay (sim/job-perks.ts): a fight at the
    * club, a bust in the alley, an envelope for the cop. Returns the pay
    * multiplier, or null if the shift ended badly (Internal Affairs).
@@ -2254,7 +2283,8 @@ export class Game {
     const t = nycTime();
     const band = payBand(s);
     const late = career.id === 'bartender' && (t.hour >= 22 || t.hour < 4) ? 1.5 : 1;
-    const info = { place: PLACE_BY_ID[career.placeId].name, title: jobTitle(s), auto: band.auto, max: band.max, startMinute: t.hour * 60 + t.minute, hours: SHIFT_GAME_HOURS, choices: [] as string[], careerId: career.id, tipMult: late };
+    const left = MAX_SHIFTS_PER_DAY - (s.job!.dayKey === t.dateKey ? s.job!.shiftsToday : 0);
+    const info = { place: PLACE_BY_ID[career.placeId].name, title: jobTitle(s), auto: band.auto, max: band.max, startMinute: t.hour * 60 + t.minute, hours: SHIFT_GAME_HOURS, choices: [] as string[], careerId: career.id, tipMult: late, left };
     const mode = await shiftIntro(info);
     if (!mode) return;
     const st = startDeliShift(s);
@@ -2262,6 +2292,13 @@ export class Game {
     this.busy = true;
     this.save(); // the shift id is saved: from here on it can only pay once
     info.choices = st.session.choices;
+    if (mode === 'auto' && !(await this.autoShift(career.emoji))) {
+      // Stopped early (or left): the shift ends unpaid.
+      abandonShift(s);
+      this.busy = false;
+      this.save();
+      return toast('You left before the end of the shift: no pay.', { icon: '⏩', tone: 'bad' });
+    }
     const play = mode === 'play' ? await playDeliShift(info) : { orders: [], picks: {}, skipped: true };
     const mult = await this.resolveTwist();
     if (mult === null) {
@@ -2277,7 +2314,7 @@ export class Game {
     this.refreshHud(true);
     if (!slip) return;
     sfx.cash();
-    await showPayslip(slip, { title: `${career.emoji} ${info.title}`, tipWord: menuFor(career.id).tipWord, auto: mode === 'auto' });
+    await showPayslip(slip, { title: `${career.emoji} ${info.title}`, tipWord: menuFor(career.id).tipWord, auto: mode === 'auto', max: band.max });
     this.save();
     this.refreshHud(true);
     await this.maybeAskForRaise();

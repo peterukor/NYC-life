@@ -1,13 +1,16 @@
 // =====================================================================
 // shift.ts — hands-on shifts for every job (Peter, 2026-10-14).
 //
-// Two ways to work a shift (one shift per game day):
-//  ⏩ Auto: done at once, pays the lowest wage ($50 at the first rung).
+// Two ways to work a shift (up to 6 shifts per game day):
+//  ⏩ Auto: 30 real seconds, and you have to stay in the game. Pays the
+//     lowest wage (about $30 at the first rung). Never raises performance.
 //  🎮 Play: about 6 real minutes at the counter (the clock in the corner
 //     runs through the 4 game hours). Build each order from the job's
 //     items before the customer gives up; 3 choices come up along the
-//     way. Pays the $50 plus tips and overtime, up to $300 in all.
-// Each raise scales both numbers by the career's ladder (data/careers.ts).
+//     way. Pays the base plus tips and overtime, up to about $90, and
+//     adds 🔥 street or 💼 corporate rep depending on the job.
+// Pay differs by job (data/careers.ts → shift): tip jobs start lower with
+// more upside; skilled jobs start higher. Raises scale both numbers.
 //
 // Getting paid twice is impossible: starting a shift saves a shift id in
 // the game (state.shift). Collecting pay needs that exact id and clears
@@ -22,6 +25,7 @@ import { changeMoney } from './economy.ts';
 import { addMoodlet, applyNeeds } from './needs.ts';
 import { completeShift, shiftBlocker } from './work.ts';
 import { MORE_MENUS } from '../data/shift-menus.ts';
+import { addRep } from './rep.ts';
 import type { GameState, NeedKey } from './types.ts';
 
 // ------------------------------------------------------------------ menus
@@ -284,8 +288,17 @@ export const ORDER_SECONDS_END = 10;
 export const SHIFT_PLAY_SECONDS = 360;
 /** Choices per shift (at a quarter, half and three quarters of the way). */
 export const SHIFT_CHOICES_PER = 3;
-/** Pay at the first rung, in cents: auto, and the most a played shift can pay. */
-export const SHIFT_PAY = { auto: 5_000, max: 30_000 } as const;
+/** Pay at the first rung when a career doesn't set its own (cents): auto, and the most a played shift can pay. */
+export const SHIFT_PAY = { auto: 3_000, max: 9_000 } as const;
+/** An auto shift takes this long in real seconds (you have to stay in the game). */
+export const AUTO_SHIFT_SECONDS = 30;
+/** Tips and overtime were designed for $250 of room; scale them to the job's room. */
+const DESIGN_ROOM = 25_000;
+
+/** How much the tips and overtime are scaled for this pay band. */
+export function tipScale(band: { auto: number; max: number }): number {
+  return (band.max - band.auto) / DESIGN_ROOM;
+}
 /** What a shift takes out of you, before choices. */
 export const SHIFT_COST: Partial<Record<NeedKey, number>> = { energy: -14, hunger: -12, hygiene: -6, fun: -4 };
 
@@ -324,12 +337,14 @@ export interface Payslip {
   capped: boolean;
   /** The night's twist changed the pay (fight, light tippers…): the multiplier. */
   mult: number;
+  /** Rep a played shift earned (data/careers.ts → shift.rep). */
+  rep: { kind: 'street' | 'corporate'; points: number; rankUp: string | null } | null;
 }
 
 /**
  * What a shift pays at your rung: `auto` (the lowest) and `max` (a great
- * played shift). $50 / $300 at the first rung; raises scale both by the
- * career's ladder.
+ * played shift). Set per job (data/careers.ts → shift); raises scale both
+ * by the career's ladder.
  */
 export function payBand(s: GameState, level = s.job?.level ?? 0): { auto: number; max: number } {
   return careerBand(s.job?.careerId ?? '', level);
@@ -339,7 +354,8 @@ export function payBand(s: GameState, level = s.job?.level ?? 0): { auto: number
 export function careerBand(careerId: string, level = 0): { auto: number; max: number } {
   const c = CAREER_BY_ID[careerId];
   const f = c ? c.ladder[Math.min(level, c.ladder.length - 1)].pay / c.ladder[0].pay : 1;
-  return { auto: Math.round((SHIFT_PAY.auto * f) / 100) * 100, max: Math.round((SHIFT_PAY.max * f) / 100) * 100 };
+  const base = c?.shift ?? SHIFT_PAY;
+  return { auto: Math.round((base.auto * f) / 100) * 100, max: Math.round((base.max * f) / 100) * 100 };
 }
 
 /** Clock in: checks you can work, then records the shift (save after this). */
@@ -374,7 +390,7 @@ export function finishDeliShift(s: GameState, shiftId: string, play: ShiftPlay, 
   const picks = play.picks;
   const menu = menuFor(session.careerId);
   const band = payBand(s);
-  const scale = band.auto / SHIFT_PAY.auto;
+  const scale = tipScale(band);
   const right = play.orders.filter((o) => o.right).length;
   const of = play.orders.length;
   // What the choices did (menu data: ChoiceFx).
@@ -422,7 +438,14 @@ export function finishDeliShift(s: GameState, shiftId: string, play: ShiftPlay, 
   if (extra > 0) changeMoney(s, extra, 'Tips and overtime');
   else if (extra < 0) changeMoney(s, extra, 'Out of your pocket');
   s.stats.actionsDone['__shift'] = (s.stats.actionsDone['__shift'] ?? 0) + 1;
-  return { base, tips, overtime, covered, total: base + extra, right, of, promoted: null, needs, capped, mult };
+  // 🔥/💼 Rep for a played shift: the job's most for getting every order right (needs a real shift: 5+ orders).
+  const repDef = CAREER_BY_ID[session.careerId]?.shift?.rep;
+  let rep: Payslip['rep'] = null;
+  if (repDef && !play.skipped && of >= 5 && mult > 0) {
+    const points = Math.round(repDef.max * (right / of));
+    if (points > 0) rep = { kind: repDef.kind, points, rankUp: addRep(s, repDef.kind, points) };
+  }
+  return { base, tips, overtime, covered, total: base + extra, right, of, promoted: null, needs, capped, mult, rep };
 }
 
 /** Closing the game mid-shift: the shift ends, unpaid. */
