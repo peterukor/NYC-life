@@ -7,6 +7,7 @@
 // =====================================================================
 
 import { esc } from '../core/format.ts';
+import { sfx } from './audio.ts';
 
 export const root = (): HTMLElement => document.getElementById('ui')!;
 
@@ -55,6 +56,7 @@ export function openSheet(opts: { emoji: string; title: string; sub?: string; bo
       <div class="sheet-body">${opts.body}</div>
     </section>`);
   root().append(backdrop, el);
+  sfx.open();
   requestAnimationFrame(() => {
     backdrop.classList.add('open');
     el.classList.add('open');
@@ -111,14 +113,28 @@ export function progressBar(label: string, opts: { skipLabel?: string; onSkip?: 
 }
 
 /** Black fade for travel and scene changes. */
-export function fade(on: boolean, text = '', sub = ''): void {
+export function fade(on: boolean, text = '', sub = '', ad?: FadeAd): void {
   let el = root().querySelector<HTMLElement>('.fade');
   if (!el) {
     el = html('<div class="fade" aria-live="polite"></div>');
     root().appendChild(el);
   }
-  el.innerHTML = text ? `<div>${esc(text)}${sub ? `<span class="sub">${esc(sub)}</span>` : ''}</div>` : '';
+  // Travel loading screens are an ad (Peter, 2026-10-14): a big card, the trip underneath.
+  const card = ad
+    ? `<div class="fade-ad" style="--bg:${ad.bg};--fg:${ad.fg};--ac:${ad.accent}"><em class="fade-ad-tag">Ad</em><strong>${esc(ad.brand)}</strong><span>${esc(ad.line)}</span><i class="fade-ad-bar"></i></div>`
+    : '';
+  if (on || !el.classList.contains('on')) el.innerHTML = text || ad ? `${card}<div>${esc(text)}${sub ? `<span class="sub">${esc(sub)}</span>` : ''}</div>` : '';
+  el.classList.toggle('with-ad', !!ad && on);
   el.classList.toggle('on', on);
+}
+
+/** What a loading-screen ad needs (render/textures.ts AdCreative fits). */
+export interface FadeAd {
+  brand: string;
+  line: string;
+  bg: string;
+  fg: string;
+  accent: string;
 }
 
 /** Attach one click handler to a container that fires for any [data-act] button inside. */

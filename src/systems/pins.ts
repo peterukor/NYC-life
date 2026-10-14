@@ -21,6 +21,8 @@ import { bus } from '../core/bus.ts';
 import { SYSTEMS, type SystemContext } from '../core/systems.ts';
 import { MAX_PINS, PIN_KINDS, PIN_SOURCES, type Pin } from '../data/pins.ts';
 import { root } from '../ui/dom.ts';
+import { PLACE_BY_ID } from '../data/places.ts';
+import { nycTime } from '../core/clock.ts';
 
 let layer: HTMLDivElement | null = null;
 const els = new Map<string, HTMLButtonElement>();
@@ -35,6 +37,44 @@ function pinSvg(color: string): string {
   return `<svg viewBox="0 0 32 42" aria-hidden="true"><path d="M16 41C16 41 3 26.5 3 16a13 13 0 0 1 26 0C29 26.5 16 41 16 41Z" fill="${color}" stroke="#1c2340" stroke-width="2.5"/><circle cx="16" cy="16" r="9.5" fill="#fff"/></svg>`;
 }
 
+// ---- Hover (mouse) or press and hold (touch): a small card about the place (Peter, 2026-10-14).
+let info: HTMLDivElement | null = null;
+let holdTimer = 0;
+let held = false;
+
+function hideInfo(): void {
+  window.clearTimeout(holdTimer);
+  info?.remove();
+  info = null;
+}
+
+const hourLabel = (h: number) => `${h % 12 === 0 ? 12 : h % 12}${h < 12 || h === 24 ? 'am' : 'pm'}`;
+
+function showInfo(p: Pin, el: HTMLElement): void {
+  hideInfo();
+  const place = p.placeId ? PLACE_BY_ID[p.placeId] : null;
+  const esc = (t: string) => t.replace(/[<>&]/g, '');
+  let hours = '';
+  if (place?.hours) {
+    const [o, c] = place.hours;
+    const h = nycTime().hour;
+    const open = o < c ? h >= o && h < c : h >= o || h < c;
+    hours = `<small class="${open ? 'ok' : 'no'}">${open ? 'Open now' : 'Closed'} · ${hourLabel(o)}–${hourLabel(c)}</small>`;
+  } else if (place) hours = '<small class="ok">Open 24 hours</small>';
+  info = document.createElement('div');
+  info.className = 'pin-info';
+  info.setAttribute('role', 'tooltip');
+  info.innerHTML = `<b>${p.icon} ${esc(place?.name ?? p.label)}</b>${place && place.name !== p.label ? `<em>${esc(p.label)}</em>` : ''}${place?.blurb ? `<p>${esc(place.blurb)}</p>` : ''}${hours}${place ? '<small class="hint">Tap the pin again to go</small>' : ''}`;
+  root().appendChild(info);
+  const r = el.getBoundingClientRect();
+  const w = Math.min(260, window.innerWidth - 24);
+  info.style.width = `${w}px`;
+  info.style.left = `${Math.max(12, Math.min(window.innerWidth - w - 12, r.left + r.width / 2 - w / 2))}px`;
+  const below = r.top < 170;
+  info.style.top = below ? `${r.bottom + 8}px` : '';
+  info.style.bottom = below ? '' : `${window.innerHeight - r.top + 8}px`;
+}
+
 function element(p: Pin): HTMLButtonElement {
   let el = els.get(p.id);
   if (!el) {
@@ -44,8 +84,35 @@ function element(p: Pin): HTMLButtonElement {
     el.type = 'button';
     el.innerHTML = `${pinSvg(kind?.color ?? '#3a86ff')}<span class="pin-ico">${p.icon}</span><span class="pin-more" hidden></span><span class="pin-label">${p.label.replace(/[<>&]/g, '')}</span>`;
     el.setAttribute('aria-label', p.label);
+    el.addEventListener('pointerenter', (e) => {
+      if (e.pointerType === 'mouse') showInfo(p, el!);
+    });
+    el.addEventListener('pointerleave', (e) => {
+      if (e.pointerType === 'mouse') hideInfo();
+    });
+    el.addEventListener('pointerdown', (e) => {
+      if (e.pointerType === 'mouse') return;
+      held = false;
+      holdTimer = window.setTimeout(() => {
+        held = true;
+        showInfo(p, el!);
+      }, 450);
+    });
+    const cancelHold = () => window.clearTimeout(holdTimer);
+    el.addEventListener('pointerup', cancelHold);
+    el.addEventListener('pointercancel', () => {
+      cancelHold();
+      hideInfo();
+    });
+    el.addEventListener('contextmenu', (e) => e.preventDefault());
     el.addEventListener('click', (e) => {
       e.stopPropagation();
+      // A press and hold only shows the card (it isn't a tap).
+      if (held) {
+        held = false;
+        return;
+      }
+      hideInfo();
       // First tap shows the label; a tap while the label shows opens the place.
       if (el!.classList.contains('open') && p.placeId) bus.emit('pin:tap', { placeId: p.placeId });
       for (const other of els.values()) if (other !== el) other.classList.remove('open');
@@ -68,7 +135,13 @@ SYSTEMS.add({
     if (!listening) {
       listening = true;
       // Pins belong to the street view: hide them inside places and on the subway.
-      bus.on('view:mode', (e) => (hiddenInside = e.mode !== 'city'));
+      bus.on('view:mode', (e) => {
+        hiddenInside = e.mode !== 'city';
+        // update() only runs on the street, so hide the layer right away
+        // (it used to linger over rooms after some trips: the "bulb" at home).
+        if (layer) layer.hidden = hiddenInside;
+        if (hiddenInside) hideInfo();
+      });
     }
   },
   update(dt: number, ctx: SystemContext) {
@@ -130,6 +203,7 @@ SYSTEMS.add({
     }
   },
   areaUnloaded() {
+    hideInfo();
     layer?.remove();
     layer = null;
     els.clear();

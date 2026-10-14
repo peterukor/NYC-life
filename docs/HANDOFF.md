@@ -48,6 +48,14 @@ How to add or change content: **`docs/ADDING-CONTENT.md`**.
 - `index.html` has `robots: noindex, nofollow` (playtest build: casino, betting, parody brands).
 - Pages only serves files: multiplayer will need its own server (Colyseus on a small host) that this client connects to.
 
+## Sounds, map travel, ad loading screens (2026-10-14, late)
+- **Sounds** (all synthesised, nothing to download): `ui/audio.ts` (master mix with sfx / ambience / loops buses, noise helpers, ~35 effects) and `ui/soundscape.ts` (ambience per scene — city traffic with honks, sirens and buses; room tone; club and gym four-on-the-floor; bar jukebox; casino slots; arcade bleeps; park birds or crickets; precinct radio — plus footsteps and a loop for what you're doing: shower water, sizzling pan, TV, typing, guitar, piano). `game.ts updateSound()` feeds it every frame. Every button clicks (`installUiClicks`).
+- **Fast-travel strip** along the bottom of both maps (`showMapStrip`, same list as "Where to?"). Ad spaces and places tapped on a map open their sheet over the map; you stay on the map.
+- **Travel loading screens are ads** (`fade(…, ad)` in ui/dom.ts; rotation in `ui/travel-ad.ts`, `setTravelAds()` is the seam for paid ads; count views when those exist).
+- **Pins:** hover (mouse) or press and hold (touch) shows a card: name, blurb, open now. The pin layer hides the moment you go inside (it used to linger over rooms: the "bulb" at home).
+- **Zoom:** satellite out to the whole island (`MAP_MAX_DISTANCE` 5200, fog/far plane raised, ad cards hide beyond 1700); street max 480; rooms out to 0.7 and open at 0.92. Scrolling over map labels or pins now zooms the map. Rooms no longer follow the mouse after a release off the canvas.
+- QA: `scripts/qa-maps.mjs`, `scripts/qa-batch.mjs`.
+
 ## Playtest fixes (2026-10-14, evening)
 - **Starting screen:** a live 3D preview of your character (`ui/avatar-preview.ts`, its own small canvas, disposed on the next step) updates and hops as you pick body, skin, top, bottoms and hair.
 - **Learning the shift games:** the first played shift at each job shows "how it works" with a real example; the first 2 shifts light up what each order needs (`.want`) and spell it out ("Needs: …"). A 📖 button in every shift shows what goes in each order and pauses the clock. Count kept in `state.shiftsPlayed[careerId]`.
@@ -231,6 +239,8 @@ How to add or change content: **`docs/ADDING-CONTENT.md`**.
   2. **Share location** with roommates and friends (opt-in), shown on the map.
   3. **Invite AI to clubs** (exists for NPCs) and **🪙 chip-ins:** someone starts a chip-in on the phone for a bottle or section; friends contribute. The holder can steal it and run: everyone in it gets "X stole the chip-in and ran", can report it, police chase; escape = keep it; caught = arrested, fine, bad rep, lose money.
   4. **🚓 Police record** for every player and NPC: tap someone (or a contact) to see arrests and why.
+  5. **Clean up the whole map** carefully: billboards and ad blocks, the Times Square red stage (Peter loves it, it looks off), overlapping landmark labels in midtown at full zoom-out.
+  Also queued before these: **load the game in pieces** (dynamic imports + loading card) and **ad pricing** (1 week $99.99; weekly subscription $89.99; 4 weeks $69.99/week; location and size scale it; ads very visible everywhere).
   Human roommates/chip-ins need the multiplayer server; build with NPCs first behind the same interfaces (`sim/guests.ts`, `sim/invites.ts` style).
 0. **Ideas and implementation plans** for sharing your number, speaking loud, dates, NPC memory, NPCs that fight back, and fun for 1–2 players: see **`docs/IDEAS.md`**. Suggested order is in its section 4.
 3. **Multiplayer server (Colyseus skill in repo):** player homes on blocks, visiting (follow home, shared address, spare key), friends pins, billionaire cap, recession and reset vote (seams: `marketMood()`, `sim/economy.ts`).
