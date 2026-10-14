@@ -1,0 +1,14 @@
+import puppeteer from 'puppeteer-core';
+const browser = await puppeteer.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', headless: true, args: ['--no-sandbox', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
+const page = await browser.newPage();
+await page.setViewport({ width: 390, height: 780 });
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+await page.goto('http://localhost:4173/?qa=1&class=poor&hour=11', { waitUntil: 'load' });
+await page.evaluate(() => localStorage.clear()); await page.reload({ waitUntil: 'load' });
+await page.waitForSelector('#ob-year'); await page.select('#ob-year', '1995'); await page.type('#ob-name', 'Jack');
+await page.$eval('#ob-go', (e) => e.click()); await page.waitForSelector('#ob-start'); await page.$eval('#ob-start', (e) => e.click());
+await wait(3500);
+await page.evaluate(() => window.__nyc.showFight(true));
+await wait(700);
+await page.screenshot({ path: '/home/claude/NYC-life/test-results/fight-dust.png' });
+await browser.close();
