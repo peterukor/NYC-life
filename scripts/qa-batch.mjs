@@ -83,9 +83,16 @@ await shot('quicklist');
 await ev(() => [...document.querySelectorAll('.sheet.open button')].find((b) => /Satellite/.test(b.textContent))?.click());
 await wait(3500);
 await shot('satellite');
-ok(!!(await page.$('.map-strip [data-go]')), 'satellite map shows the fast-travel strip');
+ok(!!(await page.$('.map-fast [data-fast]')), 'satellite map has a 🚀 Fast travel button');
+await page.$eval('[data-fast]', (el) => el.click());
+await wait(300);
+ok(!!(await page.$('.map-fast-list:not([hidden]) [data-go]')), 'it opens the list of places');
+await page.$eval('[data-fastclose]', (el) => el.click());
+await wait(200);
+ok(!!(await page.$('.map-fast-list[hidden]')), 'and closes again');
+await page.$eval('[data-fast]', (el) => el.click());
 // Tap a strip place: travel sheet opens over the map; take a rideshare → ad loading screen.
-await page.$eval('.map-strip [data-go]:not([disabled])', (el) => el.click());
+await page.$eval('.map-fast [data-go]:not([disabled])', (el) => el.click());
 await page.waitForSelector('.sheet.open [data-act="ride"]');
 ok(!!(await page.$('.map3d')), 'map stays open under the travel sheet');
 await ev(() => { window.__nyc.state().money = 500_000; });
@@ -93,7 +100,7 @@ await page.$eval('.sheet.open [data-act="ride"]', (el) => el.click());
 await wait(900);
 ok(!!(await page.$('.fade.with-ad.on .fade-ad strong')), 'rideshare loading screen is an ad');
 await shot('travel-ad');
-ok(!(await page.$('.map-strip')), 'strip gone once you travel');
+ok(!(await page.$('.map-fast')), 'fast travel gone once you travel');
 await wait(4000);
 for (let i = 0; i < 4 && (await page.$('.sheet.open')); i++) { await ev(() => document.querySelector('.sheet.open .close')?.click()); await wait(500); }
 // Flat city map also has the strip.
@@ -101,10 +108,10 @@ await page.$eval('[data-nav="map"]', (el) => el.click());
 await page.waitForSelector('.sheet.open');
 await ev(() => [...document.querySelectorAll('.sheet.open button')].find((b) => /City map/.test(b.textContent))?.click());
 await wait(1200);
-ok(!!(await page.$('.map .map-strip, .map-strip [data-go]')), 'flat city map shows the fast-travel strip');
+ok(!!(await page.$('.map-fast [data-fast]')), 'flat city map has the Fast travel button');
 await shot('flatmap');
 await ev(() => document.querySelector('.map [data-act="close"]')?.click());
-ok(!(await page.$('.map-strip')), 'strip goes away with the map');
+ok(!(await page.$('.map-fast')), 'fast travel goes away with the map');
 await wait(600);
 // Rooms open wider, and zoom out past the fit.
 await ev(() => window.__nyc.enterPlace(window.__nyc.state().home.placeId));

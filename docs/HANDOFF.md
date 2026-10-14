@@ -50,10 +50,10 @@ How to add or change content: **`docs/ADDING-CONTENT.md`**.
 
 ## Sounds, map travel, ad loading screens (2026-10-14, late)
 - **Sounds** (all synthesised, nothing to download): `ui/audio.ts` (master mix with sfx / ambience / loops buses, noise helpers, ~35 effects) and `ui/soundscape.ts` (ambience per scene — city traffic with honks, sirens and buses; room tone; club and gym four-on-the-floor; bar jukebox; casino slots; arcade bleeps; park birds or crickets; precinct radio — plus footsteps and a loop for what you're doing: shower water, sizzling pan, TV, typing, guitar, piano). `game.ts updateSound()` feeds it every frame. Every button clicks (`installUiClicks`).
-- **Fast-travel strip** along the bottom of both maps (`showMapStrip`, same list as "Where to?"). Ad spaces and places tapped on a map open their sheet over the map; you stay on the map.
+- **🚀 Fast travel button** on both maps opens a scrollable list (same as "Where to?") and closes again (`showMapStrip`). Ad spaces and places tapped on a map open their sheet over the map; you stay on the map.
 - **Travel loading screens are ads** (`fade(…, ad)` in ui/dom.ts; rotation in `ui/travel-ad.ts`, `setTravelAds()` is the seam for paid ads; count views when those exist).
 - **Pins:** hover (mouse) or press and hold (touch) shows a card: name, blurb, open now. The pin layer hides the moment you go inside (it used to linger over rooms: the "bulb" at home).
-- **Zoom:** satellite out to the whole island (`MAP_MAX_DISTANCE` 5200, fog/far plane raised, ad cards hide beyond 1700); street max 480; rooms out to 0.7 and open at 0.92. Scrolling over map labels or pins now zooms the map. Rooms no longer follow the mouse after a release off the canvas.
+- **Zoom:** the satellite map is straight down, north up, no tilt or spin; it opens fully zoomed out showing about ¾ of Manhattan (`MAP_SPAN_FRACTION` 0.75 → `MAP_MAX_DISTANCE` ≈ 3787) and players zoom in from there; ad spaces always labelled. Street max zoom-out 190 (start 100). Rooms out to 0.7, open at 0.92. A drag whose mouse release was lost is ended as soon as the mouse moves with no button (render/engine.ts), so the map no longer follows the mouse. Scrolling over map labels or pins now zooms the map. Rooms no longer follow the mouse after a release off the canvas.
 - QA: `scripts/qa-maps.mjs`, `scripts/qa-batch.mjs`.
 
 ## Playtest fixes (2026-10-14, evening)

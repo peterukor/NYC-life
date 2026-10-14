@@ -94,6 +94,25 @@ export class Engine {
     this.controls.zoomSpeed = 1.1;
     this.controls.rotateSpeed = 0.7;
     this.controls.touches = { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_ROTATE };
+    // Safety net (Peter, 2026-10-14: "sometimes the screen just follows my mouse"):
+    // if the mouse moves with no button held but the controls still think a
+    // drag is on (the release was lost: window switch, focus change), end it.
+    type Ctl = { _pointers: number[]; _onPointerUp: (e: PointerEvent) => void };
+    const ctl = this.controls as unknown as Ctl;
+    const endStuck = (e: PointerEvent) => {
+      if (!ctl._pointers?.length) return;
+      for (const id of [...ctl._pointers]) {
+        try {
+          ctl._onPointerUp(new PointerEvent('pointerup', { pointerId: id, pointerType: e.pointerType || 'mouse', clientX: e.clientX, clientY: e.clientY }));
+        } catch {
+          // releasePointerCapture throws for a pointer that's already gone; the drag is still cleared.
+        }
+      }
+    };
+    document.addEventListener('pointermove', (e) => {
+      if (e.pointerType === 'mouse' && e.buttons === 0) endStuck(e);
+    }, { capture: true });
+    window.addEventListener('blur', () => endStuck(new PointerEvent('pointerup')));
 
     this.cityScene.add(this.hemi, this.sun, this.sun.target);
     this.sun.castShadow = quality.shadows;

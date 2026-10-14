@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { newLife } from '../src/sim/state.ts';
 import { initClockFromUrl, nowMs } from '../src/core/clock.ts';
 import { Rng } from '../src/core/rng.ts';
-import { remember } from '../src/sim/people.ts';
+import { moodToday, remember } from '../src/sim/people.ts';
 import { DAILY_BOND_CAP, doTogether, friendProgress, historyOf, LOG_MAX, logWith, OUTING_IDS, SHARED, SHARED_BY_ID, tasteFor, treat, vibesOf, VIBES } from '../src/sim/friends.ts';
 import { acceptCounter, answerIncoming, endHangout, expirePlans, maybeIncoming, npcAnswer, planHere, sendInvite, socialOf, startHangout } from '../src/sim/invites.ts';
 import { mayEnter } from '../src/sim/guests.ts';
@@ -128,10 +128,12 @@ test('a plan: accept the counter, show up, hang out, history; or stand them up',
 
 test('friends invite you too, and you can answer', () => {
   const s = life();
-  friend(s, 'p-9', 60);
+  // Someone who isn't busy today (busy days are rolled from the date, so a fixed id fails some days).
+  const who = Array.from({ length: 40 }, (_, i) => `p-${i}`).find((id) => moodToday(id) !== 'busy')!;
+  friend(s, who, 60);
   let inv = null;
   for (let k = 0; k < 50 && !inv; k++) inv = maybeIncoming(s, () => 0.01, nowMs() + k * 41 * 60_000);
-  assert.ok(inv && inv.from.id === 'p-9' && inv.status === 'pending');
+  assert.ok(inv && inv.from.id === who && inv.status === 'pending');
   assert.equal(answerIncoming(s, inv!.id, true)?.status, 'accepted');
 });
 
