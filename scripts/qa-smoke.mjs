@@ -203,6 +203,11 @@ await click('.modal [data-act="ok"]');
 
 // ---- Map, then the subway across Manhattan (the other boroughs are switched off).
 await click('[data-nav="map"]');
+// Map opens "Where to?" (home, work, plans, nearby) with the satellite map one tap away.
+await page.waitForSelector('.sheet.open');
+check('map button opens the "Where to?" list', /Where to\?/.test(await page.$eval('.sheet.open', (el) => el.innerText)));
+await page.evaluate(() => [...document.querySelectorAll('.sheet.open button')].find((b) => /Satellite/.test(b.textContent))?.click());
+await page.waitForSelector('.map3d .m3-pin', { timeout: 10000 }).catch(() => {});
 await wait(700);
 await shot('11-map');
 check('map opens as the sky view of the city', !!(await page.$('.map3d .m3-pin')));

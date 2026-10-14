@@ -107,7 +107,7 @@ test("Peter's pay: about $30 auto and $90 played; tip jobs start lower, skilled 
     assert.ok(b0.max > b0.auto, c.id);
     assert.ok(b5.auto > b0.auto && b5.max > b0.max, c.id);
   }
-  assert.ok(SHIFT_PLAY_SECONDS >= 300 && SHIFT_PLAY_SECONDS <= 420, '5–7 minutes');
+  assert.equal(SHIFT_PLAY_SECONDS, 180, '3 minutes (Peter, 2026-10-14)');
   assert.equal(AUTO_SHIFT_SECONDS, 30);
 });
 

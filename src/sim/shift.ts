@@ -5,7 +5,7 @@
 //  ⏩ Auto: 30 real seconds, and you have to stay in the game. Pays the
 //     lowest wage (about $30 at the first rung). A convenience only: no
 //     performance, skill or rep, and it doesn't count toward a raise.
-//  🎮 Play: about 6 real minutes at the counter (the clock in the corner
+//  🎮 Play: about 3 real minutes at the counter (the clock in the corner
 //     runs through the 4 game hours). Build each order from the job's
 //     items before the customer gives up; 3 choices come up along the
 //     way. Pays the base plus tips and overtime, up to about $90, counts
@@ -288,16 +288,19 @@ export const SHIFT_ORDERS = 6;
 /** Seconds a customer waits per order: 16 at the start, down to 10 at the end of the rush. */
 export const ORDER_SECONDS = 16;
 export const ORDER_SECONDS_END = 10;
-/** A played shift lasts this long in real seconds (Peter: 5–7 minutes). */
-export const SHIFT_PLAY_SECONDS = 360;
+/** A played shift lasts this long in real seconds (Peter, 2026-10-14: 3 minutes). */
+export const SHIFT_PLAY_SECONDS = 180;
 /** Choices per shift (at a quarter, half and three quarters of the way). */
 export const SHIFT_CHOICES_PER = 3;
 /** Pay at the first rung when a career doesn't set its own (cents): auto, and the most a played shift can pay. */
 export const SHIFT_PAY = { auto: 3_000, max: 9_000 } as const;
 /** An auto shift takes this long in real seconds (you have to stay in the game). */
 export const AUTO_SHIFT_SECONDS = 30;
-/** Tips and overtime were designed for $250 of room; scale them to the job's room. */
-const DESIGN_ROOM = 25_000;
+/**
+ * Tips and overtime scale to the job's room. Tuned so a good 3-minute
+ * shift (about 15 orders) can just reach the top pay.
+ */
+const DESIGN_ROOM = 12_500;
 
 /** How much the tips and overtime are scaled for this pay band. */
 export function tipScale(band: { auto: number; max: number }): number {
