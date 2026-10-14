@@ -41,6 +41,13 @@ How to add or change content: **`docs/ADDING-CONTENT.md`**.
 - **Big, lively rooms** (2026-10-13): workplace rooms are 16×12 to 22×16 and zoomable, built for up to 30 people (6 workers + 24 visitors; `sim/workroom.ts` → `ROOM_CAPACITY`, `assignVisitor`, `npcVisitors`). `world/venue-life.ts`: NPC visitors use the room's pieces (dance, eat, drink, train, browse), emoji pops, club lights + disco ball, steam, music notes, a flickering alley lamp. Fewer NPCs on low-tier phones.
 - **What visitors come for:** 🥪 eat (bodega window counter), 💼 invest (Business app) and 📈 trade (Stocks app) at the trading floor's client desks, 🍸🌙 party, 💘 date (booths, VIP, high-tops → Contacts), 📝 report someone (precinct window), 📱 fix or replace a phone (Chelsea Works Fix-It Bar). `game.ts → serviceAction`. QA: `qa-services.mjs`, `qa-lively.mjs`.
 
+## Deploy: GitHub Pages (2026-10-14)
+- `.github/workflows/deploy-pages.yml`: on every push to `main` (or Actions → Run workflow): `npm ci`, `npm test`, `npm run build`, publish `dist/` to Pages. Tests failing = no deploy.
+- Site: https://peterukor.github.io/NYC-life/ (relative `base: './'`, so the subfolder works; checked locally).
+- One-time: Settings → Pages → Source: "GitHub Actions".
+- `index.html` has `robots: noindex, nofollow` (playtest build: casino, betting, parody brands).
+- Pages only serves files: multiplayer will need its own server (Colyseus on a small host) that this client connects to.
+
 ## Friends and relationships (2026-10-14)
 - `sim/friends.ts`: vibes (main + second: night owl, gym rat, touch-grass type, arcade kid, homebody, foodie) → taste per outing (−1…2); history log (last 8, `Memory.log`); friendship progress to the next level; `addBond` with a daily cap (18); shared activities per outing (`SHARED`), bond never scales with cost; `treat` helps once a day.
 - `sim/invites.ts`: Party (npc | player), Invite (pending/accepted/declined/countered/expired/done/cancelled/flaked), `npcAnswer` (grudge, busy/grumpy, avoids → counter with their favourite, wrong hour → counter time, too many invites today), plans with a 15-min wait window, flakes, stood-up penalty, hangouts (15 min), incoming invites from friends (≥ Friend, ~every 40 real min, grace period at start).
