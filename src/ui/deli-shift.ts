@@ -251,7 +251,7 @@ export function showPayslip(slip: Payslip, opts: { title: string; tipWord?: stri
         <div class="slip-row total"><span>Paid to your cash</span><b>${money(slip.total)}</b></div>
       </div>
       ${slip.capped ? '<p><b>💯 Max pay for a shift!</b></p>' : ''}
-      ${slip.rep ? `<p><b>+${slip.rep.points} ${slip.rep.kind === 'street' ? '🔥 street' : '💼 corporate'} rep</b>${slip.rep.rankUp ? ` · you’re now ${esc(slip.rep.rankUp)}` : ''}</p>` : ''}
+      ${slip.rep.map((r) => `<p><b>+${r.points} ${r.kind === 'street' ? '🔥 street' : '💼 corporate'} rep</b>${r.rankUp ? ` · you’re now ${esc(r.rankUp)}` : ''}</p>`).join('')}
       ${opts.auto && opts.max ? `<p class="sub">Play the shift for up to ${money(opts.max)}, performance and rep.</p>` : ''}
       <p class="slip-needs">${needLine}</p>
       ${slip.promoted ? `<p><b>📈 Promoted to ${esc(slip.promoted)}!</b></p>` : ''}

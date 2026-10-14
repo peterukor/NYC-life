@@ -120,14 +120,14 @@ test('auto pays exactly the lowest wage and never raises performance; a great pl
   const auto = finishDeliShift(s, r.session.id, { orders: [], picks: {}, skipped: true })!;
   assert.equal(auto.total, band.auto);
   assert.equal(s.job!.performance, perf);
-  assert.equal(auto.rep, null, 'auto gives no rep');
+  assert.equal(auto.rep.length, 0, 'auto gives no rep');
   r = startDeliShift(s);
   assert.ok(r.ok, (r as { why?: string }).why);
   const many = { orders: Array.from({ length: 60 }, () => ({ right: true, timeLeft: 1 })), picks: {} };
   const slip = finishDeliShift(s, r.session.id, many)!;
   assert.equal(slip.total, band.max);
   assert.ok(slip.capped);
-  assert.ok(slip.rep && slip.rep.kind === 'street' && slip.rep.points > 0, 'bodega shifts give street rep');
+  assert.ok(slip.rep[0]?.kind === 'street' && slip.rep[0].points > 0, 'bodega shifts give street rep');
 });
 
 test('six shifts a game day', () => {
@@ -148,7 +148,7 @@ test('office jobs give corporate rep', () => {
   const r = startDeliShift(s);
   assert.ok(r.ok, (r as { why?: string }).why);
   const slip = finishDeliShift(s, r.session.id, { orders: Array.from({ length: 20 }, () => ({ right: true, timeLeft: 0.5 })), picks: {} })!;
-  assert.equal(slip.rep?.kind, 'corporate');
+  assert.equal(slip.rep[0]?.kind, 'corporate');
   assert.ok((s.rep?.corporate ?? 0) > 0);
 });
 
@@ -174,4 +174,21 @@ test('a twist multiplier (lost fight, busted) shrinks the pay', () => {
   assert.ok(r.ok);
   const slip = finishDeliShift(s, r.session.id, { orders: [], picks: {}, skipped: true }, Math.random, 0)!;
   assert.equal(slip.total, 0);
+});
+
+test('🚓 cops get both reps: bad cops lean street, good cops lean corporate', () => {
+  const shift = (exposure: number) => {
+    const s = life();
+    s.skills.fitness = 2;
+    assert.equal(applyForJob(s, 'cop'), null);
+    s.exposure = exposure;
+    const r = startDeliShift(s);
+    assert.ok(r.ok, (r as { why?: string }).why);
+    const slip = finishDeliShift(s, r.session.id, { orders: Array.from({ length: 20 }, () => ({ right: true, timeLeft: 0.5 })), picks: {} })!;
+    const get = (k: string) => slip.rep.find((x) => x.kind === k)?.points ?? 0;
+    return { street: get('street'), corporate: get('corporate') };
+  };
+  const good = shift(0), bad = shift(30);
+  assert.ok(good.street > 0 && good.corporate > good.street, `good cop ${JSON.stringify(good)}`);
+  assert.ok(bad.corporate > 0 && bad.street > bad.corporate, `bad cop ${JSON.stringify(bad)}`);
 });

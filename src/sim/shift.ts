@@ -8,7 +8,8 @@
 //     runs through the 4 game hours). Build each order from the job's
 //     items before the customer gives up; 3 choices come up along the
 //     way. Pays the base plus tips and overtime, up to about $90, and
-//     adds 🔥 street or 💼 corporate rep depending on the job.
+//     adds 🔥 street or 💼 corporate rep depending on the job (🚓 cops
+//     get both: bad cops more street, good cops more corporate).
 // Pay differs by job (data/careers.ts → shift): tip jobs start lower with
 // more upside; skilled jobs start higher. Raises scale both numbers.
 //
@@ -337,8 +338,8 @@ export interface Payslip {
   capped: boolean;
   /** The night's twist changed the pay (fight, light tippers…): the multiplier. */
   mult: number;
-  /** Rep a played shift earned (data/careers.ts → shift.rep). */
-  rep: { kind: 'street' | 'corporate'; points: number; rankUp: string | null } | null;
+  /** Rep a played shift earned (data/careers.ts → shift.rep). Empty for auto. */
+  rep: { kind: 'street' | 'corporate'; points: number; rankUp: string | null }[];
 }
 
 /**
@@ -439,11 +440,15 @@ export function finishDeliShift(s: GameState, shiftId: string, play: ShiftPlay, 
   else if (extra < 0) changeMoney(s, extra, 'Out of your pocket');
   s.stats.actionsDone['__shift'] = (s.stats.actionsDone['__shift'] ?? 0) + 1;
   // 🔥/💼 Rep for a played shift: the job's most for getting every order right (needs a real shift: 5+ orders).
-  const repDef = CAREER_BY_ID[session.careerId]?.shift?.rep;
-  let rep: Payslip['rep'] = null;
-  if (repDef && !play.skipped && of >= 5 && mult > 0) {
-    const points = Math.round(repDef.max * (right / of));
-    if (points > 0) rep = { kind: repDef.kind, points, rankUp: addRep(s, repDef.kind, points) };
+  const rep: Payslip['rep'] = [];
+  if (!play.skipped && of >= 5 && mult > 0) {
+    // 🚓 Cops earn both: taking envelopes (exposure) leans street, staying clean leans corporate.
+    const dirty = session.careerId === 'cop' && (s.exposure ?? 0) > 0;
+    for (const d of CAREER_BY_ID[session.careerId]?.shift?.rep ?? []) {
+      const lean = session.careerId === 'cop' && (d.kind === 'street') === dirty ? 1 : 0;
+      const points = Math.round((d.max + lean) * (right / of));
+      if (points > 0) rep.push({ kind: d.kind, points, rankUp: addRep(s, d.kind, points) });
+    }
   }
   return { base, tips, overtime, covered, total: base + extra, right, of, promoted: null, needs, capped, mult, rep };
 }
