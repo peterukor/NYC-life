@@ -49,7 +49,7 @@ test('no automatic promotions; ask when ready; losing means a couple more shifts
   const s = life();
   applyForJob(s, 'bartender');
   s.skills[CAREER_BY_ID.bartender.skill] = 3;
-  for (let i = 0; i < 12; i++) {
+  for (let i = 0; i < 16; i++) {
     s.needs.energy = 100;
     s.job!.shiftsToday = 0;
     completeShift(s, 'grind');

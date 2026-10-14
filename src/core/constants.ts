@@ -113,7 +113,7 @@ export const MAX_SHIFTS_PER_DAY = 4;
 export const WORK_HOURS = { start: 6, end: 23 } as const;
 
 /** Performance needed (0-100) plus shifts done before a promotion is offered. */
-export const PROMOTION = { minPerformance: 70, shiftsPerLevel: 6 } as const;
+export const PROMOTION = { minPerformance: 70, shiftsPerLevel: 14 } as const;
 
 // ---------------------------------------------------------------------
 // Random events ("the director")

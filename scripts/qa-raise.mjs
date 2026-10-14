@@ -15,7 +15,7 @@ await page.evaluate(() => localStorage.clear()); await page.reload({ waitUntil: 
 await page.waitForSelector('#ob-year'); await page.select('#ob-year', '1995'); await page.type('#ob-name', 'Jack');
 await page.$eval('#ob-go', (e) => e.click()); await page.waitForSelector('#ob-start'); await page.$eval('#ob-start', (e) => e.click());
 await wait(3500);
-await page.evaluate(() => { const s = window.__nyc.state(); s.job = { careerId: 'bartender', level: 0, performance: 90, shiftsAtLevel: 10, shiftsTotal: 10, shiftsToday: 0, dayKey: '' }; s.skills.charisma = 5; s.skills.hustle = 5; });
+await page.evaluate(() => { const s = window.__nyc.state(); s.job = { careerId: 'bartender', level: 0, performance: 90, shiftsAtLevel: 14, shiftsTotal: 14, shiftsToday: 0, dayKey: '' }; s.skills.charisma = 5; s.skills.hustle = 5; });
 await page.evaluate(() => window.__nyc.askRaise());
 await page.waitForSelector('.raise-offer', { timeout: 5000 });
 await page.screenshot({ path: 'test-results/raise-offer.png' });
