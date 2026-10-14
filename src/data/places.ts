@@ -20,7 +20,7 @@ import type { AreaId } from '../sim/types.ts';
 import { DISTRICTS, blockRect, SIDEWALK } from '../world/layout.ts';
 import { project } from '../world/geo-proj.ts';
 
-export type InteriorKind = 'apartment' | 'bodega' | 'pizza' | 'cafe' | 'bar' | 'club' | 'office' | 'gym' | 'comedy' | 'furniture' | 'none';
+export type InteriorKind = 'apartment' | 'bodega' | 'pizza' | 'cafe' | 'bar' | 'club' | 'office' | 'gym' | 'comedy' | 'furniture' | 'alley' | 'precinct' | 'none';
 
 export type PlaceType = 'home' | 'food' | 'cafe' | 'nightlife' | 'work' | 'fitness' | 'park' | 'plaza' | 'landmark' | 'station' | 'shop';
 
@@ -300,10 +300,31 @@ const RAW: RawPlace[] = [
   },
   {
     // The starter job (Peter, 2026-10-13): a deli round the corner from the walk-up.
-    id: 'barrioDeli', area: 'manhattan', name: 'El Barrio Deli & Grill', emoji: '🥪', type: 'food',
+    id: 'barrioDeli', area: 'manhattan', name: 'El Barrio Deli & Grill', emoji: '🏪', type: 'food',
     blurb: 'Chopped cheese, café con leche and the whole block’s gossip. Always hiring for the counter.',
     at: [40.7968, -73.9402], hours: [6, 23], interior: 'bodega', color: '#d9480f',
     actions: ['choppedCheese', 'bodegaCoffee', 'baconEggCheese'],
+  },
+  {
+    // Night Dancer's club (Peter, 2026-10-13). Kept PG-13: shows, tips and the odd rowdy customer.
+    id: 'velvetRoom', area: 'manhattan', name: 'The Velvet Room', emoji: '🌙', type: 'nightlife',
+    blurb: 'Purple lights, a mirrored stage, a DJ who only plays bangers. Doors at 8 PM.',
+    at: [40.7562, -73.9895], hours: [20, 4], interior: 'club', color: '#7b2cbf',
+    actions: ['dancefloor', 'happyHour'],
+  },
+  {
+    // Alley Pharmacist's spot. Every product here is made up.
+    id: 'theAlley', area: 'manhattan', name: 'Orchard Street Alley', emoji: '💊', type: 'work',
+    blurb: 'Between a laundromat and a closed nail salon. Dumpsters, a fire escape, and customers who don’t make eye contact.',
+    at: [40.7185, -73.9905], interior: 'alley', color: '#5c4b51',
+    actions: [],
+  },
+  {
+    // The Cop career's precinct (a fictional one).
+    id: 'precinct', area: 'manhattan', name: '18th Precinct', emoji: '🚓', type: 'work',
+    blurb: 'Green lamps by the door, a desk sergeant who’s seen everything, and the worst coffee in Midtown.',
+    at: [40.7635, -73.9850], interior: 'precinct', color: '#1d3557',
+    actions: [],
   },
   {
     // The first furniture shop: basic and nice alternatives to the starter pieces.

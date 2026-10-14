@@ -11,6 +11,7 @@ import { nycTime } from '../core/clock.ts';
 import { MAX_SHIFTS_PER_DAY, WORK_HOURS } from '../core/constants.ts';
 import { clamp } from '../core/format.ts';
 import { CAREER_BY_ID, type CareerDef } from '../data/careers.ts';
+import { fmtHour } from '../data/actions.ts';
 import { changeMoney } from './economy.ts';
 import { applyNeeds, moodWorkMultiplier } from './needs.ts';
 import { skillGainMultiplier } from './state.ts';
@@ -49,7 +50,9 @@ export function quitJob(s: GameState): void {
 export function shiftBlocker(s: GameState): string | null {
   if (!s.job) return 'No job yet';
   const t = nycTime();
-  if (t.hour < WORK_HOURS.start || t.hour >= WORK_HOURS.end) return 'Office closed — shifts run 6 AM to 11 PM';
+  const [from, to] = CAREER_BY_ID[s.job.careerId]?.hours ?? [WORK_HOURS.start, WORK_HOURS.end];
+  const on = to === 24 && from === 0 ? true : from <= to ? t.hour >= from && t.hour < to : t.hour >= from || t.hour < to;
+  if (!on) return `Closed now: shifts run ${fmtHour(from)} to ${fmtHour(to % 24)}`;
   if (s.job.dayKey !== t.dateKey) {
     s.job.dayKey = t.dateKey;
     s.job.shiftsToday = 0;

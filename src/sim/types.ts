@@ -108,6 +108,10 @@ export interface GameState {
   profile: { name: string; origin: Origin; traits: string[]; look: Look; birthYear: number; /** poor | middle | rich | billionaire (see sim/state.ts → CLASSES). */ spawnClass?: 'poor' | 'middle' | 'rich' | 'billionaire' };
   /** Clothing ids you own (data/wardrobe.ts). */
   wardrobe: string[];
+  /** 💊 Pharmacist heat with the police, and when it was last set (sim/job-perks.ts). */
+  heat?: { value: number; at: number };
+  /** 🚓 Cop corruption exposure, 0–100 (sim/job-perks.ts). */
+  exposure?: number;
   /** A stain on your clothes (subway spill) until you change (sim/commute.ts). */
   stained?: boolean;
   /** Groceries, leftovers and InstaDash orders (sim/kitchen.ts). Old saves: missing. */

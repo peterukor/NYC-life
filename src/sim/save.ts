@@ -15,6 +15,7 @@ import { STARTER_ITEMS } from '../data/wardrobe.ts';
 import { newPathsState } from './paths.ts';
 import { newBusinessState } from './business.ts';
 import { isOpenArea, type GameState } from './types.ts';
+import { CAREER_BY_ID, RETIRED_CAREERS } from '../data/careers.ts';
 
 function storage(): Storage | null {
   // Private browsing and some embedded views throw when touching storage.
@@ -105,6 +106,12 @@ function migrate(data: GameState): GameState | null {
   // 2026-10-13: the classes became poor / middle / rich / billionaire.
   const oldClass: Record<string, string> = { upper: 'rich', wealthy: 'billionaire' };
   if (data.profile?.spawnClass && oldClass[data.profile.spawnClass]) data.profile.spawnClass = oldClass[data.profile.spawnClass] as typeof data.profile.spawnClass;
+  // 2026-10-13: the eight careers. Retired jobs move to the 🏪 Bodega counter, same level.
+  if (data.job && RETIRED_CAREERS[data.job.careerId]) {
+    data.job.careerId = RETIRED_CAREERS[data.job.careerId];
+    data.job.level = Math.min(data.job.level, CAREER_BY_ID[data.job.careerId].ladder.length - 1);
+  }
+  if (data.job && !CAREER_BY_ID[data.job.careerId]) data.job = null;
   data.people ??= {};
   data.joinedEvents ??= [];
   // Balance pass (2026-10-11): rents were rescaled. Paying tenants follow the

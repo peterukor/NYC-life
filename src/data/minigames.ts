@@ -85,13 +85,15 @@ function orderRush(id: string, name: string, emoji: string, careers: string[], i
 }
 
 MINIGAMES.add(
-  orderRush('baristaRush', 'Morning Rush', '☕', ['barista'], [['☕', 'latte'], ['🧋', 'boba'], ['🍵', 'matcha'], ['🥐', 'croissant'], ['🧊', 'iced coffee'], ['🍪', 'cookie']], 'Regulars'),
-  orderRush('bodegaRush', 'Deli Line', '🥪', ['bodega', 'deli'], [['🥪', 'chopped cheese'], ['🥯', 'bacon egg & cheese'], ['🧃', 'juice'], ['🍌', 'banana'], ['🥤', 'soda'], ['🍫', 'candy bar']], 'Customers'),
-  orderRush('kitchenRush', 'Dinner Service', '🍳', ['cook'], [['🍝', 'pasta'], ['🍔', 'burger'], ['🥗', 'salad'], ['🍕', 'pizza'], ['🍜', 'ramen'], ['🌮', 'taco']], 'Servers'),
+  orderRush('bodegaRush', 'Deli Line', '🥪', ['deli'], [['🥪', 'chopped cheese'], ['🥯', 'bacon egg & cheese'], ['🧃', 'juice'], ['🍌', 'banana'], ['🥤', 'soda'], ['🍫', 'candy bar']], 'Customers'),
   orderRush('barRush', 'Last Call', '🍸', ['bartender'], [['🍸', 'martini'], ['🍺', 'beer'], ['🍷', 'red wine'], ['🍹', 'mai tai'], ['🥃', 'whiskey'], ['🥂', 'champagne']], 'Thirsty guests'),
   orderRush('tradeRush', 'Trading Floor', '📈', ['finance'], [['📈', 'buy order'], ['📉', 'sell order'], ['💵', 'cash'], ['🪙', 'gold'], ['🏦', 'bond'], ['📊', 'report']], 'Clients'),
   orderRush('bugRush', 'Bug Bash', '🐛', ['tech'], [['🐛', 'bug fix'], ['🚀', 'deploy'], ['🔧', 'config'], ['✅', 'test'], ['🔒', 'security patch'], ['📦', 'package']], 'Your team lead'),
   orderRush('gymRush', 'Class Time', '🏋️', ['trainer'], [['🏋️', 'deadlift'], ['🚴', 'spin'], ['🧘', 'yoga'], ['🏃', 'sprints'], ['🤸', 'stretch'], ['🥊', 'boxing']], 'Clients'),
+  orderRush('showRush', 'Showtime', '🌙', ['dancer'], [['💃', 'spin'], ['🕺', 'body roll'], ['🌀', 'twirl'], ['✨', 'pose'], ['🎶', 'on the beat'], ['🔥', 'big finish']], 'The crowd'),
+  // Every product here is made up (Peter: five fictional products).
+  orderRush('alleyRush', 'Corner Rush', '💊', ['pharmacist'], [['🍬', 'Sugar Comets'], ['🌙', 'Moon Mints'], ['🔮', 'Purple Marbles'], ['⚡', 'Zap Pops'], ['🧪', 'Lab Fizz'], ['💵', 'make change']], 'Customers'),
+  orderRush('dispatchRush', 'Dispatch', '🚓', ['cop'], [['🚗', 'traffic stop'], ['🏃', 'foot chase'], ['📢', 'noise complaint'], ['🛍️', 'shoplifter'], ['🚑', 'medical call'], ['🐕', 'loose dog']], 'Dispatch'),
 );
 
 /** Careers whose shift is its own full game (ui/deli-shift.ts), not a mini-game. */

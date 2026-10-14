@@ -59,6 +59,7 @@ import { buyFurniture } from './sim/shop.ts';
 import { arriveHome, hasDoorman } from './sim/home-conditions.ts';
 import { offerRaise, playRaiseGame } from './ui/raise-game.ts';
 import { raiseBlocker, resolveRaise } from './sim/raise.ts';
+import { resolveBribe, shiftTwist } from './sim/job-perks.ts';
 import { afterWalk, changedClothes, stainAtWork, subwayIncident } from './sim/commute.ts';
 import { Roommates } from './world/roommates.ts';
 import { InteriorView } from './world/interior-view.ts';
@@ -1982,9 +1983,8 @@ export class Game {
             resolve(sc);
           });
         });
-        const r = completeShift(this.state, 'chill', { perf: Math.round((score - 0.5) * 16), pay: 0.9 + score * 0.25 });
         toast(`${game.name}: ${Math.round(score * 100)}%${score >= 0.8 ? ' — boss is impressed!' : score < 0.4 ? ' — rough shift' : ''}`, { icon: game.emoji, tone: score >= 0.5 ? 'good' : 'bad' });
-        return this.afterShift(r);
+        return this.finishShift('chill', { perf: Math.round((score - 0.5) * 16), pay: 0.9 + score * 0.25 });
       }
     }
     // The shift reads as SHIFT_GAME_HOURS on a little clock that races
@@ -2025,7 +2025,65 @@ export class Game {
       tick();
     });
     bar.remove();
-    this.afterShift(completeShift(this.state, style ?? 'chill'));
+    await this.finishShift(style ?? 'chill');
+  }
+
+  /**
+   * End of a shift: first the job's own twist (a fight at the club, a
+   * bust in the alley, an envelope for the cop, late-night tips), then
+   * the pay (sim/job-perks.ts).
+   */
+  private async finishShift(style: WorkStyle, extra: { perf?: number; pay?: number } = {}): Promise<void> {
+    const s = this.state;
+    const twist = shiftTwist(s, nycTime().hour);
+    let mult = 1;
+    if (twist?.kind === 'bribe') {
+      const take = await new Promise<boolean>((resolve) => {
+        const m = openModal(`<div class="big">✉️</div><h2>An envelope</h2><p>${esc(twist.text)}</p><p class="sub">${money(twist.amount)} inside. Exposure now ${Math.round(s.exposure ?? 0)}/100.</p><div class="choices"><button class="choice" data-act="take">💵 <span>Take it<span class="hint">+${money(twist.amount)}, exposure +22</span></span></button><button class="choice" data-act="refuse">😇 <span>Hand it back<span class="hint">Stay clean</span></span></button></div>`);
+        onAct(m.el, (act) => {
+          m.close();
+          resolve(act === 'take');
+        });
+      });
+      const r = resolveBribe(s, take, twist.amount);
+      if (r.caught) {
+        sfx.bad();
+        this.busy = false;
+        await this.showJobScene('🚔', 'Internal Affairs', r.text);
+        this.save();
+        this.refreshHud(true);
+        return;
+      }
+      toast(r.text, { icon: take ? '💵' : '😇', ms: 3000 });
+    } else if (twist?.kind === 'fight') {
+      mult = twist.payMult;
+      if (!twist.won) sfx.bad();
+      await this.showJobScene(null, twist.won ? 'You won the fight' : 'You lost the fight', twist.text, true);
+    } else if (twist?.kind === 'busted') {
+      mult = 0;
+      sfx.bad();
+      await this.showJobScene('🚨', 'Busted', twist.text);
+    } else if (twist?.kind === 'late') {
+      mult = twist.payMult;
+      toast(twist.text, { icon: twist.payMult >= 1 ? '🌙' : '😬', ms: 3000 });
+    }
+    if (!s.job) {
+      this.busy = false;
+      return;
+    }
+    this.afterShift(completeShift(s, style, { ...extra, pay: (extra.pay ?? 1) * mult }));
+  }
+
+  /** A short job scene: an emoji (or a cartoon dust cloud for fights), a title, a line. */
+  private showJobScene(emoji: string | null, title: string, text: string, dust = false): Promise<void> {
+    return new Promise((resolve) => {
+      const top = dust ? '<div class="dust-fight" aria-hidden="true"><span>💨</span><span>💥</span><span>💨</span><span>⭐</span></div>' : `<div class="big">${emoji}</div>`;
+      const m = openModal(`${top}<h2>${esc(title)}</h2><p>${esc(text)}</p><button class="btn primary block" data-act="ok">OK</button>`);
+      onAct(m.el, () => {
+        m.close();
+        resolve();
+      });
+    });
   }
 
   /** Everything after a shift: stats, pay toast, promotion. */

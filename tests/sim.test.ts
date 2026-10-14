@@ -94,7 +94,7 @@ test('rich starts have no student loan and pay their own (bigger) rent', () => {
 test('jobs: skill requirements block hiring, shifts pay and count', () => {
   const s = fresh('hustler');
   assert.notEqual(applyForJob(s, 'finance'), null, 'finance needs charisma 2');
-  assert.equal(applyForJob(s, 'barista'), null);
+  assert.equal(applyForJob(s, 'bartender'), null);
   const before = s.money;
   s.needs.energy = 100;
   const r = completeShift(s, 'grind');
