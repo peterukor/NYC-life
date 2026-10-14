@@ -192,3 +192,20 @@ test('🚓 cops get both reps: bad cops lean street, good cops lean corporate', 
   assert.ok(good.street > 0 && good.corporate > good.street, `good cop ${JSON.stringify(good)}`);
   assert.ok(bad.corporate > 0 && bad.street > bad.corporate, `bad cop ${JSON.stringify(bad)}`);
 });
+
+test('auto is pay only: no skill, no raise progress; a played shift builds both', () => {
+  const s = life();
+  const skill0 = s.skills.hustle;
+  let r = startDeliShift(s);
+  assert.ok(r.ok);
+  const auto = finishDeliShift(s, r.session.id, { orders: [], picks: {}, skipped: true })!;
+  assert.equal(s.skills.hustle, skill0, 'no skill from auto');
+  assert.equal(s.job!.shiftsAtLevel, 0, 'auto doesn’t count toward a raise');
+  assert.ok(!auto.counted && auto.skill === 0);
+  r = startDeliShift(s);
+  assert.ok(r.ok);
+  const played = finishDeliShift(s, r.session.id, { orders: Array.from({ length: 20 }, () => ({ right: true, timeLeft: 0.5 })), picks: {} })!;
+  assert.ok(s.skills.hustle > skill0 && played.skill > 0);
+  assert.equal(s.job!.shiftsAtLevel, 1);
+  assert.ok(played.counted);
+});

@@ -2314,7 +2314,7 @@ export class Game {
     this.refreshHud(true);
     if (!slip) return;
     sfx.cash();
-    await showPayslip(slip, { title: `${career.emoji} ${info.title}`, tipWord: menuFor(career.id).tipWord, auto: mode === 'auto', max: band.max });
+    await showPayslip(slip, { title: `${career.emoji} ${info.title}`, tipWord: menuFor(career.id).tipWord, auto: mode === 'auto', max: band.max, skillLabel: career.skill === 'streetSmarts' ? 'street smarts' : career.skill });
     this.save();
     this.refreshHud(true);
     await this.maybeAskForRaise();

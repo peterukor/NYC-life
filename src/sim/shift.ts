@@ -3,11 +3,14 @@
 //
 // Two ways to work a shift (up to 6 shifts per game day):
 //  ⏩ Auto: 30 real seconds, and you have to stay in the game. Pays the
-//     lowest wage (about $30 at the first rung). Never raises performance.
+//     lowest wage (about $30 at the first rung). A convenience only: no
+//     performance, skill or rep, and it doesn't count toward a raise.
 //  🎮 Play: about 6 real minutes at the counter (the clock in the corner
 //     runs through the 4 game hours). Build each order from the job's
 //     items before the customer gives up; 3 choices come up along the
-//     way. Pays the base plus tips and overtime, up to about $90, and
+//     way. Pays the base plus tips and overtime, up to about $90, counts
+//     toward your next raise, builds the job's skill (which unlocks better
+//     jobs) and
 //     adds 🔥 street or 💼 corporate rep depending on the job (🚓 cops
 //     get both: bad cops more street, good cops more corporate).
 // Pay differs by job (data/careers.ts → shift): tip jobs start lower with
@@ -338,6 +341,9 @@ export interface Payslip {
   capped: boolean;
   /** The night's twist changed the pay (fight, light tippers…): the multiplier. */
   mult: number;
+  /** Career skill gained (0 for auto), and whether it counted toward the next raise. */
+  skill: number;
+  counted: boolean;
   /** Rep a played shift earned (data/careers.ts → shift.rep). Empty for auto. */
   rep: { kind: 'street' | 'corporate'; points: number; rankUp: string | null }[];
 }
@@ -434,7 +440,8 @@ export function finishDeliShift(s: GameState, shiftId: string, play: ShiftPlay, 
   overtime = Math.round(overtime / 25) * 25;
   applyNeeds(s, needs);
   // Performance, skill and the shift count through the shared work rules.
-  completeShift(s, 'chill', { perf, needsDone: true, payCents: base });
+  const played = !play.skipped && of >= 5;
+  const done = completeShift(s, 'chill', { perf, needsDone: true, payCents: base, played, quality: of ? right / of : 0 });
   const extra = tips + overtime + covered;
   if (extra > 0) changeMoney(s, extra, 'Tips and overtime');
   else if (extra < 0) changeMoney(s, extra, 'Out of your pocket');
@@ -450,7 +457,7 @@ export function finishDeliShift(s: GameState, shiftId: string, play: ShiftPlay, 
       if (points > 0) rep.push({ kind: d.kind, points, rankUp: addRep(s, d.kind, points) });
     }
   }
-  return { base, tips, overtime, covered, total: base + extra, right, of, promoted: null, needs, capped, mult, rep };
+  return { base, tips, overtime, covered, total: base + extra, right, of, promoted: null, needs, capped, mult, rep, skill: done.skill, counted: played };
 }
 
 /** Closing the game mid-shift: the shift ends, unpaid. */

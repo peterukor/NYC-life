@@ -74,7 +74,12 @@ export function shiftPay(s: GameState): number {
   return c.ladder[Math.min(s.job.level, c.ladder.length - 1)].pay;
 }
 
+/** Career skill a played shift adds when every order is right. */
+export const SHIFT_SKILL_GAIN = 0.6;
+
 export interface ShiftResult {
+  /** Career skill gained (0 for an auto shift). */
+  skill: number;
   pay: number;
   performanceDelta: number;
   promoted: string | null;
@@ -85,7 +90,7 @@ export interface ShiftResult {
  * `extra` comes from a played mini-game: a performance bonus (−8…+8)
  * and a pay multiplier for doing well.
  */
-export function completeShift(s: GameState, style: WorkStyle, extra: { perf?: number; pay?: number; needsDone?: boolean; flat?: boolean; payCents?: number } = {}): ShiftResult {
+export function completeShift(s: GameState, style: WorkStyle, extra: { perf?: number; pay?: number; needsDone?: boolean; flat?: boolean; payCents?: number; played?: boolean; quality?: number } = {}): ShiftResult {
   const job = s.job!;
   const c = CAREER_BY_ID[job.careerId];
   const mood = moodWorkMultiplier(s);
@@ -109,13 +114,18 @@ export function completeShift(s: GameState, style: WorkStyle, extra: { perf?: nu
       s.skills.charisma += 0.35 * skillGainMultiplier(s, 'charisma');
       break;
   }
-  s.skills[c.skill] += 0.4 * skillGainMultiplier(s, c.skill);
+  // Only real work moves you forward (Peter, 2026-10-14): an auto shift
+  // pays, but adds no skill and doesn't count toward your next raise.
+  // `played` undefined = an older caller (counts as worked).
+  const played = extra.played ?? true;
+  const skillGain = played ? SHIFT_SKILL_GAIN * (extra.quality ?? 1) * skillGainMultiplier(s, c.skill) : 0;
+  s.skills[c.skill] += skillGain;
   perf += extra.perf ?? 0;
   payMult *= extra.pay ?? 1;
 
   job.performance = clamp(job.performance + perf, 0, 100);
   job.shiftsToday += 1;
-  job.shiftsAtLevel += 1;
+  if (played) job.shiftsAtLevel += 1;
   job.shiftsTotal += 1;
 
   // `flat`: the base wage as-is (the deli shift pays performance through tips).
@@ -124,5 +134,5 @@ export function completeShift(s: GameState, style: WorkStyle, extra: { perf?: nu
 
   // No automatic promotions: once you're ready, you ask for a raise (sim/raise.ts).
   const promoted: string | null = null;
-  return { pay, performanceDelta: perf, promoted };
+  return { pay, performanceDelta: perf, promoted, skill: skillGain };
 }

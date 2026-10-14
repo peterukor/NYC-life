@@ -32,7 +32,7 @@ export function raiseBlocker(s: GameState): string | null {
   if (Math.floor(s.skills[c.skill]) < job.level + 1) return `Needs ${c.skill} ${job.level + 1}`;
   if (job.performance < PROMOTION.minPerformance) return `Needs performance ${PROMOTION.minPerformance}+ (now ${Math.round(job.performance)})`;
   const left = PROMOTION.shiftsPerLevel - job.shiftsAtLevel;
-  if (left > 0) return `${left} more shift${left === 1 ? '' : 's'} at this level`;
+  if (left > 0) return `${left} more played shift${left === 1 ? '' : 's'} at this level`;
   return null;
 }
 
