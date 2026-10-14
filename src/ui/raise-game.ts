@@ -23,7 +23,7 @@ export function offerRaise(info: RaiseInfo): Promise<boolean> {
   return new Promise((resolve) => {
     const el = html(`<div class="modal-wrap"><div class="modal raise-offer" role="dialog" aria-modal="true" aria-label="Ask for a raise">
       <div class="big">📈</div><h2>Ask for a raise?</h2>
-      <p>${esc(info.boss)} has a minute. You’ve earned a shot at <b>${esc(info.to.title)}</b>: ${money(info.from.pay)} → <b>${money(info.to.pay)}</b> a shift.</p>
+      <p>${esc(info.boss)} has a minute. You’ve earned a shot at <b>${esc(info.to.title)}</b>: top shift pay ${money(info.from.pay)} → <b>${money(info.to.pay)}</b>.</p>
       <p class="sub">Raise ${info.raise} of 5 · ${['easy', 'fair', 'tricky', 'hard', 'really hard'][info.raise - 1]}. Hold to keep the line in the green.</p>
       <div class="choices"><button class="choice" data-act="go">💼 <span>Ask now</span></button><button class="choice" data-act="later">⏳ <span>Not today</span></button></div>
     </div></div>`);

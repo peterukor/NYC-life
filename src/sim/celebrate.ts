@@ -14,14 +14,30 @@ import { changeMoney } from './economy.ts';
 import { addMoodlet } from './needs.ts';
 import type { GameState } from './types.ts';
 
+/**
+ * Staff discount on bottles (Peter, 2026-10-14): 🍸 bartenders 20% off,
+ * 🌙 night dancers 25% off. Works at any bottle-service spot.
+ */
+export const BOTTLE_DISCOUNT: Record<string, number> = { bartender: 0.2, dancer: 0.25 };
+
+export function bottleDiscount(s: GameState): number {
+  return (s.job && BOTTLE_DISCOUNT[s.job.careerId]) || 0;
+}
+
+/** What a bottle costs you, after any staff discount (cents). */
+export function bottlePrice(s: GameState, b: BottleDef): number {
+  return Math.round((b.price * (1 - bottleDiscount(s))) / 100) * 100;
+}
+
 /** Buy a bottle. Paid from cash, then the bank. */
 export function buyBottle(s: GameState, id: string): { ok: true; bottle: BottleDef; street: number; rankUp: string | null } | { ok: false; why: string } {
   const b = BOTTLE_BY_ID[id];
   if (!b) return { ok: false, why: 'That bottle isn’t on the menu' };
-  if (s.money + s.bank < b.price) return { ok: false, why: 'Not enough money for that bottle' };
-  const fromCash = Math.min(s.money, b.price);
+  const price = bottlePrice(s, b);
+  if (s.money + s.bank < price) return { ok: false, why: 'Not enough money for that bottle' };
+  const fromCash = Math.min(s.money, price);
   if (fromCash > 0) changeMoney(s, -fromCash, `Bottle service: ${b.name}`);
-  const rest = b.price - fromCash;
+  const rest = price - fromCash;
   if (rest > 0) s.bank -= rest;
   addMoodlet(s, { id: 'bottle', label: `Popped a ${b.name}`, emoji: b.emoji, value: 4 + b.roomMood, minutes: 120 });
   s.stats.actionsDone['__bottles'] = (s.stats.actionsDone['__bottles'] ?? 0) + 1;

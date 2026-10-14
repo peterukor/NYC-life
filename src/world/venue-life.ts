@@ -84,6 +84,8 @@ export class VenueLife {
   private time = 0;
   /** The room is cheering (someone popped a bottle) until this time. */
   private cheerUntil = 0;
+  /** 🤵 The bar's waiter: picks up at the bar, carries a drink to a table, comes back. */
+  private runner: { avatar: Avatar; drink: THREE.Sprite; path: { x: number; z: number }[]; leg: 'toBar' | 'atBar' | 'toTable' | 'atTable'; wait: number; table: THREE.Vector3 | null; drinks: number } | null = null;
 
   constructor(
     private readonly home: HomeInterior,
@@ -95,6 +97,78 @@ export class VenueLife {
     this.findTargets();
     for (let i = 0; i < visitorCount; i++) this.addVisitor(i);
     this.addEffects();
+    this.addRunner();
+  }
+
+  private addRunner(): void {
+    const r = this.layout.life?.runner;
+    const bar = r && this.home.objects.find((o) => o.id === r.from);
+    if (!r || !bar) return;
+    const avatar = makeAvatar({ body: this.rand() < 0.5 ? 'm' : 'f', skin: SKINS[Math.floor(this.rand() * SKINS.length)], top: '#f4f4f4', bottom: '#111111', hair: HAIR[Math.floor(this.rand() * HAIR.length)] });
+    avatar.root.position.set(bar.stand.x, 0, bar.stand.z);
+    this.home.scene.add(avatar.root);
+    const drink = new THREE.Sprite(new THREE.SpriteMaterial({ map: emojiTexture('🍺'), transparent: true, depthWrite: false }));
+    drink.scale.set(0.38, 0.38, 0.38);
+    drink.position.set(0.3, 1.35, 0.25);
+    drink.visible = false;
+    avatar.root.add(drink);
+    this.runner = { avatar, drink, path: [], leg: 'atBar', wait: 1, table: null, drinks: 0 };
+  }
+
+  /** 🤵 One step of the waiter's loop: bar → table → bar. */
+  private updateRunner(dt: number): void {
+    const w = this.runner;
+    const r = this.layout.life?.runner;
+    if (!w || !r) return;
+    const p = w.avatar.root.position;
+    let speed = 0;
+    if (w.path.length) {
+      const wp = w.path[0];
+      const dx = wp.x - p.x, dz = wp.z - p.z;
+      const d = Math.hypot(dx, dz);
+      if (d < 0.06) w.path.shift();
+      else {
+        const step = Math.min(d, SPEED * 1.25 * dt);
+        p.x += (dx / d) * step;
+        p.z += (dz / d) * step;
+        w.avatar.root.rotation.y = Math.atan2(dx, dz);
+        speed = SPEED * 1.25;
+      }
+    } else if ((w.wait -= dt) <= 0) {
+      if (w.leg === 'toTable') {
+        // Drop the drink off.
+        w.leg = 'atTable';
+        w.wait = 1.2;
+        w.drink.visible = false;
+        w.drinks++;
+        if (w.table) this.float('🙏', w.table.clone().setY(1.8), { life: 1.4, vy: 0.4, size: 0.45 });
+      } else if (w.leg === 'atTable' || w.leg === 'toBar') {
+        // Head back to the bar.
+        const bar = this.home.objects.find((o) => o.id === r.from)!;
+        w.path = this.home.walkPath(p.x, p.z, bar.stand.x, bar.stand.z) ?? [];
+        w.leg = w.leg === 'atTable' ? 'toBar' : 'atBar';
+        w.wait = w.leg === 'atBar' ? 1.5 + this.rand() * 1.5 : 0;
+      } else {
+        // At the bar: pick up a drink and take it to a table.
+        const tables = r.to.map((id) => this.home.objects.find((o) => o.id === id)).filter((o) => !!o);
+        const t = tables[Math.floor(this.rand() * tables.length)];
+        const pts = t ? this.home.walkPath(p.x, p.z, t.stand.x, t.stand.z) : null;
+        if (t && pts?.length) {
+          (w.drink.material as THREE.SpriteMaterial).map = emojiTexture(r.carry[Math.floor(this.rand() * r.carry.length)]);
+          w.drink.visible = true;
+          w.path = pts;
+          w.table = t.mesh.getWorldPosition(new THREE.Vector3());
+          w.leg = 'toTable';
+          w.wait = 0;
+        } else w.wait = 2;
+      }
+    }
+    w.avatar.animate(speed, dt);
+  }
+
+  /** Drinks the waiter has delivered (QA). */
+  get runnerDrinks(): number {
+    return this.runner?.drinks ?? -1;
   }
 
   /** Everything a visitor might go and do: the room's usable pieces, plus the dance floors. */
@@ -285,6 +359,7 @@ export class VenueLife {
       }
     }
     if (this.discoBall) this.discoBall.rotation.y += dt * 0.8;
+    this.updateRunner(dt);
   }
 
   /** Everyone cheers for a while (🎉 over heads, faster). */
@@ -298,6 +373,12 @@ export class VenueLife {
   }
 
   dispose(): void {
+    if (this.runner) {
+      this.runner.avatar.root.removeFromParent();
+      (this.runner.drink.material as THREE.SpriteMaterial).dispose();
+      this.runner.avatar.dispose();
+      this.runner = null;
+    }
     for (const v of this.visitors) {
       v.avatar.root.removeFromParent();
       v.avatar.dispose();

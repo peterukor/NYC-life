@@ -16,7 +16,9 @@ The owner's own wording, organised. Treat this as the source of truth for gamepl
 
 ## Time
 - One in-game day = 3 h 23 min real time (a single constant).
-- **Work:** a "Skip to end of shift" (travel to the future) button for now. A shift reads as about 4 in-game hours. Mini-games come later through the mini-game plug-in interface.
+- **Work (Peter, 2026-10-14):** one shift per game day, two ways to work it. ⏩ **Auto**: done at once, pays the lowest wage ($50 at the first rung). 🎮 **Play**: a 5–7 minute hands-on counter game (6 minutes now) for every job, each with its own items, asks and 3 mid-shift choices; pays the $50 plus tips/bonus/commission, up to $300. Raises scale both numbers by the career's ladder. The world clock is shared by everyone, so "skipping" ends the shift at once rather than moving the clock.
+- **Bartenders work the bar only (Peter, 2026-10-14):** people order from their tables, the bartender makes the drink, and an NPC waiter carries it over. Bartenders and night dancers can still party at the club off the clock.
+- **Staff bottle discount (Peter, 2026-10-14):** 🍸 bartenders 20% off, 🌙 night dancers 25% off.
 
 ## Cars
 - Cartoony cars with **rarity levels:** common, uncommon, rare, epic, legendary. Use a `VEHICLES` registry.

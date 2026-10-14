@@ -207,13 +207,13 @@ test('no two places share a door spot', () => {
   assert.ok(PLACES.some((p) => p.sells?.includes('exclusive')), 'somewhere sells exclusive clothes');
 });
 
-import { MINIGAMES } from '../src/data/minigames.ts';
+import { COUNTER_MENUS } from '../src/sim/shift.ts';
 import { CAREERS } from '../src/data/careers.ts';
 
-test('every career has a mini-game and every mini-game names real careers', () => {
+test('every career has a hands-on shift menu, and every menu names a real career', () => {
   const ids = new Set(CAREERS.map((c) => c.id));
-  for (const m of MINIGAMES.all()) for (const c of m.careers) assert.ok(ids.has(c), `${m.id}: unknown career ${c}`);
-  for (const c of CAREERS) assert.ok(MINIGAMES.where((m) => m.careers.includes(c.id)).length, `${c.id} has no mini-game`);
+  for (const [id, m] of Object.entries(COUNTER_MENUS)) assert.ok(ids.has(id) && m.careerId === id, id);
+  for (const c of CAREERS) assert.ok(COUNTER_MENUS[c.id], `${c.id} has no shift menu`);
 });
 
 import { buyBusiness, candidates, hire, runBusinessDay, TAX } from '../src/sim/business.ts';

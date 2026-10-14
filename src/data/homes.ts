@@ -71,7 +71,13 @@ export interface HomeLayout {
   furniture: HomeItem[];
   conditions?: HomeConditions;
   /** Busy places: NPC visitors, emoji pops over heads, and room effects (world/venue-life.ts). */
-  life?: { visitors: number; pops: string[]; fx: ('club' | 'steam' | 'notes' | 'flicker')[] };
+  life?: {
+    visitors: number;
+    pops: string[];
+    fx: ('club' | 'steam' | 'notes' | 'flicker')[];
+    /** A waiter who carries drinks from `from` (a piece uid) to the `to` tables (world/venue-life.ts). */
+    runner?: { from: string; to: string[]; carry: string[] };
+  };
   /** Workplaces: where the (up to 6) workers stand; NPC coworkers fill the spots no player has taken. */
   workers?: { x: number; z: number; rot: number }[];
   /** Big homes: pinch to zoom and drag to pan (small homes keep a fixed view). */

@@ -504,6 +504,15 @@ body.mirror .hud { opacity: 0; visibility: hidden; transition: opacity 0.2s, vis
 .deli-ask.no { background: #ffd1d6; }
 .deli-wait { height: 8px; border: var(--line-thin); border-radius: 999px; overflow: hidden; background: var(--paper-2); }
 .deli-wait i { display: block; height: 100%; width: 100%; background: #36c46b; transition: width 0.1s linear; }
+.deli-shiftbar { height: 5px; border-radius: 999px; overflow: hidden; background: var(--paper-2); }
+.deli-shiftbar i { display: block; height: 100%; width: 0; background: var(--ink); transition: width 0.1s linear; }
+.deli-who { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.deli-table { font-size: 11px; font-weight: 800; white-space: nowrap; }
+.deli-runner { min-height: 18px; overflow: hidden; font-size: 12px; font-weight: 700; color: var(--ink-soft); white-space: nowrap; }
+.deli-run { display: inline-block; font-size: 16px; }
+.deli-runner.go .deli-run { animation: deli-run 1.1s ease-out; }
+@keyframes deli-run { from { transform: translateX(-40px); opacity: 0; } 30% { opacity: 1; } to { transform: translateX(0); } }
+.deli-out { min-height: 36px; font-size: 13px; }
 .deli-tray { min-height: 44px; display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 6px 10px; border: var(--line-thin); border-style: dashed; border-radius: 14px; background: #fffaf0; font-size: 26px; }
 .deli-tray em { font-size: 12px; font-style: normal; font-weight: 700; color: var(--ink-soft); }
 .deli-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }

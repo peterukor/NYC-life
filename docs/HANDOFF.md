@@ -41,6 +41,14 @@ How to add or change content: **`docs/ADDING-CONTENT.md`**.
 - **Big, lively rooms** (2026-10-13): workplace rooms are 16×12 to 22×16 and zoomable, built for up to 30 people (6 workers + 24 visitors; `sim/workroom.ts` → `ROOM_CAPACITY`, `assignVisitor`, `npcVisitors`). `world/venue-life.ts`: NPC visitors use the room's pieces (dance, eat, drink, train, browse), emoji pops, club lights + disco ball, steam, music notes, a flickering alley lamp. Fewer NPCs on low-tier phones.
 - **What visitors come for:** 🥪 eat (bodega window counter), 💼 invest (Business app) and 📈 trade (Stocks app) at the trading floor's client desks, 🍸🌙 party, 💘 date (booths, VIP, high-tops → Contacts), 📝 report someone (precinct window), 📱 fix or replace a phone (Chelsea Works Fix-It Bar). `game.ts → serviceAction`. QA: `qa-services.mjs`, `qa-lively.mjs`.
 
+## Shifts: auto or play, every job hands-on (2026-10-14)
+- One shift per game day (`MAX_SHIFTS_PER_DAY` = 1). `sim/shift.ts → payBand()/careerBand()`: auto $50, played up to $300 at rung 0; raises scale both by ladder pay ÷ rung-0 pay.
+- Every career uses the counter game (`ui/deli-shift.ts`): menus for bodega and bar in `sim/shift.ts`, the other six in `data/shift-menus.ts`. Played shifts last `SHIFT_PLAY_SECONDS` (360); customers get less patient (16 s → 10 s); 3 choices at ¼, ½, ¾; "Clock out early". QA shortens with `?qa=1&shiftsec=N`.
+- Job twists (fight, bust, bribe) run after the shift via `game.ts → resolveTwist()` and multiply the payslip.
+- 🍸 The bar: orders come from tables; a waiter (UI line + a 3D NPC in `world/venue-life.ts`, `life.runner`) carries drinks over.
+- Staff bottle discount: `sim/celebrate.ts → BOTTLE_DISCOUNT` (bartender 20%, dancer 25%).
+- Old 20-second `data/minigames.ts` removed. QA: `qa-bar-shift` (run with HOUR=22 for the club check), `qa-job-shifts`.
+
 ## Stock market and rep (2026-10-14)
 - `data/stocks.ts`: 15 companies + 2 funds, each with a `risk` (fund, blue, growth, penny, meme).
 - `sim/market.ts`: prices tick every game hour, seeded so everyone sees the same prices. `eventFor()` adds squeezes (meme/penny), rug pulls (meme), monthly earnings (blue/growth) and rare scandals. After a squeeze, most of the gain fades over 3 days.

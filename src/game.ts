@@ -23,7 +23,7 @@ import { VEHICLES } from './data/vehicles.ts';
 import { vehicleGeometry, vehicleMaterial } from './world/vehicle-models.ts';
 import { bus } from './core/bus.ts';
 import { isRushHour, nowMs, nycTime } from './core/clock.ts';
-import { MAP_MAX_DISTANCE, DETAIL_RADIUS, RIDESHARE, SUBWAY_FARE, WALK_SPEED, INDOOR_WALK, SHIFT_GAME_HOURS, SHIFT_SECONDS, DIRECTOR_TICK_SECONDS, CAMERA } from './core/constants.ts';
+import { MAP_MAX_DISTANCE, DETAIL_RADIUS, RIDESHARE, SUBWAY_FARE, WALK_SPEED, INDOOR_WALK, SHIFT_GAME_HOURS, DIRECTOR_TICK_SECONDS, CAMERA } from './core/constants.ts';
 import { esc, money } from './core/format.ts';
 import { ACTIONS, actionLock } from './data/actions.ts';
 import { CAREER_BY_ID, CAREERS } from './data/careers.ts';
@@ -39,7 +39,7 @@ import { loadGame, saveGame, deleteGame } from './sim/save.ts';
 import { newLife } from './sim/state.ts';
 import { OPEN_AREAS, isOpenArea, type AreaId, type GameState, type Look } from './sim/types.ts';
 import { weatherDef, weatherFor } from './sim/weather.ts';
-import { applyForJob, completeShift, jobTitle, shiftBlocker, WORK_STYLES, type WorkStyle } from './sim/work.ts';
+import { applyForJob, jobTitle, shiftBlocker } from './sim/work.ts';
 import { Engine } from './render/engine.ts';
 import { qualitySettings } from './render/quality.ts';
 import { skyAt } from './render/sky.ts';
@@ -69,17 +69,16 @@ import { assignRoom, assignVisitor, npcVisitors, type WorkRoom } from './sim/wor
 import { VenueLife } from './world/venue-life.ts';
 import { CelebrationFx } from './world/celebration.ts';
 import { BOTTLES, tradeWinShow, type Celebration } from './data/bottles.ts';
-import { buyBottle, chatAdmirer, goHomeWith } from './sim/celebrate.ts';
+import { bottleDiscount, bottlePrice, buyBottle, chatAdmirer, goHomeWith } from './sim/celebrate.ts';
 import { openFridge, openStove } from './ui/kitchen.ts';
 import { receiveOrders } from './sim/kitchen.ts';
 import { cookActionId, eatActionId, mealOfAction } from './data/groceries.ts';
 import { openFurnitureShop } from './ui/furniture-shop.ts';
 import { beginActivity, completeActivity, stopActivity, tickActivity, activityProgress } from './sim/home-activity.ts';
-import { abandonShift, baseWage, finishDeliShift, startDeliShift } from './sim/shift.ts';
+import { abandonShift, finishDeliShift, menuFor, payBand, SHIFT_PAY, startDeliShift } from './sim/shift.ts';
 import { playDeliShift, shiftIntro, showPayslip } from './ui/deli-shift.ts';
 import { openCloset } from './ui/closet.ts';
 import { openStore } from './ui/store.ts';
-import { minigameFor, PLAYABLE_SHIFTS } from './data/minigames.ts';
 import { openSidePanel } from './ui/side-panel.ts';
 import { openAutoMode } from './ui/auto-mode.ts';
 import { recordVariety } from './sim/auto.ts';
@@ -381,6 +380,8 @@ export class Game {
       tradeWin: (mult: number) => this.celebrateTrade(mult),
       coworkers: () => this.coworkers?.list.map((c) => c.name) ?? [],
       visitors: () => this.venueLife?.count ?? 0,
+      runnerDrinks: () => this.venueLife?.runnerDrinks ?? -1,
+      work: () => void this.runShift(),
       myWorkSpot: () => this.myWorkSpot,
       askRaise: () => void this.maybeAskForRaise(),
       showFight: (won: boolean) => void this.showIncident({ kind: 'fight', won, text: won ? 'A guy tried you over a seat. A cloud of dust later, he got off at the next stop.' : 'A fight broke out over a seat and you lost. Urgent care: $40.' }),
@@ -1169,11 +1170,12 @@ export class Game {
     const sheet = openSheet({
       emoji: '🍾',
       title: 'Bottle service',
-      sub: `Cash ${money(s.money)} · bank ${money(s.bank)}`,
+      sub: `Cash ${money(s.money)} · bank ${money(s.bank)}${bottleDiscount(s) ? ` · ${CAREER_BY_ID[s.job!.careerId].emoji} staff discount ${Math.round(bottleDiscount(s) * 100)}% off` : ''}`,
       body: `<div class="travel">${BOTTLES.map((b, i) => {
-        const can = s.money + s.bank >= b.price;
+        const price = bottlePrice(s, b);
+        const can = s.money + s.bank >= price;
         const show = [b.spotlight ? '💡 spotlight' : '', `🎆 ${['big', 'bigger', 'huge', 'huge', 'massive', 'massive', 'the whole sky'][i]} fireworks`, `👥 ${b.admirers} come over`].filter(Boolean).join(' · ');
-        return `<button class="opt" data-act="bottle:${b.id}" ${can ? '' : 'disabled aria-disabled="true"'}><span style="font-size:24px">${b.emoji}</span><span class="grow"><b>${esc(b.name)}</b><small>${esc(b.kind)} · ${show}</small></span><span class="cost">${money(b.price)}</span></button>`;
+        return `<button class="opt" data-act="bottle:${b.id}" ${can ? '' : 'disabled aria-disabled="true"'}><span style="font-size:24px">${b.emoji}</span><span class="grow"><b>${esc(b.name)}</b><small>${esc(b.kind)} · ${show}</small></span><span class="cost">${price < b.price ? `<s>${money(b.price)}</s> ` : ''}${money(price)}</span></button>`;
       }).join('')}</div>`,
     });
     onAct(sheet.body, (act) => {
@@ -1361,9 +1363,9 @@ export class Game {
     const careerHere = place ? CAREERS.find((c) => c.placeId === place.id) : undefined;
     const worksHere = !!careerHere && this.state.job?.careerId === careerHere.id;
     const workBtn = worksHere
-      ? `<button class="btn primary block" style="margin-bottom:10px" data-act="work">💼 Work a shift <small>(${money(baseWage(this.state))} + tips)</small></button>`
+      ? `<button class="btn primary block" style="margin-bottom:10px" data-act="work">💼 Work a shift <small>(${money(payBand(this.state).auto)}–${money(payBand(this.state).max)})</small></button>`
       : careerHere && !isOffice
-        ? `<button class="btn primary block" style="margin-bottom:10px" data-act="hire">💼 Ask about a job: ${esc(careerHere.ladder[0].title)} · ${money(careerHere.ladder[0].pay)} + tips a shift</button>`
+        ? `<button class="btn primary block" style="margin-bottom:10px" data-act="hire">💼 Ask about a job: ${esc(careerHere.ladder[0].title)} · ${money(SHIFT_PAY.auto)}–${money(SHIFT_PAY.max)} a shift</button>`
         : '';
     const sheet = openSheet({
       emoji,
@@ -2184,84 +2186,21 @@ export class Game {
       this.player.root.position.set(spot.x, 0, spot.z);
       this.player.root.rotation.y = spot.rot;
     }
-    if (PLAYABLE_SHIFTS.has(this.state.job!.careerId)) return this.runDeliShift();
-    this.busy = true;
-    const career = CAREER_BY_ID[this.state.job!.careerId];
-    // A mini-game for this job? Offer to play the shift instead of skipping it.
-    const game = minigameFor(career.id);
-    if (game) {
-      const play = await new Promise<boolean>((resolve) => {
-        const m = openModal(`<div class="big">${game.emoji}</div><h2>${esc(game.name)}</h2><p>${esc(game.howTo)}</p><div class="choices"><button class="choice" data-act="play">🎮 <span>Play the shift<span class="hint">Do well for better pay and performance</span></span></button><button class="choice" data-act="skip">⏩ <span>Skip to end of shift<span class="hint">The usual 4 hours, fast-forwarded</span></span></button></div>`);
-        onAct(m.el, (act) => {
-          m.close();
-          resolve(act === 'play');
-        });
-      });
-      if (play) {
-        const score = await new Promise<number>((resolve) => {
-          const m = openModal(`<h2>${game.emoji} ${esc(game.name)}</h2><div class="mg-host"></div>`);
-          const host = m.el.querySelector<HTMLElement>('.mg-host')!;
-          const cleanup = game.run(host, (sc) => {
-            cleanup();
-            m.close();
-            resolve(sc);
-          });
-        });
-        toast(`${game.name}: ${Math.round(score * 100)}%${score >= 0.8 ? ' — boss is impressed!' : score < 0.4 ? ' — rough shift' : ''}`, { icon: game.emoji, tone: score >= 0.5 ? 'good' : 'bad' });
-        return this.finishShift('chill', { perf: Math.round((score - 0.5) * 16), pay: 0.9 + score * 0.25 });
-      }
-    }
-    // The shift reads as SHIFT_GAME_HOURS on a little clock that races
-    // ahead, but only takes SHIFT_SECONDS. "Skip to end of shift" finishes
-    // it at once (a stand-in for the mini-games coming later).
-    let skipped = false;
-    const bar = progressBar(`${career.emoji} Working as ${jobTitle(this.state)}…`, { skipLabel: '⏩ Skip to end of shift', onSkip: () => (skipped = true) });
-    const total = SHIFT_SECONDS * 1000;
-    const start = performance.now();
-    const startClock = nycTime();
-    const startMin = startClock.hour * 60 + startClock.minute;
-    const fmt = (min: number) => {
-      const h = Math.floor(min / 60) % 24;
-      const m = Math.floor(min % 60);
-      return `${h % 12 === 0 ? 12 : h % 12}:${String(m).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`;
-    };
-    let style: WorkStyle | null = null;
-    let paused = 0;
-    await new Promise<void>((resolve) => {
-      const tick = () => {
-        const f = skipped ? 1 : (performance.now() - start - paused) / total;
-        bar.set(f, `${career.emoji} ${jobTitle(this.state)} · ${fmt(startMin + Math.min(1, f) * SHIFT_GAME_HOURS * 60)} → ${fmt(startMin + SHIFT_GAME_HOURS * 60)}`);
-        if (f >= 0.45 && !style && !skipped) {
-          // Halfway: how do you want to work today?
-          const pauseStart = performance.now();
-          const m = openModal(`<div class="big">${career.emoji}</div><h2>How are you working today?</h2><p>Your choice affects pay, performance and your needs.</p><div class="choices">${(Object.keys(WORK_STYLES) as WorkStyle[]).map((k) => `<button class="choice" data-act="${k}">${WORK_STYLES[k].emoji} <span>${WORK_STYLES[k].label}<span class="hint">${WORK_STYLES[k].hint}</span></span></button>`).join('')}</div>`);
-          onAct(m.el, (act) => {
-            style = act as WorkStyle;
-            m.close();
-            paused += performance.now() - pauseStart;
-            requestAnimationFrame(tick);
-          });
-          return;
-        }
-        if (f >= 1) return resolve();
-        requestAnimationFrame(tick);
-      };
-      tick();
-    });
-    bar.remove();
-    await this.finishShift(style ?? 'chill');
+    // Every job is a hands-on counter now (sim/shift.ts, data/shift-menus.ts).
+    return this.runDeliShift();
   }
 
   /**
-   * End of a shift: first the job's own twist (a fight at the club, a
-   * bust in the alley, an envelope for the cop, late-night tips), then
-   * the pay (sim/job-perks.ts).
+   * The job's own twist before the pay (sim/job-perks.ts): a fight at the
+   * club, a bust in the alley, an envelope for the cop. Returns the pay
+   * multiplier, or null if the shift ended badly (Internal Affairs).
    */
-  private async finishShift(style: WorkStyle, extra: { perf?: number; pay?: number } = {}): Promise<void> {
+  private async resolveTwist(): Promise<number | null> {
     const s = this.state;
     const twist = shiftTwist(s, nycTime().hour);
-    let mult = 1;
-    if (twist?.kind === 'bribe') {
+    // (The bar's late-night tips are counted in the payslip itself.)
+    if (!twist || (twist.kind === 'late' && s.job?.careerId === 'bartender')) return 1;
+    if (twist.kind === 'bribe') {
       const take = await new Promise<boolean>((resolve) => {
         const m = openModal(`<div class="big">✉️</div><h2>An envelope</h2><p>${esc(twist.text)}</p><p class="sub">${money(twist.amount)} inside. Exposure now ${Math.round(s.exposure ?? 0)}/100.</p><div class="choices"><button class="choice" data-act="take">💵 <span>Take it<span class="hint">+${money(twist.amount)}, exposure +22</span></span></button><button class="choice" data-act="refuse">😇 <span>Hand it back<span class="hint">Stay clean</span></span></button></div>`);
         onAct(m.el, (act) => {
@@ -2272,30 +2211,24 @@ export class Game {
       const r = resolveBribe(s, take, twist.amount);
       if (r.caught) {
         sfx.bad();
-        this.busy = false;
         await this.showJobScene('🚔', 'Internal Affairs', r.text);
-        this.save();
-        this.refreshHud(true);
-        return;
+        return null;
       }
       toast(r.text, { icon: take ? '💵' : '😇', ms: 3000 });
-    } else if (twist?.kind === 'fight') {
-      mult = twist.payMult;
+      return 1;
+    }
+    if (twist.kind === 'fight') {
       if (!twist.won) sfx.bad();
       await this.showJobScene(null, twist.won ? 'You won the fight' : 'You lost the fight', twist.text, true);
-    } else if (twist?.kind === 'busted') {
-      mult = 0;
+      return twist.payMult;
+    }
+    if (twist.kind === 'busted') {
       sfx.bad();
       await this.showJobScene('🚨', 'Busted', twist.text);
-    } else if (twist?.kind === 'late') {
-      mult = twist.payMult;
-      toast(twist.text, { icon: twist.payMult >= 1 ? '🌙' : '😬', ms: 3000 });
+      return 0;
     }
-    if (!s.job) {
-      this.busy = false;
-      return;
-    }
-    this.afterShift(completeShift(s, style, { ...extra, pay: (extra.pay ?? 1) * mult }));
+    toast(twist.text, { icon: twist.payMult >= 1 ? '🌙' : '😬', ms: 3000 });
+    return twist.payMult;
   }
 
   /** A short job scene: an emoji (or a cartoon dust cloud for fights), a title, a line. */
@@ -2310,7 +2243,6 @@ export class Game {
     });
   }
 
-  /** Everything after a shift: stats, pay toast, promotion. */
   /**
    * The playable deli shift (sim/shift.ts, ui/deli-shift.ts): clock in,
    * work the counter, get a payslip. Pay goes through the shift's id, so
@@ -2320,7 +2252,9 @@ export class Game {
     const s = this.state;
     const career = CAREER_BY_ID[s.job!.careerId];
     const t = nycTime();
-    const info = { place: PLACE_BY_ID[career.placeId].name, title: jobTitle(s), base: baseWage(s), startMinute: t.hour * 60 + t.minute, hours: SHIFT_GAME_HOURS, choices: [] as string[], careerId: career.id };
+    const band = payBand(s);
+    const late = career.id === 'bartender' && (t.hour >= 22 || t.hour < 4) ? 1.5 : 1;
+    const info = { place: PLACE_BY_ID[career.placeId].name, title: jobTitle(s), auto: band.auto, max: band.max, startMinute: t.hour * 60 + t.minute, hours: SHIFT_GAME_HOURS, choices: [] as string[], careerId: career.id, tipMult: late };
     const mode = await shiftIntro(info);
     if (!mode) return;
     const st = startDeliShift(s);
@@ -2329,13 +2263,21 @@ export class Game {
     this.save(); // the shift id is saved: from here on it can only pay once
     info.choices = st.session.choices;
     const play = mode === 'play' ? await playDeliShift(info) : { orders: [], picks: {}, skipped: true };
-    const slip = finishDeliShift(s, st.session.id, play);
+    const mult = await this.resolveTwist();
+    if (mult === null) {
+      abandonShift(s);
+      this.busy = false;
+      this.save();
+      this.refreshHud(true);
+      return;
+    }
+    const slip = finishDeliShift(s, st.session.id, play, Math.random, mult);
     this.busy = false;
     this.save();
     this.refreshHud(true);
     if (!slip) return;
     sfx.cash();
-    await showPayslip(slip, { title: `${career.emoji} ${info.title}` });
+    await showPayslip(slip, { title: `${career.emoji} ${info.title}`, tipWord: menuFor(career.id).tipWord, auto: mode === 'auto' });
     this.save();
     this.refreshHud(true);
     await this.maybeAskForRaise();
@@ -2346,7 +2288,7 @@ export class Game {
     const s = this.state;
     if (!s.job || raiseBlocker(s)) return;
     const c = CAREER_BY_ID[s.job.careerId];
-    const info = { raise: s.job.level + 1, boss: 'Your manager', from: c.ladder[s.job.level], to: c.ladder[s.job.level + 1] };
+    const info = { raise: s.job.level + 1, boss: 'Your manager', from: { title: c.ladder[s.job.level].title, pay: payBand(s, s.job.level).max }, to: { title: c.ladder[s.job.level + 1].title, pay: payBand(s, s.job.level + 1).max } };
     if (!force && !(await offerRaise(info))) return;
     const won = await playRaiseGame(info);
     const title = resolveRaise(s, won);
@@ -2355,7 +2297,7 @@ export class Game {
     if (title) {
       sfx.notify();
       s.news.unshift({ id: `promo-${nowMs()}`, at: nowMs(), scope: s.location.area, emoji: '📈', headline: `${s.profile.name} got a raise: now ${title}`, personal: true });
-      const m = openModal(`<div class="big">📈</div><h2>You got the raise!</h2><p>You’re now <b>${esc(title)}</b>: <b>${money(info.to.pay)}</b> a shift.</p><button class="btn primary block" data-act="ok">Let’s go</button>`);
+      const m = openModal(`<div class="big">📈</div><h2>You got the raise!</h2><p>You’re now <b>${esc(title)}</b>: ${money(payBand(s).auto)} auto, up to <b>${money(info.to.pay)}</b> a shift.</p><button class="btn primary block" data-act="ok">Let’s go</button>`);
       onAct(m.el, () => m.close());
     } else {
       sfx.bad();
@@ -2363,14 +2305,7 @@ export class Game {
     }
   }
 
-  private afterShift(r: ReturnType<typeof completeShift>): void {
-    this.state.stats.actionsDone['__shift'] = (this.state.stats.actionsDone['__shift'] ?? 0) + 1;
-    this.busy = false;
-    toast(`Shift done · +${money(r.pay)} · performance ${r.performanceDelta >= 0 ? '▲' : '▼'}`, { icon: '💵', tone: 'good', ms: 3500 });
-    this.save();
-    this.refreshHud(true);
-    void this.maybeAskForRaise();
-  }
+
 
   // ===================================================================
   // Travel
@@ -2851,7 +2786,7 @@ export class Game {
       inside,
       atHome: inside && !!this.interior && 'removePiece' in this.interior && (this.interior as HomeInterior).movable,
       canWork: !this.busy && (!s.job || !blocker),
-      workLabel: !s.job ? 'Find a job' : s.location.placeId === CAREER_BY_ID[s.job.careerId].placeId ? `Work a shift for ${money(CAREER_BY_ID[s.job.careerId].ladder[Math.min(s.job.level, 4)].pay)}` : `Go to work · ${money(CAREER_BY_ID[s.job.careerId].ladder[Math.min(s.job.level, 4)].pay)}`,
+      workLabel: !s.job ? 'Find a job' : s.location.placeId === CAREER_BY_ID[s.job.careerId].placeId ? `Work a shift · up to ${money(payBand(s).max)}` : `Go to work · up to ${money(payBand(s).max)}`,
       goal: goal ? { title: goal.title, hint: goal.hint } : null,
     });
     void force;

@@ -1,11 +1,13 @@
 // =====================================================================
-// shift.ts — a playable deli shift (the starter job).
+// shift.ts — hands-on shifts for every job (Peter, 2026-10-14).
 //
-// A shift is 4 game hours at the counter: 6 orders to build (tap the
-// right ingredients before the customer gives up) and 2 choices along
-// the way (cover a regular who's short? stay late?). At the end you get a
-// payslip: the base wage for the 4 hours, tips for fast and correct
-// orders, and anything your choices added.
+// Two ways to work a shift (one shift per game day):
+//  ⏩ Auto: done at once, pays the lowest wage ($50 at the first rung).
+//  🎮 Play: about 6 real minutes at the counter (the clock in the corner
+//     runs through the 4 game hours). Build each order from the job's
+//     items before the customer gives up; 3 choices come up along the
+//     way. Pays the $50 plus tips and overtime, up to $300 in all.
+// Each raise scales both numbers by the career's ladder (data/careers.ts).
 //
 // Getting paid twice is impossible: starting a shift saves a shift id in
 // the game (state.shift). Collecting pay needs that exact id and clears
@@ -19,6 +21,7 @@ import { clamp } from '../core/format.ts';
 import { changeMoney } from './economy.ts';
 import { addMoodlet, applyNeeds } from './needs.ts';
 import { completeShift, shiftBlocker } from './work.ts';
+import { MORE_MENUS } from '../data/shift-menus.ts';
 import type { GameState, NeedKey } from './types.ts';
 
 // ------------------------------------------------------------------ menus
@@ -66,6 +69,10 @@ export interface CounterMenu {
   side?: [number, string, string];
   who: string[];
   choices: ShiftChoice[];
+  /** What the extra money is called on the payslip (Tips, Bonus, Commission…). */
+  tipWord?: string;
+  /** 🍸 The bar: people order from tables and a waiter carries each drink over. */
+  runner?: { emoji: string; names: string[]; tables: number; glass: Record<string, string>; defaultGlass: string };
 }
 
 const DELI: CounterMenu = {
@@ -180,6 +187,8 @@ const BAR: CounterMenu = {
     { name: 'a shot of tequila', items: ['tequila'], extras: [['with lime', 'lime']] },
   ],
   side: [0.2, ', and a beer back', 'beer'],
+  // Peter: bartenders stay behind the bar; a waiter takes the drinks to the tables.
+  runner: { emoji: '🤵', names: ['Marco', 'Keisha', 'Tony', 'Priya'], tables: 12, glass: { beer: '🍺', wine: '🍷', whiskey: '🥃', tequila: '🥃' }, defaultGlass: '🍸' },
   who: ['🧔🏻', '👩🏽‍🦱', '🧑🏾‍💼', '👱🏻‍♀️', '🧑🏻‍🎤', '👩🏿', '🕺🏽', '💃🏻'],
   choices: [
     {
@@ -221,7 +230,7 @@ const BAR: CounterMenu = {
 };
 
 /** Hands-on counter menus by career. */
-export const COUNTER_MENUS: Record<string, CounterMenu> = { deli: DELI, bartender: BAR };
+export const COUNTER_MENUS: Record<string, CounterMenu> = { deli: DELI, bartender: BAR, ...MORE_MENUS };
 export const menuFor = (careerId: string): CounterMenu => COUNTER_MENUS[careerId] ?? DELI;
 
 /** The deli menu's lists (kept for older code and tests). */
@@ -234,6 +243,8 @@ export interface Order {
   /** The exact set of ingredients that makes it right. */
   items: string[];
   who: string;
+  /** 🍸 The table it goes to (menus with a runner). */
+  table?: number;
 }
 
 /** A random order, sometimes with an extra ask or something on the side. */
@@ -251,7 +262,8 @@ export function makeOrder(rand = Math.random, menu: CounterMenu = DELI): Order {
     items.push(menu.side[2]);
   }
   // "Can I get…" is a question; "Lemme get…" isn't.
-  return { ask: `${menu.ask} ${ask}${/^can\b/i.test(menu.ask) ? '?' : '.'}`, items, who: menu.who[Math.floor(rand() * menu.who.length)] };
+  const table = menu.runner ? 1 + Math.floor(rand() * menu.runner.tables) : undefined;
+  return { ask: `${menu.ask} ${ask}${/^can\b/i.test(menu.ask) ? '?' : '.'}`, items, who: menu.who[Math.floor(rand() * menu.who.length)], table };
 }
 
 /** Did the tray match the order exactly (any order of taps)? */
@@ -263,9 +275,17 @@ export function orderRight(order: Order, tray: string[]): boolean {
 
 // ------------------------------------------------------------ the shift
 
+/** Orders in a reference shift (tests, and the old fixed-length shift). */
 export const SHIFT_ORDERS = 6;
-/** Seconds a customer waits per order before giving up. */
+/** Seconds a customer waits per order: 16 at the start, down to 10 at the end of the rush. */
 export const ORDER_SECONDS = 16;
+export const ORDER_SECONDS_END = 10;
+/** A played shift lasts this long in real seconds (Peter: 5–7 minutes). */
+export const SHIFT_PLAY_SECONDS = 360;
+/** Choices per shift (at a quarter, half and three quarters of the way). */
+export const SHIFT_CHOICES_PER = 3;
+/** Pay at the first rung, in cents: auto, and the most a played shift can pay. */
+export const SHIFT_PAY = { auto: 5_000, max: 30_000 } as const;
 /** What a shift takes out of you, before choices. */
 export const SHIFT_COST: Partial<Record<NeedKey, number>> = { energy: -14, hunger: -12, hygiene: -6, fun: -4 };
 
@@ -286,6 +306,8 @@ export interface ShiftPlay {
   picks: Record<string, string>;
   /** Auto-pilot: skipped the counter, base wage only. */
   skipped?: boolean;
+  /** choice id → orders served when it was picked (a tips boost applies after that). */
+  choiceAt?: Record<string, number>;
 }
 
 export interface Payslip {
@@ -298,6 +320,26 @@ export interface Payslip {
   of: number;
   promoted: string | null;
   needs: Partial<Record<NeedKey, number>>;
+  /** Hit the most a shift can pay. */
+  capped: boolean;
+  /** The night's twist changed the pay (fight, light tippers…): the multiplier. */
+  mult: number;
+}
+
+/**
+ * What a shift pays at your rung: `auto` (the lowest) and `max` (a great
+ * played shift). $50 / $300 at the first rung; raises scale both by the
+ * career's ladder.
+ */
+export function payBand(s: GameState, level = s.job?.level ?? 0): { auto: number; max: number } {
+  return careerBand(s.job?.careerId ?? '', level);
+}
+
+/** The pay band for any career and rung (job listings, raise offers). */
+export function careerBand(careerId: string, level = 0): { auto: number; max: number } {
+  const c = CAREER_BY_ID[careerId];
+  const f = c ? c.ladder[Math.min(level, c.ladder.length - 1)].pay / c.ladder[0].pay : 1;
+  return { auto: Math.round((SHIFT_PAY.auto * f) / 100) * 100, max: Math.round((SHIFT_PAY.max * f) / 100) * 100 };
 }
 
 /** Clock in: checks you can work, then records the shift (save after this). */
@@ -306,38 +348,42 @@ export function startDeliShift(s: GameState, rand = Math.random): { ok: true; se
   if (block) return { ok: false, why: block };
   const pool = [...menuFor(s.job!.careerId).choices];
   const pick = () => pool.splice(Math.floor(rand() * pool.length), 1)[0].id;
-  const session: ShiftSession = { id: `sh-${nowMs()}-${Math.floor(rand() * 1e6)}`, careerId: s.job!.careerId, startedAt: nowMs(), choices: [pick(), pick()] };
+  const choices = Array.from({ length: Math.min(SHIFT_CHOICES_PER, pool.length) }, pick);
+  const session: ShiftSession = { id: `sh-${nowMs()}-${Math.floor(rand() * 1e6)}`, careerId: s.job!.careerId, startedAt: nowMs(), choices };
   s.shift = session;
   return { ok: true, session };
 }
 
-/** Tips for one order: up to $6 for a fast, right one; nothing for a wrong one. */
+/** Tips for one order at the first rung: $2 to $7 for a right one (faster is more); nothing for a wrong one. */
 export function orderTip(o: ServedOrder, hustle = false): number {
   if (!o.right) return 0;
-  const base = 150 + Math.round(450 * clamp(o.timeLeft, 0, 1));
+  const base = 200 + Math.round(500 * clamp(o.timeLeft, 0, 1));
   return Math.round((hustle ? base * 1.5 : base) / 25) * 25;
 }
 
 /**
  * Clock out and get paid — once. Returns null if this shift was already
  * paid (or never started), so pressing "Collect" twice pays once.
+ * `mult` is the night's twist (sim/job-perks.ts): a lost fight, light
+ * tippers, or 0 when you got busted.
  */
-export function finishDeliShift(s: GameState, shiftId: string, play: ShiftPlay, rand = Math.random): Payslip | null {
+export function finishDeliShift(s: GameState, shiftId: string, play: ShiftPlay, rand = Math.random, mult = 1): Payslip | null {
   if (!s.shift || s.shift.id !== shiftId || !s.job) return null;
   const session = s.shift;
   s.shift = null; // first thing: this id can never pay again
   const picks = play.picks;
   const menu = menuFor(session.careerId);
+  const band = payBand(s);
+  const scale = band.auto / SHIFT_PAY.auto;
   const right = play.orders.filter((o) => o.right).length;
-  const of = play.orders.length || SHIFT_ORDERS;
+  const of = play.orders.length;
   // What the choices did (menu data: ChoiceFx).
   const needs: Partial<Record<NeedKey, number>> = { ...SHIFT_COST };
   const add = (k: NeedKey, v: number) => (needs[k] = (needs[k] ?? 0) + v);
-  let perf = Math.round((right / of - 0.6) * 15);
-  if (play.skipped) perf = -2;
+  // Auto-pilot: you showed up and did the minimum (no change). Played: how many you got right.
+  let perf = play.skipped ? 0 : of ? Math.round((right / of - 0.6) * 15) : -2;
   let overtime = 0, covered = 0;
-  // Tips multiplier from a choice applies to the orders after it (the 2nd choice
-  // comes after order 4, the 1st after order 2).
+  // A tips boost from a choice applies to the orders after it.
   let tipsAfter: { from: number; mult: number } | null = null;
   menu.choices.forEach((c) => {
     const pick = picks[c.id];
@@ -350,24 +396,33 @@ export function finishDeliShift(s: GameState, shiftId: string, play: ShiftPlay, 
       perf += fx.risk.perf ?? 0;
       if (fx.risk.money) covered += fx.risk.money;
     }
-    if (fx.tipsAfter) tipsAfter = { from: session.choices.indexOf(c.id) === 1 ? 4 : 2, mult: fx.tipsAfter };
+    if (fx.tipsAfter) tipsAfter = { from: play.choiceAt?.[c.id] ?? (session.choices.indexOf(c.id) === 1 ? 4 : 2), mult: fx.tipsAfter };
     if (fx.moodlet) addMoodlet(s, fx.moodlet);
   });
   // Bartending: the late crowd tips half again as much (10 PM–4 AM).
   const h = nycTime().hour;
   const late = menu.careerId === 'bartender' && (h >= 22 || h < 4) ? 1.5 : 1;
   const ta = tipsAfter as { from: number; mult: number } | null;
-  const tips = play.skipped ? 0 : Math.round(play.orders.reduce((sum, o, i) => sum + orderTip(o) * (ta && i >= ta.from ? ta.mult : 1), 0) * late / 25) * 25;
+  let tips = play.skipped ? 0 : play.orders.reduce((sum, o, i) => sum + orderTip(o) * (ta && i >= ta.from ? ta.mult : 1), 0) * late * scale;
+  overtime = play.skipped ? 0 : overtime * scale;
+  covered = Math.round(covered * scale);
+  // A played shift pays at most band.max: the base plus tips and overtime.
+  const room = band.max - band.auto;
+  const capped = tips + overtime >= room;
+  overtime = Math.min(overtime, room);
+  tips = Math.min(tips, room - overtime);
+  // The night's twist.
+  const base = Math.round((band.auto * mult) / 25) * 25;
+  tips = Math.round((tips * mult) / 25) * 25;
+  overtime = Math.round(overtime / 25) * 25;
   applyNeeds(s, needs);
-  // Base wage and promotion through the shared work rules (pay multiplier 1:
-  // the base wage is the ladder pay; tips and overtime are added on top).
-  const r = completeShift(s, 'chill', { perf, pay: 1, needsDone: true, flat: true });
+  // Performance, skill and the shift count through the shared work rules.
+  completeShift(s, 'chill', { perf, needsDone: true, payCents: base });
   const extra = tips + overtime + covered;
   if (extra > 0) changeMoney(s, extra, 'Tips and overtime');
   else if (extra < 0) changeMoney(s, extra, 'Out of your pocket');
   s.stats.actionsDone['__shift'] = (s.stats.actionsDone['__shift'] ?? 0) + 1;
-  const base = r.pay;
-  return { base, tips, overtime, covered, total: base + extra, right, of, promoted: r.promoted, needs };
+  return { base, tips, overtime, covered, total: base + extra, right, of, promoted: null, needs, capped, mult };
 }
 
 /** Closing the game mid-shift: the shift ends, unpaid. */
@@ -377,9 +432,7 @@ export function abandonShift(s: GameState): boolean {
   return true;
 }
 
-/** The career's base wage for a shift (for the "what you'll earn" line). */
+/** The base wage for a shift (what auto-pilot pays). */
 export function baseWage(s: GameState): number {
-  if (!s.job) return 0;
-  const c = CAREER_BY_ID[s.job.careerId];
-  return c.ladder[Math.min(s.job.level, c.ladder.length - 1)].pay;
+  return s.job ? payBand(s).auto : 0;
 }

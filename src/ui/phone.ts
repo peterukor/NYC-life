@@ -17,7 +17,8 @@ import { CLASSES, ORIGINS, TRAITS } from '../sim/state.ts';
 import { OPEN_AREAS, isOpenArea, NEED_KEYS, SKILL_KEYS, type AreaId, type GameState, type SkillKey } from '../sim/types.ts';
 import { DISTRICTS } from '../world/layout.ts';
 import { WEATHER_INFO, weatherFor } from '../sim/weather.ts';
-import { applyForJob, hireBlocker, jobTitle, quitJob, shiftPay } from '../sim/work.ts';
+import { applyForJob, hireBlocker, jobTitle, quitJob } from '../sim/work.ts';
+import { careerBand } from '../sim/shift.ts';
 import { HOUSE_ADS } from '../render/textures.ts';
 import type { AdStats } from '../world/ads.ts';
 import { html, onAct, root, toast } from './dom.ts';
@@ -95,12 +96,12 @@ export function openPhone(host: PhoneHost, startApp?: string): () => void {
     jobs() {
       const current = s.job ? CAREER_BY_ID[s.job.careerId] : null;
       page('Jobs', `
-        ${current ? `<div class="card"><h3>${current.emoji} ${esc(jobTitle(s))} · ${current.name}</h3><p>${money(shiftPay(s))} per shift · performance ${Math.round(s.job!.performance)}% · ${s.job!.shiftsToday} shifts today<br>📈 Raise ${Math.min(5, s.job!.level + 1)} of 5: ${raiseBlocker(s) ? esc(raiseBlocker(s)!) : '<b>ready! Your boss will see you after your next shift.</b>'}<br>Work at ${esc(PLACE_BY_ID[current.placeId].name)}. Tap “Go to work” on the main screen.</p><button class="btn ghost block" style="margin-top:10px" data-act="quit">Quit this job</button></div><br>` : ''}
+        ${current ? `<div class="card"><h3>${current.emoji} ${esc(jobTitle(s))} · ${current.name}</h3><p>${money(careerBand(current.id, s.job!.level).auto)} auto, up to ${money(careerBand(current.id, s.job!.level).max)} played, one shift a day · performance ${Math.round(s.job!.performance)}%<br>📈 Raise ${Math.min(5, s.job!.level + 1)} of 5: ${raiseBlocker(s) ? esc(raiseBlocker(s)!) : '<b>ready! Your boss will see you after your next shift.</b>'}<br>Work at ${esc(PLACE_BY_ID[current.placeId].name)}. Tap “Go to work” on the main screen.</p><button class="btn ghost block" style="margin-top:10px" data-act="quit">Quit this job</button></div><br>` : ''}
         ${CAREERS.map((c) => {
           const block = hireBlocker(s, c);
           const mine = s.job?.careerId === c.id;
           const where = PLACE_BY_ID[c.placeId];
-          return `<div class="list-item"><div class="grow"><div class="title">${c.emoji} ${c.name} — ${c.ladder[0].title}</div><div class="sub">${esc(c.blurb)}<br>${money(c.ladder[0].pay)}/shift → ${c.ladder[c.ladder.length - 1].title} ${money(c.ladder[c.ladder.length - 1].pay)} · 📍 ${esc(where.name)}</div>${block ? `<div class="sub" style="color:var(--bad);font-weight:700">🔒 ${esc(block)}</div>` : ''}</div>${mine ? '<span class="tag open">Your job</span>' : `<button class="btn ${block ? '' : 'primary'}" data-act="hire:${c.id}" ${block ? 'disabled' : ''}>Apply</button>`}</div>`;
+          return `<div class="list-item"><div class="grow"><div class="title">${c.emoji} ${c.name} — ${c.ladder[0].title}</div><div class="sub">${esc(c.blurb)}<br>${money(careerBand(c.id).auto)}–${money(careerBand(c.id).max)} a shift → ${c.ladder[c.ladder.length - 1].title} ${money(careerBand(c.id, 5).auto)}–${money(careerBand(c.id, 5).max)} · 📍 ${esc(where.name)}</div>${block ? `<div class="sub" style="color:var(--bad);font-weight:700">🔒 ${esc(block)}</div>` : ''}</div>${mine ? '<span class="tag open">Your job</span>' : `<button class="btn ${block ? '' : 'primary'}" data-act="hire:${c.id}" ${block ? 'disabled' : ''}>Apply</button>`}</div>`;
         }).join('')}`);
     },
     ride() {

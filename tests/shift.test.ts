@@ -67,7 +67,7 @@ test('the bar is a hands-on counter too: drinks from the bar menu, its own choic
     assert.ok(o.items.every((x) => ids.has(x)), o.ask);
     assert.ok(o.ask.startsWith('Can I get'));
   }
-  assert.equal(menuFor('trainer'), COUNTER_MENUS.deli, 'unknown careers fall back to the deli');
+  assert.equal(menuFor('nope'), COUNTER_MENUS.deli, 'unknown careers fall back to the deli');
   const s = newLife({ name: 'T', origin: 'hustler', spawnClass: 'poor', look: { body: 'm', skin: '#000', top: '#000', bottom: '#000', hair: '#000' }, birthYear: 1990, traits: [] });
   assert.equal(applyForJob(s, 'bartender'), null);
   initClockFromUrl('?hour=17');
@@ -91,4 +91,67 @@ test('late-night bar tips are bigger', () => {
   };
   assert.ok(tipsAt(23) > tipsAt(17));
   initClockFromUrl('?hour=11');
+});
+
+import { COUNTER_MENUS, payBand, careerBand, SHIFT_PAY, SHIFT_PLAY_SECONDS } from '../src/sim/shift.ts';
+import { CAREERS } from '../src/data/careers.ts';
+import { shiftBlocker } from '../src/sim/work.ts';
+
+test("Peter's pay: auto $50, a played shift up to $300, raises scale both", () => {
+  assert.deepEqual(careerBand('deli', 0), { auto: 5_000, max: 30_000 });
+  for (const c of CAREERS) {
+    const b0 = careerBand(c.id, 0), b5 = careerBand(c.id, 5);
+    assert.equal(b0.auto, SHIFT_PAY.auto, c.id);
+    assert.equal(b0.max, SHIFT_PAY.max, c.id);
+    assert.ok(b5.auto > b0.auto && b5.max > b0.max, c.id);
+  }
+  assert.ok(SHIFT_PLAY_SECONDS >= 300 && SHIFT_PLAY_SECONDS <= 420, '5–7 minutes');
+});
+
+test('auto pays exactly the lowest wage; a great played shift is capped at the max', () => {
+  const s = life();
+  const band = payBand(s);
+  let r = startDeliShift(s);
+  assert.ok(r.ok);
+  const auto = finishDeliShift(s, r.session.id, { orders: [], picks: {}, skipped: true })!;
+  assert.equal(auto.total, band.auto);
+  s.job!.dayKey = 'yesterday'; // a new game day
+  r = startDeliShift(s);
+  assert.ok(r.ok, (r as { why?: string }).why);
+  const many = { orders: Array.from({ length: 60 }, () => ({ right: true, timeLeft: 1 })), picks: {} };
+  const slip = finishDeliShift(s, r.session.id, many)!;
+  assert.equal(slip.total, band.max);
+  assert.ok(slip.capped);
+});
+
+test('one shift a game day', () => {
+  const s = life();
+  const r = startDeliShift(s);
+  assert.ok(r.ok);
+  finishDeliShift(s, r.session.id, { orders: [], picks: {}, skipped: true });
+  assert.match(shiftBlocker(s) ?? '', /One shift a day/);
+});
+
+test('every job’s menu: real items, enough choices, every dish buildable', () => {
+  for (const [id, m] of Object.entries(COUNTER_MENUS)) {
+    const ids = new Set(m.ingredients.map((i) => i.id));
+    assert.equal(ids.size, m.ingredients.length, `${id}: duplicate item ids`);
+    assert.ok(m.choices.length >= 3, `${id}: needs 3+ choices`);
+    for (const d of m.dishes) for (const x of [...d.items, ...(d.extras ?? []).map((e) => e[1])]) assert.ok(ids.has(x), `${id}: ${d.name} uses unknown ${x}`);
+    if (m.side) assert.ok(ids.has(m.side[2]), `${id}: side`);
+    for (let i = 0; i < 30; i++) {
+      const o = makeOrder(Math.random, m);
+      assert.ok(o.items.length <= 7, `${id}: order fits the tray`);
+    }
+  }
+  assert.ok(COUNTER_MENUS.bartender.runner, 'the bar has a waiter');
+  assert.ok(makeOrder(Math.random, COUNTER_MENUS.bartender).table! >= 1, 'bar orders come from tables');
+});
+
+test('a twist multiplier (lost fight, busted) shrinks the pay', () => {
+  const s = life();
+  const r = startDeliShift(s);
+  assert.ok(r.ok);
+  const slip = finishDeliShift(s, r.session.id, { orders: [], picks: {}, skipped: true }, Math.random, 0)!;
+  assert.equal(slip.total, 0);
 });

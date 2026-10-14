@@ -57,7 +57,7 @@ export function shiftBlocker(s: GameState): string | null {
     s.job.dayKey = t.dateKey;
     s.job.shiftsToday = 0;
   }
-  if (s.job.shiftsToday >= MAX_SHIFTS_PER_DAY) return `Done for today (${MAX_SHIFTS_PER_DAY} shifts max)`;
+  if (s.job.shiftsToday >= MAX_SHIFTS_PER_DAY) return MAX_SHIFTS_PER_DAY === 1 ? 'You already worked today. One shift a day: come back tomorrow (game time).' : `Done for today (${MAX_SHIFTS_PER_DAY} shifts max)`;
   if (s.needs.energy < 12) return 'Too tired to work — get some sleep';
   return null;
 }
@@ -85,7 +85,7 @@ export interface ShiftResult {
  * `extra` comes from a played mini-game: a performance bonus (−8…+8)
  * and a pay multiplier for doing well.
  */
-export function completeShift(s: GameState, style: WorkStyle, extra: { perf?: number; pay?: number; needsDone?: boolean; flat?: boolean } = {}): ShiftResult {
+export function completeShift(s: GameState, style: WorkStyle, extra: { perf?: number; pay?: number; needsDone?: boolean; flat?: boolean; payCents?: number } = {}): ShiftResult {
   const job = s.job!;
   const c = CAREER_BY_ID[job.careerId];
   const mood = moodWorkMultiplier(s);
@@ -119,8 +119,8 @@ export function completeShift(s: GameState, style: WorkStyle, extra: { perf?: nu
   job.shiftsTotal += 1;
 
   // `flat`: the base wage as-is (the deli shift pays performance through tips).
-  const pay = extra.flat ? shiftPay(s) : Math.round((shiftPay(s) * payMult * (0.85 + job.performance / 333)) / 25) * 25;
-  changeMoney(s, pay, `${c.name} shift`);
+  const pay = extra.payCents !== undefined ? extra.payCents : extra.flat ? shiftPay(s) : Math.round((shiftPay(s) * payMult * (0.85 + job.performance / 333)) / 25) * 25;
+  if (pay > 0) changeMoney(s, pay, `${c.name} shift`);
 
   // No automatic promotions: once you're ready, you ask for a raise (sim/raise.ts).
   const promoted: string | null = null;

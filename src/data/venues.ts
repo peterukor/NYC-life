@@ -184,7 +184,11 @@ export const WORKPLACE_LAYOUTS: Record<string, HomeLayout> = {
   },
   stoopBar: {
     id: 'stoopBar', name: 'The Stoop', width: 20, depth: 14, wallColor: '#6b2f2f', zoomable: true,
-    life: { visitors: 14, pops: ['🍺', '🍸', '😂', '🎵', '💬', '🥂'], fx: ['notes'] },
+    life: {
+      visitors: 14, pops: ['🍺', '🍸', '😂', '🎵', '💬', '🥂'], fx: ['notes'],
+      // Peter: bartenders stay behind the bar; a waiter runs the drinks to the tables.
+      runner: { from: 'bar2', to: ['booth1', 'booth2', 'booth3', 'booth4', 'ht1', 'ht2', 'ht3', 'ht4', 'pool', 'pool2'], carry: ['🍺', '🍸', '🍷', '🥃', '🍹'] },
+    },
     rooms: [{ label: 'Bar', rect: [-10, -7, 10, 7], floor: '#4a2f22' }, { label: 'Pool room', rect: [3.6, -1.0, 10, 7], floor: '#3a2a20' }],
     walls: [],
     furniture: [

@@ -5,7 +5,7 @@ import { applyForJob } from '../src/sim/work.ts';
 import { bustChance, EXPOSURE, heatNow, intimidation, resolveBribe, shiftTwist } from '../src/sim/job-perks.ts';
 import { CAREERS, CAREER_BY_ID } from '../src/data/careers.ts';
 import { PLACE_BY_ID } from '../src/data/places.ts';
-import { minigameFor } from '../src/data/minigames.ts';
+import { COUNTER_MENUS } from '../src/sim/shift.ts';
 
 const life = () => newLife({ name: 'T', origin: 'hustler', spawnClass: 'poor', look: { body: 'm', skin: '#000', top: '#000', bottom: '#000', hair: '#000' }, birthYear: 1990, traits: [] });
 const seq = (...xs: number[]) => () => xs.shift() ?? 0.99;
@@ -17,7 +17,7 @@ test("Peter's eight careers, each with 6 rungs (5 raises) and a workplace", () =
     assert.equal(c.ladder.length, 6, c.id);
     assert.ok(PLACE_BY_ID[c.placeId], c.placeId);
     assert.ok(c.ladder.every((r, i) => i === 0 || r.pay > c.ladder[i - 1].pay), `${c.id} pay rises`);
-    assert.ok(minigameFor(c.id) || c.id === 'deli', `${c.id} has a shift game`);
+    assert.ok(COUNTER_MENUS[c.id], `${c.id} has a shift game`);
   }
 });
 
