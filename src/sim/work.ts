@@ -8,11 +8,11 @@
 // =====================================================================
 
 import { nycTime } from '../core/clock.ts';
-import { MAX_SHIFTS_PER_DAY, PROMOTION, WORK_HOURS } from '../core/constants.ts';
+import { MAX_SHIFTS_PER_DAY, WORK_HOURS } from '../core/constants.ts';
 import { clamp } from '../core/format.ts';
 import { CAREER_BY_ID, type CareerDef } from '../data/careers.ts';
 import { changeMoney } from './economy.ts';
-import { applyNeeds, moodWorkMultiplier, addMoodlet } from './needs.ts';
+import { applyNeeds, moodWorkMultiplier } from './needs.ts';
 import { skillGainMultiplier } from './state.ts';
 import type { GameState } from './types.ts';
 
@@ -119,15 +119,7 @@ export function completeShift(s: GameState, style: WorkStyle, extra: { perf?: nu
   const pay = extra.flat ? shiftPay(s) : Math.round((shiftPay(s) * payMult * (0.85 + job.performance / 333)) / 25) * 25;
   changeMoney(s, pay, `${c.name} shift`);
 
-  let promoted: string | null = null;
-  const canRise = job.level < c.ladder.length - 1;
-  const skillOk = Math.floor(s.skills[c.skill]) >= job.level + 1;
-  if (canRise && skillOk && job.performance >= PROMOTION.minPerformance && job.shiftsAtLevel >= PROMOTION.shiftsPerLevel) {
-    job.level += 1;
-    job.shiftsAtLevel = 0;
-    job.performance = 55;
-    promoted = c.ladder[job.level].title;
-    addMoodlet(s, { id: 'promoted', label: 'Promoted!', emoji: '📈', value: 25, minutes: 60 * 12 });
-  }
+  // No automatic promotions: once you're ready, you ask for a raise (sim/raise.ts).
+  const promoted: string | null = null;
   return { pay, performanceDelta: perf, promoted };
 }

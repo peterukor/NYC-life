@@ -57,6 +57,8 @@ import { VENUE_LAYOUT_FOR, VENUE_LAYOUTS } from './data/venues.ts';
 import { FURNITURE, FURNITURE_QUALITY, qualityLine, SHOP_ITEMS } from './data/furniture.ts';
 import { buyFurniture } from './sim/shop.ts';
 import { arriveHome, hasDoorman } from './sim/home-conditions.ts';
+import { offerRaise, playRaiseGame } from './ui/raise-game.ts';
+import { raiseBlocker, resolveRaise } from './sim/raise.ts';
 import { afterWalk, changedClothes, stainAtWork, subwayIncident } from './sim/commute.ts';
 import { Roommates } from './world/roommates.ts';
 import { InteriorView } from './world/interior-view.ts';
@@ -359,6 +361,7 @@ export class Game {
       indoorRoute: () => (this.indoor ? this.indoor.points.map((q) => ({ ...q })) : null),
       resetCam: () => this.fitInteriorCamera(),
       phoneApp: (id: string) => this.openPhoneApp(id),
+      askRaise: () => void this.maybeAskForRaise(),
       showFight: (won: boolean) => void this.showIncident({ kind: 'fight', won, text: won ? 'A guy tried you over a seat. A cloud of dust later, he got off at the next stop.' : 'A fight broke out over a seat and you lost. Urgent care: $40.' }),
       /** InstaDash: make every order arrive now (QA). */
       deliverNow: () => {
@@ -2051,23 +2054,40 @@ export class Game {
     if (!slip) return;
     sfx.cash();
     await showPayslip(slip, { title: `${career.emoji} ${info.title}` });
-    if (slip.promoted) this.state.news.unshift({ id: `promo-${nowMs()}`, at: nowMs(), scope: this.state.location.area, emoji: '📈', headline: `${this.state.profile.name} promoted to ${slip.promoted}`, personal: true });
     this.save();
     this.refreshHud(true);
+    await this.maybeAskForRaise();
+  }
+
+  /** Ready for a raise? Your boss has a minute: ask now (the mini-game) or later. */
+  private async maybeAskForRaise(force = false): Promise<void> {
+    const s = this.state;
+    if (!s.job || raiseBlocker(s)) return;
+    const c = CAREER_BY_ID[s.job.careerId];
+    const info = { raise: s.job.level + 1, boss: 'Your manager', from: c.ladder[s.job.level], to: c.ladder[s.job.level + 1] };
+    if (!force && !(await offerRaise(info))) return;
+    const won = await playRaiseGame(info);
+    const title = resolveRaise(s, won);
+    this.save();
+    this.refreshHud(true);
+    if (title) {
+      sfx.notify();
+      s.news.unshift({ id: `promo-${nowMs()}`, at: nowMs(), scope: s.location.area, emoji: '📈', headline: `${s.profile.name} got a raise: now ${title}`, personal: true });
+      const m = openModal(`<div class="big">📈</div><h2>You got the raise!</h2><p>You’re now <b>${esc(title)}</b>: <b>${money(info.to.pay)}</b> a shift.</p><button class="btn primary block" data-act="ok">Let’s go</button>`);
+      onAct(m.el, () => m.close());
+    } else {
+      sfx.bad();
+      toast('“Not right now.” Work a couple more shifts and ask again.', { icon: '😐', ms: 3500 });
+    }
   }
 
   private afterShift(r: ReturnType<typeof completeShift>): void {
     this.state.stats.actionsDone['__shift'] = (this.state.stats.actionsDone['__shift'] ?? 0) + 1;
     this.busy = false;
     toast(`Shift done · +${money(r.pay)} · performance ${r.performanceDelta >= 0 ? '▲' : '▼'}`, { icon: '💵', tone: 'good', ms: 3500 });
-    if (r.promoted) {
-      sfx.notify();
-      const m = openModal(`<div class="big">📈</div><h2>Promoted!</h2><p>You’re now <b>${esc(r.promoted)}</b>. More money per shift.</p><button class="btn primary block" data-act="ok">Let’s go</button>`);
-      onAct(m.el, () => m.close());
-      this.state.news.unshift({ id: `promo-${nowMs()}`, at: nowMs(), scope: this.state.location.area, emoji: '📈', headline: `${this.state.profile.name} promoted to ${r.promoted}`, personal: true });
-    }
     this.save();
     this.refreshHud(true);
+    void this.maybeAskForRaise();
   }
 
   // ===================================================================

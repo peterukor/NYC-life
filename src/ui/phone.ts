@@ -27,6 +27,7 @@ import { businessValue, buyBusiness, candidates, fire, hire, TAX } from '../sim/
 import { PATHS } from '../data/paths.ts';
 import { joinPath, leavePath, levelBlockers, levelTasks, pathLevel, pathTitle, taskProgress, tryLevelUp } from '../sim/paths.ts';
 import { PHONE_APPS, type PhoneAppCtx } from './phone-apps.ts';
+import { raiseBlocker } from '../sim/raise.ts';
 import './instadash.ts'; // registers the InstaDash app
 import { bankruptcyBlocker, DEBT } from '../sim/debt.ts';
 import { buyStock, dayChange, netWorth, portfolioValue, priceOf, recentPrices, sellStock, TRADE_FEE } from '../sim/market.ts';
@@ -89,7 +90,7 @@ export function openPhone(host: PhoneHost, startApp?: string): () => void {
     jobs() {
       const current = s.job ? CAREER_BY_ID[s.job.careerId] : null;
       page('Jobs', `
-        ${current ? `<div class="card"><h3>${current.emoji} ${esc(jobTitle(s))} · ${current.name}</h3><p>${money(shiftPay(s))} per shift · performance ${Math.round(s.job!.performance)}% · ${s.job!.shiftsToday} shifts today<br>Work at ${esc(PLACE_BY_ID[current.placeId].name)}. Tap “Go to work” on the main screen.</p><button class="btn ghost block" style="margin-top:10px" data-act="quit">Quit this job</button></div><br>` : ''}
+        ${current ? `<div class="card"><h3>${current.emoji} ${esc(jobTitle(s))} · ${current.name}</h3><p>${money(shiftPay(s))} per shift · performance ${Math.round(s.job!.performance)}% · ${s.job!.shiftsToday} shifts today<br>📈 Raise ${Math.min(5, s.job!.level + 1)} of 5: ${raiseBlocker(s) ? esc(raiseBlocker(s)!) : '<b>ready! Your boss will see you after your next shift.</b>'}<br>Work at ${esc(PLACE_BY_ID[current.placeId].name)}. Tap “Go to work” on the main screen.</p><button class="btn ghost block" style="margin-top:10px" data-act="quit">Quit this job</button></div><br>` : ''}
         ${CAREERS.map((c) => {
           const block = hireBlocker(s, c);
           const mine = s.job?.careerId === c.id;
