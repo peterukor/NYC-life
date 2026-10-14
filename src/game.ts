@@ -110,6 +110,12 @@ import { openSportsbook, settleAndTell } from './ui/sportsbook.ts';
 import { openWorkout } from './ui/workout.ts';
 import { activeSection, buySection, endSectionIfOver, extendSection, friendSlots, inviteFriend, inviteList, nextSeatIn, SECTION } from './sim/section.ts';
 import { SectionCrew } from './world/section-crew.ts';
+import { Buddy } from './world/buddy.ts';
+import { openHangout, type HangoutHost } from './ui/hangout.ts';
+import { endHangout, expirePlans, flakes, maybeIncoming, otherOf, planHere, socialOf, startHangout } from './sim/invites.ts';
+import { logWith, OUTINGS, tasteFor } from './sim/friends.ts';
+import { freeloadersLeave, talkToGuest } from './sim/section.ts';
+
 import { openMap } from './ui/map.ts';
 import { clearPendingClass, runOnboarding } from './ui/onboarding.ts';
 import { openPhone } from './ui/phone.ts';
@@ -142,6 +148,9 @@ export class Game {
   /** 🛋️ Friends in your club section (world/section-crew.ts). */
   private sectionCrew: SectionCrew | null = null;
   private sectionChip: HTMLElement | null = null;
+  /** 🤙 The friend you're hanging out with (world/buddy.ts), and its chip. */
+  private buddy: Buddy | null = null;
+  private hangoutChip: HTMLElement | null = null;
   private funTimer = 0;
   /** Your worker spot in the room, when you're at your own job. */
   private myWorkSpot: { x: number; z: number; rot: number } | null = null;
@@ -389,6 +398,23 @@ export class Game {
       section: () => this.state.section ?? null,
       sectionCrew: () => this.sectionCrew?.count ?? -1,
       service: (id: string) => this.serviceAction(id),
+      social: () => socialOf(this.state),
+      /** QA: someone in your contacts at a given friendship. */
+      makeFriend: (id: string, likes: number) => {
+        const m = (this.state.people[id] ??= { area: 'manhattan', met: nowMs(), seen: nowMs(), likes: 0, grudge: 0, level: 0, hasNumber: true, known: [], today: { day: '', acts: {} }, dates: 0 });
+        m.hasNumber = true;
+        m.likes = likes;
+        m.level = likes >= 55 ? 3 : likes >= 30 ? 2 : likes >= 8 ? 1 : 0;
+        return personOf(id).name;
+      },
+      buddy: () => !!this.buddy,
+      /** QA: the newest plan starts in 3 seconds. */
+      planNow: () => {
+        const inv = socialOf(this.state).invites.find((i) => i.status === 'accepted');
+        if (inv) ((inv.at = nowMs() + 3000), (inv.until = inv.at + 15 * 60_000));
+        return inv?.placeId ?? null;
+      },
+      openHangout: () => openHangout(this.hangoutHost()),
       talkToAdmirer: (name: string) => this.talkToAdmirer(name),
       tradeWin: (mult: number) => this.celebrateTrade(mult),
       coworkers: () => this.coworkers?.list.map((c) => c.name) ?? [],
@@ -727,6 +753,7 @@ export class Game {
       });
     } else if (this.engine.mode === 'interior' && this.interior) {
       this.interior.update(dt);
+      this.buddy?.update(dt);
       this.player.animate(this.walkIndoors(dt), dt);
       // Zoomed in: keep yourself in view while you walk somewhere.
       if (this.indoor || this.doing) this.view.follow(this.player.root.position, dt);
@@ -1238,6 +1265,124 @@ export class Game {
     }
     this.drawSectionChip();
     if (s.fun?.bets.some((b) => !b.settled)) settleAndTell(this.funHost());
+    this.socialTick();
+  }
+
+  /**
+   * Friends (sim/invites.ts): plans you missed, friends arriving (or
+   * flaking), the hangout ending, friends inviting you, and bottle-only
+   * guests leaving your section.
+   */
+  private socialTick(): void {
+    const s = this.state;
+    const soc = socialOf(s);
+    const now = nowMs();
+    const first = (id: string) => personOf(id).name.split(' ')[0];
+    for (const x of expirePlans(s, now)) toast(x.text, { icon: '💀', tone: 'bad', ms: 6000 });
+    const here = this.engine.mode === 'interior' ? s.location.placeId : null;
+    // The hangout ends when time's up or you leave.
+    if (soc.hangout && (now > soc.hangout.until || here !== soc.hangout.placeId)) {
+      const id = soc.hangout.personId;
+      const r = endHangout(s, now);
+      if (r) toast(`${first(id)} headed out. +${r.bond} 💛 today`, { icon: '🤙', tone: 'good', ms: 4000 });
+      this.save();
+    }
+    // Someone you have plans with, here, now.
+    if (!soc.hangout && here) {
+      const plan = planHere(s, here, now);
+      if (plan && now >= plan.at) {
+        const id = otherOf(plan).id;
+        const excuse = flakes(id, plan.id);
+        if (excuse) {
+          plan.status = 'flaked';
+          const m = s.people[id];
+          if (m) logWith(m, '🫠', 'They flaked', now);
+          toast(`${first(id)}: “${excuse}”`, { icon: '🫠', ms: 6000 });
+        } else {
+          startHangout(s, plan, now);
+          sfx.notify();
+          toast(`${first(id)} is here 👋 Tap 🤙 to hang out.`, { icon: OUTINGS[plan.outing].emoji, tone: 'good', ms: 4500 });
+        }
+        this.save();
+      }
+    }
+    // Their avatar, in the room you're in.
+    if (soc.hangout && this.interior && (!this.buddy || this.buddy.scene !== this.interior.scene)) {
+      this.buddy?.dispose();
+      this.buddy = new Buddy(this.interior.scene, this.player.root, soc.hangout.personId);
+    } else if (!soc.hangout && this.buddy) {
+      this.buddy.dispose();
+      this.buddy = null;
+    }
+    // A friend invites you.
+    const inc = maybeIncoming(s, Math.random, now);
+    if (inc) {
+      sfx.notify();
+      toast(`${first(inc.from.id)}: “${inc.reply}” (Link Up to answer)`, { icon: '📲', ms: 6000 });
+      this.save();
+    }
+    // Bottle-only guests drift off when the bottles stop.
+    const gone = freeloadersLeave(s, now);
+    if (gone.length) {
+      this.sectionCrew?.set(s.section?.friends.length ?? 0);
+      toast(gone.length === 1 ? `${first(gone[0])} left. The bottle was empty, and so was the friendship.` : `${gone.length} “friends” left the minute the bottles stopped.`, { icon: '🍾', ms: 5000 });
+      this.save();
+    }
+    this.drawHangoutChip();
+  }
+
+  /** The 🤙 chip while you're hanging out with someone. */
+  private drawHangoutChip(): void {
+    const h = socialOf(this.state).hangout;
+    if (!h) {
+      this.hangoutChip?.remove();
+      this.hangoutChip = null;
+      return;
+    }
+    if (!this.hangoutChip) {
+      this.hangoutChip = html('<button class="hangout-chip" aria-label="Hang out"></button>');
+      this.hangoutChip.addEventListener('click', () => openHangout(this.hangoutHost()));
+      root().appendChild(this.hangoutChip);
+    }
+    const left = Math.max(0, h.until - nowMs());
+    this.hangoutChip.textContent = `🤙 ${personOf(h.personId).name.split(' ')[0]} · ${Math.floor(left / 60_000)}:${String(Math.floor((left % 60_000) / 1000)).padStart(2, '0')} · +${h.bond} 💛`;
+    this.hangoutChip.classList.toggle('stacked', !!this.sectionChip);
+  }
+
+  private hangoutHost(): HangoutHost {
+    const s = this.state;
+    return {
+      state: s,
+      saved: () => {
+        this.save();
+        this.refreshHud(true);
+        this.drawHangoutChip();
+      },
+      react: (emoji, happy) => this.buddy?.react(emoji, happy),
+      run: (label, seconds) =>
+        new Promise((resolve) => {
+          let stopped = false;
+          const bar = progressBar(label, { skipLabel: 'Stop', onSkip: () => (stopped = true), compact: true });
+          const t0 = performance.now();
+          const tick = () => {
+            const f = (performance.now() - t0) / (seconds * 1000);
+            if (stopped) return (bar.remove(), resolve(false));
+            bar.set(f);
+            if (f >= 1) return (bar.remove(), resolve(true));
+            requestAnimationFrame(tick);
+          };
+          tick();
+        }),
+      hasTv: () => {
+        const id = s.location.placeId ?? '';
+        const items = s.homes[id] ?? (PLACE_BY_ID[id]?.interior === 'apartment' ? layoutForPlace(id).furniture : []);
+        return items.some((it) => FURNITURE.get(it.item)?.tv);
+      },
+      versus: (name, done) => {
+        const id = socialOf(s).hangout?.personId ?? '';
+        playArcade(this.funHost(), 'pigeons', { name, skill: tasteFor(id, 'arcade') + 1, done });
+      },
+    };
   }
 
   /** The little timer chip while your section is on. */
@@ -1286,6 +1431,13 @@ export class Game {
         <div class="sec-seats">${Array.from({ length: SECTION.maxFriends }, (_, i) => `<i class="${i < sec.friends.length ? 'full' : i < slots ? 'open' : ''}"></i>`).join('')}</div>
         <p class="sub">${more ? `Spend ${money(more)} more (bottles or time) for another seat.` : 'Full house: 12 friends, the max.'}</p>
         <div class="row" style="gap:8px;margin:8px 0"><button class="btn primary" data-act="bottles">🍾 Order bottles</button><button class="btn" data-act="extend">⏱️ +${SECTION.extend.minutes} min · ${money(SECTION.extend.price)}</button></div>
+        ${sec.friends.length ? `<h3 style="margin:12px 0 6px;font-size:15px">In your section</h3>
+        <p class="sub">Money gets people in. Talking is what makes them friends.</p>
+        <div class="travel">${sec.friends.map((id) => {
+          const g = sec.guests?.[id];
+          const tag = g?.revealed && g.freeloader ? '🍾 Here for the bottles' : g?.kind === 'contact' ? '📱 Your friend' : g?.revealed ? '🕺 Cool, actually' : '🕺 Friend of a friend';
+          return `<button class="opt" data-act="talk:${id}"><span style="font-size:22px">${g?.revealed && g.freeloader ? '🍾' : '🗣️'}</span><span class="grow"><b>${esc(personOf(id).name)}</b><small>${tag}${g?.talked ? ` · talked ${g.talked}×` : ''}</small></span><span class="cost">Talk</span></button>`;
+        }).join('')}</div>` : ''}
         <h3 style="margin:12px 0 6px;font-size:15px">Invite</h3>
         <div class="travel">${people.map((p) => `<button class="opt" data-act="invite:${p.id}" ${sec.friends.length >= slots ? 'disabled aria-disabled="true"' : ''}><span style="font-size:22px">${p.contact ? '📱' : '🕺'}</span><span class="grow"><b>${esc(p.name)}</b><small>${p.contact ? (p.busy ? 'Busy tonight' : 'In your contacts') : 'Friend of a friend'}</small></span><span class="cost">Invite</span></button>`).join('')}</div>`;
     };
@@ -1315,6 +1467,14 @@ export class Game {
       } else if (act === 'bottles') {
         sheet.close();
         return this.openBottleMenu();
+      } else if (act.startsWith('talk:')) {
+        const id = act.slice(5);
+        const r = talkToGuest(s, placeId, id);
+        if (r) {
+          const nm = personOf(id).name.split(' ')[0];
+          toast(`${nm}: ${r.line}${r.bond ? ` +${r.bond} 💛` : ''}`, { icon: r.freeloader ? '🍾' : '🗣️', tone: r.freeloader ? 'info' : 'good', ms: 4500 });
+          if (r.newContact) window.setTimeout(() => toast(`${nm} put their number in your phone. New friend in Link Up.`, { icon: '📱', tone: 'good', ms: 4000 }), 1200);
+        }
       } else if (act.startsWith('invite:')) {
         const id = act.slice(7);
         const why = inviteFriend(s, placeId, id);

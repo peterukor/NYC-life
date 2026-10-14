@@ -169,6 +169,11 @@ PHONE_APPS.add({
 // Contacts: people whose number you have. Text them, ask them out.
 // ---------------------------------------------------------------------
 let lastReply: { id: string; text: string } | null = null;
+/** Link Up registers this so Contacts → Invite opens its composer (no import cycle). */
+let inviteHook: ((personId: string) => void) | null = null;
+export function onContactInvite(fn: (personId: string) => void): void {
+  inviteHook = fn;
+}
 
 PHONE_APPS.add({
   id: 'contacts',
@@ -190,7 +195,7 @@ PHONE_APPS.add({
               const v = vibe(m);
               const reply = lastReply?.id === id ? `<div class="sms">${esc(lastReply.text)}</div>` : '';
               return `<div class="list-item" style="flex-wrap:wrap"><div style="font-size:24px">${v.emoji}</div><div class="grow"><div class="title">${esc(p.name)}${m.key ? ' 🔑' : ''}</div><div class="sub">${RELATION[m.level]} · ${esc(p.job)} · ${DISTRICTS[m.area as AreaId].name}</div>${reply}</div>
-                <button class="btn" data-act="contacts.hey:${id}">👋 Text</button>${p.dates && m.level >= 2 ? `<button class="btn primary" data-act="contacts.date:${id}">💘 Date?</button>` : ''}</div>`;
+                <button class="btn" data-act="contacts.hey:${id}">👋 Text</button><button class="btn" data-act="contacts.invite:${id}">🤙 Invite</button>${p.dates && m.level >= 2 ? `<button class="btn primary" data-act="contacts.date:${id}">💘 Date?</button>` : ''}</div>`;
             })
             .join('')
         : '<p class="blurb">No numbers yet. Get to know people on the street (tap someone), then ask for their number.</p>',
@@ -198,6 +203,10 @@ PHONE_APPS.add({
   },
   act: (act, { s, close }) => {
     const [what, id] = act.split(':');
+    if (what === 'invite') {
+      inviteHook?.(id);
+      return 'linkup';
+    }
     const r = textPerson(s, id, what === 'date' ? 'date' : 'hey');
     lastReply = { id, text: r.reply };
     if (r.date) {

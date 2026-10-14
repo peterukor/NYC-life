@@ -153,6 +153,12 @@ export interface Memory {
   key?: boolean;
   /** Last time they confronted you (ms), so they don't hound you. */
   lastConfront?: number;
+  /** What you've done together, newest first (sim/friends.ts). */
+  log?: { at: number; emoji: string; text: string }[];
+  /** Friendship built today (capped: sim/friends.ts → DAILY_BOND_CAP). */
+  bond?: { day: string; n: number };
+  /** The game day you last picked up their tab. */
+  treated?: string;
 }
 
 export const MAX_MEMORIES = 60;

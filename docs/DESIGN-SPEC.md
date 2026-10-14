@@ -160,3 +160,12 @@ Each job has a temptation or downside. These are opt-in choices with consequence
 - **Stadium:** win/lose bets on games with in-game money; simulated games now, real games later through the sports feed.
 - **Park and gym:** Central Park is a walkable place to chill; the gym has a "Train hard" mini-game.
 - **Gambling rule (important for the app stores):** in-game money only. Game money must never be bought with real money or cashed out for anything of real value, or the casino and sportsbook become real-money gambling (licences, age checks, many countries banned). Even as simulated gambling, the stores rate the game 17+ / 18+ (Apple "Frequent/Intense Simulated Gambling"; Google Play "Simulated gambling"). Check with a lawyer before adding any paid currency.
+
+## Friends and relationships (Peter, 2026-10-14)
+- **Contacts remember you:** friendship progress toward the next level, and a short history of what you did together.
+- **Invitations:** invite contacts to the park, arcade, gym, club or your place, now / tonight / tomorrow. They accept, decline, or suggest another time or another outing. Friends invite you too. Miss a plan and they remember; some people flake.
+- **Doing things together builds friendship; paying doesn't.** Paid activities give no more than free ones; picking up the tab helps once a day, a little. A daily cap stops speed-running best friends.
+- **Personalities:** everyone has two vibes that decide what they love and avoid, with their own reactions.
+- **Home visits:** catch up, watch TV, share a meal you cooked (better than ordering in), video games.
+- **Club sections:** spending unlocks seats and attention; talking builds friendship. Some friends of friends are only there for the bottles and leave when the bottles stop. Talk to the real ones twice and you swap numbers.
+- **Built for players later:** invites and guest permissions use one Party type (NPC or player); NPCs answer by rules today, players will answer over the network.

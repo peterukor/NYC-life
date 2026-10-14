@@ -110,6 +110,8 @@ export interface GameState {
   profile: { name: string; origin: Origin; traits: string[]; look: Look; birthYear: number; /** poor | middle | rich | billionaire (see sim/state.ts → CLASSES). */ spawnClass?: 'poor' | 'middle' | 'rich' | 'billionaire' };
   /** Clothing ids you own (data/wardrobe.ts). */
   wardrobe: string[];
+  /** 🤙 Invitations and the current hangout (sim/invites.ts). */
+  social?: import('./invites.ts').SocialState;
   /** 🛋️ Your VIP section at a club (sim/section.ts). */
   section?: import('./section.ts').Section | null;
   /** 🎰 Casino, 🕹️ arcade and 🏟️ sportsbook (sim/casino.ts, sim/arcade.ts, sim/sports.ts). */

@@ -8,13 +8,21 @@
 // then the "crew" (friends of friends) fills the rest. Contacts who are
 // busy today say no. Players will take these seats when multiplayer is on.
 // Bottles still bring admirers over (sim/celebrate.ts).
+//
+// SPENDING vs FRIENDSHIP (Peter, 2026-10-14): money buys seats and
+// attention, not friends. Inviting someone barely moves the needle;
+// talking to them in the section does (talkToGuest). About a third of the
+// friends-of-friends are only here for the bottles: you find out when you
+// talk to them, and they drift off a few minutes after the last bottle.
 // =====================================================================
 
 import { nowMs, nycTime } from '../core/clock.ts';
 import { Rng } from '../core/rng.ts';
 import { changeMoney } from './economy.ts';
 import { addMoodlet } from './needs.ts';
-import { adjustLikes, moodToday, personOf } from './people.ts';
+import { adjustLikes, moodToday, personOf, remember } from './people.ts';
+import { addBond, logWith, tasteFor } from './friends.ts';
+import { mayEnter } from './guests.ts';
 import type { GameState } from './types.ts';
 
 export const SECTION = {
@@ -36,7 +44,31 @@ export interface Section {
   spent: number;
   /** Person ids of the friends who came. */
   friends: string[];
+  /**
+   * Who each guest really is (Peter: spending unlocks seats and attention;
+   * talking builds friendship; some are only here for the bottles).
+   */
+  guests?: Record<string, SectionGuest>;
+  /** Last bottle (real ms): bottle-only guests leave when the bottles stop. */
+  lastBottleAt?: number;
+  /** Who may join (players later; sim/guests.ts). */
+  policy?: 'inviteOnly' | 'friends' | 'open';
 }
+
+export interface SectionGuest {
+  /** In your contacts, or a friend of a friend. */
+  kind: 'contact' | 'crew';
+  /** Only here for the free bottles (you find out by talking). */
+  freeloader: boolean;
+  talked: number;
+  revealed: boolean;
+  joinedAt: number;
+}
+
+/** Bottle-only guests leave this long after the last bottle (real ms). */
+export const FREELOADER_PATIENCE = 4 * 60_000;
+/** Share of friends-of-friends who are only here for the bottles. */
+export const FREELOADER_SHARE = 0.35;
 
 /** Your section at this place, if it's still going. */
 export function activeSection(s: GameState, placeId: string, now = nowMs()): Section | null {
@@ -116,15 +148,73 @@ export function inviteFriend(s: GameState, placeId: string, id: string, now = no
     return more ? `Section's full. Spend ${Math.ceil(more / 100).toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })} more for another seat` : 'Section’s full (12 friends max)';
   }
   const m = s.people[id];
+  // Same door rule as your home, for players later (sim/guests.ts). You invited them, so they're on the list.
+  const why = mayEnter(sec.policy ?? 'inviteOnly', { kind: 'npc', id, name: personOf(id).name }, { kind: 'player', id: 'me', name: s.profile.name }, { invited: true, level: m?.level ?? 0, taken: sec.friends.length, capacity: friendSlots(sec.spent) });
+  if (why) return why;
   if (m && moodToday(id, nycTime(now).dateKey) === 'busy') return `${personOf(id).name} can’t make it tonight`;
   sec.friends.push(id);
-  s.needs.social = Math.min(100, s.needs.social + 8);
-  s.needs.fun = Math.min(100, s.needs.fun + 4);
+  // Contacts are your people; a friend of a friend might just want the Dom.
+  const contact = !!m?.hasNumber;
+  (sec.guests ??= {})[id] = { kind: contact ? 'contact' : 'crew', freeloader: !contact && new Rng(`fl-${id}`).next() < FREELOADER_SHARE, talked: 0, revealed: false, joinedAt: now };
+  s.needs.social = Math.min(100, s.needs.social + 6);
+  // Getting invited is nice, but it isn't friendship: that comes from talking (talkToGuest).
   if (m) {
-    adjustLikes(m, 4);
+    adjustLikes(m, 1);
     m.seen = now;
   }
   return null;
+}
+
+/** Spent on a bottle in the section: more seats, and the bottle crowd stays. */
+export function noteBottle(s: GameState, placeId: string, now = nowMs()): void {
+  const sec = activeSection(s, placeId, now);
+  if (sec) sec.lastBottleAt = now;
+}
+
+const FREELOADER_LINES = ['“So… are we getting another bottle, or?”', '“Love this for us. Is there more Dom?”', '“I’m a friend of Danny’s. You don’t know Danny. That’s fine.”', '“Wait, whose section is this? Doesn’t matter. Cheers!”'];
+const CREW_LINES = ['“I’ve heard about you. All good things. Mostly.”', '“Okay, you’re actually fun. Danny undersold you.”', '“Wait, you also think brunch lines are a scam? We’re friends now.”'];
+
+/**
+ * Talk to someone in your section. Contacts: friendship (club taste,
+ * less each time). Friends of friends: you might make a new friend (they
+ * give you their number the second time). Bottle-only guests: you find out.
+ */
+export function talkToGuest(s: GameState, placeId: string, id: string, now = nowMs()): { line: string; bond: number; newContact: boolean; freeloader: boolean } | null {
+  const sec = activeSection(s, placeId, now);
+  const g = sec?.guests?.[id];
+  if (!sec || !g) return null;
+  g.talked++;
+  const r = new Rng(`talk-${id}-${g.talked}`);
+  if (g.freeloader) {
+    g.revealed = true;
+    return { line: FREELOADER_LINES[Math.floor(r.next() * FREELOADER_LINES.length)], bond: 0, newContact: false, freeloader: true };
+  }
+  g.revealed = true;
+  const m = remember(s, id, s.location.area, now);
+  const taste = tasteFor(id, 'club');
+  const pts = Math.round([5, 3, 1, 0][Math.min(3, g.talked - 1)] * (taste >= 2 ? 1.4 : taste < 0 ? 0.5 : 1));
+  const bond = addBond(m, pts);
+  let newContact = false;
+  if (g.kind === 'crew' && g.talked >= 2 && !m.hasNumber) {
+    m.hasNumber = true;
+    newContact = true;
+    logWith(m, '📱', 'Met in your section, swapped numbers', now);
+  } else logWith(m, '🛋️', 'Talked in your section', now);
+  s.needs.social = Math.min(100, s.needs.social + 5);
+  const line = g.kind === 'crew' ? CREW_LINES[Math.floor(r.next() * CREW_LINES.length)] : taste >= 2 ? '“Best section in the building. I’m not leaving.”' : taste < 0 ? '“I came for you, not the music. Love you. Ears hurt.”' : '“Thanks for the invite, for real.”';
+  return { line, bond, newContact, freeloader: false };
+}
+
+/** Bottle-only guests drift off once the bottles stop. Returns who left. */
+export function freeloadersLeave(s: GameState, now = nowMs()): string[] {
+  const sec = s.section;
+  if (!sec || !sec.guests || now >= sec.until) return [];
+  const since = sec.lastBottleAt ?? sec.until - SECTION.minutes * 60_000;
+  if (now - since < FREELOADER_PATIENCE) return [];
+  const gone = sec.friends.filter((id) => sec.guests![id]?.freeloader && now - sec.guests![id].joinedAt >= FREELOADER_PATIENCE);
+  sec.friends = sec.friends.filter((id) => !gone.includes(id));
+  for (const id of gone) delete sec.guests[id];
+  return gone;
 }
 
 /** Clear a section that's over. Returns true if one ended. */

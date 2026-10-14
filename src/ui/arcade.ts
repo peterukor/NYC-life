@@ -513,7 +513,10 @@ const claw: Run = (cv, g, done, hud) => {
 const RUNS: Record<string, Run> = { snake, hoops, pigeons, beats, claw };
 
 /** Play one cabinet: pay, play, tickets. */
-export function playArcade(host: CasinoHost, id: string): void {
+/** Head-to-head with a friend: they play after you (their score is theirs, not rigged). */
+export interface Versus { name: string; skill: number; done: (mine: number, theirs: number) => void }
+
+export function playArcade(host: CasinoHost, id: string, versus?: Versus): void {
   const game = ARCADE_BY_ID[id];
   const run = RUNS[id];
   if (!game || !run) return;
@@ -521,7 +524,7 @@ export function playArcade(host: CasinoHost, id: string): void {
   const m = openModal(`<div class="arc" style="--cab:${game.color}">
     <div class="arc-top"><b>${game.emoji} ${esc(game.name)}</b><span class="arc-hud" aria-live="off"></span></div>
     <div class="arc-screen"><canvas width="${W}" height="${H}"></canvas>
-      <div class="arc-over"><div class="big">${game.emoji}</div><p>${esc(game.howTo)}</p><p class="sub">Best: ${bestScore(s, id)} · 🎟️ ${tickets(s)}</p><button class="btn primary" data-go>Insert coin · ${money(PLAY_COST)}</button></div>
+      <div class="arc-over"><div class="big">${game.emoji}</div><p>${esc(game.howTo)}</p><p class="sub">${versus ? `Head-to-head with ${esc(versus.name)}: you go first.` : `Best: ${bestScore(s, id)} · 🎟️ ${tickets(s)}`}</p><button class="btn primary" data-go>${versus ? 'Start' : `Insert coin · ${money(PLAY_COST)}`}</button></div>
     </div>
     ${id === 'snake' ? '<div class="arc-pad"><button data-d="0,-1" aria-label="Up">⬆️</button><button data-d="-1,0" aria-label="Left">⬅️</button><button data-d="1,0" aria-label="Right">➡️</button><button data-d="0,1" aria-label="Down">⬇️</button></div>' : ''}
     <button class="btn ghost block" data-close>Leave the cabinet</button>
@@ -543,7 +546,8 @@ export function playArcade(host: CasinoHost, id: string): void {
       return m.close();
     }
     if (!t.closest('[data-go]')) return;
-    const why = payToPlay(s);
+    // A head-to-head was paid for already (two plays).
+    const why = versus ? null : payToPlay(s);
     if (why) return toast(why, { icon: '🕹️', tone: 'bad' });
     sfx.coin();
     host.saved();
@@ -554,6 +558,15 @@ export function playArcade(host: CasinoHost, id: string): void {
       const r = recordScore(s, id, score);
       host.saved();
       overlay.hidden = false;
+      if (versus) {
+        // Their turn: a score around their skill, sometimes a fluke either way.
+        const theirs = Math.max(0, Math.round((60 + versus.skill * 40) * (0.6 + Math.random() * 0.8) / 10) * 10);
+        overlay.innerHTML = `<div class="big">${score > theirs ? '🏆' : score < theirs ? '😤' : '🤝'}</div><h3>${score > theirs ? 'You win!' : score < theirs ? `${esc(versus.name)} wins` : 'A tie'}</h3><p class="arc-vs"><span>You <b>${score}</b></span><span>${esc(versus.name)} <b>${theirs}</b></span></p><p>+${r.tickets} 🎟️</p><button class="btn primary" data-close>Done</button>`;
+        const done = versus.done;
+        versus = undefined; // once
+        done(score, theirs);
+        return;
+      }
       overlay.innerHTML = `<div class="big">${r.best ? '🏆' : game.emoji}</div><h3>${r.best ? 'New best!' : 'Game over'}</h3><p class="arc-score">${score}</p><p>+${r.tickets} 🎟️ · you have ${tickets(s)}</p><button class="btn primary" data-go>Play again · ${money(PLAY_COST)}</button>`;
       if (r.best) rain(m.el, '🎟️', 18);
       r.tickets ? sfx.win() : sfx.tap();

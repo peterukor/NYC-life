@@ -30,6 +30,7 @@ import { joinPath, leavePath, levelBlockers, levelTasks, pathLevel, pathTitle, t
 import { PHONE_APPS, type PhoneAppCtx } from './phone-apps.ts';
 import { raiseBlocker } from '../sim/raise.ts';
 import './instadash.ts'; // registers the InstaDash app
+import './linkup.ts'; // registers Link Up (friends and plans)
 import { bankruptcyBlocker, DEBT } from '../sim/debt.ts';
 import { buyStock, dayChange, deskTip, eventFor, marketDay, netWorth, portfolioValue, priceOf, recentPrices, sellStock, tradeFee, TRADE_FEE } from '../sim/market.ts';
 import { REP_EMOJI, REP_RANKS, repOf, repRank, repTitle, respect, type RepKind } from '../sim/rep.ts';
