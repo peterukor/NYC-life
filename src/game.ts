@@ -57,6 +57,7 @@ import { VENUE_LAYOUT_FOR, VENUE_LAYOUTS } from './data/venues.ts';
 import { FURNITURE, FURNITURE_QUALITY, qualityLine, SHOP_ITEMS } from './data/furniture.ts';
 import { buyFurniture } from './sim/shop.ts';
 import { arriveHome, hasDoorman } from './sim/home-conditions.ts';
+import { afterWalk, changedClothes, stainAtWork, subwayIncident } from './sim/commute.ts';
 import { Roommates } from './world/roommates.ts';
 import { InteriorView } from './world/interior-view.ts';
 import { openFridge, openStove } from './ui/kitchen.ts';
@@ -358,6 +359,7 @@ export class Game {
       indoorRoute: () => (this.indoor ? this.indoor.points.map((q) => ({ ...q })) : null),
       resetCam: () => this.fitInteriorCamera(),
       phoneApp: (id: string) => this.openPhoneApp(id),
+      showFight: (won: boolean) => void this.showIncident({ kind: 'fight', won, text: won ? 'A guy tried you over a seat. A cloud of dust later, he got off at the next stop.' : 'A fight broke out over a seat and you lost. Urgent care: $40.' }),
       /** InstaDash: make every order arrive now (QA). */
       deliverNow: () => {
         for (const o of this.state.kitchen?.orders ?? []) o.arrivesAt = 0;
@@ -977,6 +979,11 @@ export class Game {
 
   private openPlace(place: PlaceDef): void {
     const s = this.state;
+    if (this.walkTrip?.placeId === place.id) {
+      const toll = afterWalk(s, this.walkTrip.metres);
+      this.walkTrip = null;
+      if (toll) toast(`Long walk: ${toll.energy} energy, ${toll.fun} fun`, { icon: '🚶', ms: 2500 });
+    }
     // On the way to work: no sheet, straight in (the shift starts inside).
     if (this.pendingShift === place.id && place.interior !== 'none') return this.enterInterior(place, true);
     if (!s.stats.placesVisited.includes(place.id)) s.stats.placesVisited.push(place.id);
@@ -1023,7 +1030,9 @@ export class Game {
       }
       if (act === 'shop') {
         sheet.close();
+        const wearing = JSON.stringify(this.state.profile.look);
         return openStore(this.state, place, (look) => this.player.setLook(look), () => {
+          if (JSON.stringify(this.state.profile.look) !== wearing) changedClothes(this.state); // bought and put on something new
           this.save();
           this.refreshHud(true);
         });
@@ -1512,6 +1521,7 @@ export class Game {
     openCloset(this.state, {
       apply: (look) => {
         this.player.setLook(look);
+        changedClothes(this.state); // a fresh outfit: no more stain
         this.save();
       },
       turn: inside ? () => { yaw += Math.PI / 2; frame(); } : undefined,
@@ -1928,6 +1938,9 @@ export class Game {
     this.travelSheet(workplace, { work: true });
   }
 
+  /** A walk you chose from the travel sheet: its toll is paid on arrival. */
+  private walkTrip: { placeId: string; metres: number } | null = null;
+
   /** Heading to work: when you walk into this place, the shift starts. */
   private pendingShift: string | null = null;
 
@@ -1940,6 +1953,9 @@ export class Game {
   }
 
   private async runShift(): Promise<void> {
+    // Turning up with a stain: the manager notices.
+    const stain = stainAtWork(this.state);
+    if (stain) toast(stain, { icon: '☕', tone: 'bad', ms: 4500 });
     if (PLAYABLE_SHIFTS.has(this.state.job!.careerId)) return this.runDeliShift();
     this.busy = true;
     const career = CAREER_BY_ID[this.state.job!.careerId];
@@ -2243,6 +2259,7 @@ export class Game {
       sheet.close();
       this.pendingShift = opts.work ? place.id : null;
       if (act === 'walk') {
+        this.walkTrip = { placeId: place.id, metres: Math.hypot(d.x - s.location.x, d.z - s.location.z) };
         if (this.engine.mode === 'interior') this.leaveInterior();
         window.setTimeout(() => this.walkToPlace(place.id), this.engine.mode === 'interior' ? 400 : 0);
       }
@@ -2287,10 +2304,17 @@ export class Game {
     await wait(60);
     if (!this.city || this.city.area !== area) this.loadArea(area);
     // A random event may happen on board.
+    let eventShown = false;
     if (Math.random() < 0.4) {
       const ev = directorPick(this.state, 'subway', true);
-      if (ev) await this.showEvent(ev, 'subway');
+      if (ev) {
+        await this.showEvent(ev, 'subway');
+        eventShown = true;
+      }
     }
+    // Or something happens on the train: a spill, or a fight.
+    const incident = eventShown ? null : subwayIncident(this.state);
+    if (incident) await this.showIncident(incident);
     const rideStart = performance.now();
     while (!skip && performance.now() - rideStart < 4500) await wait(100);
     rideUi.remove();
@@ -2320,6 +2344,21 @@ export class Game {
         this.enterInterior(dest, false);
       } else if (placeId !== station.id) this.walkToPlace(placeId);
     }
+  }
+
+  /** A subway spill or fight. Fights get a cartoon dust cloud, never anything graphic. */
+  private showIncident(inc: NonNullable<ReturnType<typeof subwayIncident>>): Promise<void> {
+    if (inc.kind === 'fight') sfx.bad();
+    return new Promise((resolve) => {
+      const top = inc.kind === 'spill' ? '<div class="big">☕</div><h2>Spill on the train</h2>' : `<div class="dust-fight" aria-hidden="true"><span>💨</span><span>💥</span><span>💨</span><span>⭐</span></div><h2>${inc.won ? 'You won the fight' : 'You lost the fight'}</h2>`;
+      const m = openModal(`${top}<p>${esc(inc.text)}</p>${inc.kind === 'spill' ? '<p class="sub">Change clothes before work, or your manager will notice.</p>' : ''}<button class="btn primary block" data-act="ok">OK</button>`);
+      onAct(m.el, () => {
+        m.close();
+        this.save();
+        this.refreshHud(true);
+        resolve();
+      });
+    });
   }
 
   /** Call a rideshare: pay, short "ride" fade, arrive at the door. */
