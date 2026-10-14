@@ -98,6 +98,12 @@ Each job has a temptation or downside. These are opt-in choices with consequence
   - The city is run under a superintendent.
   - **Good cop:** catch about 3 criminals a week. Catching higher-level criminals gives more rep, but don't make levelling too easy.
   - **Bad cop:** take bribes or frame innocent people. Your partner-in-crime sometimes snitches, and drops hints before doing so. Getting caught means you're cooked.
+- **Final career list (Peter, 2026-10-13):** 🏪 Bodega (the playable deli job, renamed; the old bodega job is removed), 🍸 Bartending, 🏋️ Fitness, 💻 Tech, 📈 Finance, 🌙 Night Dancer, 💊 Alley Pharmacist (five fictional products; sales raise your wanted level), 🚓 Cop (honest or corrupt; corruption pays more but risks exposure). Coffee and Pizza leave as careers (the places stay). Side effects are drafts; Peter will edit them later.
+- **🌙 Night Dancer fights (Peter, 2026-10-13):** some shifts a rowdy customer starts a fight. You win or get beaten up, depending on fitness.
+  - Chance of losing = 90% − 0.5 × fitness% (clamped 10–90%): fitness 0% → lose 90%, **50% → lose 65%** (Peter's number), 100% → lose 40%.
+  - Losing: hurt (health/energy down, maybe a hospital bill), mood down, and that show's tips are smaller. Winning: a small rep and mood boost.
+  - Too strong scares customers: above 80% fitness, tips shrink (×0.7 at 100%). The sweet spot is strong enough to win often, not so strong nobody tips.
+  - Fights stay non-graphic (a short scene and a result line), with "rowdy customers" as the opponents.
 - **Extra jobs (owner said 1–2 more; my suggestions):**
   - **Rideshare/taxi driver:** ties into cars, speeding and tickets. Temptation: overcharging tourists.
   - **Content creator:** feeds the celebrity ladder. Temptation: fake drama for views.
