@@ -1183,6 +1183,7 @@ export class Game {
       if (!r.ok) return toast(r.why, { icon: '🍾', tone: 'bad' });
       sfx.cash();
       this.startShow(r.bottle, `${r.bottle.emoji} ${r.bottle.name} for ${s.profile.name}!`);
+      window.setTimeout(() => toast(`+${r.street} 🔥 street rep${r.rankUp ? ` · you're now ${r.rankUp}` : ''}`, { icon: '🔥', tone: 'good', ms: 3000 }), 1200);
       s.news.unshift({ id: `bottle-${nowMs()}`, at: nowMs(), scope: s.location.area, emoji: '🍾', headline: `${s.profile.name} popped a ${r.bottle.name} at ${PLACE_BY_ID[s.location.placeId ?? '']?.name ?? 'the club'}`, personal: true });
       this.save();
       this.refreshHud(true);

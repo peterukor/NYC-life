@@ -18,6 +18,7 @@ import { BUSINESS_TYPES } from '../data/businesses.ts';
 
 const BUSINESS_PRICE: Record<string, number> = Object.fromEntries(BUSINESS_TYPES.all().map((b) => [b.id, b.price]));
 import { changeMoney } from './economy.ts';
+import { addRep, tradeRep } from './rep.ts';
 import type { GameState } from './types.ts';
 
 /** Trading fee per trade (cents) and as a share of the amount. */
@@ -45,34 +46,98 @@ export function marketMood(day: number): number {
   return Math.sin(day / 58) * 0.0011 + Math.sin(day / 17 + 1.3) * 0.0004;
 }
 
+/** Game hour of the market (24 a game day; a game day is about 3 h 23 min real). */
+export function marketTick(t = nycTime()): number {
+  return marketDay(t.dateKey) * 24 + t.hour;
+}
+
+export type MarketEvent = { kind: 'squeeze' | 'rug' | 'earnings' | 'scandal'; day: number; move: number; label: string };
+
+/**
+ * What happens to a stock on a day beyond its usual wobble (seeded, so
+ * everyone sees the same thing). Penny and meme stocks can squeeze (shoot
+ * up during the day) or, for memes, rug-pull; big companies move on
+ * earnings day (once a month); anyone can have a scandal.
+ */
+export function eventFor(st: StockDef, day: number): MarketEvent | null {
+  if (st.risk === 'fund') return null;
+  const r = new Rng(`evt-${st.id}-${day}`);
+  const x = r.next();
+  const size = r.next();
+  if ((st.risk === 'meme' && x < 0.03) || (st.risk === 'penny' && x < 0.015)) {
+    // ×2 to ×13 for a meme in a day (and 1 squeeze in 25 is a mega squeeze, ×20–40); ×1.5 to ×4 for a penny stock.
+    const move = st.risk === 'meme' ? (size > 0.96 ? 3.0 + (size - 0.96) * 17 : 0.7 + size * 1.9) : 0.4 + size * 1.0;
+    return { kind: 'squeeze', day, move, label: `${st.ticker} short squeeze` };
+  }
+  if (st.risk === 'meme' && x < 0.045) return { kind: 'rug', day, move: -(0.6 + size * 1.2), label: `${st.ticker} rug pull` };
+  if ((st.risk === 'blue' || st.risk === 'growth') && (day + st.id.length * 7) % 30 === 0) {
+    const move = (size - 0.42) * (st.risk === 'growth' ? 0.3 : 0.16);
+    return { kind: 'earnings', day, move, label: `${st.ticker} earnings ${move >= 0 ? 'beat' : 'miss'}` };
+  }
+  if (x > 0.9985) return { kind: 'scandal', day, move: -(0.1 + size * 0.2), label: `${st.ticker} scandal` };
+  return null;
+}
+
 const cache = new Map<string, number[]>();
 
-/** Price history in cents for a stock, from day 0 up to `day` (cached). */
-function history(st: StockDef, day: number): number[] {
+/** Hourly price history in cents for a stock, from tick 0 up to `tick` (cached). */
+function history(st: StockDef, tick: number): number[] {
   let h = cache.get(st.id);
   if (!h) cache.set(st.id, (h = [st.start]));
-  while (h.length <= day) {
-    const d = h.length;
-    const r = new Rng(`mkt-${st.id}-${d}`);
-    const ret = st.drift + marketMood(d) * (st.fund ? 1 : 1.6) + st.vol * gauss(r);
-    h.push(Math.max(1, Math.round(h[d - 1] * Math.exp(ret))));
+  while (h.length <= tick) {
+    // One generator per stock per day, drawn hour by hour (fast, and the same for everyone).
+    const day = Math.floor(h.length / 24);
+    const r = new Rng(`mkt-${st.id}-${day}`);
+    for (let k = 0; k < h.length - day * 24; k++) r.next(), r.next(), r.next(), r.next(); // (resume mid-day)
+    const evt = eventFor(st, day);
+    const hourVol = st.vol / Math.sqrt(24);
+    const mood = marketMood(day) * (st.fund ? 1 : 1.6);
+    while (h.length <= tick && Math.floor(h.length / 24) === day) {
+      const hour = h.length % 24;
+      let ret = (st.drift + mood) / 24 + hourVol * gauss(r);
+      // Events play out over the trading hours (10 AM to 3 PM).
+      if (evt && hour >= 10 && hour < 16) ret += evt.move / 6;
+      // After a squeeze the air comes out over the next 3 days (most of it, not all).
+      for (let back = 1; back <= 3; back++) {
+        const past = day - back >= 0 ? eventFor(st, day - back) : null;
+        if (past?.kind === 'squeeze' && hour >= 9 && hour < 17) ret -= (past.move * 0.27) / 8;
+      }
+      const prev = h[h.length - 1];
+      // Penny and meme stocks can fall to a cent but not to zero.
+      h.push(Math.max(1, Math.round(prev * Math.exp(ret))));
+    }
   }
   return h;
 }
 
-export function priceOf(id: string, day = marketDay()): number {
+/** Price (cents) at a market hour. */
+export function priceAt(id: string, tick: number): number {
   const st = STOCKS.get(id);
-  return st ? history(st, day)[day] : 0;
+  return st ? history(st, tick)[tick] : 0;
 }
 
-/** The last `n` daily prices (for the little charts). */
+/** Price on a day: right now for today, the closing price for other days. */
+export function priceOf(id: string, day = marketDay()): number {
+  const now = marketTick();
+  const tick = day === Math.floor(now / 24) ? now : day * 24 + 23;
+  return priceAt(id, tick);
+}
+
+/** The last `n` daily prices, today's being the price right now (for the little charts). */
 export function recentPrices(id: string, n = 14, day = marketDay()): number[] {
+  const out: number[] = [];
+  for (let d = Math.max(0, day - n + 1); d <= day; d++) out.push(priceOf(id, d));
+  return out;
+}
+
+/** The last `n` hourly prices (the trading floor's live chart). */
+export function hourlyPrices(id: string, n = 24, tick = marketTick()): number[] {
   const st = STOCKS.get(id);
   if (!st) return [];
-  return history(st, day).slice(Math.max(0, day - n + 1), day + 1);
+  return history(st, tick).slice(Math.max(0, tick - n + 1), tick + 1);
 }
 
-/** Today's change in percent. */
+/** Today's change in percent (now vs yesterday's close). */
 export function dayChange(id: string, day = marketDay()): number {
   const p = recentPrices(id, 2, day);
   return p.length < 2 ? 0 : ((p[1] - p[0]) / p[0]) * 100;
@@ -121,7 +186,7 @@ export function buyStock(s: GameState, id: string, cents: number): string | null
 }
 
 /** Sell everything you hold in a stock. Returns the cash received, or an error. */
-export function sellStock(s: GameState, id: string): { got: number; mult: number } | { error: string } {
+export function sellStock(s: GameState, id: string): { got: number; mult: number; corp: number; rankUp: string | null } | { error: string } {
   const h = s.portfolio[id];
   if (!h || h.shares <= 0) return { error: 'You don’t own any.' };
   const value = Math.round(h.shares * priceOf(id));
@@ -131,7 +196,10 @@ export function sellStock(s: GameState, id: string): { got: number; mult: number
   const r = changeMoney(s, got, `Sold ${STOCKS.get(id)!.ticker}`);
   if (!r.ok) return { error: r.why };
   delete s.portfolio[id];
-  return { got, mult };
+  // 💼 Corporate rep for a profitable trade.
+  const corp = tradeRep(got - h.cost, mult);
+  const rankUp = addRep(s, 'corporate', corp);
+  return { got, mult, corp, rankUp };
 }
 
 export function portfolioValue(s: GameState): number {

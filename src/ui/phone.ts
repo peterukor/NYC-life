@@ -21,7 +21,7 @@ import { applyForJob, hireBlocker, jobTitle, quitJob, shiftPay } from '../sim/wo
 import { HOUSE_ADS } from '../render/textures.ts';
 import type { AdStats } from '../world/ads.ts';
 import { html, onAct, root, toast } from './dom.ts';
-import { STOCKS } from '../data/stocks.ts';
+import { STOCKS, type StockDef } from '../data/stocks.ts';
 import { BUSINESS_TYPES } from '../data/businesses.ts';
 import { businessValue, buyBusiness, candidates, fire, hire, TAX } from '../sim/business.ts';
 import { PATHS } from '../data/paths.ts';
@@ -30,7 +30,8 @@ import { PHONE_APPS, type PhoneAppCtx } from './phone-apps.ts';
 import { raiseBlocker } from '../sim/raise.ts';
 import './instadash.ts'; // registers the InstaDash app
 import { bankruptcyBlocker, DEBT } from '../sim/debt.ts';
-import { buyStock, dayChange, deskTip, netWorth, portfolioValue, priceOf, recentPrices, sellStock, tradeFee, TRADE_FEE } from '../sim/market.ts';
+import { buyStock, dayChange, deskTip, eventFor, marketDay, netWorth, portfolioValue, priceOf, recentPrices, sellStock, tradeFee, TRADE_FEE } from '../sim/market.ts';
+import { REP_EMOJI, REP_RANKS, repOf, repRank, repTitle, type RepKind } from '../sim/rep.ts';
 
 export interface PhoneHost {
   state: GameState;
@@ -47,6 +48,8 @@ export interface PhoneHost {
   onTradeWin?: (mult: number) => void;
 }
 
+const RISK_TAG: Record<StockDef['risk'], string> = { fund: '🛡️ fund', blue: '🏛️ blue chip', growth: '🚀 growth', penny: '🪙 penny', meme: '🎲 meme' };
+const EVENT_BADGE = { squeeze: '🔥 Short squeeze today', rug: '📉 Rug pull today', earnings: '📊 Earnings day', scandal: '🚨 Scandal in the news' } as const;
 const SKILL_LABEL: Record<SkillKey, string> = { charisma: 'Charisma', hustle: 'Hustle', fitness: 'Fitness', cooking: 'Cooking', coding: 'Coding', music: 'Music', streetSmarts: 'Street Smarts' };
 
 const APPS = [
@@ -186,14 +189,14 @@ export function openPhone(host: PhoneHost, startApp?: string): () => void {
           const tip = deskTip(s);
           return tip ? `<div class="card" style="margin-bottom:10px"><b>💡 Desk chatter</b><p>The floor thinks <b>${esc(STOCKS.get(tip.id)?.name ?? tip.id)}</b> goes ${tip.up ? 'up 📈' : 'down 📉'} tomorrow. Right about 3 times in 4. (📈 Finance perk)</p></div>` : '';
         })()}
-        <p class="blurb">Made-up companies, real lessons: index funds are calm, single stocks swing, meme coins can vanish. Prices move once per game day. Fee: ${s.job?.careerId === 'finance' ? `${money(tradeFee(10_000, s))} on a $100 trade (📈 Finance discount)` : `${money(TRADE_FEE.flat)} + ${TRADE_FEE.rate * 100}% per trade`}.</p>
+        <p class="blurb">Made-up companies, real lessons: 🛡️ funds are calm, 🏛️ blue chips are steady, 🚀 growth swings, 🪙 penny stocks jump, 🎲 memes can 10× or go to zero. Prices move every game hour. Fee: ${s.job?.careerId === 'finance' ? `${money(tradeFee(10_000, s))} on a $100 trade (📈 Finance discount)` : `${money(TRADE_FEE.flat)} + ${TRADE_FEE.rate * 100}% per trade`}.</p>
         ${STOCKS.all().map((st) => {
           const price = priceOf(st.id);
           const ch = dayChange(st.id);
           const h = s.portfolio[st.id];
           const val = h ? Math.round(h.shares * price) : 0;
           const gain = h ? val - h.cost : 0;
-          return `<div class="list-item stock"><div style="font-size:24px">${st.emoji}</div><div class="grow"><div class="title">${st.ticker} · ${esc(st.name)}</div><div class="sub">${esc(st.sector)}${st.fund ? ' · 🛡️ safer' : ''} · ${money(price)} <b style="color:${ch >= 0 ? 'var(--good)' : 'var(--bad)'}">${ch >= 0 ? '▲' : '▼'} ${Math.abs(ch).toFixed(1)}%</b></div>${h ? `<div class="sub">You own ${money(val)} (${gain >= 0 ? '+' : ''}${money(gain)})</div>` : ''}<div class="row" style="margin-top:6px"><button class="btn" data-act="buy:${st.id}:5000">Buy $50</button><button class="btn" data-act="buy:${st.id}:50000">Buy $500</button>${h ? `<button class="btn" data-act="sell:${st.id}">Sell all</button>` : ''}</div></div>${spark(recentPrices(st.id, 14))}</div>`;
+          return `<div class="list-item stock"><div style="font-size:24px">${st.emoji}</div><div class="grow"><div class="title">${st.ticker} · ${esc(st.name)}</div>${(() => { const e = eventFor(st, marketDay()); return e ? `<div class="sub"><b>${EVENT_BADGE[e.kind]}</b></div>` : ''; })()}<div class="sub">${RISK_TAG[st.risk]} · ${esc(st.sector)} · ${money(price)} <b style="color:${ch >= 0 ? 'var(--good)' : 'var(--bad)'}">${ch >= 0 ? '▲' : '▼'} ${Math.abs(ch).toFixed(1)}%</b></div>${h ? `<div class="sub">You own ${money(val)} (${gain >= 0 ? '+' : ''}${money(gain)})</div>` : ''}<div class="row" style="margin-top:6px"><button class="btn" data-act="buy:${st.id}:5000">Buy $50</button><button class="btn" data-act="buy:${st.id}:50000">Buy $500</button>${h ? `<button class="btn" data-act="sell:${st.id}">Sell all</button>` : ''}</div></div>${spark(recentPrices(st.id, 14))}</div>`;
         }).join('')}`);
     },
     news() {
@@ -215,6 +218,9 @@ export function openPhone(host: PhoneHost, startApp?: string): () => void {
       const mood = computeMood(s);
       page('Me', `
         <div class="card"><h3>${esc(s.profile.name)} · ${s.profile.spawnClass ? `${CLASSES[s.profile.spawnClass].emoji} ${CLASSES[s.profile.spawnClass].title}` : `${ORIGINS[s.profile.origin].emoji} ${ORIGINS[s.profile.origin].title}`}</h3><p>${mood.emoji} ${mood.label} · ${esc(jobTitle(s))}<br>${s.profile.traits.map((t) => `${TRAITS[t]?.emoji ?? ''} ${TRAITS[t]?.label ?? t}`).join(' · ')}</p></div>
+        <h3 style="margin:14px 0 8px;font-size:15px">Rep</h3>
+        ${(['street', 'corporate'] as RepKind[]).map((k) => { const v = repOf(s)[k]; const r = repRank(s, k); const next = REP_RANKS[r + 1]; const lo = REP_RANKS[r]; return `<div class="skill-row"><span>${REP_EMOJI[k]} ${repTitle(s, k)}</span><div class="bar"><i style="width:${next ? Math.round(((v - lo) / (next - lo)) * 100) : 100}%;background:${k === 'street' ? '#ff6a3d' : '#3d7bff'}"></i></div><span>${v}</span></div>`; }).join('')}
+        <p class="blurb">🔥 Street rep comes from bottle service. 💼 Corporate rep comes from profitable trades.</p>
         <h3 style="margin:14px 0 8px;font-size:15px">Needs</h3>
         ${NEED_KEYS.map((k) => `<div class="skill-row"><span>${NEED_INFO[k].emoji} ${NEED_INFO[k].label}</span><div class="bar"><i style="width:${Math.round(s.needs[k])}%;background:${NEED_INFO[k].color}"></i></div><span>${Math.round(s.needs[k])}</span></div>`).join('')}
         <h3 style="margin:14px 0 8px;font-size:15px">Skills</h3>
@@ -355,6 +361,7 @@ export function openPhone(host: PhoneHost, startApp?: string): () => void {
         const r = sellStock(s, id);
         toast('error' in r ? r.error : `Sold for ${money(r.got)}${r.mult >= 2 ? ` (${Math.floor(r.mult)}× your money)` : ''}`, { icon: '📈', tone: 'error' in r ? 'bad' : 'good' });
         if (!('error' in r) && r.mult >= 10) host.onTradeWin?.(r.mult);
+        if (!('error' in r) && r.corp > 0) toast(`+${r.corp} 💼 corporate rep${r.rankUp ? ` · you're now a ${r.rankUp}` : ''}`, { icon: '💼', tone: 'good', ms: 3000 });
       }
       host.save();
       host.refresh();

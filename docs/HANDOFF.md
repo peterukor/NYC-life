@@ -41,6 +41,12 @@ How to add or change content: **`docs/ADDING-CONTENT.md`**.
 - **Big, lively rooms** (2026-10-13): workplace rooms are 16×12 to 22×16 and zoomable, built for up to 30 people (6 workers + 24 visitors; `sim/workroom.ts` → `ROOM_CAPACITY`, `assignVisitor`, `npcVisitors`). `world/venue-life.ts`: NPC visitors use the room's pieces (dance, eat, drink, train, browse), emoji pops, club lights + disco ball, steam, music notes, a flickering alley lamp. Fewer NPCs on low-tier phones.
 - **What visitors come for:** 🥪 eat (bodega window counter), 💼 invest (Business app) and 📈 trade (Stocks app) at the trading floor's client desks, 🍸🌙 party, 💘 date (booths, VIP, high-tops → Contacts), 📝 report someone (precinct window), 📱 fix or replace a phone (Chelsea Works Fix-It Bar). `game.ts → serviceAction`. QA: `qa-services.mjs`, `qa-lively.mjs`.
 
+## Stock market and rep (2026-10-14)
+- `data/stocks.ts`: 15 companies + 2 funds, each with a `risk` (fund, blue, growth, penny, meme).
+- `sim/market.ts`: prices tick every game hour, seeded so everyone sees the same prices. `eventFor()` adds squeezes (meme/penny), rug pulls (meme), monthly earnings (blue/growth) and rare scandals. After a squeeze, most of the gain fades over 3 days.
+- `sim/rep.ts`: 🔥 street rep (bottles, more for bigger ones) and 💼 corporate rep (profitable sales, bonus for 10×+). 7 ranks with titles. `repRank()` is the hook for later gating (robbery/spill/pickpocket odds, properties, entry to places); nothing uses it yet.
+- UI: Stocks app has risk tags and event badges; Me app shows both reps; toasts on gains. Tests: `tests/market-rep.test.ts`; QA: `scripts/qa-market-rep.mjs`.
+
 ## Job perks and the bar counter (2026-10-14)
 - **🍸 Bartending is hands-on** like the bodega: `sim/shift.ts` → `COUNTER_MENUS` (deli + bar). Each menu: ingredients, dishes, a side order, who orders, mid-shift choices with data-driven effects (`ChoiceFx`: needs, perf, risk, money, tipsAfter, moodlet). Late-night bar tips ×1.5. `PLAYABLE_SHIFTS` lists counter jobs. QA: `qa-bar-shift.mjs`.
 - **📈 Finance perks:** cheaper trades (`tradeFee(cents, s)`: half the rate, less each raise, no flat fee from Director), and daily desk chatter in the Stocks app (`deskTip`, right ~3 in 4).

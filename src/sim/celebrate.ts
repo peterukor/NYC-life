@@ -8,13 +8,14 @@
 // partner, word gets back to them.
 // =====================================================================
 
-import { BOTTLE_BY_ID, type BottleDef } from '../data/bottles.ts';
+import { BOTTLES, BOTTLE_BY_ID, type BottleDef } from '../data/bottles.ts';
+import { addRep, BOTTLE_STREET_REP } from './rep.ts';
 import { changeMoney } from './economy.ts';
 import { addMoodlet } from './needs.ts';
 import type { GameState } from './types.ts';
 
 /** Buy a bottle. Paid from cash, then the bank. */
-export function buyBottle(s: GameState, id: string): { ok: true; bottle: BottleDef } | { ok: false; why: string } {
+export function buyBottle(s: GameState, id: string): { ok: true; bottle: BottleDef; street: number; rankUp: string | null } | { ok: false; why: string } {
   const b = BOTTLE_BY_ID[id];
   if (!b) return { ok: false, why: 'That bottle isn’t on the menu' };
   if (s.money + s.bank < b.price) return { ok: false, why: 'Not enough money for that bottle' };
@@ -24,7 +25,10 @@ export function buyBottle(s: GameState, id: string): { ok: true; bottle: BottleD
   if (rest > 0) s.bank -= rest;
   addMoodlet(s, { id: 'bottle', label: `Popped a ${b.name}`, emoji: b.emoji, value: 4 + b.roomMood, minutes: 120 });
   s.stats.actionsDone['__bottles'] = (s.stats.actionsDone['__bottles'] ?? 0) + 1;
-  return { ok: true, bottle: b };
+  // 🔥 Street rep: more for bigger bottles.
+  const street = BOTTLE_STREET_REP[BOTTLES.indexOf(b)] ?? 0;
+  const rankUp = addRep(s, 'street', street);
+  return { ok: true, bottle: b, street, rankUp };
 }
 
 /** Someone who came over: chat a little. */
