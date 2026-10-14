@@ -70,6 +70,8 @@ export interface HomeLayout {
   walls: HomeWall[];
   furniture: HomeItem[];
   conditions?: HomeConditions;
+  /** Busy places: NPC visitors, emoji pops over heads, and room effects (world/venue-life.ts). */
+  life?: { visitors: number; pops: string[]; fx: ('club' | 'steam' | 'notes' | 'flicker')[] };
   /** Workplaces: where the (up to 6) workers stand; NPC coworkers fill the spots no player has taken. */
   workers?: { x: number; z: number; rot: number }[];
   /** Big homes: pinch to zoom and drag to pan (small homes keep a fixed view). */

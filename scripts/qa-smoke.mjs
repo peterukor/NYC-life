@@ -40,7 +40,7 @@ const click = async (sel) => { await page.waitForSelector(sel, { timeout: 10000 
 const nyc = (fn, ...args) => page.evaluate(fn, ...args);
 const state = () => nyc(() => window.__nyc.state());
 
-const q = ['qa=1', `class=${process.env.CLASS ?? 'poor'}`, process.env.CLOCK ? `clock=${encodeURIComponent(process.env.CLOCK)}` : '', `hour=${process.env.HOUR ?? 14}`].filter(Boolean).join('&');
+const q = ['qa=1', `class=${process.env.CLASS ?? 'poor'}`, process.env.CLOCK ? `clock=${encodeURIComponent(process.env.CLOCK)}` : '', `hour=${process.env.HOUR ?? 16}`].filter(Boolean).join('&');
 await page.goto(`${base}?${q}`, { waitUntil: 'load' });
 await page.evaluate(() => localStorage.clear());
 await page.reload({ waitUntil: 'load' });
@@ -99,10 +99,10 @@ await click('.phone [data-act="close"]');
 s = await state();
 check('hired as a bartender', s.job?.careerId === 'bartender');
 
-// ---- Work a shift (bartending runs noon to 4 AM New York time).
+// ---- Work a shift (bartending runs 3 PM to 4 AM New York time).
 // Ask the game for its own clock (game time runs faster than real time).
 const hour = await nyc(() => window.__nyc.hour());
-if (hour >= 12 || hour < 4) {
+if (hour >= 15 || hour < 4) {
   const moneyBefore = s.money;
   await wait(400);
   await click('[data-work]');

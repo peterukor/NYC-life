@@ -11,7 +11,7 @@ let fails = 0;
 const ok = (c, m) => { console.log(`${c ? '✓' : '✗'} ${m}`); if (!c) fails++; };
 const click = async (sel, t = 10000) => { await page.waitForSelector(sel, { timeout: t }); await page.$eval(sel, (el) => el.click()); };
 const label = () => page.$eval('[data-work-label]', (e) => e.textContent);
-await page.goto('http://localhost:4173/?qa=1&class=poor&hour=14', { waitUntil: 'load' });
+await page.goto('http://localhost:4173/?qa=1&class=poor&hour=16', { waitUntil: 'load' });
 await page.evaluate(() => localStorage.clear());
 await page.reload({ waitUntil: 'load' });
 await page.waitForSelector('#ob-year', { timeout: 30000 });

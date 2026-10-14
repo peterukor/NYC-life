@@ -408,6 +408,80 @@ export const WORK_TOYS: Record<string, (t: Toy) => void> = {
     t.add(new THREE.BoxGeometry(0.75, 0.01, 0.01).rotateZ(-0.12).translate(-0.25, 0.68, 0.045), RED);
     t.add(new THREE.BoxGeometry(0.75, 0.01, 0.01).rotateZ(0.6).translate(0.15, 0.45, 0.045), RED);
   },
+
+  // ============================================================ for visitors (2026-10-13)
+  /** 📱 The Fix-It Bar: a counter with phones in pieces, a screwdriver and a lamp. */
+  toyRepairBar(t) {
+    t.block(2.4, 1.0, 0.7, 0, 0, 0, '#f5f3ee', 0.08);
+    t.block(2.5, 0.05, 0.8, 0, 1.0, 0, '#2b2d42', 0.2);
+    for (let i = 0; i < 3; i++) {
+      t.block(0.16, 0.012, 0.3, -0.7 + i * 0.45, 1.05, 0.05, INK, 0.3);
+      t.block(0.14, 0.006, 0.26, -0.7 + i * 0.45, 1.062, 0.05, i === 1 ? '#7bd88f' : '#36c5f0', 0.3);
+    }
+    t.add(new THREE.CylinderGeometry(0.012, 0.012, 0.22, 6).rotateZ(Math.PI / 2).translate(0.75, 1.07, 0.12), RED);
+    t.block(0.05, 0.4, 0.05, 1.0, 1.05, -0.2, DARK_STEEL, 0.3);
+    t.cyl(0.06, 0.1, 0.1, 1.0, 1.42, -0.12, '#ffd166', 10);
+    for (let i = 0; i < 3; i++) {
+      t.cyl(0.03, 0.03, 0.65, -0.8 + i * 0.8, 0, 0.75, DARK_STEEL, 8);
+      t.cyl(0.18, 0.18, 0.06, -0.8 + i * 0.8, 0.65, 0.75, '#3a86ff', 14);
+    }
+  },
+  /** 📈 Client desk: invest or trade with an advisor. Two chairs for clients. */
+  toyInvestorDesk(t) {
+    t.block(1.8, 0.75, 0.8, 0, 0, 0, '#2f3640', 0.06);
+    t.block(1.9, 0.04, 0.9, 0, 0.75, 0, '#f5f6fa', 0.2);
+    screen(t, 0.6, 0.36, 0, 0.79, -0.25, '#0b3d2e');
+    for (let k = 0; k < 4; k++) t.block(0.08, 0.04 + k * 0.05, 0.01, -0.18 + k * 0.12, 0.88, -0.22, '#4cd137', 0.2);
+    t.block(0.3, 0.2, 0.15, 0.65, 0.79, 0.15, GOLD, 0.2); // brochure stand
+    for (const x of [-0.45, 0.45]) {
+      t.block(0.48, 0.08, 0.45, x, 0.45, 0.85, '#8c2f39', 0.3);
+      t.block(0.48, 0.45, 0.06, x, 0.53, 1.06, '#8c2f39', 0.3);
+      t.cyl(0.03, 0.03, 0.45, x, 0, 0.85, STEEL, 6);
+    }
+  },
+  /** 🚓 Report window: a bell, forms, and a slot under bulletproof glass. */
+  toyReportWindow(t) {
+    t.block(1.8, 1.1, 0.6, 0, 0, 0, '#adb5bd', 0.06);
+    t.block(1.8, 0.9, 0.05, 0, 1.1, -0.1, GLASS, 0.05);
+    t.block(1.8, 0.1, 0.6, 0, 2.0, 0, '#6c757d', 0.2);
+    t.block(1.2, 0.14, 0.02, 0, 2.02, 0.31, '#1d3557', 0.2);
+    t.cyl(0.06, 0.07, 0.05, -0.5, 1.1, 0.15, GOLD, 12); // bell
+    for (let i = 0; i < 3; i++) t.block(0.22, 0.01, 0.3, 0.3 + i * 0.03, 1.1 + i * 0.012, 0.12, CHALK, 0.3);
+  },
+  /** 🏪 Window counter with stools, to eat your sandwich. */
+  toyWindowCounter(t) {
+    t.block(2.4, 0.05, 0.45, 0, 1.05, 0, WOOD, 0.2);
+    for (const x of [-1.1, 1.1]) t.block(0.06, 1.05, 0.3, x, 0, 0, DARK_STEEL, 0.3);
+    for (let i = 0; i < 4; i++) {
+      t.cyl(0.03, 0.03, 0.75, -0.9 + i * 0.6, 0, 0.5, DARK_STEEL, 8);
+      t.cyl(0.17, 0.17, 0.06, -0.9 + i * 0.6, 0.75, 0.5, RED, 14);
+    }
+  },
+  /** 🍸 A high-top table with two stools. */
+  toyHighTop(t) {
+    t.cyl(0.35, 0.35, 0.04, 0, 1.05, 0, WOOD_DK, 16);
+    t.cyl(0.04, 0.2, 1.05, 0, 0, 0, INK, 10);
+    for (const x of [-0.55, 0.55]) {
+      t.cyl(0.03, 0.03, 0.72, x, 0, 0, DARK_STEEL, 8);
+      t.cyl(0.17, 0.17, 0.06, x, 0.72, 0, '#8c2f39', 14);
+    }
+    t.cyl(0.04, 0.035, 0.12, 0.1, 1.09, 0.05, '#ffd166', 10);
+  },
+  /** 🚓 A waiting bench. */
+  toyWaitingBench(t) {
+    t.block(1.8, 0.08, 0.45, 0, 0.42, 0, '#6c757d', 0.2);
+    t.block(1.8, 0.5, 0.06, 0, 0.5, -0.2, '#6c757d', 0.2);
+    for (const x of [-0.8, 0.8]) t.block(0.06, 0.42, 0.4, x, 0, 0, DARK_STEEL, 0.3);
+  },
+  /** 🌙 Velvet rope on brass posts. */
+  toyVelvetRope(t) {
+    for (const x of [-0.9, 0, 0.9]) {
+      t.cyl(0.12, 0.14, 0.04, x, 0, 0, GOLD, 12);
+      t.cyl(0.03, 0.03, 0.9, x, 0.04, 0, GOLD, 8);
+      t.sphere(0.05, x, 0.96, 0, GOLD);
+    }
+    for (const x of [-0.45, 0.45]) t.add(new THREE.TorusGeometry(0.45, 0.025, 6, 12, Math.PI).rotateZ(Math.PI).translate(x, 0.88, 0), '#8c1c13');
+  },
 };
 
 /** Workplace pieces that hang on a wall. */

@@ -34,7 +34,7 @@ import { RARITY, applyOutcome, buildContext, directorPick, EVENTS, type EventCon
 import { checkGoal, currentGoal } from './sim/goals.ts';
 import { advanceTo } from './sim/life.ts';
 import { postDailyNews } from './sim/news.ts';
-import { buyPrepaidPhone, checkPoliceReturn, PREPAID_PHONE_PRICE } from './sim/phone.ts';
+import { buyPrepaidPhone, checkPoliceReturn, PREPAID_PHONE_PRICE, reportToPolice } from './sim/phone.ts';
 import { loadGame, saveGame, deleteGame } from './sim/save.ts';
 import { newLife } from './sim/state.ts';
 import { OPEN_AREAS, isOpenArea, type AreaId, type GameState, type Look } from './sim/types.ts';
@@ -64,8 +64,9 @@ import { afterWalk, changedClothes, stainAtWork, subwayIncident } from './sim/co
 import { Roommates } from './world/roommates.ts';
 import { InteriorView } from './world/interior-view.ts';
 import { Coworkers } from './world/coworkers.ts';
-import { applyNeeds } from './sim/needs.ts';
-import { assignRoom, openRoom, type WorkRoom } from './sim/workroom.ts';
+import { addMoodlet, applyNeeds } from './sim/needs.ts';
+import { assignRoom, assignVisitor, npcVisitors, type WorkRoom } from './sim/workroom.ts';
+import { VenueLife } from './world/venue-life.ts';
 import { openFridge, openStove } from './ui/kitchen.ts';
 import { receiveOrders } from './sim/kitchen.ts';
 import { cookActionId, eatActionId, mealOfAction } from './data/groceries.ts';
@@ -128,6 +129,7 @@ export class Game {
   /** Workplace rooms (single-player: just yours) and the coworkers on screen. */
   private workRooms: WorkRoom[] = [];
   private coworkers: Coworkers | null = null;
+  private venueLife: VenueLife | null = null;
   /** Your worker spot in the room, when you're at your own job. */
   private myWorkSpot: { x: number; z: number; rot: number } | null = null;
   /** The people you live with (the walk-up), while you're home. */
@@ -371,6 +373,7 @@ export class Game {
       resetCam: () => this.fitInteriorCamera(),
       phoneApp: (id: string) => this.openPhoneApp(id),
       coworkers: () => this.coworkers?.list.map((c) => c.name) ?? [],
+      visitors: () => this.venueLife?.count ?? 0,
       myWorkSpot: () => this.myWorkSpot,
       askRaise: () => void this.maybeAskForRaise(),
       showFight: (won: boolean) => void this.showIncident({ kind: 'fight', won, text: won ? 'A guy tried you over a seat. A cloud of dust later, he got off at the next stop.' : 'A fight broke out over a seat and you lost. Urgent care: $40.' }),
@@ -964,7 +967,7 @@ export class Game {
     if (which === 'leave') {
       // At home, stroll to the front door first.
       const home = this.interior as HomeInterior | null;
-      if (home && 'walkPath' in home && this.engine.mode === 'interior') {
+      if (home && 'walkPath' in home && home.movable && this.engine.mode === 'interior') {
         const hd = home.layout.depth / 2;
         return this.walkInside(0, hd - 0.35, () => this.leaveInterior());
       }
@@ -1087,6 +1090,65 @@ export class Game {
       })
       .join('');
     return `<div class="actions">${extra}${cards}</div>`;
+  }
+
+  /**
+   * What visitors come to each place for. Returns true if it handled the
+   * action (it opens a screen instead of a timed action).
+   */
+  private serviceAction(id: string): boolean {
+    const s = this.state;
+    switch (id) {
+      case 'fixPhone': {
+        if (!s.phone.ok) {
+          const err = buyPrepaidPhone(s);
+          toast(err ?? 'The Fix-It Bar set you up with a refurbished phone. Same number, apps back.', { icon: '📱', tone: err ? 'bad' : 'good', ms: 3500 });
+        } else {
+          const r = changeMoney(s, -2_500, 'Phone tune-up');
+          if (!r.ok) toast('A tune-up is $25. Not enough cash.', { icon: '📱', tone: 'bad' });
+          else {
+            addMoodlet(s, { id: 'phoneTuneUp', label: 'Phone feels brand new', emoji: '📱', value: 3, minutes: 120 });
+            toast('New screen protector, battery check, 4,000 photos backed up. $25.', { icon: '📱', tone: 'good', ms: 3500 });
+          }
+        }
+        this.save();
+        this.refreshHud(true);
+        return true;
+      }
+      case 'investNow':
+        this.openPhoneApp('biz');
+        return true;
+      case 'tradeStocks':
+        this.openPhoneApp('stocks');
+        return true;
+      case 'dateHere':
+        this.openPhoneApp('contacts');
+        toast('Pick someone from your contacts and plan a date.', { icon: '💘', ms: 3000 });
+        return true;
+      case 'reportCrime': {
+        const sheet = openSheet({
+          emoji: '📝',
+          title: 'Report someone',
+          sub: '18th Precinct · non-emergency',
+          body: `<div class="travel">
+            ${!s.phone.ok ? '<button class="opt" data-act="phone"><span style="font-size:24px">📱</span><span class="grow"><b>My phone was stolen</b><small>They might find it</small></span></button>' : ''}
+            <button class="opt" data-act="scam"><span style="font-size:24px">🎭</span><span class="grow"><b>Someone scammed me</b><small>File it, warn the neighbourhood</small></span></button>
+            <button class="opt" data-act="fight"><span style="font-size:24px">🤕</span><span class="grow"><b>Someone jumped me</b><small>Get it on record</small></span></button>
+            <button class="opt" data-act="noise"><span style="font-size:24px">📢</span><span class="grow"><b>Noise complaint</b><small>The neighbours. Again.</small></span></button>
+          </div>`,
+        });
+        onAct(sheet.body, (act) => {
+          sheet.close();
+          if (act === 'phone') return toast(reportToPolice(s), { icon: '🚓', ms: 4000 });
+          s.skills.streetSmarts = Math.min(10, s.skills.streetSmarts + 0.1);
+          addMoodlet(s, { id: 'reported', label: 'Got it on record', emoji: '📝', value: 2, minutes: 90 });
+          toast(act === 'noise' ? 'Noted. An officer will “swing by.”' : 'Report filed. A detective will look into it.', { icon: '🚓', ms: 3000 });
+          this.save();
+        });
+        return true;
+      }
+    }
+    return false;
   }
 
   /** Tap a coworker: a quick hello (a little social). */
@@ -1234,6 +1296,8 @@ export class Game {
       if (act === 'store-furniture' && movableId) return this.storeFurniture(movableId);
       if (act === 'closet') return this.openClosetMirror(movableId);
       if (act.startsWith('do:')) {
+        // Services for visitors (fix a phone, invest, trade, report, a date).
+        if (this.serviceAction(act.slice(3))) return;
         // At home: use the piece over time (with a pose and a Stop button).
         if (movableId && homeItem) return this.useFurniture(movableId, act.slice(3));
         void this.runAction(act.slice(3), el);
@@ -1389,15 +1453,23 @@ export class Game {
         // A workplace: 6 worker spots. NPC coworkers fill them; if it's your job, you take one.
         if (venue.workers?.length) {
           const mine = !!this.state.job && CAREER_BY_ID[this.state.job.careerId]?.placeId === place.id;
-          const room = mine ? assignRoom(this.workRooms, place.id, 'me', this.state.profile.name) : { room: openRoom(place.id), slot: -1 };
+          // Working here: take a worker spot. Visiting: a visitor spot (up to 30 people a room).
+          const room = mine ? assignRoom(this.workRooms, place.id, 'me', this.state.profile.name) : { room: assignVisitor(this.workRooms, place.id, 'me', this.state.profile.name), slot: -1 };
           if (mine && room.slot >= 0) this.myWorkSpot = venue.workers[room.slot] ?? null;
           const crew = new Coworkers(shop.scene, venue, room.room, (x, z) => shop.spotFree(x, z));
           this.coworkers = crew;
+          // Lively: NPC visitors (fewer on cheap phones), emoji pops, room effects.
+          const tierShare = { low: 0.4, medium: 0.7, high: 1 }[this.engine.quality.tier] ?? 0.7;
+          const life = venue.life ? new VenueLife(shop, venue, npcVisitors(room.room, Math.round(venue.life.visitors * tierShare)), crew) : null;
+          this.venueLife = life;
           const update = shop.update, dispose = shop.dispose;
-          shop.update = (dt) => (update(dt), crew.update(dt));
+          shop.update = (dt) => (update(dt), crew.update(dt), life?.update(dt));
           shop.dispose = () => {
             crew.dispose();
+            life?.dispose();
             if (this.coworkers === crew) this.coworkers = null;
+            if (this.venueLife === life) this.venueLife = null;
+            for (const r of this.workRooms) r.visitors = r.visitors.filter((v) => v.id !== 'me');
             dispose();
           };
         }

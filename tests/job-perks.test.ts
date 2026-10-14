@@ -98,3 +98,16 @@ test('every workplace has its own room with 6 worker spots and pieces that exist
   const ids = new Set(Object.values(WORKPLACE_LAYOUTS).flatMap((l) => l.furniture.map((f) => f.item)));
   assert.ok(ids.size > 40, 'lots of their own pieces');
 });
+
+test('rooms hold up to 30 people: 6 workers plus 24 visitors; NPC visitors make room for players', async () => {
+  const { assignVisitor, npcVisitors, openRoom, ROOM_CAPACITY, VISITOR_SPOTS, headcount } = await import('../src/sim/workroom.ts');
+  assert.equal(ROOM_CAPACITY, 30);
+  const rooms = [openRoom('velvetRoom')];
+  assert.equal(npcVisitors(rooms[0], 18), 18);
+  for (let i = 0; i < 20; i++) assignVisitor(rooms, 'velvetRoom', `v${i}`, `V${i}`);
+  assert.equal(npcVisitors(rooms[0], 18), VISITOR_SPOTS - 20, 'fewer NPCs once players arrive');
+  assert.ok(headcount(rooms[0], npcVisitors(rooms[0], 18)) <= ROOM_CAPACITY);
+  for (let i = 20; i < 30; i++) assignVisitor(rooms, 'velvetRoom', `v${i}`, `V${i}`);
+  assert.equal(rooms.length, 2, 'a full room opens another copy');
+  assert.equal(rooms[0].visitors.length, VISITOR_SPOTS);
+});

@@ -82,6 +82,12 @@ const LIST: ActionDef[] = [
   { id: 'vipBottle', label: 'Order bottle service', emoji: '🍾', seconds: 10, cost: 30_000, needs: { fun: 35, social: 25 }, moodlet: { id: 'vip', label: 'VIP section', emoji: '🍾', value: 10, minutes: 120 }, tags: ['nightlife', 'social'] },
   { id: 'precinctCoffee', label: 'Drink the precinct coffee', emoji: '☕', seconds: 3, needs: { energy: 10, fun: -3 }, tags: ['drink'] },
   { id: 'lockerChange', label: 'Change at your locker', emoji: '👕', seconds: 4, needs: { hygiene: 6 }, tags: ['chore'] },
+  // Visitor services: the game opens a screen for these (game.ts → SERVICE_ACTIONS).
+  { id: 'fixPhone', label: 'Fix or replace your phone', emoji: '📱', seconds: 6, tags: ['service'] },
+  { id: 'investNow', label: 'Invest with an advisor', emoji: '💼', seconds: 2, tags: ['service'] },
+  { id: 'tradeStocks', label: 'Trade stocks', emoji: '📈', seconds: 2, tags: ['service'] },
+  { id: 'reportCrime', label: 'Report someone', emoji: '📝', seconds: 6, tags: ['service'] },
+  { id: 'dateHere', label: 'Invite someone on a date here', emoji: '💘', seconds: 2, tags: ['service'] },
 
   // ---------- Bodega ----------
   { id: 'baconEggCheese', label: 'Bacon, egg & cheese', emoji: '🥯', seconds: 6, cost: 650, needs: { hunger: 45, fun: 6 }, tags: ['eat'] },

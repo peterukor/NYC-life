@@ -212,7 +212,7 @@ FURNITURE.add(
   // 🍸 bar
   { id: 'barTop', name: 'The bar', emoji: '🍸', price: 0, parts: [{ model: 'toyBarTop' }], actions: [], placeActions: true, fixed: true },
   { id: 'bottleWall', name: 'Back bar', emoji: '🍾', price: 0, parts: [{ model: 'toyBottleWall' }], actions: [], fixed: true },
-  { id: 'booth', name: 'Booth', emoji: '🛋️', price: 0, parts: [{ model: 'toyBooth' }], actions: ['happyHour'], fixed: true },
+  { id: 'booth', name: 'Booth', emoji: '🛋️', price: 0, parts: [{ model: 'toyBooth' }], actions: ['happyHour', 'dateHere'], fixed: true },
   { id: 'jukebox', name: 'Jukebox', emoji: '🎵', price: 0, parts: [{ model: 'toyJukebox' }], actions: ['jukeboxSong'], fixed: true },
   { id: 'poolTable', name: 'Pool table', emoji: '🎱', price: 0, parts: [{ model: 'toyPoolTable' }], actions: ['poolGame'], fixed: true },
   { id: 'neonSign', name: 'Neon sign', emoji: '💡', price: 0, parts: [{ model: 'toyNeonSign', y: 1.5 }], actions: [], wall: true, fixed: true },
@@ -239,7 +239,7 @@ FURNITURE.add(
   { id: 'stage', name: 'The stage', emoji: '🌙', price: 0, parts: [{ model: 'toyStage' }], actions: [], placeActions: true, fixed: true },
   { id: 'djBooth', name: 'DJ booth', emoji: '🎧', price: 0, parts: [{ model: 'toyDjBooth' }], actions: ['djRequest'], fixed: true },
   { id: 'danceFloor', name: 'Dance floor', emoji: '🪩', price: 0, parts: [{ model: 'toyDanceFloor' }], actions: ['dancefloor'], fixed: true },
-  { id: 'vipBooth', name: 'VIP booth', emoji: '🍾', price: 0, parts: [{ model: 'toyVipBooth' }], actions: ['vipBottle'], fixed: true },
+  { id: 'vipBooth', name: 'VIP booth', emoji: '🍾', price: 0, parts: [{ model: 'toyVipBooth' }], actions: ['vipBottle', 'dateHere'], fixed: true },
   // 💊 alley
   { id: 'stashCrates', name: 'Your crates', emoji: '📦', price: 0, parts: [{ model: 'toyStashCrates' }], actions: [], placeActions: true, fixed: true },
   { id: 'dumpster', name: 'Dumpster', emoji: '🗑️', price: 0, parts: [{ model: 'toyDumpster' }], actions: [], fixed: true },
@@ -254,6 +254,14 @@ FURNITURE.add(
   { id: 'lockers', name: 'Lockers', emoji: '🔐', price: 0, parts: [{ model: 'toyLockers' }], actions: ['lockerChange'], fixed: true },
   { id: 'precinctCoffee', name: 'Coffee pot', emoji: '☕', price: 0, parts: [{ model: 'toyPrecinctCoffee' }], actions: ['precinctCoffee'], fixed: true },
   { id: 'wantedBoard', name: 'Wanted board', emoji: '📌', price: 0, parts: [{ model: 'toyWantedBoard', y: 1.0 }], actions: [], wall: true, fixed: true },
+  // For visitors (2026-10-13): what other people come to each place for.
+  { id: 'repairBar', name: 'Fix-It Bar', emoji: '📱', price: 0, parts: [{ model: 'toyRepairBar' }], actions: ['fixPhone'], fixed: true },
+  { id: 'investorDesk', name: 'Client desk', emoji: '📈', price: 0, parts: [{ model: 'toyInvestorDesk' }], actions: ['investNow', 'tradeStocks'], fixed: true },
+  { id: 'reportWindow', name: 'Report window', emoji: '📝', price: 0, parts: [{ model: 'toyReportWindow' }], actions: ['reportCrime'], fixed: true },
+  { id: 'windowCounter', name: 'Window counter', emoji: '🥪', price: 0, parts: [{ model: 'toyWindowCounter' }], actions: ['choppedCheese', 'baconEggCheese', 'dateHere'], fixed: true },
+  { id: 'highTop', name: 'High-top table', emoji: '🍸', price: 0, parts: [{ model: 'toyHighTop' }], actions: ['happyHour', 'dateHere'], fixed: true },
+  { id: 'waitingBench', name: 'Waiting bench', emoji: '🪑', price: 0, parts: [{ model: 'toyWaitingBench' }], actions: [], fixed: true },
+  { id: 'velvetRope', name: 'Velvet rope', emoji: '🎟️', price: 0, parts: [{ model: 'toyVelvetRope' }], actions: [], fixed: true },
   { id: 'wardrobeWall', name: 'Walk-in wardrobe', emoji: '👔', price: 900_000, parts: [{ model: 'toyWardrobeWall' }], actions: [], opens: 'closet', quality: 'luxury' },
   { id: 'executiveDesk', name: 'Executive desk', emoji: '💻', price: 700_000, parts: [{ model: 'toyExecutiveDesk' }], actions: ['codePractice', 'freelance', 'sellOnline', 'postContent', 'doomscroll'], use: 'sitAt', quality: 'luxury' },
   { id: 'fiddleFig', name: 'Fiddle-leaf fig', emoji: '🪴', price: 40_000, parts: [{ model: 'toyFiddleFig' }], actions: [], kind: 'plant', quality: 'luxury' },

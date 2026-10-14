@@ -52,7 +52,7 @@ export const CAREERS: CareerDef[] = [
     name: 'Bartending',
     emoji: '🍸',
     placeId: 'theStoop',
-    hours: [12, 4],
+    hours: [15, 4],
     skill: 'charisma',
     blurb: 'East Village bar with a stoop out front. Pour drinks, read the room, keep the regulars happy. Tips double after 10 PM.',
     ladder: [

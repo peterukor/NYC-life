@@ -1,5 +1,11 @@
 // =====================================================================
-// workroom.ts — who's working in a workplace room (Peter, 2026-10-13).
+// workroom.ts — who's in a workplace room (Peter, 2026-10-13).
+//
+// A room holds up to ROOM_CAPACITY (30) people: up to ROOM_SIZE (6)
+// workers, the rest visitors (players who came to eat, invest, trade,
+// party, report someone, fix a phone or go on a date). NPC visitors keep
+// the place lively and step aside for players: there are never more
+// than ROOM_CAPACITY people in one copy of a room.
 //
 // Every workplace room holds up to ROOM_SIZE (6) workers. A room starts
 // full of NPC coworkers; when a player with that job walks in, they take
@@ -12,6 +18,9 @@
 import { Rng } from '../core/rng.ts';
 
 export const ROOM_SIZE = 6;
+/** Everyone in one copy of a room: workers plus visitors. */
+export const ROOM_CAPACITY = 30;
+export const VISITOR_SPOTS = ROOM_CAPACITY - ROOM_SIZE;
 
 export interface NpcWorker {
   name: string;
@@ -29,6 +38,8 @@ export interface WorkRoom {
   /** Which copy of the room (0 for the first). */
   instance: number;
   slots: WorkerSlot[];
+  /** Players visiting (not working here). */
+  visitors: { id: string; name: string }[];
 }
 
 const NAMES_M = ['Luis', 'Marcus', 'Danny', 'Kwame', 'Tony', 'Hector', 'Jay', 'Andre', 'Sal', 'Mike'];
@@ -46,7 +57,7 @@ export function npcWorker(placeId: string, index: number): NpcWorker {
 }
 
 export function openRoom(placeId: string, instance = 0): WorkRoom {
-  return { placeId, instance, slots: Array.from({ length: ROOM_SIZE }, (_, i) => ({ kind: 'npc' as const, npc: npcWorker(placeId, instance * ROOM_SIZE + i) })) };
+  return { placeId, instance, slots: Array.from({ length: ROOM_SIZE }, (_, i) => ({ kind: 'npc' as const, npc: npcWorker(placeId, instance * ROOM_SIZE + i) })), visitors: [] };
 }
 
 /** A player walks in: they take the first NPC's spot. Returns the spot, or -1 if the room is all players. */
@@ -77,3 +88,26 @@ export function assignRoom(rooms: WorkRoom[], placeId: string, id: string, name:
 }
 
 export const playersIn = (room: WorkRoom) => room.slots.filter((s) => s.kind === 'player').length;
+
+/** A player visiting (not working): joins a copy of the room with space. */
+export function assignVisitor(rooms: WorkRoom[], placeId: string, id: string, name: string): WorkRoom {
+  const here = rooms.filter((r) => r.placeId === placeId);
+  const already = here.find((r) => r.visitors.some((v) => v.id === id));
+  if (already) return already;
+  let room = here.find((r) => r.visitors.length < VISITOR_SPOTS);
+  if (!room) rooms.push((room = openRoom(placeId, here.length)));
+  room.visitors.push({ id, name });
+  return room;
+}
+
+export function leaveAsVisitor(room: WorkRoom, id: string): void {
+  room.visitors = room.visitors.filter((v) => v.id !== id);
+}
+
+/** How many NPC visitors to show: lively, but players come first and the room never overfills. */
+export function npcVisitors(room: WorkRoom, wanted: number): number {
+  return Math.max(0, Math.min(wanted, VISITOR_SPOTS - room.visitors.length));
+}
+
+/** Everyone in the room right now (players and NPCs). */
+export const headcount = (room: WorkRoom, npcVisitorCount: number) => room.slots.length + room.visitors.length + npcVisitorCount;

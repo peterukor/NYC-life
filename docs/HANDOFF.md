@@ -38,6 +38,8 @@ How to add or change content: **`docs/ADDING-CONTENT.md`**.
 - **Job twists** (`sim/job-perks.ts`): bar late tips, dancer fights (dust cloud) and tip intimidation, pharmacist heat and busts, cop envelopes and Internal Affairs.
 - **Workplace rooms** (`data/venues.ts` → `WORKPLACE_LAYOUTS`, pieces in `world/furniture-work.ts`): each job has its own room, own pieces and actions, and 6 worker spots (`workers`). NPC coworkers (`world/coworkers.ts`) fill spots; `sim/workroom.ts` is the slot model for multiplayer (a player replaces an NPC; a 7th player gets a new copy of the room).
 - QA: `qa-commute.mjs` (HOW=walk|subway|ride), `qa-raise.mjs`, `qa-workplaces.mjs`.
+- **Big, lively rooms** (2026-10-13): workplace rooms are 16×12 to 22×16 and zoomable, built for up to 30 people (6 workers + 24 visitors; `sim/workroom.ts` → `ROOM_CAPACITY`, `assignVisitor`, `npcVisitors`). `world/venue-life.ts`: NPC visitors use the room's pieces (dance, eat, drink, train, browse), emoji pops, club lights + disco ball, steam, music notes, a flickering alley lamp. Fewer NPCs on low-tier phones.
+- **What visitors come for:** 🥪 eat (bodega window counter), 💼 invest (Business app) and 📈 trade (Stocks app) at the trading floor's client desks, 🍸🌙 party, 💘 date (booths, VIP, high-tops → Contacts), 📝 report someone (precinct window), 📱 fix or replace a phone (Chelsea Works Fix-It Bar). `game.ts → serviceAction`. QA: `qa-services.mjs`, `qa-lively.mjs`.
 
 ## Groceries and cooking (2026-10-13)
 - **InstaDash** phone app (`ui/instadash.ts`), not a place: 8 ingredients in packs (`data/groceries.ts`), $2.99 delivery, the bag reaches your fridge about 40 s later (doorman variant in rich homes).
