@@ -30,6 +30,15 @@ How to add or change content: **`docs/ADDING-CONTENT.md`**.
 - Big homes (`zoomable: true`: uesTwoBed, penthouse) open whole, then pinch / wheel to zoom (up to 2.8×) and drag to pan, kept inside the room (`world/interior-view.ts`). The camera follows you if you walk off screen. Walk-up and studio keep the fixed view.
 - The rolled class is kept in localStorage (`nyc-life.bornClass`) until the life is saved, so refreshing on the reveal can't reroll it.
 
+## Jobs, commuting and workplaces (2026-10-13)
+- **8 careers** (`data/careers.ts`): 🏪 Bodega (id `deli`), 🍸 Bartending, 🏋️ Fitness, 💻 Tech, 📈 Finance, 🌙 Night Dancer, 💊 Alley Pharmacist, 🚓 Cop. 6 rungs each; old coffee/pizza/bodega jobs migrate to the Bodega counter.
+- **💼 button:** "Find a job" (phone Jobs app) or "Go to work" → walk / subway / rideshare / drive; the shift starts on arrival (`pendingShift`).
+- **Commute effects** (`sim/commute.ts`): long walks cost energy and fun; subway spills (stain until you change: closet, new clothes or the precinct lockers; stained at work = −8 performance) and fights (`fightLoseChance`: fitness 0 → 90%, 5 → 65%, 10 → 5%).
+- **Raises** (`sim/raise.ts`, `ui/raise-game.ts`): no automatic promotions. When ready, the boss offers a raise: hold to keep a line in a wandering green zone. 5 raises, each harder.
+- **Job twists** (`sim/job-perks.ts`): bar late tips, dancer fights (dust cloud) and tip intimidation, pharmacist heat and busts, cop envelopes and Internal Affairs.
+- **Workplace rooms** (`data/venues.ts` → `WORKPLACE_LAYOUTS`, pieces in `world/furniture-work.ts`): each job has its own room, own pieces and actions, and 6 worker spots (`workers`). NPC coworkers (`world/coworkers.ts`) fill spots; `sim/workroom.ts` is the slot model for multiplayer (a player replaces an NPC; a 7th player gets a new copy of the room).
+- QA: `qa-commute.mjs` (HOW=walk|subway|ride), `qa-raise.mjs`, `qa-workplaces.mjs`.
+
 ## Groceries and cooking (2026-10-13)
 - **InstaDash** phone app (`ui/instadash.ts`), not a place: 8 ingredients in packs (`data/groceries.ts`), $2.99 delivery, the bag reaches your fridge about 40 s later (doorman variant in rich homes).
 - **Fridge** (`ui/kitchen.ts`): leftovers (eat one), ingredients, order shortcut, the free snack (always there).

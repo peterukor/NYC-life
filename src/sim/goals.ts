@@ -30,8 +30,8 @@ const ownsBetterBed = (s: GameState) => placedBetterBed(s) || (s.storage ?? []).
 export const GOALS: Goal[] = [
   { title: 'Eat something', hint: 'Tap the fridge or the stove at home', reward: 500, done: (s) => did(s, 'eat') },
   { title: 'Freshen up', hint: 'Tap the shower', reward: 500, done: (s) => did(s, 'bathe') },
-  { title: 'Get a job at the deli', hint: 'Go outside → El Barrio Deli, round the corner → tap the counter', reward: 1_000, done: (s) => !!s.job || (s.stats.actionsDone['__shift'] ?? 0) > 0 },
-  { title: 'Work a shift', hint: 'Tap the deli counter → Work a shift (6 AM – 11 PM)', reward: 1_500, done: (s) => (s.stats.actionsDone['__shift'] ?? 0) > 0 },
+  { title: 'Get a job', hint: 'Tap 💼 Find a job (or the counter at El Barrio Deli, round the corner)', reward: 1_000, done: (s) => !!s.job || (s.stats.actionsDone['__shift'] ?? 0) > 0 },
+  { title: 'Work a shift', hint: 'Tap 💼 Go to work and pick how to get there', reward: 1_500, done: (s) => (s.stats.actionsDone['__shift'] ?? 0) > 0 },
   { title: 'Buy a better bed', hint: 'Lexington Home Goods, a few blocks south → a Single bed', reward: 1_000, done: ownsBetterBed },
   { title: 'Put your new bed in', hint: 'At home: 📦 Storage → Swap for the twin bed', reward: 1_000, done: placedBetterBed },
   { title: 'Sleep in your new bed', hint: 'Tap the bed → Sleep it off', reward: 1_500, done: (s) => (s.stats.actionsDone['__betterSleep'] ?? 0) > 0 },

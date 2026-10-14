@@ -53,7 +53,7 @@ import { buildInterior, type Interior } from './world/interior.ts';
 import { buildHome, type HomeInterior } from './world/home-interior.ts';
 import { loadFurnitureKit, type FurnitureKit } from './assets/furniture-kit.ts';
 import { layoutForPlace } from './data/homes.ts';
-import { VENUE_LAYOUT_FOR, VENUE_LAYOUTS } from './data/venues.ts';
+import { VENUE_LAYOUT_FOR, VENUE_LAYOUTS, WORKPLACE_LAYOUTS, WORKPLACE_LAYOUT_FOR } from './data/venues.ts';
 import { FURNITURE, FURNITURE_QUALITY, qualityLine, SHOP_ITEMS } from './data/furniture.ts';
 import { buyFurniture } from './sim/shop.ts';
 import { arriveHome, hasDoorman } from './sim/home-conditions.ts';
@@ -63,6 +63,9 @@ import { resolveBribe, shiftTwist } from './sim/job-perks.ts';
 import { afterWalk, changedClothes, stainAtWork, subwayIncident } from './sim/commute.ts';
 import { Roommates } from './world/roommates.ts';
 import { InteriorView } from './world/interior-view.ts';
+import { Coworkers } from './world/coworkers.ts';
+import { applyNeeds } from './sim/needs.ts';
+import { assignRoom, openRoom, type WorkRoom } from './sim/workroom.ts';
 import { openFridge, openStove } from './ui/kitchen.ts';
 import { receiveOrders } from './sim/kitchen.ts';
 import { cookActionId, eatActionId, mealOfAction } from './data/groceries.ts';
@@ -122,6 +125,11 @@ export class Game {
   private folk: FolkKit | null = null;
   private hud!: Hud;
   private interior: Interior | null = null;
+  /** Workplace rooms (single-player: just yours) and the coworkers on screen. */
+  private workRooms: WorkRoom[] = [];
+  private coworkers: Coworkers | null = null;
+  /** Your worker spot in the room, when you're at your own job. */
+  private myWorkSpot: { x: number; z: number; rot: number } | null = null;
   /** The people you live with (the walk-up), while you're home. */
   private roommates: Roommates | null = null;
   private transit: TransitScene | null = null;
@@ -362,6 +370,8 @@ export class Game {
       indoorRoute: () => (this.indoor ? this.indoor.points.map((q) => ({ ...q })) : null),
       resetCam: () => this.fitInteriorCamera(),
       phoneApp: (id: string) => this.openPhoneApp(id),
+      coworkers: () => this.coworkers?.list.map((c) => c.name) ?? [],
+      myWorkSpot: () => this.myWorkSpot,
       askRaise: () => void this.maybeAskForRaise(),
       showFight: (won: boolean) => void this.showIncident({ kind: 'fight', won, text: won ? 'A guy tried you over a seat. A cloud of dust later, he got off at the next stop.' : 'A fight broke out over a seat and you lost. Urgent care: $40.' }),
       /** InstaDash: make every order arrive now (QA). */
@@ -861,6 +871,8 @@ export class Game {
       if (this.doing) this.stopDoing(true);
       const mateHit = this.roommates ? this.engine.pick(x, y, this.roommates.hits, this.interiorCamera) : null;
       if (mateHit && this.roommates) return this.chatWithRoommate(mateHit.object.userData.roommate as string);
+      const crewHit = this.coworkers ? this.engine.pick(x, y, this.coworkers.hits, this.interiorCamera) : null;
+      if (crewHit) return this.greetCoworker(crewHit.object.userData.coworker as string);
       const hit = this.engine.pick(x, y, this.interior.objects.map((o) => o.mesh), this.interiorCamera);
       const id = hit?.object.userData.objectId as string | undefined;
       const obj = id ? this.interior.objects.find((o) => o.id === id) : undefined;
@@ -1075,6 +1087,14 @@ export class Game {
       })
       .join('');
     return `<div class="actions">${extra}${cards}</div>`;
+  }
+
+  /** Tap a coworker: a quick hello (a little social). */
+  private greetCoworker(name: string): void {
+    const lines = ['“Busy one today.”', '“You on till close?”', '“Boss is in a mood. Heads up.”', '“Cover me for five?”', '“Ayy, you made it.”'];
+    applyNeeds(this.state, { social: 4 });
+    toast(`${name}: ${lines[Math.floor(Math.random() * lines.length)]}`, { icon: '👋', ms: 2400 });
+    this.refreshHud(true);
   }
 
   /** Tap a roommate: walk over, they stop and turn to you, then you can chat. */
@@ -1341,7 +1361,8 @@ export class Game {
     const go = () => {
       this.interior?.dispose();
       this.stopMoving(false);
-      const venue = VENUE_LAYOUTS[VENUE_LAYOUT_FOR[place.interior] ?? ''];
+      // A workplace has its own room; other venues share their kind's plan.
+      const venue = WORKPLACE_LAYOUTS[WORKPLACE_LAYOUT_FOR[place.id] ?? ''] ?? VENUE_LAYOUTS[VENUE_LAYOUT_FOR[place.interior] ?? ''];
       if (place.interior === 'apartment' && this.furniture) {
         // Sims-style home: its own floor plan, real furniture, saved arrangement.
         const layout = layoutForPlace(place.id);
@@ -1362,7 +1383,24 @@ export class Game {
         }
       } else if (venue && this.furniture) {
         // Shops, cafés, bars and offices: same Sims look, the counter sells what the place sells.
-        this.interior = buildHome(place, venue, venue.furniture, this.furniture, { venue: true, placeActions: place.actions });
+        const shop = buildHome(place, venue, venue.furniture, this.furniture, { venue: true, placeActions: place.actions });
+        this.interior = shop;
+        this.myWorkSpot = null;
+        // A workplace: 6 worker spots. NPC coworkers fill them; if it's your job, you take one.
+        if (venue.workers?.length) {
+          const mine = !!this.state.job && CAREER_BY_ID[this.state.job.careerId]?.placeId === place.id;
+          const room = mine ? assignRoom(this.workRooms, place.id, 'me', this.state.profile.name) : { room: openRoom(place.id), slot: -1 };
+          if (mine && room.slot >= 0) this.myWorkSpot = venue.workers[room.slot] ?? null;
+          const crew = new Coworkers(shop.scene, venue, room.room, (x, z) => shop.spotFree(x, z));
+          this.coworkers = crew;
+          const update = shop.update, dispose = shop.dispose;
+          shop.update = (dt) => (update(dt), crew.update(dt));
+          shop.dispose = () => {
+            crew.dispose();
+            if (this.coworkers === crew) this.coworkers = null;
+            dispose();
+          };
+        }
       } else this.interior = buildInterior(place, place.actions);
       this.indoor = null;
       this.interior.scene.add(this.player.root);
@@ -1895,6 +1933,7 @@ export class Game {
     });
     bar.remove();
     const out = finishAction(this.state, a);
+    if (a.id === 'lockerChange') changedClothes(this.state); // a clean shirt from your locker
     this.busy = false;
     const recovered = recordVariety(this.state, a.id);
     if (recovered) toast(recovered, { icon: '🌤️', tone: 'good', ms: 4500 });
@@ -1960,6 +1999,13 @@ export class Game {
     // Turning up with a stain: the manager notices.
     const stain = stainAtWork(this.state);
     if (stain) toast(stain, { icon: '☕', tone: 'bad', ms: 4500 });
+    // Take your spot among the coworkers.
+    const spot = this.myWorkSpot;
+    if (spot && this.engine.mode === 'interior') {
+      this.indoor = null;
+      this.player.root.position.set(spot.x, 0, spot.z);
+      this.player.root.rotation.y = spot.rot;
+    }
     if (PLAYABLE_SHIFTS.has(this.state.job!.careerId)) return this.runDeliShift();
     this.busy = true;
     const career = CAREER_BY_ID[this.state.job!.careerId];

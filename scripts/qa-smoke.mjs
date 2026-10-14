@@ -40,7 +40,7 @@ const click = async (sel) => { await page.waitForSelector(sel, { timeout: 10000 
 const nyc = (fn, ...args) => page.evaluate(fn, ...args);
 const state = () => nyc(() => window.__nyc.state());
 
-const q = ['qa=1', `class=${process.env.CLASS ?? 'poor'}`, process.env.CLOCK ? `clock=${encodeURIComponent(process.env.CLOCK)}` : '', process.env.HOUR ? `hour=${process.env.HOUR}` : ''].filter(Boolean).join('&');
+const q = ['qa=1', `class=${process.env.CLASS ?? 'poor'}`, process.env.CLOCK ? `clock=${encodeURIComponent(process.env.CLOCK)}` : '', `hour=${process.env.HOUR ?? 14}`].filter(Boolean).join('&');
 await page.goto(`${base}?${q}`, { waitUntil: 'load' });
 await page.evaluate(() => localStorage.clear());
 await page.reload({ waitUntil: 'load' });
@@ -93,21 +93,30 @@ await wait(400);
 await click('[data-act="app:jobs"]');
 await wait(300);
 await shot('04-jobs');
-await click('[data-act="hire:barista"]');
+await click('[data-act="hire:bartender"]');
 await wait(300);
 await click('.phone [data-act="close"]');
 s = await state();
-check('hired as a barista', s.job?.careerId === 'barista');
+check('hired as a bartender', s.job?.careerId === 'bartender');
 
-// ---- Work a shift (only possible 6 AM – 11 PM New York time).
+// ---- Work a shift (bartending runs noon to 4 AM New York time).
 // Ask the game for its own clock (game time runs faster than real time).
 const hour = await nyc(() => window.__nyc.hour());
-if (hour >= 6 && hour < 23) {
+if (hour >= 12 || hour < 4) {
   const moneyBefore = s.money;
   await wait(400);
   await click('[data-work]');
+  // Not at work yet: take a rideshare there (the shift starts on arrival).
+  if (await page.waitForSelector('.sheet [data-act="ride"]', { timeout: 5000 }).catch(() => null)) {
+    await wait(500);
+    await page.$eval('.sheet [data-act="ride"]', (el) => el.click());
+  }
   // Jobs with a mini-game ask "play or skip" first: skip, to test the timer path.
-  await page.waitForSelector('.modal .choice', { timeout: 20000 });
+  await page.waitForSelector('.modal [data-act="skip"], .modal [data-act="play"]', { timeout: 60000 }).catch(async (e) => {
+    await shot('05x-no-shift');
+    console.log('no shift:', JSON.stringify(await nyc(() => ({ where: window.__nyc.state().location, mode: window.__nyc.mode(), hour: window.__nyc.hour() }))));
+    throw e;
+  });
   if (await page.$('.modal [data-act="skip"]')) {
     await shot('05a-play-or-skip');
     await click('.modal [data-act="skip"]');

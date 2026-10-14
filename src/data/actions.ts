@@ -66,6 +66,23 @@ const LIST: ActionDef[] = [
   { id: 'playPiano', label: 'Play the piano', emoji: '🎹', seconds: 12, needs: { fun: 20 }, skill: { key: 'music', gain: 0.8 }, tags: ['skill'] },
   { id: 'workout', label: 'Home workout', emoji: '🏋️', seconds: 12, needs: { energy: -14, hygiene: -14, fun: 4 }, skill: { key: 'fitness', gain: 0.7 }, tags: ['fitness'] },
 
+  // ---------- Workplaces (2026-10-13): things to do at each job's own room ----------
+  { id: 'jukeboxSong', label: 'Pick a song on the jukebox', emoji: '🎵', seconds: 4, cost: 100, needs: { fun: 12 }, tags: ['fun'] },
+  { id: 'poolGame', label: 'Shoot some pool', emoji: '🎱', seconds: 10, needs: { fun: 18, social: 8 }, tags: ['fun', 'social'] },
+  { id: 'treadmill', label: 'Run on the treadmill', emoji: '🏃', seconds: 10, needs: { energy: -10, hygiene: -8, fun: 4 }, skill: { key: 'fitness', gain: 0.6 }, tags: ['fitness'] },
+  { id: 'benchPress', label: 'Bench press', emoji: '🏋️', seconds: 10, needs: { energy: -12, hygiene: -6 }, skill: { key: 'fitness', gain: 0.7 }, tags: ['fitness'] },
+  { id: 'punchBag', label: 'Hit the heavy bag', emoji: '🥊', seconds: 8, needs: { energy: -8, fun: 10 }, skill: { key: 'fitness', gain: 0.5 }, tags: ['fitness'] },
+  { id: 'yoga', label: 'Stretch on a mat', emoji: '🧘', seconds: 8, needs: { fun: 8, energy: 4 }, skill: { key: 'fitness', gain: 0.25 }, tags: ['fitness'] },
+  { id: 'pingPong', label: 'Play ping-pong', emoji: '🏓', seconds: 8, needs: { fun: 18, social: 10 }, tags: ['fun', 'social'] },
+  { id: 'officeSnack', label: 'Grab a free snack', emoji: '🍫', seconds: 3, needs: { hunger: 22 }, tags: ['eat'] },
+  { id: 'beanbagNap', label: 'Nap on a beanbag', emoji: '😴', seconds: 8, needs: { energy: 14 }, tags: ['rest'] },
+  { id: 'espresso', label: 'Pull an espresso', emoji: '☕', seconds: 3, needs: { energy: 18 }, tags: ['drink'] },
+  { id: 'rubBull', label: 'Rub the bull for luck', emoji: '🐂', seconds: 3, needs: { fun: 4 }, moodlet: { id: 'bullLuck', label: 'Rubbed the bull', emoji: '🐂', value: 5, minutes: 120 }, tags: ['fun'] },
+  { id: 'djRequest', label: 'Request a song', emoji: '🎧', seconds: 4, needs: { fun: 10 }, tags: ['fun'] },
+  { id: 'vipBottle', label: 'Order bottle service', emoji: '🍾', seconds: 10, cost: 30_000, needs: { fun: 35, social: 25 }, moodlet: { id: 'vip', label: 'VIP section', emoji: '🍾', value: 10, minutes: 120 }, tags: ['nightlife', 'social'] },
+  { id: 'precinctCoffee', label: 'Drink the precinct coffee', emoji: '☕', seconds: 3, needs: { energy: 10, fun: -3 }, tags: ['drink'] },
+  { id: 'lockerChange', label: 'Change at your locker', emoji: '👕', seconds: 4, needs: { hygiene: 6 }, tags: ['chore'] },
+
   // ---------- Bodega ----------
   { id: 'baconEggCheese', label: 'Bacon, egg & cheese', emoji: '🥯', seconds: 6, cost: 650, needs: { hunger: 45, fun: 6 }, tags: ['eat'] },
   { id: 'choppedCheese', label: 'Chopped cheese', emoji: '🥪', seconds: 7, cost: 900, needs: { hunger: 55, fun: 6 }, tags: ['eat'] },

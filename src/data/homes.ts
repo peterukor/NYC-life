@@ -70,6 +70,8 @@ export interface HomeLayout {
   walls: HomeWall[];
   furniture: HomeItem[];
   conditions?: HomeConditions;
+  /** Workplaces: where the (up to 6) workers stand; NPC coworkers fill the spots no player has taken. */
+  workers?: { x: number; z: number; rot: number }[];
   /** Big homes: pinch to zoom and drag to pan (small homes keep a fixed view). */
   zoomable?: boolean;
   /** Windows on the back wall (default: two ordinary ones). `view: 'park'` shows Central Park. */

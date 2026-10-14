@@ -1,4 +1,4 @@
-// QA: play the barista mini-game (tapping the right items) → test-results/minigame-*.png
+// QA: play the bartender mini-game (tapping the right items) → test-results/minigame-*.png
 import puppeteer from 'puppeteer-core';
 const browser = await puppeteer.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', headless: true, args: ['--no-sandbox', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
 const page = await browser.newPage();
@@ -20,7 +20,7 @@ await page.$eval('[data-nav="phone"]', (el) => el.click());
 await wait(400);
 await page.$eval('[data-act="app:jobs"]', (el) => el.click());
 await wait(400);
-await page.$eval('[data-act="hire:barista"]', (el) => el.click());
+await page.$eval('[data-act="hire:bartender"]', (el) => el.click());
 await wait(400);
 await page.$eval('[data-act="close"]', (el) => el.click());
 await wait(400);

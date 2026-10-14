@@ -67,3 +67,34 @@ test('bartenders earn more late at night', () => {
   assert.equal(shiftTwist(s, 14), null);
   assert.equal(shiftTwist(s, 23)?.kind, 'late');
 });
+
+test('work rooms: 6 spots, NPCs fill them, players replace NPCs, a 7th player gets a new copy', async () => {
+  const { assignRoom, leaveRoom, openRoom, playersIn, ROOM_SIZE } = await import('../src/sim/workroom.ts');
+  const room = openRoom('theStoop');
+  assert.equal(room.slots.length, ROOM_SIZE);
+  assert.equal(playersIn(room), 0);
+  const rooms = [room];
+  for (let i = 0; i < 6; i++) assignRoom(rooms, 'theStoop', `p${i}`, `P${i}`);
+  assert.equal(playersIn(room), 6);
+  const seventh = assignRoom(rooms, 'theStoop', 'p6', 'P6');
+  assert.equal(rooms.length, 2);
+  assert.equal(seventh.room.instance, 1);
+  leaveRoom(room, 'p2');
+  assert.equal(playersIn(room), 5);
+  assert.equal(room.slots[2].kind, 'npc', 'an NPC is back in the spot');
+  assert.equal(assignRoom(rooms, 'theStoop', 'p0', 'P0').slot, 0, 'rejoining keeps your spot');
+});
+
+test('every workplace has its own room with 6 worker spots and pieces that exist', async () => {
+  const { WORKPLACE_LAYOUTS, WORKPLACE_LAYOUT_FOR } = await import('../src/data/venues.ts');
+  const { FURNITURE } = await import('../src/data/furniture.ts');
+  for (const c of CAREERS) {
+    const l = WORKPLACE_LAYOUTS[WORKPLACE_LAYOUT_FOR[c.placeId]];
+    assert.ok(l, `${c.id} has a workplace room`);
+    assert.equal(l.workers?.length, 6, `${c.id}: 6 worker spots`);
+    for (const f of l.furniture) assert.ok(FURNITURE.get(f.item), `${l.id}: ${f.item}`);
+    assert.ok(l.furniture.some((f) => FURNITURE.get(f.item)?.placeActions), `${l.id} has a work station`);
+  }
+  const ids = new Set(Object.values(WORKPLACE_LAYOUTS).flatMap((l) => l.furniture.map((f) => f.item)));
+  assert.ok(ids.size > 40, 'lots of their own pieces');
+});
