@@ -44,13 +44,13 @@ test('balance: the basic bed takes a few decent shifts starting broke (2–4)', 
   applyForJob(s, 'deli');
   const price = FURNITURE.get('bedSingle')!.price;
   let shifts = 0;
-  // A decent player over a 6-minute shift: about 30 orders, 5 in 6 right, half the wait left.
+  // A decent player over a 3-minute shift: about 15 orders, 5 in 6 right, half the wait left.
   while (s.money < price && shifts < 20) {
     s.needs.energy = 100;
     s.job!.shiftsToday = 0;
     const r = startDeliShift(s);
     assert.ok(r.ok, (r as { why?: string }).why);
-    finishDeliShift(s, r.session.id, { orders: Array.from({ length: 30 }, (_, i) => ({ right: i % 6 !== 3, timeLeft: 0.5 })), picks: {} });
+    finishDeliShift(s, r.session.id, { orders: Array.from({ length: 15 }, (_, i) => ({ right: i % 6 !== 3, timeLeft: 0.5 })), picks: {} });
     shifts++;
   }
   assert.ok(shifts >= 2 && shifts <= 4, `took ${shifts} shifts`);

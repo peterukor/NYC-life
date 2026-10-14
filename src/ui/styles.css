@@ -487,6 +487,9 @@ body.mirror .hud { opacity: 0; visibility: hidden; transition: opacity 0.2s, vis
 /* Sheets open on top of the maps too (plot rent sheets over the sky map). */
 .backdrop { z-index: 36; }
 .sheet { z-index: 37; }
+/* The side menu sits above everything else (its backdrop was covering it). */
+.backdrop.side-backdrop { z-index: 40; }
+.side-panel { z-index: 41; }
 .toasts { z-index: 38; }
 .plot-merge { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; width: 100%; margin: 0 0 12px; padding: 10px 12px; border: var(--line-thin); border-style: dashed; border-radius: 12px; background: #f3f0ff; font: inherit; text-align: left; cursor: pointer; }
 .plot-merge small { color: var(--ink-soft); font-size: 12px; font-weight: 600; }
@@ -781,3 +784,32 @@ body.mirror .hud { opacity: 0; visibility: hidden; transition: opacity 0.2s, vis
 .arc-vs { display: flex; gap: 18px; justify-content: center; font-weight: 700; }
 .arc-vs b { display: block; font-size: 34px; color: #ffd23f; }
 @media (prefers-reduced-motion: reduce) { .sms.typing span, .sms.typing .dots, .hangout-chip { animation: none !important; } .sms.typing .dots { display: none; } .sms.typing span { opacity: 1; } }
+
+/* Live character while you pick a look (ui/avatar-preview.ts). */
+.ob-look { position: relative; }
+.ob-preview { position: sticky; top: 8px; z-index: 2; width: 150px; height: 164px; margin: 4px auto 10px; border-radius: 22px; background: radial-gradient(circle at 50% 35%, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.55)); box-shadow: 0 8px 22px rgba(40, 30, 90, 0.18); overflow: hidden; }
+.ob-preview canvas { width: 100%; height: 100%; display: block; }
+.ob-preview.no-3d::after { content: '🧍'; position: absolute; inset: 0; display: grid; place-items: center; font-size: 64px; }
+
+/* Shift how-to, recipe book and training hints (ui/deli-shift.ts). */
+.howto { margin: 6px 0 4px; padding-left: 20px; text-align: left; font-size: 14px; line-height: 1.45; }
+.howto li { margin: 4px 0; }
+.howto-card { text-align: left; background: rgba(255, 210, 63, 0.18); border: 1px solid rgba(255, 190, 40, 0.5); border-radius: 14px; padding: 10px 12px; margin: 8px 0 10px; }
+.howto-card small { display: block; opacity: 0.75; margin-top: 2px; }
+.howto-modal { max-height: calc(100dvh - 24px); overflow-y: auto; }
+.rc-h { margin: 12px 0 6px; font-size: 15px; }
+.rc-chip { display: inline-block; white-space: nowrap; padding: 2px 7px; margin: 2px 3px 2px 0; border-radius: 999px; background: rgba(120, 110, 255, 0.12); font-size: 13px; }
+.rc-book { display: grid; gap: 6px; text-align: left; }
+.rc-row { padding: 6px 8px; border-radius: 10px; background: rgba(0, 0, 0, 0.04); }
+.rc-row b { display: block; font-size: 14px; }
+.rc-row small { opacity: 0.7; font-size: 12px; }
+.rc-side { font-size: 13px; opacity: 0.8; text-align: left; margin: 6px 0 0; }
+.deli-book[hidden], .deli-need[hidden] { display: none; }
+.deli-bookbtn { margin-left: auto; min-width: 40px; min-height: 36px; border: 0; border-radius: 10px; background: rgba(120, 110, 255, 0.14); font-size: 18px; cursor: pointer; }
+.deli-need { font-size: 13px; text-align: center; margin: 2px 0 4px; }
+.deli-book { position: absolute; inset: 0; z-index: 5; overflow-y: auto; background: var(--paper); border-radius: 28px; padding: 14px; text-align: left; }
+.deli-book h3 { margin: 0 0 8px; }
+.deli-book .btn { margin-top: 10px; position: sticky; bottom: 0; }
+.deli-ing.want, [data-serve].want { box-shadow: 0 0 0 3px #ffd23f, 0 0 14px rgba(255, 200, 40, 0.8); animation: want-pulse 1s ease-in-out infinite; }
+@keyframes want-pulse { 50% { transform: scale(1.05); } }
+@media (prefers-reduced-motion: reduce) { .deli-ing.want, [data-serve].want { animation: none; } }

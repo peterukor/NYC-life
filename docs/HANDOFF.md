@@ -48,6 +48,15 @@ How to add or change content: **`docs/ADDING-CONTENT.md`**.
 - `index.html` has `robots: noindex, nofollow` (playtest build: casino, betting, parody brands).
 - Pages only serves files: multiplayer will need its own server (Colyseus on a small host) that this client connects to.
 
+## Playtest fixes (2026-10-14, evening)
+- **Starting screen:** a live 3D preview of your character (`ui/avatar-preview.ts`, its own small canvas, disposed on the next step) updates and hops as you pick body, skin, top, bottoms and hair.
+- **Learning the shift games:** the first played shift at each job shows "how it works" with a real example; the first 2 shifts light up what each order needs (`.want`) and spell it out ("Needs: …"). A 📖 button in every shift shows what goes in each order and pauses the clock. Count kept in `state.shiftsPlayed[careerId]`.
+- **Shifts are 3 minutes** (`SHIFT_PLAY_SECONDS` 180); tips retuned (`DESIGN_ROOM` 12,500) so a good shift still reaches the max.
+- **Cameras:** zoom works in every room; city and outside start higher and more top-down (`CAMERA.startDistance` 100, `minPolarAngle` 0.2) so billboards show; the satellite map starts higher and zooms out to `MAP_MAX_DISTANCE` 950.
+- **Map button → "Where to?"**: home, work, accepted plans, recent places and 4 nearby open places, with 🛰️ Satellite map (default) and 🗺️ City map. Tapping a place on either map opens the travel sheet over the map; the map closes only when you go. Tapping where you already are says "You're already here" and stays put (this was the home "bulb" bug).
+- **Side panel** was under its own backdrop (a later `.backdrop` z-index rule); fixed with more specific rules.
+- **Blank blue city (player report):** phones can drop the WebGL context. `render/engine.ts` asks for it back; if it doesn't return in 4 s (or after coming back from the background), the game saves and shows "The city needs a quick reload". QA: `scripts/qa-gl-lost.mjs`, `scripts/qa-batch.mjs`.
+
 ## Friends and relationships (2026-10-14)
 - `sim/friends.ts`: vibes (main + second: night owl, gym rat, touch-grass type, arcade kid, homebody, foodie) → taste per outing (−1…2); history log (last 8, `Memory.log`); friendship progress to the next level; `addBond` with a daily cap (18); shared activities per outing (`SHARED`), bond never scales with cost; `treat` helps once a day.
 - `sim/invites.ts`: Party (npc | player), Invite (pending/accepted/declined/countered/expired/done/cancelled/flaked), `npcAnswer` (grudge, busy/grumpy, avoids → counter with their favourite, wrong hour → counter time, too many invites today), plans with a 15-min wait window, flakes, stood-up penalty, hangouts (15 min), incoming invites from friends (≥ Friend, ~every 40 real min, grace period at start).
@@ -68,7 +77,7 @@ How to add or change content: **`docs/ADDING-CONTENT.md`**.
 
 ## Shifts: auto or play, every job hands-on (2026-10-14)
 - 6 shifts per game day (`MAX_SHIFTS_PER_DAY`). Pay per job in `data/careers.ts → shift` ({auto, max, rep}); `careerBand()` scales by the ladder. Auto = 30 s progress bar (`game.ts → autoShift`, `?autosec=N` in QA), stop or leave = unpaid. Tips/overtime scale with the job's room (`tipScale`). Only played shifts (5+ orders) count toward a raise (`shiftsAtLevel`) and add skill (`SHIFT_SKILL_GAIN` × accuracy, `completeShift({ played, quality })`). Played shifts add rep (`Payslip.rep`). `rep.ts → respect()` = street rep + fitness.
-- Every career uses the counter game (`ui/deli-shift.ts`): menus for bodega and bar in `sim/shift.ts`, the other six in `data/shift-menus.ts`. Played shifts last `SHIFT_PLAY_SECONDS` (360); customers get less patient (16 s → 10 s); 3 choices at ¼, ½, ¾; "Clock out early". QA shortens with `?qa=1&shiftsec=N`.
+- Every career uses the counter game (`ui/deli-shift.ts`): menus for bodega and bar in `sim/shift.ts`, the other six in `data/shift-menus.ts`. Played shifts last `SHIFT_PLAY_SECONDS` (180, 3 minutes; Peter 2026-10-14); customers get less patient (16 s → 10 s); 3 choices at ¼, ½, ¾; "Clock out early". QA shortens with `?qa=1&shiftsec=N`.
 - Job twists (fight, bust, bribe) run after the shift via `game.ts → resolveTwist()` and multiply the payslip.
 - 🍸 The bar: orders come from tables; a waiter (UI line + a 3D NPC in `world/venue-life.ts`, `life.runner`) carries drinks over.
 - Staff bottle discount: `sim/celebrate.ts → BOTTLE_DISCOUNT` (bartender 20%, dancer 25%).
@@ -217,6 +226,12 @@ How to add or change content: **`docs/ADDING-CONTENT.md`**.
 - **Hospital bills:** $300 (bruises), $900–1,500 (lost a fight), $2,500 (the legendary crash).
 
 ## Next steps, in order
+- **Queued by Peter (2026-10-14), in order:**
+  1. **Shared apartment for the poor start:** 3 bedrooms; 2 AI roommates who get replaced by real players as people join. A roommate offline 3 days is swapped for AI or a new player. Message: "You got a new roommate".
+  2. **Share location** with roommates and friends (opt-in), shown on the map.
+  3. **Invite AI to clubs** (exists for NPCs) and **🪙 chip-ins:** someone starts a chip-in on the phone for a bottle or section; friends contribute. The holder can steal it and run: everyone in it gets "X stole the chip-in and ran", can report it, police chase; escape = keep it; caught = arrested, fine, bad rep, lose money.
+  4. **🚓 Police record** for every player and NPC: tap someone (or a contact) to see arrests and why.
+  Human roommates/chip-ins need the multiplayer server; build with NPCs first behind the same interfaces (`sim/guests.ts`, `sim/invites.ts` style).
 0. **Ideas and implementation plans** for sharing your number, speaking loud, dates, NPC memory, NPCs that fight back, and fun for 1–2 players: see **`docs/IDEAS.md`**. Suggested order is in its section 4.
 3. **Multiplayer server (Colyseus skill in repo):** player homes on blocks, visiting (follow home, shared address, spare key), friends pins, billionaire cap, recession and reset vote (seams: `marketMood()`, `sim/economy.ts`).
 4. **More mini-games** per job (the interface is ready).

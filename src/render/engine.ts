@@ -57,6 +57,26 @@ export class Engine {
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     host.appendChild(this.renderer.domElement);
     this.renderer.domElement.setAttribute('aria-label', '3D view of the city');
+    // Phones (iOS Safari especially) drop the WebGL context when memory is
+    // tight or the tab sits in the background: the city goes blank and only
+    // the HUD is left (player report, 2026-10-14). Ask for it back; three.js
+    // re-uploads everything on restore. If it doesn't come back, the game
+    // saves and offers a reload (game.ts, 'nyc:gl-lost').
+    const canvas = this.renderer.domElement;
+    let lostTimer = 0;
+    const giveUp = () => window.dispatchEvent(new Event('nyc:gl-lost'));
+    canvas.addEventListener('webglcontextlost', (e) => {
+      e.preventDefault();
+      window.clearTimeout(lostTimer);
+      lostTimer = window.setTimeout(giveUp, 4000);
+    });
+    canvas.addEventListener('webglcontextrestored', () => window.clearTimeout(lostTimer));
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden && this.renderer.getContext().isContextLost()) {
+        window.clearTimeout(lostTimer);
+        lostTimer = window.setTimeout(giveUp, 2500);
+      }
+    });
 
     this.camera = new THREE.PerspectiveCamera(50, host.clientWidth / host.clientHeight, 0.5, quality.viewDistance * 3);
     this.camera.position.set(0, 30, 40);
@@ -67,7 +87,7 @@ export class Engine {
     this.controls.enablePan = false;
     this.controls.minDistance = CAMERA.minDistance;
     this.controls.maxDistance = CAMERA.maxDistance;
-    this.controls.minPolarAngle = 0.45;
+    this.controls.minPolarAngle = 0.2; // can look almost straight down (Peter: more top-down)
     // Township-style: the camera always looks down on the city at a
     // comfortable angle, so streets (and you) stay visible.
     this.controls.maxPolarAngle = 0.98;

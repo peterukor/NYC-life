@@ -15,6 +15,7 @@ import type { SpawnClass } from '../data/wardrobe.ts';
 import type { Look } from '../sim/types.ts';
 import { HAIR_COLORS, OUTFIT_COLORS, SKIN_TONES } from '../world/avatar.ts';
 import { html, root } from './dom.ts';
+import { avatarPreview } from './avatar-preview.ts';
 
 const PENDING_KEY = 'nyc-life.bornClass';
 
@@ -72,6 +73,8 @@ export function runOnboarding(onLook: (look: Look) => void): Promise<NewLifeOpti
             <label for="ob-name">Your name in the city</label>
             <input id="ob-name" maxlength="20" autocomplete="nickname" placeholder="e.g. Jack" />
           </div>
+          <div class="ob-look">
+          <div data-preview></div>
           <div class="field"><span class="label">Body</span>
             <div class="seg" role="radiogroup"><button data-body="f" class="on">Femme</button><button data-body="m">Masc</button></div>
           </div>
@@ -79,6 +82,7 @@ export function runOnboarding(onLook: (look: Look) => void): Promise<NewLifeOpti
           <div class="field"><span class="label">Top</span>${swatches('top', OUTFIT_COLORS)}</div>
           <div class="field"><span class="label">Bottoms</span>${swatches('bottom', OUTFIT_COLORS)}</div>
           <div class="field"><span class="label">Hair</span>${swatches('hair', HAIR_COLORS)}</div>
+          </div>
 
           <div class="field"><span class="label">Pick two traits</span>
             <div class="traits">${Object.entries(TRAITS)
@@ -93,7 +97,14 @@ export function runOnboarding(onLook: (look: Look) => void): Promise<NewLifeOpti
       </div>`);
     root().appendChild(el);
 
-    const refreshLook = () => onLook({ ...look });
+    // Your character, live, while you pick (ui/avatar-preview.ts).
+    const preview = avatarPreview({ ...look });
+    el.querySelector('[data-preview]')!.replaceWith(preview.el);
+    const refreshLook = () => {
+      onLook({ ...look });
+      preview.setLook({ ...look });
+      preview.bounce();
+    };
     refreshLook();
 
     el.addEventListener('click', (e) => {
@@ -155,6 +166,7 @@ export function runOnboarding(onLook: (look: Look) => void): Promise<NewLifeOpti
           <button class="btn primary block" id="ob-start">Start my life</button>
         </div>
       </div>`);
+      preview.dispose();
       el.querySelector('.onboard-inner')!.replaceChildren(card);
       card.querySelector('#ob-start')!.addEventListener('click', () => {
         el.remove();

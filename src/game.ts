@@ -22,7 +22,7 @@ import * as THREE from 'three';
 import { VEHICLES } from './data/vehicles.ts';
 import { vehicleGeometry, vehicleMaterial } from './world/vehicle-models.ts';
 import { bus } from './core/bus.ts';
-import { isRushHour, nowMs, nycTime } from './core/clock.ts';
+import { clockLabel, isRushHour, nowMs, nycTime } from './core/clock.ts';
 import { MAP_MAX_DISTANCE, DETAIL_RADIUS, RIDESHARE, SUBWAY_FARE, WALK_SPEED, INDOOR_WALK, SHIFT_GAME_HOURS, MAX_SHIFTS_PER_DAY, DIRECTOR_TICK_SECONDS, CAMERA } from './core/constants.ts';
 import { esc, money } from './core/format.ts';
 import { ACTIONS, actionLock } from './data/actions.ts';
@@ -613,6 +613,14 @@ export class Game {
     bus.on('money:changed', (e) => {
       if (e.delta > 0 && e.delta >= 500) sfx.cash();
     });
+    // The phone took the 3D view away and didn't give it back: save, then offer a reload.
+    window.addEventListener('nyc:gl-lost', () => {
+      this.save();
+      if (document.querySelector('.gl-lost')) return;
+      const m = openModal(`<div class="big">🌆</div><h2>The city needs a quick reload</h2><p>Your phone paused the 3D view to save memory. Your game is saved.</p><button class="btn primary block" data-act="reload">Reload</button>`);
+      m.el.classList.add('gl-lost');
+      onAct(m.el, () => location.reload());
+    });
     // Save when the tab is hidden or closed (phones kill background tabs).
     document.addEventListener('visibilitychange', () => document.hidden && this.save());
     window.addEventListener('pagehide', () => this.save());
@@ -672,7 +680,10 @@ export class Game {
     const loc = this.state.location;
     this.player.root.position.set(loc.x, 0.2, loc.z);
     this.engine.controls.target.set(loc.x, 2, loc.z);
-    this.engine.camera.position.set(loc.x + 20, CAMERA.startDistance * 0.73, loc.z + 36);
+    // High and a little tilted (Peter: more top-down and further out, so the
+    // street-level ad spaces show): about 30° from straight down.
+    const d = CAMERA.startDistance;
+    this.engine.camera.position.set(loc.x + d * 0.2, d * 0.88, loc.z + d * 0.44);
     this.path = [];
   }
 
@@ -1030,7 +1041,7 @@ export class Game {
       return this.leaveInterior();
     }
     if (which === 'phone') return this.openPhoneApp();
-    if (which === 'map') return this.openCityMap();
+    if (which === 'map') return this.openQuickTravel();
     // "Here": the nearest place within a short walk, else the cross streets.
     const p = this.player.root.position;
     let best: PlaceDef | null = null;
@@ -1929,6 +1940,7 @@ export class Game {
       this.state.location.x = door.x;
       this.state.location.z = door.z;
       if (!this.state.stats.placesVisited.includes(place.id)) this.state.stats.placesVisited.push(place.id);
+      if (place.interior !== 'none') this.state.recentPlaces = [place.id, ...(this.state.recentPlaces ?? []).filter((x) => x !== place.id)].slice(0, 6);
       bus.emit('place:entered', { placeId: place.id });
       this.refreshHud(true);
       this.resumeActivity(place.id);
@@ -1967,9 +1979,9 @@ export class Game {
     const dist = Math.max(9, roomHalfWidth / Math.tan(hFov / 2)); // small homes fill the screen too
     cam.far = dist * 4;
     cam.updateProjectionMatrix();
-    // Zoom and pan (big homes only) on top of the whole-room framing.
+    // Pinch to zoom and drag to pan, in every room, on top of the whole-room framing.
     const layout = this.interior && 'layout' in this.interior ? (this.interior as HomeInterior).layout : null;
-    this.view.frame(new THREE.Vector3(0, 0.6, -0.5), new THREE.Vector3(0, dist * 0.72, dist * 0.7), (layout?.width ?? 12) / 2, (layout?.depth ?? 10) / 2, !!layout?.zoomable, keep);
+    this.view.frame(new THREE.Vector3(0, 0.6, -0.5), new THREE.Vector3(0, dist * 0.72, dist * 0.7), (layout?.width ?? 12) / 2, (layout?.depth ?? 10) / 2, true, keep); // every room can zoom (Peter, 2026-10-14)
   }
 
   /**
@@ -2617,7 +2629,7 @@ export class Game {
     const band = payBand(s);
     const late = career.id === 'bartender' && (t.hour >= 22 || t.hour < 4) ? 1.5 : 1;
     const left = MAX_SHIFTS_PER_DAY - (s.job!.dayKey === t.dateKey ? s.job!.shiftsToday : 0);
-    const info = { place: PLACE_BY_ID[career.placeId].name, title: jobTitle(s), auto: band.auto, max: band.max, startMinute: t.hour * 60 + t.minute, hours: SHIFT_GAME_HOURS, choices: [] as string[], careerId: career.id, tipMult: late, left };
+    const info = { place: PLACE_BY_ID[career.placeId].name, title: jobTitle(s), auto: band.auto, max: band.max, startMinute: t.hour * 60 + t.minute, hours: SHIFT_GAME_HOURS, choices: [] as string[], careerId: career.id, tipMult: late, left, played: s.shiftsPlayed?.[career.id] ?? 0 };
     const mode = await shiftIntro(info);
     if (!mode) return;
     const st = startDeliShift(s);
@@ -2633,6 +2645,7 @@ export class Game {
       return toast('You left before the end of the shift: no pay.', { icon: '⏩', tone: 'bad' });
     }
     const play = mode === 'play' ? await playDeliShift(info) : { orders: [], picks: {}, skipped: true };
+    if (mode === 'play') (s.shiftsPlayed ??= {})[career.id] = (s.shiftsPlayed[career.id] ?? 0) + 1;
     const mult = await this.resolveTwist();
     if (mult === null) {
       abandonShift(s);
@@ -2681,6 +2694,56 @@ export class Game {
   // Travel
   // ===================================================================
 
+  /**
+   * The Map button (Peter, 2026-10-14): a short list of where you might
+   * want to go (home, work, plans, recent and nearby places), with the
+   * satellite map and the city map one tap away.
+   */
+  private openQuickTravel(): void {
+    const s = this.state;
+    const here = s.location.placeId;
+    const seen = new Set<string>();
+    const rows: { place: PlaceDef; tag: string }[] = [];
+    const add = (id: string | null | undefined, tag: string) => {
+      const p = id ? PLACE_BY_ID[id] : null;
+      if (!p || seen.has(p.id) || !isOpenArea(p.area)) return;
+      seen.add(p.id);
+      rows.push({ place: p, tag });
+    };
+    add(s.home.placeId, PLACE_BY_ID[s.home.placeId]?.name ?? 'Your place');
+    if (s.job) add(CAREER_BY_ID[s.job.careerId].placeId, 'Work');
+    for (const inv of socialOf(s).invites) if (inv.status === 'accepted' && inv.until > nowMs()) add(inv.placeId, `Plans: ${OUTINGS[inv.outing].emoji} ${clockLabel(nycTime(inv.at))}`);
+    for (const id of s.recentPlaces ?? []) add(id, 'Recent');
+    // A few open places close by.
+    const at = this.engine.mode === 'city' ? this.player.root.position : new THREE.Vector3(s.location.x, 0, s.location.z);
+    const h = nycTime().hour;
+    Object.values(PLACE_BY_ID)
+      .filter((p) => p.area === s.location.area && p.type !== 'home' && p.type !== 'station' && p.interior !== 'none' && isOpen(p, h))
+      .map((p) => ({ p, d: Math.hypot(doorOf(p).x - at.x, doorOf(p).z - at.z) }))
+      .sort((a, b) => a.d - b.d)
+      .slice(0, 4)
+      .forEach(({ p, d }) => add(p.id, `Nearby · ${Math.max(1, Math.round(d / 80))} min walk`));
+    const sheet = openSheet({
+      emoji: '🗺️',
+      title: 'Where to?',
+      sub: here ? `You’re at ${esc(here === s.home.placeId ? 'home' : PLACE_BY_ID[here]?.name ?? 'a place')}` : 'You’re outside',
+      body: `<div class="travel">${rows
+        .map(({ place, tag }) => `<button class="opt" data-act="go:${place.id}" ${place.id === here ? 'disabled aria-disabled="true"' : ''}><span style="font-size:24px">${place.id === s.home.placeId ? '🏠' : place.emoji}</span><span class="grow"><b>${esc(place.id === s.home.placeId ? 'Home' : place.name)}</b><small>${esc(place.id === here ? 'You’re here' : tag)}</small></span></button>`)
+        .join('')}</div>
+        <div class="row" style="gap:8px;margin-top:10px"><button class="btn primary" style="flex:1" data-act="sat">🛰️ Satellite map</button><button class="btn" style="flex:1" data-act="flat">🗺️ City map</button></div>`,
+    });
+    onAct(sheet.body, (act) => {
+      if (act === 'sat' || act === 'flat') {
+        sheet.close();
+        return void window.setTimeout(() => (act === 'sat' ? this.openCityMap() : this.openMapOverlay()), 150);
+      }
+      if (act.startsWith('go:')) {
+        const p = PLACE_BY_ID[act.slice(3)];
+        if (p) this.travelSheet(p);
+      }
+    });
+  }
+
   // ---- The map: the real 3D city from the sky (ui/map3d.ts) ----
   private map3d: Map3D | null = null;
   private map3dSaved: (() => void) | null = null;
@@ -2725,7 +2788,7 @@ export class Game {
     const px = onStreet ? this.player.root.position.x : this.state.location.x;
     const pz = onStreet ? this.player.root.position.z : this.state.location.z;
     controls.target.set(px, 0, pz);
-    camera.position.set(px + 40, 310, pz + 240);
+    camera.position.set(px + 60, 540, pz + 360);
     controls.update();
     this.hud?.setVisible(false);
     const d = DISTRICTS[this.city.area];
@@ -2738,10 +2801,8 @@ export class Game {
       homeId: this.state.home.placeId,
       billboards: this.city.adSlots.map((a) => ({ id: a.id, center: a.center, tier: a.tier })),
       player: () => ({ x: px, z: pz }),
-      onPlace: (place) => {
-        this.closeCityMap();
-        this.travelSheet(place);
-      },
+      // The travel options open over the map; the map closes only once you pick a way to go.
+      onPlace: (place) => this.travelSheet(place, { beforeGo: () => this.closeCityMap() }),
       onBillboard: (id) => {
         this.closeCityMap();
         this.openAdCard(id);
@@ -2806,10 +2867,7 @@ export class Game {
       player: { area: s.location.area, x: this.engine.mode === 'city' ? p.x : s.location.x, z: this.engine.mode === 'city' ? p.z : s.location.z },
       hour: nycTime().hour,
       billboards: this.city ? this.city.adSlots.map((a) => ({ id: a.id, x: a.center.x, z: a.center.z, tier: a.tier })) : [],
-      onPick: (id) => {
-        this.overlayClose?.();
-        this.travelSheet(PLACE_BY_ID[id]);
-      },
+      onPick: (id) => this.travelSheet(PLACE_BY_ID[id], { beforeGo: () => this.overlayClose?.() }),
       onBillboard: (id) => {
         this.overlayClose?.();
         this.openAdCard(id);
@@ -2839,9 +2897,15 @@ export class Game {
     return { cost, minutes, surge };
   }
 
-  private travelSheet(place: PlaceDef, opts: { work?: boolean } = {}): void {
+  /**
+   * How to get somewhere. `beforeGo` runs once you pick a way to travel
+   * (the maps stay open underneath until then, so a tap you don't follow
+   * through leaves you on the map).
+   */
+  private travelSheet(place: PlaceDef, opts: { work?: boolean; beforeGo?: () => void } = {}): void {
     if (!isOpenArea(place.area)) return void toast(`${DISTRICTS[place.area].name} isn’t open yet — it’s Manhattan only for now.`, { icon: '🚧' });
     const s = this.state;
+    if (!opts.work && s.location.placeId === place.id && this.engine.mode === 'interior') return void toast(`You’re already at ${place.id === s.home.placeId ? 'home' : place.name}.`, { icon: '📍' });
     // 💻 Tech perk: once a day, work from home instead of commuting.
     const remote = !!opts.work && s.job?.careerId === 'tech' && s.location.placeId === s.home.placeId && s.job.remoteDay !== nycTime().dateKey;
     const same = place.area === s.location.area;
@@ -2866,6 +2930,7 @@ export class Game {
     });
     onAct(sheet.body, (act) => {
       sheet.close();
+      opts.beforeGo?.();
       if (act === 'remote' && s.job) {
         s.job.remoteDay = nycTime().dateKey;
         toast('Working from home today. Camera off.', { icon: '🏠', ms: 2500 });
