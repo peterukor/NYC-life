@@ -101,7 +101,9 @@ import { arrest } from './sim/jail.ts';
 import { driveTrip, drivingCar, GARAGE, licenceSuspended } from './sim/garage.ts';
 import './ui/phone-apps.ts';
 import { buildSubwayRide, type TransitScene } from './world/transit.ts';
-import { sfx, setSoundEnabled } from './ui/audio.ts';
+import { installUiClicks, sfx, setSoundEnabled } from './ui/audio.ts';
+import { soundscape, type Scene } from './ui/soundscape.ts';
+import { nextTravelAd } from './ui/travel-ad.ts';
 import { closeSheet, fade, html, isSheetOpen, onAct, openModal, openSheet, progressBar, root, toast, wait } from './ui/dom.ts';
 import { Hud } from './ui/hud.ts';
 import { openBlackjack, openRocket, openRoulette, openSlots, casinoNetLine, rain, type CasinoHost } from './ui/casino.ts';
@@ -394,6 +396,7 @@ export class Game {
       indoorRoute: () => (this.indoor ? this.indoor.points.map((q) => ({ ...q })) : null),
       resetCam: () => this.fitInteriorCamera(),
       phoneApp: (id: string) => this.openPhoneApp(id),
+      camDist: () => Math.round(this.engine.camera.position.distanceTo(this.engine.controls.target)),
       admirers: () => this.party?.admirers.map((x) => x.name) ?? [],
       section: () => this.state.section ?? null,
       sectionCrew: () => this.sectionCrew?.count ?? -1,
@@ -627,8 +630,42 @@ export class Game {
     this.refreshHud(true);
   }
 
+  private uiClicks = false;
+  private wheelForward = false;
+  private soundPos = new THREE.Vector3();
+
+  /** Ambience for where you are, footsteps, the sound of what you're doing (ui/soundscape.ts). */
+  private updateSound(dt: number, hour: number): void {
+    const p = this.player.root.position;
+    const speed = dt > 0 ? Math.min(12, p.distanceTo(this.soundPos) / dt) : 0;
+    this.soundPos.copy(p);
+    const mode = this.engine.mode;
+    const place = this.state.location.placeId ? PLACE_BY_ID[this.state.location.placeId] : null;
+    const scene: Scene = mode === 'transit' ? 'transit' : mode === 'interior' && place ? (place.interior as Scene) : 'city';
+    soundscape.update(dt, { scene, hour, speed, activity: this.doing ? (this.state.activity?.actionId ?? null) : null });
+  }
+
   private applySettings(): void {
     setSoundEnabled(this.state.settings.sound);
+    if (!this.uiClicks) {
+      this.uiClicks = true;
+      installUiClicks();
+    }
+    if (!this.wheelForward) {
+      // Scrolling over map labels or street pins still zooms the map underneath
+      // (they used to swallow the wheel, so zoom stalled when labels were under the mouse).
+      this.wheelForward = true;
+      document.addEventListener(
+        'wheel',
+        (e) => {
+          const t = e.target as HTMLElement | null;
+          if (!t?.closest?.('.map3d, .pin-layer, .map-strip') || e.target === this.engine.renderer.domElement) return;
+          e.preventDefault();
+          this.engine.renderer.domElement.dispatchEvent(new WheelEvent('wheel', e));
+        },
+        { passive: false, capture: true },
+      );
+    }
     const q = qualitySettings(this.state.settings.quality);
     this.engine.quality = q;
     this.engine.renderer.setPixelRatio(q.pixelRatio);
@@ -781,6 +818,7 @@ export class Game {
       this.transit.update(dt);
     }
 
+    if (this.started) this.updateSound(dt, t.hour);
     if (this.started) this.syncCar();
     if (this.map3d) {
       const el = this.engine.renderer.domElement;
@@ -1328,7 +1366,8 @@ export class Game {
     // A friend invites you.
     const inc = maybeIncoming(s, Math.random, now);
     if (inc) {
-      sfx.notify();
+      sfx.buzz();
+      sfx.msgIn();
       toast(`${first(inc.from.id)}: “${inc.reply}” (Link Up to answer)`, { icon: '📲', ms: 6000 });
       this.save();
     }
@@ -1520,6 +1559,8 @@ export class Game {
       sheet.close();
       const r = buyBottle(s, act.slice(7));
       if (!r.ok) return toast(r.why, { icon: '🍾', tone: 'bad' });
+      sfx.cork();
+      window.setTimeout(() => sfx.cheer(), 450);
       sfx.cash();
       this.startShow(r.bottle, `${r.bottle.emoji} ${r.bottle.name} for ${s.profile.name}!`);
       window.setTimeout(() => toast(`+${r.street} 🔥 street rep${r.rankUp ? ` · you're now ${r.rankUp}` : ''}`, { icon: '🔥', tone: 'good', ms: 3000 }), 1200);
@@ -1862,6 +1903,7 @@ export class Game {
   // ===================================================================
 
   private enterInterior(place: PlaceDef, animate: boolean): void {
+    if (animate) sfx.door();
     const go = () => {
       this.interior?.dispose();
       this.stopMoving(false);
@@ -2004,6 +2046,13 @@ export class Game {
     el.addEventListener('pointermove', (e) => {
       const prev = pts.get(e.pointerId);
       if (!prev || !active()) return;
+      // A mouse with no button held isn't dragging (the release happened off the canvas):
+      // without this the room followed the mouse around (Peter, 2026-10-14).
+      if (e.pointerType === 'mouse' && e.buttons === 0) {
+        pts.delete(e.pointerId);
+        this.gestureStart.delete(e.pointerId);
+        return;
+      }
       if (pts.size >= 2) {
         // Pinch: zoom by how much the fingers spread, around their midpoint.
         const others = [...pts.entries()].filter(([id]) => id !== e.pointerId);
@@ -2026,8 +2075,10 @@ export class Game {
       pts.delete(e.pointerId);
       this.gestureStart.delete(e.pointerId);
     };
-    el.addEventListener('pointerup', up);
-    el.addEventListener('pointercancel', up);
+    // Releases anywhere count (over a button, outside the window).
+    window.addEventListener('pointerup', up);
+    window.addEventListener('pointercancel', up);
+    window.addEventListener('blur', () => pts.clear());
     el.addEventListener('wheel', (e) => {
       if (!active()) return;
       e.preventDefault();
@@ -2104,6 +2155,7 @@ export class Game {
 
   private leaveInterior(): void {
     if (!this.interior) return;
+    sfx.door();
     this.stopDoing();
     this.indoor = null;
     this.stopMoving(true);
@@ -2399,10 +2451,11 @@ export class Game {
     const bits = [`${a.emoji} ${a.label} — done`];
     if (res.earned > 0) bits.push(`+${money(res.earned)}`);
     toast(bits.join(' · '), { tone: 'good' });
+    sfx.done();
     if (res.quirk) toast(res.quirk.label, { icon: res.quirk.emoji, tone: res.quirk.value < 0 ? 'bad' : 'good', ms: 3500 });
     if (res.skillUp) {
       toast(`Skill up! ${res.skillUp.replace(/^\w/, (c) => c.toUpperCase())}`, { icon: '⭐', tone: 'good' });
-      sfx.notify();
+      sfx.levelUp();
     }
     this.save();
     this.refreshHud(true);
@@ -2699,9 +2752,9 @@ export class Game {
    * want to go (home, work, plans, recent and nearby places), with the
    * satellite map and the city map one tap away.
    */
-  private openQuickTravel(): void {
+  /** Places to fast-travel to: home, work, plans, recent, a few nearby (the "Where to?" list and the map strip). */
+  private quickRows(): { place: PlaceDef; tag: string }[] {
     const s = this.state;
-    const here = s.location.placeId;
     const seen = new Set<string>();
     const rows: { place: PlaceDef; tag: string }[] = [];
     const add = (id: string | null | undefined, tag: string) => {
@@ -2723,6 +2776,13 @@ export class Game {
       .sort((a, b) => a.d - b.d)
       .slice(0, 4)
       .forEach(({ p, d }) => add(p.id, `Nearby · ${Math.max(1, Math.round(d / 80))} min walk`));
+    return rows;
+  }
+
+  private openQuickTravel(): void {
+    const s = this.state;
+    const here = s.location.placeId;
+    const rows = this.quickRows();
     const sheet = openSheet({
       emoji: '🗺️',
       title: 'Where to?',
@@ -2779,9 +2839,9 @@ export class Game {
     Object.assign(controls, { minDistance: 70, maxDistance: MAP_MAX_DISTANCE, minPolarAngle: 0.15, maxPolarAngle: 1.05, enablePan: true, screenSpacePanning: false });
     controls.touches = { ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY_ROTATE };
     controls.mouseButtons = { LEFT: THREE.MOUSE.PAN, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.ROTATE };
-    fog.near = 1400;
-    fog.far = 3600;
-    camera.far = Math.max(camera.far, 5000);
+    fog.near = 4000;
+    fog.far = 9000;
+    camera.far = Math.max(camera.far, 9500); // zoomed all the way out you see the whole island
     camera.near = 4; // high in the sky: a bigger near plane keeps flat things from flickering
     camera.updateProjectionMatrix();
     const onStreet = saved.mode === 'city';
@@ -2803,10 +2863,8 @@ export class Game {
       player: () => ({ x: px, z: pz }),
       // The travel options open over the map; the map closes only once you pick a way to go.
       onPlace: (place) => this.travelSheet(place, { beforeGo: () => this.closeCityMap() }),
-      onBillboard: (id) => {
-        this.closeCityMap();
-        this.openAdCard(id);
-      },
+      // The ad card opens over the map: you stay on the map (Peter, 2026-10-14).
+      onBillboard: (id) => this.openAdCard(id),
       // Plots for rent open on top of the map, so you can keep browsing.
       onPlot: (id) => PLOT_BY_ID[id] && openPlotPanel(PLOT_BY_ID[id]),
       onWholeCity: () => {
@@ -2816,6 +2874,40 @@ export class Game {
       onClose: () => this.closeCityMap(),
     });
     this.overlayClose = () => this.closeCityMap();
+    this.showMapStrip(() => this.closeCityMap());
+  }
+
+  /** On either map: a strip of places you can fast-travel to (Peter, 2026-10-14). */
+  private mapStrip: HTMLElement | null = null;
+  private showMapStrip(closeMap: () => void): void {
+    this.hideMapStrip();
+    const s = this.state;
+    const here = s.location.placeId;
+    const rows = this.quickRows();
+    if (!rows.length) return;
+    const el = document.createElement('nav');
+    el.className = 'map-strip';
+    el.setAttribute('aria-label', 'Fast travel');
+    el.innerHTML = rows
+      .map(({ place, tag }) => `<button data-go="${place.id}" ${place.id === here ? 'disabled' : ''}><span>${place.id === s.home.placeId ? '🏠' : place.emoji}</span><b>${esc(place.id === s.home.placeId ? 'Home' : place.name)}</b><small>${esc(place.id === here ? 'You’re here' : tag.replace(/^Nearby · /, ''))}</small></button>`)
+      .join('');
+    el.addEventListener('click', (e) => {
+      const id = (e.target as HTMLElement).closest<HTMLElement>('[data-go]')?.dataset.go;
+      if (!id || !PLACE_BY_ID[id]) return;
+      this.travelSheet(PLACE_BY_ID[id], {
+        beforeGo: () => {
+          this.hideMapStrip();
+          closeMap();
+        },
+      });
+    });
+    (document.getElementById('ui') ?? document.body).appendChild(el);
+    this.mapStrip = el;
+  }
+
+  private hideMapStrip(): void {
+    this.mapStrip?.remove();
+    this.mapStrip = null;
   }
 
   /** Gang view in the sky map: tint crew turf blocks (safe areas stay clear). */
@@ -2850,6 +2942,7 @@ export class Game {
     this.showTurf(false);
     this.map3d.close();
     this.map3d = null;
+    this.hideMapStrip();
     this.map3dSaved?.();
     this.map3dSaved = null;
     this.overlayClose = null;
@@ -2868,14 +2961,16 @@ export class Game {
       hour: nycTime().hour,
       billboards: this.city ? this.city.adSlots.map((a) => ({ id: a.id, x: a.center.x, z: a.center.z, tier: a.tier })) : [],
       onPick: (id) => this.travelSheet(PLACE_BY_ID[id], { beforeGo: () => this.overlayClose?.() }),
-      onBillboard: (id) => {
-        this.overlayClose?.();
-        this.openAdCard(id);
-      },
+      onBillboard: (id) => this.openAdCard(id),
       onPlot: (id) => PLOT_BY_ID[id] && openPlotPanel(PLOT_BY_ID[id]),
       onFlyover: () => window.setTimeout(() => this.openCityMap(), 0),
-      onClose: () => (this.overlayClose = null),
+      onClose: () => {
+        this.overlayClose = null;
+        this.hideMapStrip();
+      },
     });
+    const close = this.overlayClose;
+    this.showMapStrip(() => close?.());
   }
 
   /** Rideshare price: base + distance, times surge (rush hour, bad weather). */
@@ -2961,8 +3056,8 @@ export class Game {
     this.busy = true;
     closeSheet();
     sfx.chime();
-    fade(true, 'Stand clear of the closing doors…');
-    await wait(400);
+    fade(true, 'Stand clear of the closing doors…', `🚇 To ${DISTRICTS[area].name}`, nextTravelAd());
+    await wait(1800);
     const leavingInterior = this.engine.mode === 'interior';
     if (leavingInterior) {
       this.interior?.dispose();
@@ -3054,7 +3149,7 @@ export class Game {
     const place = PLACE_BY_ID[placeId];
     const cars = ['Toyota Camry', 'Honda Accord', 'Toyota Sienna', 'Tesla Model 3'];
     const car = luxury ? 'Cadillac Escalade' : cars[Math.floor(Math.random() * cars.length)];
-    fade(true, `🚗 Your ${car} is here`, `Riding to ${place.name}${place.area !== s.location.area ? ' — over the bridge' : ''}`);
+    fade(true, `🚗 Your ${car} is here`, `Riding to ${place.name}${place.area !== s.location.area ? ' — over the bridge' : ''}`, nextTravelAd());
     window.setTimeout(() => {
       if (this.engine.mode === 'interior') {
         this.interior?.dispose();
@@ -3163,6 +3258,7 @@ export class Game {
         toggleSound: () => {
           this.state.settings.sound = !this.state.settings.sound;
           setSoundEnabled(this.state.settings.sound);
+          if (!this.state.settings.sound) soundscape.silence();
           this.save();
         },
         resetLife: () => {
@@ -3351,7 +3447,7 @@ export class Game {
     }
     this.busy = true;
     const v = VEHICLES.get(car.model);
-    fade(true, floorIt ? '🏎️ Flooring it…' : `🚗 Driving your ${v?.name ?? 'car'}`, `To ${place.name}${place.area !== s.location.area ? ' — over the bridge' : ''}`);
+    fade(true, floorIt ? '🏎️ Flooring it…' : `🚗 Driving your ${v?.name ?? 'car'}`, `To ${place.name}${place.area !== s.location.area ? ' — over the bridge' : ''}`, nextTravelAd());
     window.setTimeout(() => {
       if (this.engine.mode === 'interior') {
         this.interior?.dispose();
@@ -3369,7 +3465,7 @@ export class Game {
       for (const line of r.lines) toast(line, { tone: r.tone, ms: 5000 });
       this.save();
       window.setTimeout(() => this.openPlace(place), 400);
-    }, floorIt ? 1100 : 1800);
+    }, floorIt ? 1500 : 2000); // long enough to see the ad on the loading screen
   }
 
   private save(): void {

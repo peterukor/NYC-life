@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
-import { InteriorView, MAX_ZOOM } from '../src/world/interior-view.ts';
+import { InteriorView, MAX_ZOOM, MIN_ZOOM, START_ZOOM } from '../src/world/interior-view.ts';
 
 const make = (zoomable: boolean) => {
   const cam = new THREE.PerspectiveCamera(62, 0.5, 0.1, 200);
@@ -24,10 +24,15 @@ test('big homes zoom within limits and pan stays inside the room', () => {
   assert.equal(v.zoom, MAX_ZOOM);
   for (let i = 0; i < 50; i++) v.dragBy(0, 0, 0.9, 0);
   assert.ok(Math.abs(v.pan.x) <= 9 * (1 - 1 / MAX_ZOOM) + 1e-6);
-  // Zooming back out recentres.
+  // Zooming back out recentres, and goes past "the room fits" to see more around it.
   v.zoomAt(0.01, 0, 0);
-  assert.equal(v.zoom, 1);
+  assert.equal(v.zoom, MIN_ZOOM);
   assert.equal(v.pan.length(), 0);
+});
+
+test('rooms open a little wider than a tight fit', () => {
+  assert.equal(make(true).zoom, START_ZOOM);
+  assert.ok(START_ZOOM < 1 && MIN_ZOOM < START_ZOOM);
 });
 
 test('following brings an off-screen character back into view', () => {

@@ -16,6 +16,9 @@
 import * as THREE from 'three';
 
 export const MAX_ZOOM = 2.8;
+/** Zoom out past "the room fits" to see more around it (Peter, 2026-10-14), and start a little wider. */
+export const MIN_ZOOM = 0.7; // 0.55 was a little too far (Peter)
+export const START_ZOOM = 0.92;
 
 export class InteriorView {
   /** 1 = the whole room; bigger = closer. */
@@ -41,7 +44,7 @@ export class InteriorView {
     this.half.set(halfW, halfD);
     this.enabled = zoomable;
     if (!keep || !zoomable) {
-      this.zoom = 1;
+      this.zoom = START_ZOOM;
       this.pan.set(0, 0);
     }
     this.apply();
@@ -49,9 +52,9 @@ export class InteriorView {
 
   /** Put the camera where zoom and pan say (clamped first). */
   apply(): void {
-    this.zoom = THREE.MathUtils.clamp(this.zoom, 1, this.enabled ? MAX_ZOOM : 1);
+    this.zoom = THREE.MathUtils.clamp(this.zoom, this.enabled ? MIN_ZOOM : 1, this.enabled ? MAX_ZOOM : 1);
     // The further in, the further you may pan (none at all when zoomed out).
-    const room = 1 - 1 / this.zoom;
+    const room = Math.max(0, 1 - 1 / this.zoom);
     this.pan.x = THREE.MathUtils.clamp(this.pan.x, -this.half.x * room, this.half.x * room);
     this.pan.y = THREE.MathUtils.clamp(this.pan.y, -this.half.y * room, this.half.y * room);
     const t = this.baseTarget.clone().add(new THREE.Vector3(this.pan.x, 0, this.pan.y));

@@ -102,7 +102,7 @@ export function openMap3D(o: Map3DOptions): Map3D {
     const card = html(`<button class="m3-plot ${pl.kind === 'island' ? 'island' : pl.kind === 'home' ? 'lot' : ''}" data-act="plot:${esc(pl.id)}"><span>${label}</span></button>`);
     layer.appendChild(card);
     if (pl.kind !== 'home') cards.push(card);
-    items.push({ el: card, x: pl.center.x, y: pl.kind === 'home' ? 4 : 30, z: pl.center.z, minZoom: pl.kind === 'home' ? 420 : 99999 });
+    items.push({ el: card, x: pl.center.x, y: pl.kind === 'home' ? 4 : 30, z: pl.center.z, minZoom: pl.kind === 'home' ? 420 : pl.kind === 'ad' ? 1700 : 99999 }); // whole-island view: ad cards step aside so it's readable
   }
   const me = html('<div class="m3-me" aria-label="You are here"></div>');
   layer.appendChild(me);

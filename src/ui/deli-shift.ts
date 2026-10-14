@@ -18,6 +18,7 @@ import { AUTO_SHIFT_SECONDS, ORDER_SECONDS, ORDER_SECONDS_END, SHIFT_PLAY_SECOND
 import { NEED_INFO } from '../sim/needs.ts';
 import type { NeedKey } from '../sim/types.ts';
 import { openModal } from './dom.ts';
+import { sfx } from './audio.ts';
 
 export interface ShiftIntro {
   place: string;
@@ -255,6 +256,8 @@ export function playDeliShift(info: ShiftIntro): Promise<ShiftPlay> {
       served.push(o);
       tipsSoFar += orderTip(o) * boost * scale * (info.tipMult ?? 1);
       if (right) runDrink();
+      if (right) sfx.good();
+      else sfx.bad();
       // A quick reaction from the customer, then the next one.
       askEl.textContent = gaveUp ? '“Forget it, I’m out.” 😤' : right ? `“Perfect, thanks!” ${o.timeLeft > 0.6 ? '💵' : '🙂'}` : '“That’s not what I asked for…” 😕';
       askEl.classList.toggle('ok', right);
