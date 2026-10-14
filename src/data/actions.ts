@@ -53,7 +53,7 @@ const LIST: ActionDef[] = [
   { id: 'watchTv', label: 'Watch TV', emoji: '📺', seconds: 10, needs: { fun: 22, energy: -2 }, tags: ['fun', 'tv'] },
   { id: 'gameConsole', label: 'Play video games', emoji: '🎮', seconds: 12, needs: { fun: 30, social: 4, energy: -4 }, tags: ['fun'] },
   { id: 'codePractice', label: 'Practice coding', emoji: '💻', seconds: 14, needs: { fun: -6, energy: -4 }, skill: { key: 'coding', gain: 0.8 }, tags: ['skill'] },
-  { id: 'freelance', label: 'Freelance gig', emoji: '💸', seconds: 20, needs: { energy: -8, fun: -4 }, pay: (s) => 4_500 + 2_200 * lvl(s, 'coding'), requires: { skill: 'coding', level: 2 }, skill: { key: 'coding', gain: 0.3 }, tags: ['earn', 'gig'] },
+  { id: 'freelance', label: 'Freelance gig', emoji: '💸', seconds: 20, needs: { energy: -8, fun: -4 }, pay: (s) => Math.round(((4_500 + 2_200 * lvl(s, 'coding')) * (s.job?.careerId === 'tech' ? 1.3 + 0.05 * s.job.level : 1)) / 25) * 25, requires: { skill: 'coding', level: 2 }, skill: { key: 'coding', gain: 0.3 }, tags: ['earn', 'gig'] },
   { id: 'sellOnline', label: 'Flip sneakers online', emoji: '👟', seconds: 12, needs: { fun: 6 }, pay: (s) => 1_200 + 900 * lvl(s, 'hustle'), skill: { key: 'hustle', gain: 0.5 }, tags: ['earn', 'gig'] },
   { id: 'doomscroll', label: 'Scroll NYC Twitter', emoji: '📱', seconds: 6, needs: { fun: 10, social: 6, energy: -2 }, tags: ['online'] },
   { id: 'callMom', label: 'Call your mom', emoji: '📞', seconds: 8, needs: { social: 30, fun: 4 }, moodlet: { id: 'momCall', label: 'Mom says she’s proud', emoji: '🥹', value: 10, minutes: 90 }, tags: ['social'] },

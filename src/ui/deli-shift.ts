@@ -12,7 +12,7 @@
 // =====================================================================
 
 import { esc, money } from '../core/format.ts';
-import { INGREDIENTS, ORDER_SECONDS, SHIFT_CHOICES, SHIFT_ORDERS, makeOrder, orderRight, type ServedOrder, type ShiftPlay, type Payslip } from '../sim/shift.ts';
+import { ORDER_SECONDS, SHIFT_ORDERS, makeOrder, menuFor, orderRight, type CounterMenu, type ServedOrder, type ShiftPlay, type Payslip } from '../sim/shift.ts';
 import { NEED_INFO } from '../sim/needs.ts';
 import type { NeedKey } from '../sim/types.ts';
 import { openModal } from './dom.ts';
@@ -24,6 +24,8 @@ export interface ShiftIntro {
   startMinute: number;
   hours: number;
   choices: string[];
+  /** Whose counter (the career id): picks the menu (sim/shift.ts → COUNTER_MENUS). */
+  careerId: string;
 }
 
 const clock = (min: number) => {
@@ -35,14 +37,15 @@ const clock = (min: number) => {
 /** Ask: play the shift, or auto-pilot it for the base wage. Null = not now. */
 export function shiftIntro(info: ShiftIntro): Promise<'play' | 'auto' | null> {
   return new Promise((resolve) => {
+    const menu = menuFor(info.careerId);
     const m = openModal(`
-      <div class="big">🥪</div>
+      <div class="big">${menu.emoji}</div>
       <h2>${esc(info.title)} at ${esc(info.place)}</h2>
       <p>${clock(info.startMinute)} → ${clock(info.startMinute + info.hours * 60)} · ${SHIFT_ORDERS} customers<br>
       <b>${money(info.base)}</b> base wage + tips for fast, correct orders<br>
       <span class="shift-cost">⚡ tiring · 🍔 makes you hungry</span></p>
       <div class="choices">
-        <button class="choice" data-act="play">🧑‍🍳 <span>Clock in<span class="hint">Work the counter yourself: tips up to about ${money(3600)}</span></span></button>
+        <button class="choice" data-act="play">${menu.emoji} <span>Clock in<span class="hint">${esc(menu.clockIn)}: tips up to about ${money(3600)}</span></span></button>
         <button class="choice" data-act="auto">⏩ <span>Auto-pilot<span class="hint">Base wage only, no tips</span></span></button>
         <button class="choice" data-act="no">↩️ <span>Not now</span></button>
       </div>`);
@@ -57,14 +60,16 @@ export function shiftIntro(info: ShiftIntro): Promise<'play' | 'auto' | null> {
 
 /** Play the counter. Resolves with what happened (orders + choices). */
 export function playDeliShift(info: ShiftIntro): Promise<ShiftPlay> {
+  const menu: CounterMenu = menuFor(info.careerId);
+  const INGREDIENTS = menu.ingredients;
   return new Promise((resolve) => {
-    const m = openModal(`<div class="deli">
+    const m = openModal(`<div class="deli deli-${menu.careerId}">
       <div class="deli-top"><span class="deli-clock"></span><span class="deli-count"></span><span class="deli-tips"></span></div>
       <div class="deli-cust"><span class="deli-who"></span><span class="mg-bubble deli-ask"></span></div>
       <div class="deli-wait"><i></i></div>
       <div class="deli-tray" aria-label="Your tray"></div>
       <div class="deli-grid">${INGREDIENTS.map((g) => `<button class="deli-ing" data-ing="${g.id}"><span>${g.emoji}</span>${esc(g.label)}</button>`).join('')}</div>
-      <div class="deli-acts"><button class="btn" data-clear>Clear</button><button class="btn primary" data-serve>Serve ✓</button></div>
+      <div class="deli-acts"><button class="btn" data-clear>Clear</button><button class="btn primary" data-serve>${esc(menu.serve)}</button></div>
       <div class="deli-choice" hidden></div>
     </div>`);
     m.el.classList.add('deli-modal');
@@ -75,7 +80,7 @@ export function playDeliShift(info: ShiftIntro): Promise<ShiftPlay> {
     const served: ServedOrder[] = [];
     const picks: Record<string, string> = {};
     let tray: string[] = [];
-    let order = makeOrder();
+    let order = makeOrder(Math.random, menu);
     let left = ORDER_SECONDS;
     let paused = false;
     let done = false;
@@ -83,7 +88,7 @@ export function playDeliShift(info: ShiftIntro): Promise<ShiftPlay> {
     const minutesPerOrder = (info.hours * 60) / SHIFT_ORDERS;
 
     const drawTray = () => {
-      trayEl.innerHTML = tray.length ? tray.map((id) => `<span>${INGREDIENTS.find((g) => g.id === id)!.emoji}</span>`).join('') : '<em>Tap ingredients to build the order</em>';
+      trayEl.innerHTML = tray.length ? tray.map((id) => `<span>${INGREDIENTS.find((g) => g.id === id)!.emoji}</span>`).join('') : `<em>${esc(menu.trayHint)}</em>`;
     };
     const drawTop = () => {
       clockEl.textContent = `🕘 ${clock(info.startMinute + served.length * minutesPerOrder)}`;
@@ -95,7 +100,7 @@ export function playDeliShift(info: ShiftIntro): Promise<ShiftPlay> {
       // A choice comes up after the 2nd and 4th customers.
       const ci = served.length === 2 ? 0 : served.length === 4 ? 1 : -1;
       if (ci >= 0 && !picks[info.choices[ci]]) return showChoice(info.choices[ci]);
-      order = makeOrder();
+      order = makeOrder(Math.random, menu);
       tray = [];
       left = ORDER_SECONDS;
       whoEl.textContent = order.who;
@@ -106,7 +111,7 @@ export function playDeliShift(info: ShiftIntro): Promise<ShiftPlay> {
       drawTop();
     };
     const showChoice = (id: string) => {
-      const c = SHIFT_CHOICES.find((x) => x.id === id)!;
+      const c = menu.choices.find((x) => x.id === id)!;
       paused = true;
       choiceEl.hidden = false;
       choiceEl.innerHTML = `<div class="big">${c.emoji}</div><p><b>${esc(c.text)}</b></p><div class="choices">${c.options.map((o) => `<button class="choice" data-pick="${o.id}">${esc(o.label)}<span class="hint">${esc(o.hint)}</span></button>`).join('')}</div>`;
@@ -183,7 +188,7 @@ export function showPayslip(slip: Payslip, opts: { title: string }): Promise<voi
         ${row('Base wage (4 h)', slip.base)}
         ${row('Tips', slip.tips)}
         ${slip.overtime ? row('Overtime', slip.overtime) : ''}
-        ${slip.covered ? row('Covered Ms. Rosa', slip.covered) : ''}
+        ${slip.covered ? row('Out of your pocket', slip.covered) : ''}
         <div class="slip-row total"><span>Paid to your cash</span><b>${money(slip.total)}</b></div>
       </div>
       <p class="slip-needs">${needLine}</p>

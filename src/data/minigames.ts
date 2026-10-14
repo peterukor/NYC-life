@@ -96,8 +96,8 @@ MINIGAMES.add(
   orderRush('dispatchRush', 'Dispatch', '🚓', ['cop'], [['🚗', 'traffic stop'], ['🏃', 'foot chase'], ['📢', 'noise complaint'], ['🛍️', 'shoplifter'], ['🚑', 'medical call'], ['🐕', 'loose dog']], 'Dispatch'),
 );
 
-/** Careers whose shift is its own full game (ui/deli-shift.ts), not a mini-game. */
-export const PLAYABLE_SHIFTS = new Set(['deli']);
+/** Careers whose shift is a hands-on counter (ui/deli-shift.ts with the career's menu), not a mini-game. */
+export const PLAYABLE_SHIFTS = new Set(['deli', 'bartender']);
 
 export function minigameFor(careerId: string): MinigameDef | undefined {
   return MINIGAMES.where((m) => m.careers.includes(careerId))[0];

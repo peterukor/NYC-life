@@ -2214,7 +2214,7 @@ export class Game {
     const s = this.state;
     const career = CAREER_BY_ID[s.job!.careerId];
     const t = nycTime();
-    const info = { place: PLACE_BY_ID[career.placeId].name, title: jobTitle(s), base: baseWage(s), startMinute: t.hour * 60 + t.minute, hours: SHIFT_GAME_HOURS, choices: [] as string[] };
+    const info = { place: PLACE_BY_ID[career.placeId].name, title: jobTitle(s), base: baseWage(s), startMinute: t.hour * 60 + t.minute, hours: SHIFT_GAME_HOURS, choices: [] as string[], careerId: career.id };
     const mode = await shiftIntro(info);
     if (!mode) return;
     const st = startDeliShift(s);
@@ -2431,6 +2431,8 @@ export class Game {
   private travelSheet(place: PlaceDef, opts: { work?: boolean } = {}): void {
     if (!isOpenArea(place.area)) return void toast(`${DISTRICTS[place.area].name} isn’t open yet — it’s Manhattan only for now.`, { icon: '🚧' });
     const s = this.state;
+    // 💻 Tech perk: once a day, work from home instead of commuting.
+    const remote = !!opts.work && s.job?.careerId === 'tech' && s.location.placeId === s.home.placeId && s.job.remoteDay !== nycTime().dateKey;
     const same = place.area === s.location.area;
     const ride = this.rideQuote(place.id, false);
     const lux = this.rideQuote(place.id, true);
@@ -2441,7 +2443,7 @@ export class Game {
       emoji: opts.work ? '💼' : place.emoji,
       title: opts.work ? `Go to work: ${place.name}` : place.name,
       sub: `${DISTRICTS[place.area].name} · ${opts.work ? 'your shift starts when you get there' : open ? 'open now' : 'closed now'}`,
-      body: `${opts.work ? '' : `<p class="blurb">${esc(place.blurb)}</p>`}
+      body: `${opts.work ? '' : `<p class="blurb">${esc(place.blurb)}</p>`}${remote ? '<div class="travel"><button class="opt" data-act="remote"><span style="font-size:24px">🏠</span><span class="grow"><b>Work from home today</b><small>💻 Tech perk · once a day · no commute</small></span><span class="cost">Free</span></button></div>' : ''}
         <div class="travel">
           ${same ? `<button class="opt" data-act="walk"><span style="font-size:24px">🚶</span><span class="grow"><b>Walk</b><small>about ${walkMin} min</small></span><span class="cost">Free</span></button>` : ''}
           ${s.garage.cars.length ? `<button class="opt" data-act="drive"><span style="font-size:24px">🚗</span><span class="grow"><b>Drive there</b><small>your own car${licenceSuspended(s) ? ' · ⚠️ licence suspended' : ''}</small></span><span class="cost">${money(GARAGE.tripCost)}</span></button>
@@ -2453,6 +2455,11 @@ export class Game {
     });
     onAct(sheet.body, (act) => {
       sheet.close();
+      if (act === 'remote' && s.job) {
+        s.job.remoteDay = nycTime().dateKey;
+        toast('Working from home today. Camera off.', { icon: '🏠', ms: 2500 });
+        return void this.runShift();
+      }
       this.pendingShift = opts.work ? place.id : null;
       if (act === 'walk') {
         this.walkTrip = { placeId: place.id, metres: Math.hypot(d.x - s.location.x, d.z - s.location.z) };

@@ -78,15 +78,39 @@ export function dayChange(id: string, day = marketDay()): number {
   return p.length < 2 ? 0 : ((p[1] - p[0]) / p[0]) * 100;
 }
 
-export function tradeFee(cents: number): number {
-  return TRADE_FEE.flat + Math.round(cents * TRADE_FEE.rate);
+/**
+ * The fee for a trade. 📈 Finance workers pay less (a job perk): half the
+ * rate to start, less each raise, and no flat fee from Director up.
+ */
+export function tradeFee(cents: number, s?: GameState): number {
+  const fin = s?.job?.careerId === 'finance' ? s.job.level : -1;
+  if (fin < 0) return TRADE_FEE.flat + Math.round(cents * TRADE_FEE.rate);
+  const rate = TRADE_FEE.rate * Math.max(0.1, 0.5 - 0.08 * fin);
+  return (fin >= 3 ? 0 : TRADE_FEE.flat) + Math.round(cents * rate);
+}
+
+/**
+ * 📈 Finance perk: desk chatter about tomorrow. Right about 3 times in 4
+ * (the same tip all day). Null if you don't work in finance.
+ */
+export function deskTip(s: GameState, day = marketDay()): { id: string; up: boolean } | null {
+  if (s.job?.careerId !== 'finance') return null;
+  const ids = STOCKS.all().map((x) => x.id);
+  if (!ids.length) return null;
+  const move = (id: string) => (priceOf(id, day + 1) - priceOf(id, day)) / Math.max(1, priceOf(id, day));
+  const best = ids.reduce((a, b) => (Math.abs(move(b)) > Math.abs(move(a)) ? b : a));
+  // A seeded coin for the day: sometimes the desk is wrong.
+  const r = ((day * 9301 + 49297) % 233280) / 233280;
+  if (r < 0.75) return { id: best, up: move(best) >= 0 };
+  const other = ids[(day * 7) % ids.length];
+  return { id: other, up: move(other) < 0 };
 }
 
 /** Buy about `cents` worth (fractional shares, like modern apps). */
 export function buyStock(s: GameState, id: string, cents: number): string | null {
   const price = priceOf(id);
   if (!price) return 'Unknown stock.';
-  const fee = tradeFee(cents);
+  const fee = tradeFee(cents, s);
   if (s.money < cents + fee) return 'Not enough cash on you (move money from the bank first).';
   const r = changeMoney(s, -(cents + fee), `Bought ${STOCKS.get(id)!.ticker}`);
   if (!r.ok) return r.why;
@@ -101,7 +125,7 @@ export function sellStock(s: GameState, id: string): { got: number } | { error: 
   const h = s.portfolio[id];
   if (!h || h.shares <= 0) return { error: 'You don’t own any.' };
   const value = Math.round(h.shares * priceOf(id));
-  const got = Math.max(0, value - tradeFee(value));
+  const got = Math.max(0, value - tradeFee(value, s));
   const r = changeMoney(s, got, `Sold ${STOCKS.get(id)!.ticker}`);
   if (!r.ok) return { error: r.why };
   delete s.portfolio[id];

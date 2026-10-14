@@ -41,6 +41,11 @@ How to add or change content: **`docs/ADDING-CONTENT.md`**.
 - **Big, lively rooms** (2026-10-13): workplace rooms are 16×12 to 22×16 and zoomable, built for up to 30 people (6 workers + 24 visitors; `sim/workroom.ts` → `ROOM_CAPACITY`, `assignVisitor`, `npcVisitors`). `world/venue-life.ts`: NPC visitors use the room's pieces (dance, eat, drink, train, browse), emoji pops, club lights + disco ball, steam, music notes, a flickering alley lamp. Fewer NPCs on low-tier phones.
 - **What visitors come for:** 🥪 eat (bodega window counter), 💼 invest (Business app) and 📈 trade (Stocks app) at the trading floor's client desks, 🍸🌙 party, 💘 date (booths, VIP, high-tops → Contacts), 📝 report someone (precinct window), 📱 fix or replace a phone (Chelsea Works Fix-It Bar). `game.ts → serviceAction`. QA: `qa-services.mjs`, `qa-lively.mjs`.
 
+## Job perks and the bar counter (2026-10-14)
+- **🍸 Bartending is hands-on** like the bodega: `sim/shift.ts` → `COUNTER_MENUS` (deli + bar). Each menu: ingredients, dishes, a side order, who orders, mid-shift choices with data-driven effects (`ChoiceFx`: needs, perf, risk, money, tipsAfter, moodlet). Late-night bar tips ×1.5. `PLAYABLE_SHIFTS` lists counter jobs. QA: `qa-bar-shift.mjs`.
+- **📈 Finance perks:** cheaper trades (`tradeFee(cents, s)`: half the rate, less each raise, no flat fee from Director), and daily desk chatter in the Stocks app (`deskTip`, right ~3 in 4).
+- **💻 Tech perks:** freelance pays 30%+ more (+5% per raise); work from home once a day from the 💼 Go to work sheet (`job.remoteDay`).
+
 ## Groceries and cooking (2026-10-13)
 - **InstaDash** phone app (`ui/instadash.ts`), not a place: 8 ingredients in packs (`data/groceries.ts`), $2.99 delivery, the bag reaches your fridge about 40 s later (doorman variant in rich homes).
 - **Fridge** (`ui/kitchen.ts`): leftovers (eat one), ingredients, order shortcut, the free snack (always there).

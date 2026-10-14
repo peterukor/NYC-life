@@ -57,3 +57,38 @@ test('good work earns tips; wrong orders don’t; a shift costs energy and hunge
   assert.equal(slip.right, 3);
   assert.ok(s.needs.energy < e && s.needs.hunger < h);
 });
+
+test('the bar is a hands-on counter too: drinks from the bar menu, its own choices', async () => {
+  const { COUNTER_MENUS, menuFor } = await import('../src/sim/shift.ts');
+  const bar = COUNTER_MENUS.bartender;
+  const ids = new Set(bar.ingredients.map((i) => i.id));
+  for (let i = 0; i < 80; i++) {
+    const o = makeOrder(Math.random, bar);
+    assert.ok(o.items.every((x) => ids.has(x)), o.ask);
+    assert.ok(o.ask.startsWith('Can I get'));
+  }
+  assert.equal(menuFor('trainer'), COUNTER_MENUS.deli, 'unknown careers fall back to the deli');
+  const s = newLife({ name: 'T', origin: 'hustler', spawnClass: 'poor', look: { body: 'm', skin: '#000', top: '#000', bottom: '#000', hair: '#000' }, birthYear: 1990, traits: [] });
+  assert.equal(applyForJob(s, 'bartender'), null);
+  initClockFromUrl('?hour=17');
+  const r = startDeliShift(s);
+  assert.ok(r.ok, (r as { why?: string }).why);
+  assert.ok(r.session.choices.every((c) => bar.choices.some((x) => x.id === c)), 'bar choices');
+  const close = { [r.session.choices[0]]: 'stay', close: 'stay' };
+  const slip = finishDeliShift(s, r.session.id, { orders: goodPlay.orders, picks: close }, () => 0.99)!;
+  assert.ok(slip.tips > 0);
+  initClockFromUrl('?hour=11');
+});
+
+test('late-night bar tips are bigger', () => {
+  const tipsAt = (hour: number) => {
+    initClockFromUrl(`?hour=${hour}`);
+    const s = newLife({ name: 'T', origin: 'hustler', spawnClass: 'poor', look: { body: 'm', skin: '#000', top: '#000', bottom: '#000', hair: '#000' }, birthYear: 1990, traits: [] });
+    applyForJob(s, 'bartender');
+    const r = startDeliShift(s);
+    assert.ok(r.ok, (r as { why?: string }).why);
+    return finishDeliShift(s, r.session.id, goodPlay, () => 0.99)!.tips;
+  };
+  assert.ok(tipsAt(23) > tipsAt(17));
+  initClockFromUrl('?hour=11');
+});

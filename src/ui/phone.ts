@@ -30,7 +30,7 @@ import { PHONE_APPS, type PhoneAppCtx } from './phone-apps.ts';
 import { raiseBlocker } from '../sim/raise.ts';
 import './instadash.ts'; // registers the InstaDash app
 import { bankruptcyBlocker, DEBT } from '../sim/debt.ts';
-import { buyStock, dayChange, netWorth, portfolioValue, priceOf, recentPrices, sellStock, TRADE_FEE } from '../sim/market.ts';
+import { buyStock, dayChange, deskTip, netWorth, portfolioValue, priceOf, recentPrices, sellStock, tradeFee, TRADE_FEE } from '../sim/market.ts';
 
 export interface PhoneHost {
   state: GameState;
@@ -180,7 +180,11 @@ export function openPhone(host: PhoneHost, startApp?: string): () => void {
       const pv = portfolioValue(s);
       page('Stocks', `
         <div class="card"><p>Net worth</p><div class="big-number">${money(netWorth(s))}</div><p style="margin-top:6px">Investments ${money(pv)} · Cash ${money(s.money)} · Bank ${money(s.bank)}</p></div>
-        <p class="blurb">Made-up companies, real lessons: index funds are calm, single stocks swing, meme coins can vanish. Prices move once per game day. Fee: ${money(TRADE_FEE.flat)} + ${TRADE_FEE.rate * 100}% per trade.</p>
+        ${(() => {
+          const tip = deskTip(s);
+          return tip ? `<div class="card" style="margin-bottom:10px"><b>💡 Desk chatter</b><p>The floor thinks <b>${esc(STOCKS.get(tip.id)?.name ?? tip.id)}</b> goes ${tip.up ? 'up 📈' : 'down 📉'} tomorrow. Right about 3 times in 4. (📈 Finance perk)</p></div>` : '';
+        })()}
+        <p class="blurb">Made-up companies, real lessons: index funds are calm, single stocks swing, meme coins can vanish. Prices move once per game day. Fee: ${s.job?.careerId === 'finance' ? `${money(tradeFee(10_000, s))} on a $100 trade (📈 Finance discount)` : `${money(TRADE_FEE.flat)} + ${TRADE_FEE.rate * 100}% per trade`}.</p>
         ${STOCKS.all().map((st) => {
           const price = priceOf(st.id);
           const ch = dayChange(st.id);

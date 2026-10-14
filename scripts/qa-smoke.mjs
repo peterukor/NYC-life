@@ -117,15 +117,25 @@ if (hour >= 15 || hour < 4) {
     console.log('no shift:', JSON.stringify(await nyc(() => ({ where: window.__nyc.state().location, mode: window.__nyc.mode(), hour: window.__nyc.hour() }))));
     throw e;
   });
-  if (await page.$('.modal [data-act="skip"]')) {
+  if (await page.$('.modal [data-act="auto"]')) {
+    // A hands-on counter job (the bar): auto-pilot pays the base wage, then the payslip.
+    await shot('05a-clock-in');
+    await click('.modal [data-act="auto"]');
+    await page.waitForSelector('.slip', { timeout: 20000 });
+    await shot('05-shift-choice');
+    await click('.modal [data-act="ok"]');
+    await wait(800);
+  } else if (await page.$('.modal [data-act="skip"]')) {
     await shot('05a-play-or-skip');
     await click('.modal [data-act="skip"]');
     await wait(600);
     await page.waitForSelector('.modal .choice', { timeout: 20000 });
   }
-  await shot('05-shift-choice');
-  await click('.modal .choice');
-  await wait(12500);
+  if (!(await page.$('.slip')) && (await page.$('.modal .choice'))) {
+    await shot('05-shift-choice');
+    await click('.modal .choice');
+    await wait(12500);
+  }
   s = await state();
   check('shift pays', s.money > moneyBefore, `${moneyBefore} → ${s.money}`);
   await shot('06-after-shift');

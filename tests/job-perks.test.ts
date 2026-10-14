@@ -111,3 +111,23 @@ test('rooms hold up to 30 people: 6 workers plus 24 visitors; NPC visitors make 
   assert.equal(rooms.length, 2, 'a full room opens another copy');
   assert.equal(rooms[0].visitors.length, VISITOR_SPOTS);
 });
+
+test('finance perks: cheaper trades (cheaper with each raise) and a desk tip; tech perks: freelance pays more', async () => {
+  const { tradeFee, deskTip } = await import('../src/sim/market.ts');
+  const { ACTIONS } = await import('../src/data/actions.ts');
+  const s = life();
+  const normal = tradeFee(100_000, s);
+  s.job = { careerId: 'finance', level: 0, performance: 50, shiftsAtLevel: 0, shiftsTotal: 0, shiftsToday: 0, dayKey: '' };
+  const analyst = tradeFee(100_000, s);
+  s.job.level = 4;
+  const md = tradeFee(100_000, s);
+  assert.ok(analyst < normal && md < analyst, `${normal} → ${analyst} → ${md}`);
+  assert.ok(deskTip(s));
+  s.job.careerId = 'bartender';
+  assert.equal(deskTip(s), null);
+  const pay = ACTIONS.freelance.pay as (x: typeof s) => number;
+  s.skills.coding = 3;
+  const plain = pay(s);
+  s.job = { careerId: 'tech', level: 0, performance: 50, shiftsAtLevel: 0, shiftsTotal: 0, shiftsToday: 0, dayKey: '' };
+  assert.ok(pay(s) >= Math.round(plain * 1.3) - 25);
+});

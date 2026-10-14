@@ -85,6 +85,8 @@ export interface JobState {
   shiftsTotal: number;
   /** Shifts done today, reset at New York midnight. */
   shiftsToday: number;
+  /** 💻 Tech perk: the NYC day you last worked from home (once a day). */
+  remoteDay?: string;
   dayKey: string;
 }
 

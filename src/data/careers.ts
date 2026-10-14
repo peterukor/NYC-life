@@ -87,7 +87,7 @@ export const CAREERS: CareerDef[] = [
     emoji: '💻',
     placeId: 'dumboWorks',
     skill: 'coding',
-    blurb: 'Startup office in an old Chelsea factory. Ship features, survive standups, unlock freelance gigs.',
+    blurb: 'Startup office in an old Chelsea factory. Ship features, survive standups. Perks: freelance gigs pay 30%+ more, and you can work from home once a day.',
     requires: { skill: 'coding', level: 2 },
     ladder: [
       { title: 'Junior Developer', pay: 20_000 },
@@ -104,7 +104,7 @@ export const CAREERS: CareerDef[] = [
     emoji: '📈',
     placeId: 'midtownTower',
     skill: 'charisma',
-    blurb: 'A trading floor on Sixth Avenue: screens, shouting and a vest. Lower trading fees on your own stocks.',
+    blurb: 'A trading floor on Sixth Avenue: screens, shouting and a vest. Perks: lower fees on your own trades, and desk chatter about tomorrow’s market.',
     requires: { skill: 'charisma', level: 2 },
     ladder: [
       { title: 'Analyst', pay: 22_000 },
