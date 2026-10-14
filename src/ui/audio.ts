@@ -53,6 +53,33 @@ export const sfx = {
     tone(330, 0, 0.14, 'sawtooth', 0.05);
     tone(247, 0.12, 0.2, 'sawtooth', 0.05);
   },
+  /** One musical note (the rhythm game). */
+  note: (freq: number) => tone(freq, 0, 0.16, 'triangle', 0.06),
+  /** A reel or wheel ticking past. */
+  tick: () => tone(1400, 0, 0.025, 'square', 0.025),
+  /** A card sliding onto the felt. */
+  card: () => tone(420, 0, 0.05, 'triangle', 0.04),
+  /** A small win: three notes up. */
+  win: () => {
+    tone(784, 0, 0.1, 'triangle', 0.06);
+    tone(988, 0.09, 0.1, 'triangle', 0.06);
+    tone(1319, 0.18, 0.22, 'triangle', 0.06);
+  },
+  /** The jackpot: a fast run up and a ring. */
+  jackpot: () => {
+    [523, 659, 784, 1047, 1319, 1568, 2093].forEach((f, i) => tone(f, i * 0.07, 0.18, 'square', 0.04));
+    tone(2093, 0.5, 0.8, 'triangle', 0.05);
+  },
+  /** The rocket blowing up. */
+  boom: () => {
+    tone(140, 0, 0.35, 'sawtooth', 0.08);
+    tone(70, 0.05, 0.5, 'square', 0.06);
+  },
+  /** A coin into the machine. */
+  coin: () => {
+    tone(1976, 0, 0.06, 'square', 0.035);
+    tone(2637, 0.05, 0.12, 'square', 0.035);
+  },
   chime: () => {
     // The subway "stand clear of the closing doors" two-note chime.
     tone(784, 0, 0.35, 'sine', 0.07);

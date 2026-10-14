@@ -11,6 +11,7 @@
 import { BOTTLES, BOTTLE_BY_ID, type BottleDef } from '../data/bottles.ts';
 import { addRep, BOTTLE_STREET_REP } from './rep.ts';
 import { changeMoney } from './economy.ts';
+import { addSectionSpend } from './section.ts';
 import { addMoodlet } from './needs.ts';
 import type { GameState } from './types.ts';
 
@@ -41,6 +42,8 @@ export function buyBottle(s: GameState, id: string): { ok: true; bottle: BottleD
   if (rest > 0) s.bank -= rest;
   addMoodlet(s, { id: 'bottle', label: `Popped a ${b.name}`, emoji: b.emoji, value: 4 + b.roomMood, minutes: 120 });
   s.stats.actionsDone['__bottles'] = (s.stats.actionsDone['__bottles'] ?? 0) + 1;
+  // 🛋️ Bottles in your section make room for more friends.
+  addSectionSpend(s, s.location.placeId ?? '', price);
   // 🔥 Street rep: more for bigger bottles.
   const street = BOTTLE_STREET_REP[BOTTLES.indexOf(b)] ?? 0;
   const rankUp = addRep(s, 'street', street);

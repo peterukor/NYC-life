@@ -77,9 +77,11 @@ export class VenueLife {
   private readonly targets: Target[] = [];
   private readonly busy = new Set<string>();
   private readonly extras: THREE.Object3D[] = [];
-  private readonly lights: { light: THREE.PointLight; phase: number; kind: 'club' | 'flicker'; base: THREE.Vector3 }[] = [];
+  private readonly lights: { light: THREE.PointLight; phase: number; kind: 'club' | 'flicker' | 'neon'; base: THREE.Vector3 }[] = [];
+  /** 🦆 Ducks circling the pond: sprite, pond centre, radius, phase, speed. */
+  private readonly ducks: { sprite: THREE.Sprite; c: THREE.Vector3; r: number; a: number; w: number }[] = [];
   private discoBall: THREE.Object3D | null = null;
-  private emitters: { at: THREE.Vector3; kind: 'steam' | 'notes'; every: number; t: number }[] = [];
+  private emitters: { at: THREE.Vector3; kind: 'steam' | 'notes' | 'drops'; every: number; t: number }[] = [];
   private popT = 0;
   private time = 0;
   /** The room is cheering (someone popped a bottle) until this time. */
@@ -259,6 +261,31 @@ export class VenueLife {
       }
     }
     if (fx.includes('steam')) for (const o of pieces(['flatTopGrill', 'coffeeStation', 'espressoBar'])) this.emitters.push({ at: o.mesh.getWorldPosition(new THREE.Vector3()).setY(1.3), kind: 'steam', every: 0.45, t: 0 });
+    if (fx.includes('neon')) {
+      // Arcade / casino: coloured lights that breathe in and out over the floor.
+      const cols = ['#ff4fa3', '#36c5f0', '#ffd23f', '#9b5de5'];
+      for (let i = 0; i < 4; i++) {
+        const base = new THREE.Vector3(((i % 2) - 0.5) * this.layout.width * 0.5, 3.0, (Math.floor(i / 2) - 0.5) * this.layout.depth * 0.45);
+        const light = new THREE.PointLight(cols[i], 5, 11, 1.6);
+        light.position.copy(base);
+        this.home.scene.add(light);
+        this.extras.push(light);
+        this.lights.push({ light, phase: i * 1.7, kind: 'neon', base });
+      }
+    }
+    if (fx.includes('ducks')) {
+      for (const o of pieces(['pond'])) {
+        const c = o.mesh.getWorldPosition(new THREE.Vector3()).setY(0.32);
+        for (let k = 0; k < 4; k++) {
+          const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: emojiTexture(k === 3 ? '🦢' : '🦆'), transparent: true, depthWrite: false }));
+          sprite.scale.set(0.55, 0.55, 0.55);
+          this.home.scene.add(sprite);
+          this.extras.push(sprite);
+          this.ducks.push({ sprite, c, r: 0.6 + k * 0.32, a: k * 1.9, w: (k % 2 ? -1 : 1) * (0.35 + this.rand() * 0.25) });
+        }
+      }
+    }
+    if (fx.includes('splash')) for (const o of pieces(['fountain'])) this.emitters.push({ at: o.mesh.getWorldPosition(new THREE.Vector3()).setY(2.0), kind: 'drops', every: 0.18, t: 0 });
     if (fx.includes('notes')) for (const o of pieces(['jukebox', 'djBooth'])) this.emitters.push({ at: o.mesh.getWorldPosition(new THREE.Vector3()).setY(1.5), kind: 'notes', every: 0.9, t: 0 });
   }
 
@@ -330,6 +357,7 @@ export class VenueLife {
       if (e.t > 0) continue;
       e.t = e.every * (0.7 + this.rand() * 0.6);
       if (e.kind === 'steam') this.float('☁️', e.at.clone().add(new THREE.Vector3((this.rand() - 0.5) * 0.5, 0, (this.rand() - 0.5) * 0.3)), { life: 1.4, vy: 0.6, size: 0.35, grow: 0.5 });
+      else if (e.kind === 'drops') this.float('💧', e.at.clone().add(new THREE.Vector3((this.rand() - 0.5) * 0.3, 0, (this.rand() - 0.5) * 0.3)), { life: 0.9, vy: -1.4, size: 0.22, drift: (this.rand() - 0.5) * 1.6 });
       else this.float(this.rand() < 0.5 ? '🎵' : '🎶', e.at.clone(), { life: 2.0, vy: 0.5, size: 0.4, drift: (this.rand() - 0.5) * 0.6 });
     }
     for (let i = this.floats.length - 1; i >= 0; i--) {
@@ -353,12 +381,19 @@ export class VenueLife {
         const a = this.time * 0.9 + l.phase;
         l.light.position.set(l.base.x + Math.cos(a) * 3.2, l.base.y, l.base.z + Math.sin(a) * 2.2);
         l.light.intensity = 6 * beat;
+      } else if (l.kind === 'neon') {
+        l.light.intensity = 3 + 3 * (0.5 + 0.5 * Math.sin(this.time * 1.4 + l.phase));
       } else {
         const n = Math.sin(this.time * 13 + l.phase) + Math.sin(this.time * 31 + l.phase * 2);
         l.light.intensity = n > 1.6 ? 0.4 : 4;
       }
     }
     if (this.discoBall) this.discoBall.rotation.y += dt * 0.8;
+    // Ducks paddle round the pond, bobbing a little.
+    for (const d of this.ducks) {
+      d.a += d.w * dt;
+      d.sprite.position.set(d.c.x + Math.cos(d.a) * d.r, d.c.y + Math.sin(this.time * 3 + d.r) * 0.03, d.c.z + Math.sin(d.a) * d.r);
+    }
     this.updateRunner(dt);
   }
 
@@ -392,7 +427,7 @@ export class VenueLife {
       if (x instanceof THREE.Mesh) {
         x.geometry.dispose();
         (x.material as THREE.Material).dispose();
-      }
+      } else if (x instanceof THREE.Sprite) x.material.dispose();
     }
     this.visitors.length = 0;
     this.floats.length = 0;

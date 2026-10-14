@@ -104,6 +104,12 @@ import { buildSubwayRide, type TransitScene } from './world/transit.ts';
 import { sfx, setSoundEnabled } from './ui/audio.ts';
 import { closeSheet, fade, html, isSheetOpen, onAct, openModal, openSheet, progressBar, root, toast, wait } from './ui/dom.ts';
 import { Hud } from './ui/hud.ts';
+import { openBlackjack, openRocket, openRoulette, openSlots, casinoNetLine, rain, type CasinoHost } from './ui/casino.ts';
+import { openPrizeCounter, playArcade } from './ui/arcade.ts';
+import { openSportsbook, settleAndTell } from './ui/sportsbook.ts';
+import { openWorkout } from './ui/workout.ts';
+import { activeSection, buySection, endSectionIfOver, extendSection, friendSlots, inviteFriend, inviteList, nextSeatIn, SECTION } from './sim/section.ts';
+import { SectionCrew } from './world/section-crew.ts';
 import { openMap } from './ui/map.ts';
 import { clearPendingClass, runOnboarding } from './ui/onboarding.ts';
 import { openPhone } from './ui/phone.ts';
@@ -133,6 +139,10 @@ export class Game {
   private coworkers: Coworkers | null = null;
   private venueLife: VenueLife | null = null;
   private party: CelebrationFx | null = null;
+  /** 🛋️ Friends in your club section (world/section-crew.ts). */
+  private sectionCrew: SectionCrew | null = null;
+  private sectionChip: HTMLElement | null = null;
+  private funTimer = 0;
   /** Your worker spot in the room, when you're at your own job. */
   private myWorkSpot: { x: number; z: number; rot: number } | null = null;
   /** The people you live with (the walk-up), while you're home. */
@@ -376,6 +386,9 @@ export class Game {
       resetCam: () => this.fitInteriorCamera(),
       phoneApp: (id: string) => this.openPhoneApp(id),
       admirers: () => this.party?.admirers.map((x) => x.name) ?? [],
+      section: () => this.state.section ?? null,
+      sectionCrew: () => this.sectionCrew?.count ?? -1,
+      service: (id: string) => this.serviceAction(id),
       talkToAdmirer: (name: string) => this.talkToAdmirer(name),
       tradeWin: (mult: number) => this.celebrateTrade(mult),
       coworkers: () => this.coworkers?.list.map((c) => c.name) ?? [],
@@ -664,6 +677,12 @@ export class Game {
       if (this.saveTimer > 15) {
         this.saveTimer = 0;
         this.save();
+      }
+      // Entertainment: section timer, finished bets (once a second).
+      this.funTimer += dt;
+      if (this.funTimer >= 1) {
+        this.funTimer = 0;
+        this.funTick();
       }
       this.directorTimer += dt;
       if (this.directorTimer >= DIRECTOR_TICK_SECONDS) {
@@ -1134,6 +1153,40 @@ export class Game {
       case 'bottleService':
         this.openBottleMenu();
         return true;
+      case 'getSection':
+        this.openSectionSheet();
+        return true;
+      case 'playSlots':
+        openSlots(this.funHost());
+        return true;
+      case 'playBlackjack':
+        openBlackjack(this.funHost());
+        return true;
+      case 'playRoulette':
+        openRoulette(this.funHost());
+        return true;
+      case 'playRocket':
+        openRocket(this.funHost());
+        return true;
+      case 'casinoCashier':
+        toast(`${casinoNetLine(s)} at the casino. Cash only at the tables; the house always has an edge.`, { icon: '💵', ms: 4500 });
+        return true;
+      case 'playSnake':
+      case 'playHoops':
+      case 'playPigeons':
+      case 'playBeats':
+      case 'playClaw':
+        playArcade(this.funHost(), id.slice(4).toLowerCase());
+        return true;
+      case 'prizeCounter':
+        openPrizeCounter(this.funHost());
+        return true;
+      case 'sportsbook':
+        openSportsbook(this.funHost());
+        return true;
+      case 'trainHard':
+        openWorkout(s, 'Train hard', () => this.funHost().saved());
+        return true;
       case 'dateHere':
         this.openPhoneApp('contacts');
         toast('Pick someone from your contacts and plan a date.', { icon: '💘', ms: 3000 });
@@ -1162,6 +1215,119 @@ export class Game {
       }
     }
     return false;
+  }
+
+  /** What the casino, arcade and sportsbook screens need. */
+  private funHost(): CasinoHost {
+    return {
+      state: this.state,
+      saved: () => {
+        this.save();
+        this.refreshHud(true);
+      },
+    };
+  }
+
+  /** Once a second: the section timer and finished bets. */
+  private funTick(): void {
+    const s = this.state;
+    if (s.section && endSectionIfOver(s)) {
+      this.sectionCrew?.set(0);
+      toast('Your section’s time is up. The crew heads out. 🥂', { icon: '🛋️', ms: 4000 });
+      this.save();
+    }
+    this.drawSectionChip();
+    if (s.fun?.bets.some((b) => !b.settled)) settleAndTell(this.funHost());
+  }
+
+  /** The little timer chip while your section is on. */
+  private drawSectionChip(): void {
+    const sec = this.state.section;
+    if (!sec || nowMs() >= sec.until) {
+      this.sectionChip?.remove();
+      this.sectionChip = null;
+      return;
+    }
+    if (!this.sectionChip) {
+      this.sectionChip = html('<button class="section-chip" aria-label="Your VIP section"></button>');
+      this.sectionChip.addEventListener('click', () => {
+        if (this.state.location.placeId === this.state.section?.placeId && this.engine.mode === 'interior') this.openSectionSheet();
+        else toast(`Your section at ${PLACE_BY_ID[this.state.section!.placeId]?.name ?? 'the club'} is waiting.`, { icon: '🛋️' });
+      });
+      root().appendChild(this.sectionChip);
+    }
+    const left = Math.max(0, sec.until - nowMs());
+    const mm = Math.floor(left / 60_000), ss = Math.floor((left % 60_000) / 1000);
+    this.sectionChip.textContent = `🛋️ ${mm}:${String(ss).padStart(2, '0')} · 👥 ${sec.friends.length}/${friendSlots(sec.spent)}`;
+    this.sectionChip.classList.toggle('low', left < 60_000);
+  }
+
+  /**
+   * 🛋️ Your section (sim/section.ts): $1,000 for 10 minutes, invite
+   * friends (2 to start, up to 12 the more you spend), order bottles,
+   * buy more time.
+   */
+  private openSectionSheet(): void {
+    const s = this.state;
+    const placeId = s.location.placeId ?? '';
+    const place = PLACE_BY_ID[placeId];
+    const render = (): string => {
+      const sec = activeSection(s, placeId);
+      if (!sec) {
+        return `<p class="blurb">Your own corner of the club: a sofa, a table, a RESERVED sign. ${money(SECTION.price)} for ${SECTION.minutes} minutes. Bring <b>2 friends</b> to start; every ${money(SECTION.perFriend)} you spend here (bottles, more time) makes room for one more, up to <b>12 friends</b> at ${money(10 * SECTION.price)}.</p>
+          <button class="btn primary block" data-act="buy">🛋️ Get a section · ${money(SECTION.price)}</button>
+          ${s.section && s.section.placeId !== placeId && nowMs() < s.section.until ? `<p class="sub">You already have a section at ${esc(PLACE_BY_ID[s.section.placeId]?.name ?? 'another club')}.</p>` : ''}`;
+      }
+      const slots = friendSlots(sec.spent);
+      const more = nextSeatIn(sec.spent);
+      const left = Math.max(0, sec.until - nowMs());
+      const people = inviteList(s).slice(0, 14);
+      return `<div class="sec-top"><span>⏱️ ${Math.floor(left / 60_000)}:${String(Math.floor((left % 60_000) / 1000)).padStart(2, '0')} left</span><span>💸 ${money(sec.spent)} spent</span><span>👥 ${sec.friends.length}/${slots}</span></div>
+        <div class="sec-seats">${Array.from({ length: SECTION.maxFriends }, (_, i) => `<i class="${i < sec.friends.length ? 'full' : i < slots ? 'open' : ''}"></i>`).join('')}</div>
+        <p class="sub">${more ? `Spend ${money(more)} more (bottles or time) for another seat.` : 'Full house: 12 friends, the max.'}</p>
+        <div class="row" style="gap:8px;margin:8px 0"><button class="btn primary" data-act="bottles">🍾 Order bottles</button><button class="btn" data-act="extend">⏱️ +${SECTION.extend.minutes} min · ${money(SECTION.extend.price)}</button></div>
+        <h3 style="margin:12px 0 6px;font-size:15px">Invite</h3>
+        <div class="travel">${people.map((p) => `<button class="opt" data-act="invite:${p.id}" ${sec.friends.length >= slots ? 'disabled aria-disabled="true"' : ''}><span style="font-size:22px">${p.contact ? '📱' : '🕺'}</span><span class="grow"><b>${esc(p.name)}</b><small>${p.contact ? (p.busy ? 'Busy tonight' : 'In your contacts') : 'Friend of a friend'}</small></span><span class="cost">Invite</span></button>`).join('')}</div>`;
+    };
+    const sheet = openSheet({ emoji: '🛋️', title: 'VIP section', sub: esc(place?.name ?? ''), body: render() });
+    const timer = window.setInterval(() => {
+      if (!sheet.body.isConnected) return window.clearInterval(timer);
+      const top = sheet.body.querySelector('.sec-top span');
+      const sec = activeSection(s, placeId);
+      if (top && sec) {
+        const left = Math.max(0, sec.until - nowMs());
+        top.textContent = `⏱️ ${Math.floor(left / 60_000)}:${String(Math.floor((left % 60_000) / 1000)).padStart(2, '0')} left`;
+      }
+    }, 1000);
+    onAct(sheet.body, (act) => {
+      if (act === 'buy') {
+        const r = buySection(s, placeId);
+        if (!r.ok) return toast(r.why, { icon: '🛋️', tone: 'bad' });
+        sfx.cash();
+        this.venueLife?.cheer(4);
+        rain(sheet.body, '🥂', 14);
+        toast('The section’s yours for 10 minutes. Invite your people.', { icon: '🛋️', tone: 'good', ms: 3500 });
+      } else if (act === 'extend') {
+        const why = extendSection(s, placeId);
+        if (why) return toast(why, { icon: '⏱️', tone: 'bad' });
+        sfx.cash();
+        toast(`+${SECTION.extend.minutes} minutes. The night’s still young.`, { icon: '⏱️', tone: 'good' });
+      } else if (act === 'bottles') {
+        sheet.close();
+        return this.openBottleMenu();
+      } else if (act.startsWith('invite:')) {
+        const id = act.slice(7);
+        const why = inviteFriend(s, placeId, id);
+        if (why) return toast(why, { icon: '🛋️', tone: 'bad' });
+        sfx.notify();
+        this.sectionCrew?.set(s.section?.friends.length ?? 0);
+        toast('They’re on the way! 🕺', { icon: '📱', tone: 'good' });
+      }
+      this.save();
+      this.refreshHud(true);
+      this.drawSectionChip();
+      sheet.body.innerHTML = render();
+    });
   }
 
   /** 🍾 The bottle menu: seven bottles, $700 to $100,000. The bigger the bottle, the bigger the show. */
@@ -1568,9 +1734,16 @@ export class Game {
           // Bottle service and big trades: fireworks, a spotlight, admirers.
           const party = new CelebrationFx(shop, this.player.root);
           this.party = party;
+          // 🛋️ A club with a section: your friends gather round it.
+          const sofa = venue.furniture.find((f) => f.item === 'sectionSofa') ?? venue.furniture.find((f) => f.item === 'vipBooth');
+          const squad = sofa ? new SectionCrew(shop, sofa, { halfW: venue.width / 2, halfD: venue.depth / 2 }) : null;
+          this.sectionCrew = squad;
+          squad?.set(activeSection(this.state, place.id)?.friends.length ?? 0);
           const update = shop.update, dispose = shop.dispose;
-          shop.update = (dt) => (update(dt), crew.update(dt), life?.update(dt), party.update(dt));
+          shop.update = (dt) => (update(dt), crew.update(dt), life?.update(dt), party.update(dt), squad?.update(dt));
           shop.dispose = () => {
+            squad?.dispose();
+            if (this.sectionCrew === squad) this.sectionCrew = null;
             crew.dispose();
             life?.dispose();
             party.dispose();

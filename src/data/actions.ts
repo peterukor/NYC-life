@@ -89,6 +89,30 @@ const LIST: ActionDef[] = [
   { id: 'reportCrime', label: 'Report someone', emoji: '📝', seconds: 6, tags: ['service'] },
   { id: 'bottleService', label: 'Bottle service', emoji: '🍾', seconds: 2, tags: ['service'] },
   { id: 'dateHere', label: 'Invite someone on a date here', emoji: '💘', seconds: 2, tags: ['service'] },
+  // Entertainment (Peter, 2026-10-14): each opens its own game or screen.
+  { id: 'getSection', label: 'Your VIP section', emoji: '🛋️', seconds: 2, tags: ['service'] },
+  { id: 'playSlots', label: 'Play the slots', emoji: '🎰', seconds: 2, tags: ['service'] },
+  { id: 'playBlackjack', label: 'Play blackjack', emoji: '🃏', seconds: 2, tags: ['service'] },
+  { id: 'playRoulette', label: 'Play roulette', emoji: '🎡', seconds: 2, tags: ['service'] },
+  { id: 'playRocket', label: 'Ride the Rocket', emoji: '🚀', seconds: 2, tags: ['service'] },
+  { id: 'casinoCashier', label: 'Cashier: how am I doing?', emoji: '💵', seconds: 2, tags: ['service'] },
+  { id: 'playSnake', label: 'Play Subway Snake', emoji: '🐍', seconds: 2, tags: ['service'] },
+  { id: 'playHoops', label: 'Play Hoop Shot', emoji: '🏀', seconds: 2, tags: ['service'] },
+  { id: 'playPigeons', label: 'Play Pigeon Pop', emoji: '🐦', seconds: 2, tags: ['service'] },
+  { id: 'playBeats', label: 'Play Beat Street', emoji: '🎵', seconds: 2, tags: ['service'] },
+  { id: 'playClaw', label: 'Try the claw machine', emoji: '🧸', seconds: 2, tags: ['service'] },
+  { id: 'prizeCounter', label: 'Prize counter', emoji: '🎟️', seconds: 2, tags: ['service'] },
+  { id: 'sportsbook', label: 'Bet on a game', emoji: '🏟️', seconds: 2, tags: ['service'] },
+  { id: 'trainHard', label: 'Train hard (mini-game)', emoji: '💪', seconds: 2, tags: ['service'] },
+
+  // ---------- Park and arcade (2026-10-14) ----------
+  { id: 'chillBench', label: 'Chill on a bench', emoji: '🪑', seconds: 10, needs: { energy: 8, fun: 12 }, moodlet: { id: 'chill', label: 'Took it easy', emoji: '😌', value: 5, minutes: 90 }, tags: ['relax'] },
+  { id: 'lieOnGrass', label: 'Lie on the grass', emoji: '🌤️', seconds: 12, needs: { energy: 12, fun: 8, hygiene: -3 }, tags: ['relax'] },
+  { id: 'feedDucks', label: 'Feed the ducks', emoji: '🦆', seconds: 8, cost: 100, needs: { fun: 15, social: 4 }, moodlet: { id: 'ducks', label: 'The ducks love you', emoji: '🦆', value: 4, minutes: 90 }, tags: ['fun'] },
+  { id: 'iceCream', label: 'Ice cream cone', emoji: '🍦', seconds: 6, cost: 450, needs: { hunger: 12, fun: 10 }, tags: ['eat'] },
+  { id: 'frisbee', label: 'Toss a frisbee', emoji: '🥏', seconds: 10, needs: { fun: 18, social: 8, energy: -6 }, skill: { key: 'fitness', gain: 0.3 }, tags: ['fun', 'fitness'] },
+  { id: 'fountainWish', label: 'Toss a coin and make a wish', emoji: '🪙', seconds: 4, cost: 25, moodlet: { id: 'wish', label: 'Made a wish', emoji: '🌠', value: 3, minutes: 120 }, tags: ['fun'] },
+  { id: 'airHockey', label: 'Air hockey with a stranger', emoji: '🏒', seconds: 8, cost: 200, needs: { fun: 16, social: 6 }, tags: ['fun'] },
 
   // ---------- Bodega ----------
   { id: 'baconEggCheese', label: 'Bacon, egg & cheese', emoji: '🥯', seconds: 6, cost: 650, needs: { hunger: 45, fun: 6 }, tags: ['eat'] },

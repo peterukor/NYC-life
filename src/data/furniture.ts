@@ -219,9 +219,9 @@ FURNITURE.add(
   // 🏋️ gym
   { id: 'gymDesk', name: 'Front desk', emoji: '🏋️', price: 0, parts: [{ model: 'toyGymDesk' }], actions: [], placeActions: true, fixed: true },
   { id: 'treadmill', name: 'Treadmill', emoji: '🏃', price: 0, parts: [{ model: 'toyTreadmill' }], actions: ['treadmill'], fixed: true },
-  { id: 'benchPress', name: 'Bench press', emoji: '🏋️', price: 0, parts: [{ model: 'toyBenchPress' }], actions: ['benchPress'], fixed: true },
-  { id: 'dumbbellRack', name: 'Dumbbells', emoji: '💪', price: 0, parts: [{ model: 'toyDumbbellRack' }], actions: ['workout'], fixed: true },
-  { id: 'punchingBag', name: 'Heavy bag', emoji: '🥊', price: 0, parts: [{ model: 'toyPunchingBag' }], actions: ['punchBag'], fixed: true },
+  { id: 'benchPress', name: 'Bench press', emoji: '🏋️', price: 0, parts: [{ model: 'toyBenchPress' }], actions: ['trainHard', 'benchPress'], fixed: true },
+  { id: 'dumbbellRack', name: 'Dumbbells', emoji: '💪', price: 0, parts: [{ model: 'toyDumbbellRack' }], actions: ['trainHard', 'workout'], fixed: true },
+  { id: 'punchingBag', name: 'Heavy bag', emoji: '🥊', price: 0, parts: [{ model: 'toyPunchingBag' }], actions: ['trainHard', 'punchBag'], fixed: true },
   { id: 'yogaMats', name: 'Stretch area', emoji: '🧘', price: 0, parts: [{ model: 'toyYogaMats' }], actions: ['yoga'], fixed: true },
   // 💻 startup
   { id: 'standingDesk', name: 'Your desk', emoji: '💻', price: 0, parts: [{ model: 'toyStandingDesk' }], actions: ['codePractice'], placeActions: true, fixed: true },
@@ -239,7 +239,7 @@ FURNITURE.add(
   { id: 'stage', name: 'The stage', emoji: '🌙', price: 0, parts: [{ model: 'toyStage' }], actions: [], placeActions: true, fixed: true },
   { id: 'djBooth', name: 'DJ booth', emoji: '🎧', price: 0, parts: [{ model: 'toyDjBooth' }], actions: ['djRequest'], fixed: true },
   { id: 'danceFloor', name: 'Dance floor', emoji: '🪩', price: 0, parts: [{ model: 'toyDanceFloor' }], actions: ['dancefloor'], fixed: true },
-  { id: 'vipBooth', name: 'VIP booth', emoji: '🍾', price: 0, parts: [{ model: 'toyVipBooth' }], actions: ['bottleService', 'dateHere'], fixed: true },
+  { id: 'vipBooth', name: 'VIP booth', emoji: '🍾', price: 0, parts: [{ model: 'toyVipBooth' }], actions: ['getSection', 'bottleService', 'dateHere'], fixed: true },
   // 💊 alley
   { id: 'stashCrates', name: 'Your crates', emoji: '📦', price: 0, parts: [{ model: 'toyStashCrates' }], actions: [], placeActions: true, fixed: true },
   { id: 'dumpster', name: 'Dumpster', emoji: '🗑️', price: 0, parts: [{ model: 'toyDumpster' }], actions: [], fixed: true },
@@ -262,6 +262,33 @@ FURNITURE.add(
   { id: 'highTop', name: 'High-top table', emoji: '🍸', price: 0, parts: [{ model: 'toyHighTop' }], actions: ['happyHour', 'dateHere'], fixed: true },
   { id: 'waitingBench', name: 'Waiting bench', emoji: '🪑', price: 0, parts: [{ model: 'toyWaitingBench' }], actions: [], fixed: true },
   { id: 'velvetRope', name: 'Velvet rope', emoji: '🎟️', price: 0, parts: [{ model: 'toyVelvetRope' }], actions: [], fixed: true },
+  // Entertainment (2026-10-14): world/furniture-fun.ts.
+  // 🕹️ arcade
+  { id: 'cabSnake', name: 'Subway Snake', emoji: '🐍', price: 0, parts: [{ model: 'toyCabSnake' }], actions: ['playSnake'], fixed: true },
+  { id: 'cabHoops', name: 'Hoop Shot', emoji: '🏀', price: 0, parts: [{ model: 'toyCabHoops' }], actions: ['playHoops'], fixed: true },
+  { id: 'cabPigeons', name: 'Pigeon Pop', emoji: '🐦', price: 0, parts: [{ model: 'toyCabPigeons' }], actions: ['playPigeons'], fixed: true },
+  { id: 'cabBeats', name: 'Beat Street', emoji: '🎵', price: 0, parts: [{ model: 'toyCabBeats' }], actions: ['playBeats'], fixed: true },
+  { id: 'clawMachine', name: 'Claw machine', emoji: '🧸', price: 0, parts: [{ model: 'toyClawMachine' }], actions: ['playClaw'], fixed: true },
+  { id: 'prizeCounter', name: 'Prize counter', emoji: '🎟️', price: 0, parts: [{ model: 'toyPrizeCounter' }], actions: ['prizeCounter'], fixed: true },
+  { id: 'airHockeyTable', name: 'Air hockey', emoji: '🏒', price: 0, parts: [{ model: 'toyAirHockey' }], actions: ['airHockey'], fixed: true },
+  // 🎰 casino
+  { id: 'slotMachine', name: 'Slot machine', emoji: '🎰', price: 0, parts: [{ model: 'toySlotMachine' }], actions: ['playSlots'], fixed: true },
+  { id: 'blackjackTable', name: 'Blackjack table', emoji: '🃏', price: 0, parts: [{ model: 'toyBlackjackTable' }], actions: ['playBlackjack'], fixed: true },
+  { id: 'rouletteTable', name: 'Roulette', emoji: '🎡', price: 0, parts: [{ model: 'toyRouletteTable' }], actions: ['playRoulette'], fixed: true },
+  { id: 'rocketScreen', name: 'Rocket', emoji: '🚀', price: 0, parts: [{ model: 'toyRocketScreen' }], actions: ['playRocket'], fixed: true },
+  { id: 'cashierCage', name: 'Cashier', emoji: '💵', price: 0, parts: [{ model: 'toyCashierCage' }], actions: ['casinoCashier'], fixed: true },
+  { id: 'chandelier', name: 'Chandelier', emoji: '💎', price: 0, parts: [{ model: 'toyChandelier' }], actions: [], flat: true, fixed: true },
+  // 🌳 park
+  { id: 'parkBench', name: 'Park bench', emoji: '🪑', price: 0, parts: [{ model: 'toyParkBench' }], actions: ['chillBench', 'peopleWatch', 'dateHere'], fixed: true },
+  { id: 'pond', name: 'Duck pond', emoji: '🦆', price: 0, parts: [{ model: 'toyPond' }], actions: ['feedDucks'], fixed: true },
+  { id: 'parkTree', name: 'Tree', emoji: '🌳', price: 0, parts: [{ model: 'toyParkTree' }], actions: [], fixed: true },
+  { id: 'parkLamp', name: 'Lamp post', emoji: '💡', price: 0, parts: [{ model: 'toyParkLamp' }], actions: [], fixed: true },
+  { id: 'iceCreamCart', name: 'Ice cream cart', emoji: '🍦', price: 0, parts: [{ model: 'toyIceCreamCart' }], actions: ['iceCream', 'halalCart'], fixed: true },
+  { id: 'lawn', name: 'The lawn', emoji: '🌤️', price: 0, parts: [{ model: 'toyLawn' }], actions: ['lieOnGrass', 'picnic', 'frisbee'], flat: true, fixed: true },
+  { id: 'chessTable', name: 'Chess table', emoji: '♟️', price: 0, parts: [{ model: 'toyChessTable' }], actions: ['chess'], fixed: true },
+  { id: 'fountain', name: 'Fountain', emoji: '⛲', price: 0, parts: [{ model: 'toyFountain' }], actions: ['fountainWish', 'photoSelfie'], fixed: true },
+  // 🛋️ club section
+  { id: 'sectionSofa', name: 'VIP section', emoji: '🛋️', price: 0, parts: [{ model: 'toySectionSofa' }], actions: ['getSection', 'bottleService'], fixed: true },
   { id: 'wardrobeWall', name: 'Walk-in wardrobe', emoji: '👔', price: 900_000, parts: [{ model: 'toyWardrobeWall' }], actions: [], opens: 'closet', quality: 'luxury' },
   { id: 'executiveDesk', name: 'Executive desk', emoji: '💻', price: 700_000, parts: [{ model: 'toyExecutiveDesk' }], actions: ['codePractice', 'freelance', 'sellOnline', 'postContent', 'doomscroll'], use: 'sitAt', quality: 'luxury' },
   { id: 'fiddleFig', name: 'Fiddle-leaf fig', emoji: '🪴', price: 40_000, parts: [{ model: 'toyFiddleFig' }], actions: [], kind: 'plant', quality: 'luxury' },

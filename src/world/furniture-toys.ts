@@ -20,6 +20,7 @@
 import * as THREE from 'three';
 import { Toy } from './landmarks/toy.ts';
 import { WORK_ON_WALL, WORK_TOYS } from './furniture-work.ts';
+import { FUN_ON_WALL, FUN_TOYS } from './furniture-fun.ts';
 
 // ---- a cosy, slightly worn palette
 const WOOD = '#a8743f';
@@ -507,10 +508,10 @@ const LUX: Record<string, (t: Toy) => void> = {
     }
   },
 };
-Object.assign(TOYS, LUX, WORK_TOYS);
+Object.assign(TOYS, LUX, WORK_TOYS, FUN_TOYS);
 
 /** Pieces that hang on a wall: centred on their footprint but kept at their height. */
-const ON_WALL = new Set(['toyPosters', 'toyWindowAC', 'toyArtwork', ...WORK_ON_WALL]);
+const ON_WALL = new Set(['toyPosters', 'toyWindowAC', 'toyArtwork', ...WORK_ON_WALL, ...FUN_ON_WALL]);
 
 let cache: Map<string, THREE.BufferGeometry> | null = null;
 

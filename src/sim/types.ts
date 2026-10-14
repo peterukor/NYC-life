@@ -110,6 +110,16 @@ export interface GameState {
   profile: { name: string; origin: Origin; traits: string[]; look: Look; birthYear: number; /** poor | middle | rich | billionaire (see sim/state.ts → CLASSES). */ spawnClass?: 'poor' | 'middle' | 'rich' | 'billionaire' };
   /** Clothing ids you own (data/wardrobe.ts). */
   wardrobe: string[];
+  /** 🛋️ Your VIP section at a club (sim/section.ts). */
+  section?: import('./section.ts').Section | null;
+  /** 🎰 Casino, 🕹️ arcade and 🏟️ sportsbook (sim/casino.ts, sim/arcade.ts, sim/sports.ts). */
+  fun?: {
+    tickets: number;
+    best: Record<string, number>;
+    bets: import('./sports.ts').Bet[];
+    /** Net casino result (cents): + you're up, − you're down. */
+    casinoNet: number;
+  };
   /** 🔥 Street rep and 💼 corporate rep (sim/rep.ts). Old saves: missing. */
   rep?: { street: number; corporate: number };
   /** 💊 Pharmacist heat with the police, and when it was last set (sim/job-perks.ts). */

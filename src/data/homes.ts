@@ -74,7 +74,7 @@ export interface HomeLayout {
   life?: {
     visitors: number;
     pops: string[];
-    fx: ('club' | 'steam' | 'notes' | 'flicker')[];
+    fx: ('club' | 'steam' | 'notes' | 'flicker' | 'neon' | 'ducks' | 'splash')[];
     /** A waiter who carries drinks from `from` (a piece uid) to the `to` tables (world/venue-life.ts). */
     runner?: { from: string; to: string[]; carry: string[] };
   };

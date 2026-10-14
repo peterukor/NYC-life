@@ -152,3 +152,11 @@ Each job has a temptation or downside. These are opt-in choices with consequence
 - Roads are two lanes (one each way) with parking lanes: done 2026-10-11.
 - More cars on the road: car count raised; the full car overhaul (models, rarity,
   per-model speed) comes with the plug-in vehicle system.
+
+## Entertainment (Peter, 2026-10-14)
+- **Club sections:** $1,000 for 10 real minutes; 2 friends to start, one more per $900 spent in the section (bottles, more time), up to 12 at $10,000. Bottles still bring admirers. Players will take friend seats when multiplayer is on.
+- **Arcade:** five games (Subway Snake, Hoop Shot, Pigeon Pop, Beat Street, Claw Machine), $2 a play, tickets for a prize counter.
+- **Casino:** slots, blackjack, roulette and Rocket (a crash game), cash only, $5–$5,000 a bet, with a real house edge.
+- **Stadium:** win/lose bets on games with in-game money; simulated games now, real games later through the sports feed.
+- **Park and gym:** Central Park is a walkable place to chill; the gym has a "Train hard" mini-game.
+- **Gambling rule (important for the app stores):** in-game money only. Game money must never be bought with real money or cashed out for anything of real value, or the casino and sportsbook become real-money gambling (licences, age checks, many countries banned). Even as simulated gambling, the stores rate the game 17+ / 18+ (Apple "Frequent/Intense Simulated Gambling"; Google Play "Simulated gambling"). Check with a lawyer before adding any paid currency.

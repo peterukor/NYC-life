@@ -20,7 +20,7 @@ import type { AreaId } from '../sim/types.ts';
 import { DISTRICTS, blockRect, SIDEWALK } from '../world/layout.ts';
 import { project } from '../world/geo-proj.ts';
 
-export type InteriorKind = 'apartment' | 'bodega' | 'pizza' | 'cafe' | 'bar' | 'club' | 'office' | 'gym' | 'comedy' | 'furniture' | 'alley' | 'precinct' | 'none';
+export type InteriorKind = 'apartment' | 'bodega' | 'pizza' | 'cafe' | 'bar' | 'club' | 'office' | 'gym' | 'comedy' | 'furniture' | 'alley' | 'precinct' | 'arcade' | 'casino' | 'park' | 'none';
 
 export type PlaceType = 'home' | 'food' | 'cafe' | 'nightlife' | 'work' | 'fitness' | 'park' | 'plaza' | 'landmark' | 'station' | 'shop';
 
@@ -157,7 +157,8 @@ const RAW: RawPlace[] = [
   {
     id: 'centralPark', area: 'manhattan', name: 'Central Park', emoji: '🌳', type: 'park',
     blurb: 'Lawns, a lake with rowboats, buskers and the whole city taking a breath.',
-    at: [40.7712, -73.9742], hours: [6, 1], interior: 'none', color: '#2e8b57',
+    // A walkable park inside (data/venues.ts → park): benches, the lawn, a duck pond, the fountain.
+    at: [40.7712, -73.9742], hours: [6, 1], interior: 'park', color: '#2e8b57',
     actions: ['picnic', 'jog', 'rowboat', 'peopleWatch', 'busk', 'halalCart', 'publicRestroom'],
     landmark: { description: 'The 843-acre park in the middle of Manhattan, designed by Olmsted and Vaux.', officialSite: 'https://www.centralparknyc.org/', siteLabel: 'centralparknyc.org' },
   },
@@ -219,6 +220,20 @@ const RAW: RawPlace[] = [
     at: [40.7795, -73.9845], hours: [11, 23], interior: 'none', color: '#ff3d7f',
     actions: ['ferrisWheel', 'rollerCoaster', 'carnivalGames', 'funnelCake', 'photoSelfie'],
   },
+  {
+    // Entertainment (Peter, 2026-10-14): five cabinets and a prize counter (ui/arcade.ts).
+    id: 'pixelPalace', area: 'manhattan', name: 'Pixel Palace Arcade', emoji: '🕹️', type: 'nightlife',
+    blurb: 'Five cabinets, a claw machine that’s definitely rigged, and a prize wall of plush pigeons.',
+    at: [40.7593, -73.9873], hours: [10, 2], interior: 'arcade', color: '#ff4fa3',
+    actions: ['playSnake', 'playHoops', 'playPigeons', 'playBeats', 'playClaw', 'prizeCounter'],
+  },
+  {
+    // In-game money only (sim/casino.ts). Slots, blackjack, roulette and the Rocket.
+    id: 'empireCasino', area: 'manhattan', name: 'Empire Casino', emoji: '🎰', type: 'nightlife',
+    blurb: 'Chandeliers, carpet that hides everything, and a Rocket game that only goes up. Until it doesn’t.',
+    at: [40.7565, -73.9975], interior: 'casino', color: '#c1272d',
+    actions: ['playSlots', 'playBlackjack', 'playRoulette', 'playRocket', 'casinoCashier'],
+  },
 
   // ======================= QUEENS =======================
   {
@@ -263,7 +278,7 @@ const RAW: RawPlace[] = [
     id: 'yankeeStadium', area: 'bronx', name: 'Yankee Stadium', emoji: '⚾', type: 'landmark',
     blurb: 'The House That Ruth Built, rebuilt across the street. Bleacher creatures welcome.',
     at: [40.8296, -73.9262], interior: 'none', color: '#1c2b5a',
-    actions: ['photoSelfie', 'peopleWatch'],
+    actions: ['sportsbook', 'catchGame', 'photoSelfie', 'peopleWatch'],
     landmark: { description: 'Home of the New York Yankees since 2009, on East 161st Street in the Bronx.', officialSite: 'https://www.mlb.com/yankees/ballpark', siteLabel: 'mlb.com/yankees' },
   },
   {
@@ -310,7 +325,7 @@ const RAW: RawPlace[] = [
     id: 'velvetRoom', area: 'manhattan', name: 'The Velvet Room', emoji: '🌙', type: 'nightlife',
     blurb: 'Purple lights, a mirrored stage, a DJ who only plays bangers. Doors at 8 PM.',
     at: [40.7562, -73.9895], hours: [20, 4], interior: 'club', color: '#7b2cbf',
-    actions: ['bottleService', 'dancefloor', 'happyHour'],
+    actions: ['getSection', 'bottleService', 'dancefloor', 'happyHour'],
   },
   {
     // Alley Pharmacist's spot. Every product here is made up.
@@ -344,7 +359,7 @@ const RAW: RawPlace[] = [
     id: 'warehouseRave', area: 'brooklyn', name: 'Warehouse 9 (club)', emoji: '🪩', type: 'nightlife',
     blurb: 'Unmarked door, techno till sunrise. Don’t ask for the setlist.',
     at: [40.6985, -73.976], hours: [22, 6], interior: 'club', color: '#7b2cbf',
-    actions: ['dancefloor', 'happyHour'],
+    actions: ['getSection', 'bottleService', 'dancefloor', 'happyHour'],
   },
   {
     id: 'bodegaBk', area: 'brooklyn', name: 'Fulton Mini Market', emoji: '🏪', type: 'food',
@@ -394,7 +409,7 @@ const RAW: RawPlace[] = [
     id: 'atlanticArena', area: 'brooklyn', name: 'Atlantic Arena', emoji: '🏀', type: 'landmark',
     blurb: 'Rusted-steel arena. Basketball, concerts and very loud Tuesdays.',
     at: [40.6826, -73.9754], hours: [17, 23], interior: 'none', color: '#6c584c',
-    actions: ['catchGame', 'photoSelfie'],
+    actions: ['sportsbook', 'catchGame', 'photoSelfie'],
   },
   {
     id: 'atlanticStation', area: 'brooklyn', name: 'Atlantic Av–Barclays Ctr Station', emoji: '🚇', type: 'station',
