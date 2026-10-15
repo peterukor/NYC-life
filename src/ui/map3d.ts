@@ -32,6 +32,8 @@ export interface Map3DOptions {
   /** Tap an ad block, home lot or island for rent (data/plots.ts). */
   onPlot: (plotId: string) => void;
   onWholeCity: () => void;
+  /** 📍 Centre the map on you. */
+  onCenter: () => void;
   /** Gang view on/off (game.ts tints turf blocks). */
   onGang: (on: boolean) => void;
   onClose: () => void;
@@ -47,6 +49,7 @@ export function openMap3D(o: Map3DOptions): Map3D {
     <div class="map3d">
       <div class="map3d-top">
         <div class="map3d-title"><b>${esc(o.areaName)}</b><small>Drag to move · pinch to zoom · tap a place</small></div>
+        <button class="btn" data-act="me" title="Centre on me" aria-label="Centre the map on me">📍</button>
         <button class="btn" data-act="gang" title="Gang view">🧢</button>
         <button class="btn" data-act="city">🗺️ City</button>
         <button class="btn" data-act="close" aria-label="Close map">✕</button>
@@ -118,6 +121,7 @@ export function openMap3D(o: Map3DOptions): Map3D {
   onAct(el, (act) => {
     if (act === 'close') return o.onClose();
     if (act === 'city') return o.onWholeCity();
+    if (act === 'me') return o.onCenter();
     if (act === 'gang') {
       gang = !gang;
       el.querySelector('[data-act="gang"]')!.classList.toggle('primary', gang);

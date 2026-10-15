@@ -15,6 +15,25 @@ Build and test:
 
 How to add or change content: **`docs/ADDING-CONTENT.md`**.
 
+## Batch 1 of Peter's "make it fun" list (2026-10-15)
+
+- **📍 Centre on me** on both maps: `map3d` `onCenter` slides the camera; the flat map uses `flyTo` at the current zoom.
+- **Travel** (`TRAVEL_SECONDS` in core/constants.ts):
+  - Train: a 6 s ad, then the 4 s train car, then you arrive at the place's door, not the station.
+  - Long walk (over 15 s on foot): an 11 s ad (`walkFast`), then you start ~30 m out and walk to the door. Shorter walks are walked live.
+  - Rideshare: a 5 s ad.
+  - Rideshare Black: +3 🔥 street rep, at most every 2 game hours (`BLACK_CAR_REP`, `stats.lastBlackCar`).
+  - The ad's progress bar takes `seconds` (`FadeAd.seconds`, CSS `--ad-s`).
+- **🏙️ Places** dock button (outside): every place in the area, by kind, nearest first. Search covers name, kind, venue and blurb. Tap one for the travel sheet.
+- **Quit job:** on the Go to work sheet, and on the "can't work now" card, after a "you sure?" (`confirmQuitJob`).
+- **Cars:** buying asks to confirm and shows the cash/bank split. Charges were already exact; the top bar only shows cash, so a bank-paid car looked cheap.
+- **🏠 Homes** phone app plus `sim/moving.ts`:
+  - Moving costs movers ($150) + the first week. You need 4 weeks of rent in cash + bank.
+  - It uses listing names (no "Your …"). The place card's Move in uses the same rules.
+- **Dates/hangouts:** `HANGOUT_MINUTES` 15 → 4. "Call it a day" still ends one any time.
+- **Dock:** on phones, the icon sits over the label so four buttons fit ("Go outside" used to be cut off).
+- **QA:** `scripts/qa-batch1.mjs` covers all of the above. qa-smoke now expects the train to drop you at the door, and clears pop-ups before the street tap.
+
 ## The game loads in pieces (2026-10-15)
 
 - **Build:** `vite.config.ts` no longer inlines everything into one 1.8 MB index.html.

@@ -89,7 +89,7 @@ export const WHEN_LABEL: Record<When, string> = { now: 'Now', tonight: 'Tonight 
 /** How long they wait for you, in real minutes. */
 export const WAIT_MINUTES = 15;
 /** How long a hangout lasts, in real minutes. */
-export const HANGOUT_MINUTES = 15;
+export const HANGOUT_MINUTES = 4; // was 15: too long (Peter, 2026-10-15). "Call it a day" still ends it any time.
 
 /** Real ms until the game clock next shows `hour` (today or tomorrow). */
 function nextGameHour(hour: number, now: number, plusDays = 0): number {

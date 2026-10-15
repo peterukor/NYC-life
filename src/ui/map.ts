@@ -54,6 +54,7 @@ export function openMap(opts: MapOptions): () => void {
     <div class="map" role="dialog" aria-label="City map">
       <div class="map-top">
         <div class="map-title" data-title>New York City</div>
+        <button class="btn" data-act="me" title="Centre on me" aria-label="Centre the map on me">📍</button>
         <button class="btn" data-act="city" title="Whole city">🗽</button>
         <button class="btn" data-act="gang" aria-pressed="false" title="Gang view">🧢</button>
         <button class="btn" data-act="fly" title="3D fly-over" hidden>🛰️</button>
@@ -678,6 +679,8 @@ export function openMap(opts: MapOptions): () => void {
   onAct(el, (act) => {
     if (act === 'close') return void close();
     if (act === 'city') return flyTo(closeView());
+    // 📍 You in the middle, at the zoom you're at (Peter, 2026-10-15).
+    if (act === 'me') return flyTo(clampView({ sc: scale, ox: W() / 2 - opts.player.x * scale, oy: H() / 2 + 20 - opts.player.z * scale }));
     if (act === 'fly') {
       close();
       return opts.onFlyover?.();
