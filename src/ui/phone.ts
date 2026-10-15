@@ -43,6 +43,9 @@ export interface PhoneHost {
   adStats: () => AdStats;
   setQuality: (q: GameState['settings']['quality']) => void;
   toggleSound: () => void;
+  toggleMusic?: () => void;
+  skipSong?: () => void;
+  nowPlaying?: () => string | null;
   resetLife: () => void;
   save: () => void;
   refresh: () => void;
@@ -254,6 +257,7 @@ export function openPhone(host: PhoneHost, startApp?: string): () => void {
         <div class="card"><h3>Graphics</h3><p>Lower settings run smoother on older phones.</p>
           <div class="seg" style="margin-top:10px">${(['auto', 'low', 'medium', 'high'] as const).map((x) => `<button data-act="q:${x}" class="${q === x ? 'on' : ''}">${x[0].toUpperCase() + x.slice(1)}</button>`).join('')}</div></div>
         <div class="card"><h3>Sound</h3><button class="btn block" data-act="sound">${s.settings.sound ? '🔊 On' : '🔇 Off'}</button></div>
+        <div class="card"><h3>Music</h3><button class="btn block" data-act="music">${s.settings.music !== false ? '🎵 On' : '🔕 Off'}</button>${s.settings.music !== false && host.nowPlaying?.() ? `<p class="fine">Now playing: ${esc(host.nowPlaying()!)}</p><button class="btn block" data-act="skipsong">⏭ Next song</button>` : ''}</div>
         <div class="card"><h3>Start over</h3><p>Deletes this life on this device. There’s no undo.</p><button class="btn block" style="margin-top:10px;color:var(--bad)" data-act="reset">Start a new life</button></div>
         <p class="fine">NYC Life preview · single-player · saves on this device. Places are inspired by real New York; brands are fictional unless marked “Sponsored”.</p>`);
     },
@@ -377,6 +381,14 @@ export function openPhone(host: PhoneHost, startApp?: string): () => void {
     if (act === 'sound') {
       host.toggleSound();
       return apps.settings();
+    }
+    if (act === 'music') {
+      host.toggleMusic?.();
+      return apps.settings();
+    }
+    if (act === 'skipsong') {
+      host.skipSong?.();
+      return window.setTimeout(() => apps.settings(), 100);
     }
     if (act === 'reset') {
       if (window.confirm('Delete this life and start over?')) {

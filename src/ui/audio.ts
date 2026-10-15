@@ -307,6 +307,14 @@ export const sfx = {
     hiss(0, 0.2, { type: 'lowpass', freq: 700, gain: 0.1, brown: true });
     tone(60, 0.1, 0.8, 'sine', 0.05);
   },
+  /** A firework: sometimes a whistle up, then the bang and a crackle (clubs, the trading floor). */
+  firework: (size = 1) => {
+    const w = Math.random() < 0.5 ? r(0.25, 0.45) : 0;
+    if (w) tone(r(700, 900), 0, w, 'sine', 0.025, r(1800, 2600));
+    hiss(w, 0.6, { type: 'lowpass', freq: 1400, sweepTo: 120, gain: 0.28 * Math.min(1.6, size), brown: true });
+    tone(70, w, 0.35, 'sine', 0.22 * Math.min(1.5, size), 40);
+    for (let i = 0; i < 9; i++) hiss(w + 0.15 + r(0, 0.7), 0.03, { type: 'highpass', freq: r(3000, 6000), gain: 0.08 });
+  },
   /** Done with something (a soft ding). */
   done: () => tone(1760, 0, 0.5, 'sine', 0.05),
 };

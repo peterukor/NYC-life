@@ -48,6 +48,12 @@ How to add or change content: **`docs/ADDING-CONTENT.md`**.
 - `index.html` has `robots: noindex, nofollow` (playtest build: casino, betting, parody brands).
 - Pages only serves files: multiplayer will need its own server (Colyseus on a small host) that this client connects to.
 
+## Music, map fixes, no glitter (2026-10-14, night)
+- **Music, not noise:** `ui/music.ts` plays 7 original songs made in code (Bodega Bounce, Yellow Cab Funk, Rooftop Sunset, Times Square Rush, Subway Surfin’, Brooklyn Brunch, Empire Anthem): each a recipe (tempo, key, scale, chords, groove, bass, lead) with a seeded melody, ~1½ min, then a random next song, forever. Settings has a 🎵 Music switch (`settings.music`), now-playing and ⏭ Next song. The noise ambience and activity noise loops are gone; footsteps, taps and action sounds stay. 🎆 Every firework burst bangs and crackles (club bottle shows, trading-floor wins: `world/celebration.ts`).
+- **Satellite map:** back to the tilt; opens fully zoomed out at about 0.4 of Manhattan (`MAP_SPAN_FRACTION`); no glide after you let go (the glide was "the map follows my mouse"). Header stays above labels. **City (flat) map:** zoomed out shows at most 0.7 of the island; it's the only straight-down view.
+- **🚀 Fast travel** button sits top right under the map header and works (it lacked `pointer-events: auto` inside `#ui`; QA now clicks for real).
+- **Glitter at full zoom-out:** facades fade to each tile's average colour as windows shrink below a pixel (`world/nycgen/atlas.ts`), and kit textures (cars, trees, people) have mipmaps.
+
 ## Sounds, map travel, ad loading screens (2026-10-14, late)
 - **Sounds** (all synthesised, nothing to download): `ui/audio.ts` (master mix with sfx / ambience / loops buses, noise helpers, ~35 effects) and `ui/soundscape.ts` (ambience per scene — city traffic with honks, sirens and buses; room tone; club and gym four-on-the-floor; bar jukebox; casino slots; arcade bleeps; park birds or crickets; precinct radio — plus footsteps and a loop for what you're doing: shower water, sizzling pan, TV, typing, guitar, piano). `game.ts updateSound()` feeds it every frame. Every button clicks (`installUiClicks`).
 - **🚀 Fast travel button** on both maps opens a scrollable list (same as "Where to?") and closes again (`showMapStrip`). Ad spaces and places tapped on a map open their sheet over the map; you stay on the map.

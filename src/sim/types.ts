@@ -204,5 +204,5 @@ export interface GameState {
   activity?: import('./home-activity.ts').Activity | null;
   news: NewsItem[];
   tutorialStep: number;
-  settings: { quality: 'auto' | 'low' | 'medium' | 'high'; sound: boolean };
+  settings: { quality: 'auto' | 'low' | 'medium' | 'high'; sound: boolean; /** The soundtrack (ui/music.ts); undefined = on. */ music?: boolean };
 }

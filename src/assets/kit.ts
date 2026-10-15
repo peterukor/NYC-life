@@ -183,10 +183,13 @@ export function kitMaterial(map: THREE.Texture | null, opts: { tintWalls?: boole
   const m = new THREE.MeshLambertMaterial({ map });
   if (map) {
     map.colorSpace = THREE.SRGBColorSpace;
-    // Palette textures must not blur between colour swatches.
+    // Palette textures must not blur between colour swatches up close
+    // (nearest when magnified); far away, mipmaps stop small things (cars,
+    // trees, people) sparkling on the sky map (Peter: "glitter").
     map.magFilter = THREE.NearestFilter;
-    map.generateMipmaps = false;
-    map.minFilter = THREE.LinearFilter;
+    map.generateMipmaps = true;
+    map.minFilter = THREE.LinearMipmapLinearFilter;
+    map.needsUpdate = true;
   }
   if (opts.tintWalls || opts.nightWindows) {
     m.onBeforeCompile = (shader) => {

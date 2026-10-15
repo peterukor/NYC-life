@@ -440,7 +440,7 @@ body.mirror .hud { opacity: 0; visibility: hidden; transition: opacity 0.2s, vis
 
 /* ------------------------------------------------------------- sky map (ui/map3d.ts) */
 .map3d { position: absolute; inset: 0; pointer-events: none; z-index: 30; }
-.map3d-top { position: absolute; left: 10px; right: 10px; top: calc(var(--safe-top, 0px) + 10px); display: flex; gap: 8px; align-items: center; pointer-events: auto; }
+.map3d-top { position: absolute; left: 10px; right: 10px; top: calc(var(--safe-top, 0px) + 10px); display: flex; gap: 8px; align-items: center; pointer-events: auto; z-index: 3; /* above the labels */ }
 .map3d-title { flex: 1; min-width: 0; padding: 8px 14px; border: var(--line); border-radius: 18px; background: var(--paper); box-shadow: var(--drop-sm); }
 .map3d-title b { display: block; font-family: var(--display); font-weight: 400; font-size: 20px; line-height: 1.1; }
 .map3d-title small { color: #6b7088; font-size: 11.5px; font-weight: 700; }
@@ -815,8 +815,9 @@ body.mirror .hud { opacity: 0; visibility: hidden; transition: opacity 0.2s, vis
 @media (prefers-reduced-motion: reduce) { .deli-ing.want, [data-serve].want { animation: none; } }
 
 /* 🚀 Fast travel on both maps: a button that opens a scrollable list (game.ts showMapStrip). */
-.map-fast { position: absolute; left: 12px; bottom: calc(var(--safe-bottom) + 12px); z-index: 35; }
-.map-fast-btn { min-height: 48px; padding: 0 18px; border: var(--line-thin); border-radius: 999px; background: #ffd23f; box-shadow: var(--drop-sm); font: inherit; font-weight: 800; font-size: 15px; color: var(--ink); }
+/* #ui ignores pointers by default, so this must opt back in (it didn't: the button did nothing). Top right, under the map header, so it covers nothing at the bottom. */
+.map-fast { position: absolute; right: 12px; top: calc(var(--safe-top, 0px) + 78px); z-index: 35; pointer-events: auto; display: flex; flex-direction: column; align-items: flex-end; }
+.map-fast-btn { min-height: 44px; padding: 0 16px; border: var(--line-thin); border-radius: 999px; background: #ffd23f; box-shadow: var(--drop-sm); font: inherit; font-weight: 800; font-size: 15px; color: var(--ink); }
 .map-fast-btn[hidden], .map-fast-list[hidden] { display: none; }
 .map-fast-list { width: min(340px, calc(100vw - 24px)); max-height: min(55dvh, 460px); display: flex; flex-direction: column; border: var(--line-thin); border-radius: 18px; background: var(--paper); box-shadow: var(--drop-sm); overflow: hidden; animation: fadeIn 0.15s; }
 .map-fast-head { display: flex; align-items: center; justify-content: space-between; padding: 8px 8px 8px 14px; border-bottom: var(--line-thin); }
