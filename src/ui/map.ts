@@ -127,9 +127,9 @@ export function openMap(opts: MapOptions): () => void {
   const closeView = () => {
     const b = boroughBounds('manhattan');
     // Same closeness as before the island was widened (X_STRETCH): scroll sideways for the rest.
-    // …and never more than 0.6 of the island's length on screen (Peter, 2026-10-15: "a bit further out";
-    // was 0.5, and the width fit gets a 25% margin so wide screens pull back too).
-    const sc = Math.max((W() - 16) / ((1.25 * (b.maxX - b.minX)) / X_STRETCH), H() / (0.6 * (b.maxZ - b.minZ)));
+    // …and up to 0.75 of the island's length on screen (Peter, 2026-10-15: "a bit further out", twice;
+    // 0.5 → 0.6 → 0.75). The width fit gets a 60% margin so wide screens pull back too.
+    const sc = Math.max((W() - 16) / ((1.6 * (b.maxX - b.minX)) / X_STRETCH), H() / (0.75 * (b.maxZ - b.minZ)));
     return clampView({ sc, ox: W() / 2 - s.location.x * sc, oy: H() / 2 + 20 - s.location.z * sc });
   };
   /** Keep Manhattan on screen: no scrolling off into the water. */
