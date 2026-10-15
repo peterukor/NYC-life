@@ -22,12 +22,12 @@ import * as THREE from 'three';
 import { VEHICLES } from './data/vehicles.ts';
 import { vehicleGeometry, vehicleMaterial } from './world/vehicle-models.ts';
 import { bus } from './core/bus.ts';
-import { clockLabel, isRushHour, nowMs, nycTime } from './core/clock.ts';
-import { MAP_MAX_DISTANCE, MAP_SPAN_FRACTION, MANHATTAN_BOUNDS, DETAIL_RADIUS, RIDESHARE, SUBWAY_FARE, WALK_SPEED, INDOOR_WALK, SHIFT_GAME_HOURS, MAX_SHIFTS_PER_DAY, DIRECTOR_TICK_SECONDS, CAMERA } from './core/constants.ts';
+import { clockLabel, gameMinutesToRealMs, isRushHour, nowMs, nycTime } from './core/clock.ts';
+import { MAP_MAX_DISTANCE, MAP_SPAN_FRACTION, MANHATTAN_BOUNDS, DETAIL_RADIUS, RIDESHARE, SUBWAY_FARE, TRAVEL_SECONDS, BLACK_CAR_REP, WALK_SPEED, INDOOR_WALK, SHIFT_GAME_HOURS, MAX_SHIFTS_PER_DAY, DIRECTOR_TICK_SECONDS, CAMERA } from './core/constants.ts';
 import { esc, money } from './core/format.ts';
 import { ACTIONS, actionLock } from './data/actions.ts';
 import { CAREER_BY_ID, CAREERS } from './data/careers.ts';
-import { doorOf, isOpen, PLACE_BY_ID, stationOf, type PlaceDef } from './data/places.ts';
+import { doorOf, isOpen, PLACE_BY_ID, stationOf, type PlaceDef, type PlaceType } from './data/places.ts';
 import { finishAction, startAction } from './sim/activity.ts';
 import { changeMoney } from './sim/economy.ts';
 import { RARITY, applyOutcome, buildContext, directorPick, EVENTS, type EventContext, type RandomEventDef } from './sim/events.ts';
@@ -39,7 +39,7 @@ import { loadGame, saveGame, deleteGame } from './sim/save.ts';
 import { newLife } from './sim/state.ts';
 import { OPEN_AREAS, isOpenArea, type AreaId, type GameState, type Look } from './sim/types.ts';
 import { weatherDef, weatherFor } from './sim/weather.ts';
-import { applyForJob, jobTitle, shiftBlocker } from './sim/work.ts';
+import { applyForJob, jobTitle, quitJob, shiftBlocker } from './sim/work.ts';
 import { Engine } from './render/engine.ts';
 import { qualitySettings } from './render/quality.ts';
 import { skyAt } from './render/sky.ts';
@@ -105,8 +105,10 @@ import { installUiClicks, sfx, setAmbienceEnabled, setSoundEnabled, setVolumes }
 import { music } from './ui/music.ts';
 import { soundscape, type Scene } from './ui/soundscape.ts';
 import { nextTravelAd } from './ui/travel-ad.ts';
+import { addRep } from './sim/rep.ts';
+import { moveTo, moveBlocker, moveCost, listingName } from './sim/moving.ts';
 import { closeSheet, fade, html, isSheetOpen, onAct, openModal, openSheet, progressBar, root, toast, wait } from './ui/dom.ts';
-import { Hud } from './ui/hud.ts';
+import { Hud, type NavKey } from './ui/hud.ts';
 import { openBlackjack, openRocket, openRoulette, openSlots, casinoNetLine, rain, type CasinoHost } from './ui/casino.ts';
 import { openPrizeCounter, playArcade } from './ui/arcade.ts';
 import { openSportsbook, settleAndTell } from './ui/sportsbook.ts';
@@ -265,6 +267,7 @@ export class Game {
         controls.update();
       },
       travel: (id: string) => this.travelSheet(PLACE_BY_ID[id]),
+      door: (id: string) => doorOf(PLACE_BY_ID[id]),
       event: (id: string, where: EventContext['where'] = 'street') => {
         const ev = EVENTS.find((e) => e.id === id);
         if (ev) void this.showEvent(ev, where);
@@ -407,6 +410,14 @@ export class Game {
       onRoadSweep: () => this.city?.onRoadSweep() ?? {},
       camDist: () => Math.round(this.engine.camera.position.distanceTo(this.engine.controls.target)),
       camTarget: () => ({ x: Math.round(this.engine.controls.target.x), z: Math.round(this.engine.controls.target.z) }),
+      player: () => ({ x: this.player.root.position.x, z: this.player.root.position.z }),
+      goWork: () => void this.goToWork(),
+      panMap: (dx: number, dz: number) => {
+        const sh = new THREE.Vector3(dx, 0, dz);
+        this.engine.controls.target.add(sh);
+        this.engine.camera.position.add(sh);
+        this.engine.controls.update();
+      },
       admirers: () => this.party?.admirers.map((x) => x.name) ?? [],
       section: () => this.state.section ?? null,
       sectionCrew: () => this.sectionCrew?.count ?? -1,
@@ -1113,9 +1124,10 @@ export class Game {
     this.walkTo(door.x, door.z);
   }
 
-  private onNav(which: 'here' | 'map' | 'phone' | 'leave' | 'storage'): void {
+  private onNav(which: NavKey): void {
     if (this.busy) return;
     sfx.tap();
+    if (which === 'places') return this.openPlacesList();
     if (which === 'storage') return this.openStorage();
     if (which === 'leave') {
       // At home, stroll to the front door first.
@@ -1149,6 +1161,58 @@ export class Game {
   // Places
   // ===================================================================
 
+  /**
+   * 🏙️ Places (Peter, 2026-10-15: "a button that shows all locations"):
+   * every place in the area, by kind, nearest first, with a search box.
+   * Tap one for the usual ways to get there.
+   */
+  private openPlacesList(): void {
+    const s = this.state;
+    const p = this.engine.mode === 'city' ? this.player.root.position : new THREE.Vector3(s.location.x, 0, s.location.z);
+    const h = nycTime().hour;
+    const GROUPS: [PlaceType, string][] = [['food', '🍕 Food'], ['cafe', '☕ Cafés'], ['nightlife', '🪩 Nightlife'], ['shop', '🛍️ Shops'], ['fitness', '💪 Fitness'], ['work', '💼 Work'], ['park', '🌳 Parks'], ['plaza', '🏙️ Plazas'], ['landmark', '🗽 Landmarks'], ['station', '🚇 Stations'], ['home', '🏠 Homes']];
+    const all = Object.values(PLACE_BY_ID)
+      .filter((pl) => pl.area === s.location.area)
+      .map((pl) => {
+        const d = doorOf(pl);
+        return { pl, m: Math.hypot(d.x - p.x, d.z - p.z) };
+      })
+      .sort((a, b) => a.m - b.m);
+    const mins = (m: number) => Math.max(1, Math.round(m / 80));
+    const row = ({ pl, m }: { pl: PlaceDef; m: number }) => {
+      const open = isOpen(pl, h);
+      const home = pl.id === s.home.placeId;
+      return `<button class="opt" data-act="go:${pl.id}" data-q="${esc(`${pl.name} ${pl.type} ${pl.interior} ${pl.blurb}`.toLowerCase())}"><span style="font-size:22px">${home ? '🏠' : pl.emoji}</span><span class="grow"><b>${esc(home ? `Home · ${pl.name}` : pl.type === 'home' ? listingName(s, pl) : pl.name)}</b><small>${mins(m)} min walk · ${open ? '<span style="color:var(--good)">open</span>' : 'closed'}</small></span></button>`;
+    };
+    const body = GROUPS.map(([type, label]) => {
+      const list = all.filter((x) => x.pl.type === type);
+      return list.length ? `<section data-group><h3 style="margin:12px 0 6px;font-size:15px">${label} <span class="sub" data-count>${list.length}</span></h3><div class="travel">${list.map(row).join('')}</div></section>` : '';
+    }).join('');
+    const sheet = openSheet({
+      emoji: '🏙️',
+      title: 'Places',
+      sub: `${all.length} places in ${DISTRICTS[s.location.area].name} · nearest first`,
+      body: `<input class="input" data-search type="search" placeholder="Search: pizza, gym, club…" aria-label="Search places" style="width:100%;margin-bottom:6px">${body}`,
+    });
+    const input = sheet.body.querySelector<HTMLInputElement>('[data-search]')!;
+    input.addEventListener('input', () => {
+      const q = input.value.trim().toLowerCase();
+      sheet.body.querySelectorAll<HTMLElement>('[data-q]').forEach((b) => (b.hidden = !!q && !b.dataset.q!.includes(q)));
+      sheet.body.querySelectorAll<HTMLElement>('[data-group]').forEach((g) => {
+        const n = g.querySelectorAll('[data-q]:not([hidden])').length;
+        g.hidden = !n;
+        const c = g.querySelector('[data-count]');
+        if (c) c.textContent = String(n);
+      });
+    });
+    onAct(sheet.body, (act) => {
+      if (!act.startsWith('go:')) return;
+      const pl = PLACE_BY_ID[act.slice(3)];
+      sheet.close();
+      if (pl) window.setTimeout(() => this.travelSheet(pl), 200);
+    });
+  }
+
   private openPlace(place: PlaceDef): void {
     const s = this.state;
     if (this.walkTrip?.placeId === place.id) {
@@ -1168,14 +1232,15 @@ export class Game {
       ? `<div class="landmark"><div class="portrait" style="background:${place.color}">${place.emoji}</div><div><p class="blurb" style="margin:0 0 4px">${esc(place.landmark.description)}</p><a href="${place.landmark.officialSite}" target="_blank" rel="noopener noreferrer">Official site: ${esc(place.landmark.siteLabel)} ↗</a></div></div>`
       : '';
     const actions = !canGoIn ? this.actionGrid(place.actions, open) : '';
+    const moveWhy = place.type === 'home' && !isHome ? moveBlocker(s, place) : null;
     const rentable = place.type === 'home' && !isHome
-      ? `<div class="card"><h3>${place.rent ? `For rent: ${money(place.rent)} / week` : 'Free bed'}</h3><p>${place.rent ? 'Moving here makes it your home. Rent is charged weekly from your cash, then your bank.' : 'No rent. No privacy either. Somewhere to land while you get back up.'}</p><button class="btn primary block" style="margin-top:10px" data-act="move">Move in</button></div>`
+      ? `<div class="card"><h3>${place.rent ? `For rent: ${money(place.rent)} / week` : 'Free bed'}</h3><p>${place.rent ? 'Moving here makes it your home. Rent is charged weekly from your cash, then your bank.' : 'No rent. No privacy either. Somewhere to land while you get back up.'} Moving today: <b>${money(moveCost(place))}</b> (movers + first week).</p>${moveWhy ? `<p class="sub"><i>${esc(moveWhy)}</i></p>` : ''}<button class="btn primary block" style="margin-top:10px" data-act="move" ${moveWhy ? 'disabled' : ''}>Move in</button></div>`
       : '';
     const cityEvt = eventAt(place.area, place.id, t.dateKey, t.hour, weatherFor(t.dateKey, t.hour));
     const station = place.type === 'station' ? `<div class="stack" style="margin-bottom:12px">${OPEN_AREAS.filter((a) => a !== place.area).map((a) => `<button class="btn primary block" data-act="train:${a}">🚇 Take the train to ${DISTRICTS[a].name} · ${money(SUBWAY_FARE)}</button>`).join('')}</div>` : '';
     const sheet = openSheet({
       emoji: place.emoji,
-      title: place.name,
+      title: place.type === 'home' && !isHome ? listingName(s, place) : place.name,
       sub: `${esc(crossStreets(DISTRICTS[place.area], doorOf(place).x, doorOf(place).z))}`,
       body: `
         <div class="row"><span class="tag ${open ? 'open' : 'closed'}">${open ? '● Open' : '● Closed'}</span><span class="tag">${hours}</span>${isHome ? '<span class="tag">🏠 Your home</span>' : ''}</div>
@@ -1211,7 +1276,7 @@ export class Game {
       }
       if (act === 'move') {
         sheet.close();
-        return this.moveHome(place);
+        return void this.moveHome(place);
       }
       if (act.startsWith('train:')) {
         sheet.close();
@@ -1938,12 +2003,25 @@ export class Game {
     }
   }
 
-  private moveHome(place: PlaceDef): void {
+  /** Move house (sim/moving.ts): pay, then the movers drop you at the new place. */
+  private moveHome(place: PlaceDef): string | null {
     const s = this.state;
-    s.home = { area: place.area, placeId: place.id, weeklyRent: place.rent ?? 0, rentDueDay: nycTime().dateKey };
-    toast(`You moved to ${place.name}. Rent: ${money(place.rent ?? 0)}/week.`, { icon: '📦', tone: 'good', ms: 4500 });
+    const err = moveTo(s, place);
+    if (err) {
+      toast(err, { icon: '🏠', tone: 'bad', ms: 4000 });
+      return err;
+    }
+    sfx.cheer();
+    toast(`Moved in! 📦 ${place.name}. Rent: ${money(place.rent ?? 0)}/week.`, { icon: '🏠', tone: 'good', ms: 4500 });
     this.save();
+    closeSheet();
+    this.toStreetNow();
+    if (!this.city || this.city.area !== place.area) this.loadArea(place.area);
+    const d = doorOf(place);
+    s.location = { area: place.area, placeId: null, x: d.x, z: d.z };
+    this.placePlayerAtLocation();
     this.enterInterior(place, true);
+    return null;
   }
 
   // ===================================================================
@@ -2600,7 +2678,15 @@ export class Game {
     const s = this.state;
     if (!s.job) return this.openPhoneApp('jobs');
     const block = shiftBlocker(s);
-    if (block) return toast(block, { icon: '💼', tone: 'bad' });
+    if (block) {
+      // Can't work right now: say why, and keep the quit button in reach.
+      const m = openModal(`<div class="big">💼</div><h2>${esc(jobTitle(s))}</h2><p>${esc(block)}</p><div class="row" style="gap:8px;margin-top:12px"><button class="btn ghost block" data-act="quit">🚪 Quit job</button><button class="btn primary block" data-act="ok">OK</button></div>`);
+      onAct(m.el, (act) => {
+        m.close();
+        if (act === 'quit') this.confirmQuitJob();
+      });
+      return;
+    }
     const workplace = PLACE_BY_ID[CAREER_BY_ID[s.job.careerId].placeId];
     closeSheet();
     if (s.location.placeId === workplace.id && this.engine.mode === 'interior') return this.runShift();
@@ -2929,6 +3015,15 @@ export class Game {
         this.closeCityMap();
         this.openMapOverlay(true);
       },
+      onCenter: () => {
+        // Slide the view (same height and angle) so you're in the middle.
+        sfx.tap();
+        const me = this.engine.mode === 'city' && saved.mode === 'city' ? this.player.root.position : new THREE.Vector3(this.state.location.x, 0, this.state.location.z);
+        const shift = new THREE.Vector3(me.x - controls.target.x, 0, me.z - controls.target.z);
+        controls.target.add(shift);
+        camera.position.add(shift);
+        controls.update();
+      },
       onClose: () => this.closeCityMap(),
     });
     this.overlayClose = () => this.closeCityMap();
@@ -3094,11 +3189,12 @@ export class Game {
           <button class="opt" data-act="floor"><span style="font-size:24px">🏎️</span><span class="grow"><b>Floor it</b><small>twice as fast · fun · risk of a ticket</small></span><span class="cost">${money(GARAGE.tripCost)}</span></button>` : ''}
           <button class="opt" data-act="subway"><span style="font-size:24px">🚇</span><span class="grow"><b>Subway</b><small>${same ? 'a couple of stops' : `to ${DISTRICTS[place.area].name}`}</small></span><span class="cost">${money(SUBWAY_FARE)}</span></button>
           <button class="opt" data-act="ride" ${s.phone.ok ? '' : 'disabled aria-disabled="true"'}><span style="font-size:24px">🚗</span><span class="grow"><b>Rideshare</b><small>${s.phone.ok ? `${ride.minutes} min${ride.surge > 1 ? ` · ⚡ surge ×${ride.surge.toFixed(1)}` : ''}` : 'needs your phone'}</small></span><span class="cost">${money(ride.cost)}</span></button>
-          <button class="opt" data-act="lux" ${s.phone.ok ? '' : 'disabled aria-disabled="true"'}><span style="font-size:24px">🖤</span><span class="grow"><b>Rideshare Black</b><small>leather seats, bottled water</small></span><span class="cost">${money(lux.cost)}</span></button>
-        </div>`,
+          <button class="opt" data-act="lux" ${s.phone.ok ? '' : 'disabled aria-disabled="true"'}><span style="font-size:24px">🖤</span><span class="grow"><b>Rideshare Black</b><small>leather seats, bottled water · 🔥 +street rep</small></span><span class="cost">${money(lux.cost)}</span></button>
+        </div>${opts.work && s.job ? '<button class="btn ghost block" style="margin-top:12px" data-act="quitjob">🚪 Quit this job</button>' : ''}`,
     });
     onAct(sheet.body, (act) => {
       sheet.close();
+      if (act === 'quitjob') return void this.confirmQuitJob();
       opts.beforeGo?.();
       if (act === 'remote' && s.job) {
         s.job.remoteDay = nycTime().dateKey;
@@ -3107,7 +3203,11 @@ export class Game {
       }
       this.pendingShift = opts.work ? place.id : null;
       if (act === 'walk') {
-        this.walkTrip = { placeId: place.id, metres: Math.hypot(d.x - s.location.x, d.z - s.location.z) };
+        const metres = Math.hypot(d.x - s.location.x, d.z - s.location.z);
+        this.walkTrip = { placeId: place.id, metres };
+        // A long walk (Peter, 2026-10-15): an ad, then a few seconds of you
+        // walking up to the door. A short one is just walked.
+        if (metres / WALK_SPEED > TRAVEL_SECONDS.walkLive) return void this.walkFast(place.id);
         if (this.engine.mode === 'interior') this.leaveInterior();
         window.setTimeout(() => this.walkToPlace(place.id), this.engine.mode === 'interior' ? 400 : 0);
       }
@@ -3117,6 +3217,84 @@ export class Game {
       if (act === 'ride') this.rideshare(place.id, false);
       if (act === 'lux') this.rideshare(place.id, true);
     });
+  }
+
+  /** Quit your job, after a "you sure?" (Peter, 2026-10-15: a quit button you can find). */
+  private confirmQuitJob(): void {
+    const s = this.state;
+    if (!s.job) return;
+    const c = CAREER_BY_ID[s.job.careerId];
+    const m = openModal(`<div class="big">🚪</div><h2>Quit ${esc(c.name)}?</h2><p>You lose your level (${esc(jobTitle(s))}) and your raise progress. You can apply somewhere else straight away.</p><div class="row" style="gap:8px;margin-top:12px"><button class="btn block" data-act="no">Stay</button><button class="btn primary block" data-act="yes">Quit</button></div>`);
+    onAct(m.el, (act) => {
+      m.close();
+      if (act !== 'yes') return;
+      quitJob(s);
+      sfx.door();
+      toast(`You quit. Boss pretended not to care. 🫡`, { icon: '🚪', ms: 3500 });
+      this.save();
+      this.refreshHud(true);
+    });
+  }
+
+  /** Out onto the street right away (no door animation): for trips that start indoors. */
+  private toStreetNow(): void {
+    if (this.engine.mode === 'interior' || this.engine.mode === 'transit') {
+      this.stopDoing();
+      this.indoor = null;
+      this.interior?.dispose();
+      this.interior = null;
+      this.engine.cityScene.add(this.player.root);
+      this.setMode('city');
+      this.engine.altScene = null;
+    }
+    this.state.location.placeId = null;
+  }
+
+  /** A travel loading screen: the ad, with a bar that fills over `seconds`. */
+  private async travelAd(seconds: number, text: string, sub: string): Promise<void> {
+    fade(true, text, sub, { ...nextTravelAd(), seconds });
+    await wait(seconds * 1000);
+  }
+
+  /**
+   * A long walk: the ad (~11 s), then you, a few steps from the door,
+   * walking the last stretch (~4 s) and in. ~15 s in all.
+   */
+  private async walkFast(placeId: string): Promise<void> {
+    if (this.busy || !this.city) return;
+    const place = PLACE_BY_ID[placeId];
+    this.busy = true;
+    closeSheet();
+    sfx.tap();
+    this.stopMoving(true);
+    // Where you set off from, on the street (indoors: that building's door).
+    const wasOutside = this.engine.mode === 'city';
+    const from = wasOutside ? this.player.root.position.clone() : new THREE.Vector3(this.state.location.x, 0, this.state.location.z);
+    await this.travelAd(TRAVEL_SECONDS.walkAd, '🚶 Walking over', `To ${place.name}`);
+    this.toStreetNow();
+    if (!this.city || this.city.area !== place.area) this.loadArea(place.area);
+    // Start the last stretch: a point on the way, about walkScene seconds out.
+    const door = doorOf(place);
+    const path = findPath(this.city!.nav, door.x, door.z, from.x, from.z);
+    const want = WALK_SPEED * TRAVEL_SECONDS.walkScene;
+    let start = { x: door.x + door.faceX * want, z: door.z + door.faceZ * want };
+    let run = 0;
+    for (let i = 1; i < path.length; i++) {
+      const seg = Math.hypot(path[i].x - path[i - 1].x, path[i].z - path[i - 1].z);
+      if (run + seg >= want) {
+        // Part way along this stretch of the route.
+        const f = (want - run) / (seg || 1);
+        start = { x: path[i - 1].x + (path[i].x - path[i - 1].x) * f, z: path[i - 1].z + (path[i].z - path[i - 1].z) * f };
+        break;
+      }
+      run += seg;
+    }
+    const near = nearestWalkable(this.city!.nav, start.x, start.z);
+    this.state.location = { area: place.area, placeId: null, x: near.x, z: near.z };
+    this.placePlayerAtLocation();
+    fade(false);
+    this.busy = false;
+    this.walkToPlace(place.id);
   }
 
   /** Take the subway. Across boroughs this plays the train ride while the next area loads. */
@@ -3130,8 +3308,8 @@ export class Game {
     this.busy = true;
     closeSheet();
     sfx.chime();
-    fade(true, 'Stand clear of the closing doors…', `🚇 To ${DISTRICTS[area].name}`, nextTravelAd());
-    await wait(1800);
+    // ~10 s in all (Peter, 2026-10-15): the ad, then the train car.
+    await this.travelAd(TRAVEL_SECONDS.trainAd, 'Stand clear of the closing doors…', `🚇 To ${placeId ? PLACE_BY_ID[placeId].name : DISTRICTS[area].name}`);
     const leavingInterior = this.engine.mode === 'interior';
     if (leavingInterior) {
       this.interior?.dispose();
@@ -3164,34 +3342,32 @@ export class Game {
     const incident = eventShown ? null : subwayIncident(this.state);
     if (incident) await this.showIncident(incident);
     const rideStart = performance.now();
-    while (!skip && performance.now() - rideStart < 4500) await wait(100);
+    while (!skip && performance.now() - rideStart < TRAVEL_SECONDS.trainScene * 1000) await wait(100);
     rideUi.remove();
     fade(true);
     await wait(300);
     this.transit.dispose();
     this.transit = null;
-    // Arrive at the station, then (optionally) walk to the destination.
+    // Arrive: at the place itself when there is one (the stop is right
+    // outside), else at the station.
     const station = stationOf(area);
-    const sd = doorOf(station);
+    const sd = placeId ? doorOf(PLACE_BY_ID[placeId]) : doorOf(station);
     this.state.location = { area, placeId: null, x: sd.x, z: sd.z };
-    if (!this.state.stats.placesVisited.includes(station.id)) this.state.stats.placesVisited.push(station.id);
+    if (!placeId && !this.state.stats.placesVisited.includes(station.id)) this.state.stats.placesVisited.push(station.id);
     this.engine.cityScene.add(this.player.root);
     this.setMode('city');
     this.engine.altScene = null;
     this.placePlayerAtLocation();
     fade(false);
     this.busy = false;
-    toast(`Arrived at ${station.name}`, { icon: '🚇' });
     this.save();
     if (placeId) {
       const dest = PLACE_BY_ID[placeId];
-      // Going to work: the stop is right by the door, so you walk straight in.
-      if (this.pendingShift === dest.id || (dest.type === 'work' && dest.id === CAREER_BY_ID[this.state.job?.careerId ?? '']?.placeId && this.state.job)) {
-        this.state.location.x = doorOf(dest).x;
-        this.state.location.z = doorOf(dest).z;
-        this.enterInterior(dest, false);
-      } else if (placeId !== station.id) this.walkToPlace(placeId);
-    }
+      toast(`Arrived at ${dest.name}`, { icon: '🚇' });
+      // Going to work: straight in (the shift starts inside).
+      if (this.pendingShift === dest.id || (dest.type === 'work' && dest.id === CAREER_BY_ID[this.state.job?.careerId ?? '']?.placeId && this.state.job)) this.enterInterior(dest, false);
+      else window.setTimeout(() => this.openPlace(dest), 300);
+    } else toast(`Arrived at ${station.name}`, { icon: '🚇' });
   }
 
   /** A subway spill or fight. Fights get a cartoon dust cloud, never anything graphic. */
@@ -3223,7 +3399,16 @@ export class Game {
     const place = PLACE_BY_ID[placeId];
     const cars = ['Toyota Camry', 'Honda Accord', 'Toyota Sienna', 'Tesla Model 3'];
     const car = luxury ? 'Cadillac Escalade' : cars[Math.floor(Math.random() * cars.length)];
-    fade(true, `🚗 Your ${car} is here`, `Riding to ${place.name}${place.area !== s.location.area ? ' — over the bridge' : ''}`, nextTravelAd());
+    fade(true, `🚗 Your ${car} is here`, `Riding to ${place.name}${place.area !== s.location.area ? ' — over the bridge' : ''}`, { ...nextTravelAd(), seconds: TRAVEL_SECONDS.ride });
+    // Rideshare Black earns a little street rep (Peter, 2026-10-15), at most every couple of game hours.
+    let blackRep: string | null = null;
+    if (luxury) {
+      const now = nowMs();
+      if (now - (s.stats.lastBlackCar ?? 0) >= gameMinutesToRealMs(BLACK_CAR_REP.everyGameMinutes)) {
+        s.stats.lastBlackCar = now;
+        blackRep = addRep(s, 'street', BLACK_CAR_REP.points) ?? '';
+      }
+    }
     window.setTimeout(() => {
       if (this.engine.mode === 'interior') {
         this.interior?.dispose();
@@ -3239,9 +3424,10 @@ export class Game {
       fade(false);
       this.busy = false;
       toast(`${luxury ? 'Five stars. ' : ''}Dropped off at ${place.name}`, { icon: '📍' });
+      if (blackRep !== null) window.setTimeout(() => toast(blackRep ? `Pulled up in a Black car: 🔥 +${BLACK_CAR_REP.points} street rep. You're now ${blackRep}!` : `Pulled up in a Black car: 🔥 +${BLACK_CAR_REP.points} street rep`, { icon: '🖤', tone: 'good', ms: 3200 }), 1200);
       this.save();
       window.setTimeout(() => this.openPlace(place), 400);
-    }, 2200);
+    }, TRAVEL_SECONDS.ride * 1000);
   }
 
   // ===================================================================
@@ -3319,6 +3505,7 @@ export class Game {
       {
         state: this.state,
         rideQuote: (id, lux) => this.rideQuote(id, lux),
+        moveHome: (id) => (PLACE_BY_ID[id] ? this.moveHome(PLACE_BY_ID[id]) : 'No such home.'),
         rideshare: (id, lux) => {
           this.overlayClose = null;
           this.rideshare(id, lux);

@@ -19,7 +19,7 @@ import { NEED_LOW } from '../core/constants.ts';
 import { html, root } from './dom.ts';
 
 export interface HudHandlers {
-  onNav: (which: 'here' | 'map' | 'phone' | 'leave' | 'storage') => void;
+  onNav: (which: NavKey) => void;
   onMoney: () => void;
   onWork: () => void;
   onMenu: () => void;
@@ -36,6 +36,8 @@ export interface Where {
   /** On the street: the two cross streets. */
   streets?: string[];
 }
+
+export type NavKey = 'here' | 'map' | 'places' | 'phone' | 'leave' | 'storage';
 
 export class Hud {
   private el: HTMLElement;
@@ -69,13 +71,14 @@ export class Hud {
         <nav class="dock" aria-label="Main">
           <button data-nav="here"><span class="dock-ico" aria-hidden="true">📍</span><span>Here</span></button>
           <button data-nav="map"><span class="dock-ico" aria-hidden="true">🗺️</span><span>Map</span></button>
+          <button data-nav="places"><span class="dock-ico" aria-hidden="true">🏙️</span><span>Places</span></button>
           <button data-nav="phone"><span class="dock-ico" aria-hidden="true">📱</span><span>Phone</span></button>
           <button data-nav="storage" hidden><span class="dock-ico" aria-hidden="true">📦</span><span>Storage</span></button>
           <button data-nav="leave" hidden><span class="dock-ico" aria-hidden="true">🚪</span><span>Go outside</span></button>
         </nav>
       </div>`);
     root().appendChild(this.el);
-    this.el.querySelectorAll<HTMLElement>('[data-nav]').forEach((b) => b.addEventListener('click', () => this.h.onNav(b.dataset.nav as 'here' | 'map' | 'phone' | 'leave' | 'storage')));
+    this.el.querySelectorAll<HTMLElement>('[data-nav]').forEach((b) => b.addEventListener('click', () => this.h.onNav(b.dataset.nav as NavKey)));
     this.el.querySelector('[data-money]')!.addEventListener('click', () => this.h.onMoney());
     this.el.querySelector('[data-menu]')!.addEventListener('click', () => this.h.onMenu());
     this.el.querySelector('[data-vol]')!.addEventListener('click', () => this.h.onVolume?.());
@@ -119,6 +122,7 @@ export class Hud {
     (this.el.querySelector('[data-nav="leave"]') as HTMLElement).hidden = !opts.inside;
     (this.el.querySelector('[data-nav="storage"]') as HTMLElement).hidden = !opts.atHome;
     (this.el.querySelector('[data-nav="here"]') as HTMLElement).hidden = opts.inside;
+    (this.el.querySelector('[data-nav="places"]') as HTMLElement).hidden = opts.inside;
     (this.el.querySelector('[data-speak]') as HTMLElement).hidden = opts.inside;
     const goal = this.el.querySelector<HTMLElement>('[data-goal]')!;
     goal.hidden = !opts.goal;

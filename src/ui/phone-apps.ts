@@ -29,6 +29,9 @@ import type { AreaId, GameState } from '../sim/types.ts';
 import { DISTRICTS } from '../world/layout.ts';
 import type { PhoneHost } from './phone.ts';
 import { toast } from './dom.ts';
+import { homesForRent, listingName, moveBlocker, moveCost, MOVING } from '../sim/moving.ts';
+import { layoutForPlace } from '../data/homes.ts';
+import { PLACE_BY_ID as PLACES } from '../data/places.ts';
 import { personOf, RELATION, vibe } from '../sim/people.ts';
 import { textPerson } from '../sim/social.ts';
 import { peopleHost, planDate } from './people-ui.ts';
@@ -137,9 +140,19 @@ PHONE_APPS.add({
           .join('')}`;
       })
       .join('');
+    // A purchase waiting for "yes": say exactly where the money comes from
+    // (the top bar only shows cash, so a bank-paid car looked cheap).
+    const pend = pendingCar && VEHICLES.get(pendingCar.model);
+    const confirm = pend
+      ? (() => {
+          const cash = Math.min(s.money, pend.price);
+          const bank = pend.price - cash;
+          return `<div class="card" style="border:3px solid var(--ink)"><h3>🚗 Buy the ${esc(pend.name)}?</h3><p>Price <b>${money(pend.price)}</b>: ${money(cash)} from your cash${bank > 0 ? ` + <b>${money(bank)} from your bank</b>` : ''}.</p><div class="row" style="gap:8px;margin-top:10px"><button class="btn block" data-act="cars.cancel">Cancel</button><button class="btn primary block" data-act="cars.confirm">Buy it</button></div></div>`;
+        })()
+      : '';
     return {
       title: 'Cars',
-      body: `<div class="card"><h3>😎 Cool ${cool.total}/100</h3>${bar(cool.total, 100, 'linear-gradient(90deg,#3a86ff,#ff006e)')}<p class="sub" style="margin-top:6px">Car +${cool.car} · Outfit +${cool.outfit} · Fame +${cool.fame}. Cool makes people warmer to you and fame grow faster.</p></div>
+      body: `${confirm}<div class="card"><h3>😎 Cool ${cool.total}/100</h3>${bar(cool.total, 100, 'linear-gradient(90deg,#3a86ff,#ff006e)')}<p class="sub" style="margin-top:6px">Car +${cool.car} · Outfit +${cool.outfit} · Fame +${cool.fame}. Cool makes people warmer to you and fame grow faster.</p></div>
         <div class="card"><h3>🪪 Licence ${sus ? '<span style="color:var(--bad)">SUSPENDED</span>' : 'OK'}</h3>${sus ? `<p>Back in ${Math.ceil((l.suspendedUntil - nowMs()) / 60000)} real minutes. Driving now risks arrest.</p>` : `<p>${l.points}/${GARAGE.suspendAt} points · ${l.tickets} tickets ever. Points fade over time.</p>${bar(l.points, GARAGE.suspendAt, 'var(--bad)')}`}</div>
         <h3 style="margin:14px 0 6px;font-size:15px">Your garage (${s.garage.cars.length}/5)</h3>
         ${mine || '<p class="blurb">No car yet. NYC has the subway… but a car is a statement.</p>'}
@@ -148,8 +161,11 @@ PHONE_APPS.add({
   },
   act: (act, { s }) => {
     const [what, a, b] = act.split(':');
-    if (what === 'buy') {
-      const err = buyCar(s, a, b);
+    if (what === 'buy') pendingCar = { model: a, paint: b };
+    if (what === 'cancel') pendingCar = null;
+    if (what === 'confirm' && pendingCar) {
+      const err = buyCar(s, pendingCar.model, pendingCar.paint);
+      pendingCar = null;
       toast(err ?? `It’s yours! Tap Drive to take it out.`, { icon: '🚗', tone: err ? 'bad' : 'good' });
     }
     if (what === 'drive') {
@@ -164,6 +180,51 @@ PHONE_APPS.add({
     }
   },
 });
+
+// ---------------------------------------------------------------------
+// 🏠 Homes: move house (Peter, 2026-10-15). sim/moving.ts has the rules.
+// ---------------------------------------------------------------------
+let pendingHome: string | null = null;
+PHONE_APPS.add({
+  id: 'homes',
+  label: 'Homes',
+  icon: '🏠',
+  bg: '#e76f51',
+  needsPhone: true,
+  render: ({ s }) => {
+    const pend = pendingHome ? PLACES[pendingHome] : null;
+    const confirm = pend
+      ? `<div class="card" style="border:3px solid var(--ink)"><h3>📦 Move to ${esc(listingName(s, pend))}?</h3><p>Today: <b>${money(moveCost(pend))}</b> (movers ${money(MOVING.fee)} + first week ${money(pend.rent ?? 0)}). Then ${money(pend.rent ?? 0)} every week, from cash then bank.${s.home.weeklyRent === 0 && s.home.placeId !== 'shelter' ? ' <b>Your family pays your rent where you live now; they won’t pay for the new place.</b>' : ''} Your furniture stays arranged in each home; anything bought is in 📦 Storage.</p><div class="row" style="gap:8px;margin-top:10px"><button class="btn block" data-act="homes.cancel">Cancel</button><button class="btn primary block" data-act="homes.confirm">Move</button></div></div>`
+      : '';
+    const rows = homesForRent()
+      .map((p) => {
+        const mine = p.id === s.home.placeId;
+        const lay = layoutForPlace(p.id);
+        const c = lay.conditions;
+        const extras = [c?.roommates?.length ? `👥 ${c.roommates.length} roommates` : '', c?.doorman ? '🛎️ doorman' : '', c?.housekeeper ? '🧹 housekeeper' : '', `${lay.rooms.length} rooms`].filter(Boolean).join(' · ');
+        const why = mine ? null : moveBlocker(s, p);
+        return `<div class="list-item"><div style="font-size:26px">${p.emoji}</div><div class="grow"><div class="title">${esc(listingName(s, p))}${mine ? ' · <span style="color:var(--good)">you live here</span>' : ''}</div><div class="sub">${p.rent ? `${money(p.rent)}/week` : 'Free'} · ${esc(extras)}<br>${esc(p.blurb)}${why ? `<br><i>${esc(why)}</i>` : ''}</div></div>${mine ? '' : `<button class="btn ${why ? '' : 'primary'}" data-act="homes.pick:${p.id}" ${why ? 'disabled' : ''}>Move</button>`}</div>`;
+      })
+      .join('');
+    return { title: 'Homes', body: `${confirm}<p class="sub">Move any time: movers + the first week up front. Landlords want to see ${MOVING.proofWeeks} weeks of rent in your cash + bank.</p>${rows}` };
+  },
+  act: (act, { s, host }) => {
+    const [what, id] = act.split(':');
+    if (what === 'pick') pendingHome = id;
+    if (what === 'cancel') pendingHome = null;
+    if (what === 'confirm' && pendingHome) {
+      const id2 = pendingHome;
+      pendingHome = null;
+      const err = host.moveHome?.(id2);
+      if (err) toast(err, { icon: '🏠', tone: 'bad' });
+      else return 'close';
+    }
+    void s;
+  },
+});
+
+/** The car you tapped, waiting for "Buy it" (Cars app). */
+let pendingCar: { model: string; paint: string } | null = null;
 
 // ---------------------------------------------------------------------
 // Contacts: people whose number you have. Text them, ask them out.

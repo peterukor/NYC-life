@@ -191,6 +191,8 @@ export interface GameState {
     scamsSpotted: number;
     earnedToday: number;
     dayKey: string;
+    /** Last Rideshare Black that paid street rep (real ms). */
+    lastBlackCar?: number;
   };
 
   events: { lastFiredAt: number; cooldowns: Record<string, number> };

@@ -162,10 +162,27 @@ if (!spot) {
   console.log('no street spot found:', JSON.stringify(seen));
   spot = [Math.round(width * 0.5), Math.round(height * 0.6)];
 }
+// Clear anything that popped up on the way out (a street event, a toast card).
+const clearPopups = async () => {
+  for (let i = 0; i < 5; i++) {
+    if (await page.$('.modal .choice')) await click('.modal .choice');
+    else if (await page.$('.modal [data-act="ok"]')) await click('.modal [data-act="ok"]');
+    else break;
+    await wait(400);
+  }
+  await page.evaluate(() => document.querySelectorAll('.sheet.open').forEach((x) => x.classList.remove('open')));
+};
+await clearPopups();
 await page.touchscreen.tap(spot[0], spot[1]);
 // Software rendering in CI runs at a few fps (the game clamps each frame
 // to 0.1 s), so give the walk plenty of time.
 await wait(6000);
+// Something popped up instead of walking (a random street event)? Clear it and tap again.
+if (Math.hypot((await state()).location.x - before.x, (await state()).location.z - before.z) < 0.3) {
+  await clearPopups();
+  await page.touchscreen.tap(spot[0], spot[1]);
+  await wait(6000);
+}
 const after = (await state()).location;
 // Walked: either moved a good way, or got to (near) the spot that was tapped
 // (which can be close by, depending on where the camera ended up).
@@ -217,20 +234,24 @@ await wait(400);
 check('Brooklyn is closed (no travel sheet)', !(await page.$('.sheet [data-act="subway"]')));
 await nyc(() => window.__nyc.travel('theStoop'));
 await wait(500);
+const tRide = Date.now();
 await click('.sheet [data-act="subway"]');
 await wait(1500);
 await shot('12-subway-ride');
 // Ride until we arrive, answering any on-board event (Showtime, coffee spill…).
-for (let i = 0; i < 60; i++) {
+let rideMs = 0;
+for (let i = 0; i < 80; i++) {
   if (await page.$('.modal .choice')) { await shot('12b-subway-event'); await click('.modal .choice'); await wait(300); }
   if (await page.$('.modal [data-act="ok"]')) await click('.modal [data-act="ok"]');
-  if (await nyc(() => window.__nyc.mode() === 'city' && window.__nyc.state().stats.placesVisited.includes('timesSqStation'))) break;
-  await wait(500);
+  if (await nyc(() => window.__nyc.mode() === 'city' && !document.querySelector('.fade.on'))) { rideMs = Date.now() - tRide; break; }
+  await wait(250);
 }
-await wait(2500);
+await page.waitForFunction(() => /Stoop/i.test(document.querySelector('.sheet.open')?.innerText ?? ''), { timeout: 5000 }).catch(() => {});
 s = await state();
-// Manhattan has one station (Times Sq); from there you walk on to the bar.
-check('rode the subway and walks on to the East Village', s.location.area === 'manhattan' && s.stats.placesVisited.includes('timesSqStation') && (await nyc(() => window.__nyc.path().length)) > 0);
+// The train drops you at the place's door (~10 s: ad + train car), and its card opens.
+const card = await page.$eval('.sheet.open', (el) => el.innerText).catch(() => '');
+const dEV = await nyc(() => { const st = window.__nyc.state(); const d = window.__nyc.door('theStoop'); return Math.hypot(d.x - st.location.x, d.z - st.location.z); });
+check('the subway drops you at the East Village bar in ~10 s', s.location.area === 'manhattan' && dEV < 4 && /Stoop/i.test(card) && rideMs > 8000 && rideMs < 20000, `${Math.round(rideMs / 100) / 10} s, ${dEV.toFixed(1)} m from the door`);
 await shot('13-east-village');
 
 console.log('\nsave:', { money: s.money, bank: s.bank, job: s.job?.careerId, area: s.location.area, step: s.tutorialStep });

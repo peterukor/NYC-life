@@ -54,6 +54,8 @@ export interface PhoneHost {
   refresh: () => void;
   /** A stock sold for `mult`× what you paid (10×+ gets fireworks at the trading floor). */
   onTradeWin?: (mult: number) => void;
+  /** Move house (🏠 Homes). Returns an error, or null once you're moving. */
+  moveHome?: (placeId: string) => string | null;
 }
 
 const RISK_TAG: Record<StockDef['risk'], string> = { fund: '🛡️ fund', blue: '🏛️ blue chip', growth: '🚀 growth', penny: '🪙 penny', meme: '🎲 meme' };

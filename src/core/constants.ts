@@ -72,6 +72,16 @@ export const HUSTLER_LOAN = { owed: 1_200_000, weekly: 15_000 } as const;
 /** Subway fare (OMNY-style tap), in cents. */
 export const SUBWAY_FARE = 290;
 
+/**
+ * How long trips take, in real seconds (Peter, 2026-10-15): the train is
+ * ~10 s and a long walk ~15 s, each an ad then a ~4 s scene; a rideshare
+ * is ~5 s. Walks shorter than walkLive seconds are just walked live.
+ */
+export const TRAVEL_SECONDS = { trainAd: 6, trainScene: 4, walkAd: 11, walkScene: 4, walkLive: 15, ride: 5 } as const;
+
+/** Rideshare Black: street rep per ride, at most once per this many game minutes. */
+export const BLACK_CAR_REP = { points: 3, everyGameMinutes: 120 } as const;
+
 /** Rideshare pricing: base fare + per 100 metres, times surge. */
 export const RIDESHARE = { base: 450, per100m: 35, minFare: 800, luxuryMultiplier: 2.4 } as const;
 

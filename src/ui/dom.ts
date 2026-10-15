@@ -121,7 +121,7 @@ export function fade(on: boolean, text = '', sub = '', ad?: FadeAd): void {
   }
   // Travel loading screens are an ad (Peter, 2026-10-14): a big card, the trip underneath.
   const card = ad
-    ? `<div class="fade-ad" style="--bg:${ad.bg};--fg:${ad.fg};--ac:${ad.accent}"><em class="fade-ad-tag">Ad</em><strong>${esc(ad.brand)}</strong><span>${esc(ad.line)}</span><i class="fade-ad-bar"></i></div>`
+    ? `<div class="fade-ad" style="--bg:${ad.bg};--fg:${ad.fg};--ac:${ad.accent};--ad-s:${ad.seconds ?? 2}s"><em class="fade-ad-tag">Ad</em><strong>${esc(ad.brand)}</strong><span>${esc(ad.line)}</span><i class="fade-ad-bar"></i></div>`
     : '';
   if (on || !el.classList.contains('on')) el.innerHTML = text || ad ? `${card}<div>${esc(text)}${sub ? `<span class="sub">${esc(sub)}</span>` : ''}</div>` : '';
   el.classList.toggle('with-ad', !!ad && on);
@@ -135,6 +135,8 @@ export interface FadeAd {
   bg: string;
   fg: string;
   accent: string;
+  /** How long the ad stays up (its progress bar fills in this time). */
+  seconds?: number;
 }
 
 /** Attach one click handler to a container that fires for any [data-act] button inside. */
