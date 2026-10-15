@@ -22,7 +22,7 @@ How to add or change content: **`docs/ADDING-CONTENT.md`**.
   - three.js (`assets/three-*.js`, ~204 KB gzip) and the game (`assets/index-*.js`, ~357 KB gzip) are separate hashed files, so an update only re-downloads what changed.
 - **Device copy:** `sw.js` is generated at build time with the list of this build's files.
   - It keeps a copy of the game on the device, and an unchanged model carries over between builds (`?v=` content hash).
-  - The page itself is fetched network-first (4 s timeout), so a refresh still shows a new deploy.
+  - The page itself is fetched network-first with `cache: 'no-cache'` (4 s timeout), so a refresh shows a new deploy straight away. No cache clearing needed, and GitHub Pages' 10-minute HTML cache is skipped too.
   - It keeps the current cache plus the previous one. The game starts offline after one visit.
   - It is registered in `main.ts`, production builds only.
 - **Start-up work cut:**

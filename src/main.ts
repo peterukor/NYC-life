@@ -33,7 +33,7 @@ async function start(): Promise<void> {
 // Keep a copy of the game on the device (sw.js, made by vite.config.ts):
 // return visits start from the phone and work offline. Live builds only.
 if (import.meta.env.PROD && 'serviceWorker' in navigator && location.protocol !== 'file:') {
-  window.addEventListener('load', () => void navigator.serviceWorker.register('./sw.js').catch(() => {}));
+  window.addEventListener('load', () => void navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' }).catch(() => {}));
 }
 
 start().catch((err) => {

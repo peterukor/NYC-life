@@ -93,7 +93,9 @@ self.addEventListener('fetch', (e) => {
   if (req.mode === 'navigate') {
     e.respondWith((async () => {
       try {
-        const res = await Promise.race([fetch(req), timeout(4000)]);
+        // cache: 'no-cache' asks the server every time (GitHub Pages would
+        // otherwise hand back a page up to 10 minutes old after a deploy).
+        const res = await Promise.race([fetch(req.url, { cache: 'no-cache', credentials: 'same-origin' }), timeout(4000)]);
         if (res.ok) (await caches.open(CACHE)).put('./', res.clone());
         return res;
       } catch {
