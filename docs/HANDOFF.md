@@ -15,6 +15,17 @@ Build and test:
 
 How to add or change content: **`docs/ADDING-CONTENT.md`**.
 
+## Sound controls, zoom, whole-map placement check (2026-10-15)
+
+- Zoom: rooms zoom out a little further (`MIN_ZOOM` 0.62). The satellite map stops a little closer (`MAP_SPAN_FRACTION` 0.26, ~1313 m) because zooming out too far shimmered.
+- Sound: 🔊/🔇 in the top bar mutes everything with one tap. Phone ▸ Settings ▸ Sound has a slider and a mute button for 🎵 Music and for 🔔 Sound effects (`settings.musicVol` / `sfxVol`, `setVolumes` in ui/audio.ts). There's no mixer sheet: Peter asked for just a slider and a mute.
+- `src/world/placement-check.ts` checks the whole map at startup:
+  - Ads: every ad is tested against an index of every building. Buried ads are pushed out, wall screens with no wall behind them slide along the wall or are dropped, and of two overlapping ads the smaller one is dropped.
+  - Times Square: the tower, the red TKTS steps (they search sideways for clear plaza because Broadway cuts it on a diagonal), seating, planters and bus shelters are only placed where `rectClear` says there's no road.
+  - Street props: instanced street props are never placed on highway corridors.
+  - Output: a `[placement]` console line. `scripts/qa-placement.mjs` prints issues plus an ON ROAD sweep and fails if there are any issues. The sweep skips waterfront meshes and road meshes. About 10 corner props near the riverside are known to be fine; they were checked in screenshots.
+- Queued (not started): ads you buy with real money (Stripe, founding price ~1/10) and with game money; transfers ($3k a game-day, plus wire transfers that need review); a server-side backend; loading the game in pieces.
+
 ## Four starter homes (2026-10-13)
 - The class is **rolled at random** after character creation and revealed ("…you were born"): Broke 55%, Middle 35%, Rich 9%, Billionaire 1% (`sim/state.ts` → `CLASS_ODDS`, `rollClass`). `?class=` forces one.
 - Homes (`data/homes.ts`):

@@ -17,7 +17,7 @@ import * as THREE from 'three';
 
 export const MAX_ZOOM = 2.8;
 /** Zoom out past "the room fits" to see more around it (Peter, 2026-10-14), and start a little wider. */
-export const MIN_ZOOM = 0.7; // 0.55 was a little too far (Peter)
+export const MIN_ZOOM = 0.62; // a little further out than 0.7 (Peter, 2026-10-15)
 export const START_ZOOM = 0.92;
 
 export class InteriorView {

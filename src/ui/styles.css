@@ -852,3 +852,14 @@ body.mirror .hud { opacity: 0; visibility: hidden; transition: opacity 0.2s, vis
 .pin-info small.no { color: #c2283c; }
 .pin-info small.hint { font-weight: 400; color: var(--ink-soft); margin-top: 2px; }
 .map-pin { -webkit-touch-callout: none; user-select: none; }
+
+/* 🔊 Volume button (top bar) and the sound mixer sheet. */
+.vol-btn { flex: none; width: 46px; height: 40px; display: grid; place-items: center; border: var(--line); border-radius: 999px; background: var(--paper); box-shadow: var(--drop-sm); pointer-events: auto; padding: 0; font-size: 19px; }
+.mixer { display: grid; gap: 14px; }
+.mixer-row { display: grid; grid-template-columns: 48px 1fr; grid-template-rows: auto auto; column-gap: 12px; align-items: center; }
+.mixer-mute { grid-row: 1 / 3; width: 48px; height: 48px; border: var(--line-thin); border-radius: 14px; background: var(--paper); font-size: 22px; }
+.mixer-mute.off { background: var(--paper-2); }
+.mixer-label { display: flex; justify-content: space-between; font-weight: 800; font-size: 14px; }
+.mixer-label span { font-weight: 700; color: var(--ink-soft); }
+.mixer input[type="range"] { width: 100%; height: 32px; accent-color: #ff4f8b; }
+.mixer input[type="range"]:disabled { opacity: 0.4; }

@@ -23,6 +23,8 @@ export interface HudHandlers {
   onMoney: () => void;
   onWork: () => void;
   onMenu: () => void;
+  /** 🔊 one-tap mute for all sound. */
+  onVolume?: () => void;
   /** Speak loud (ui/people-ui.ts). */
   onSpeak?: () => void;
 }
@@ -39,12 +41,21 @@ export class Hud {
   private el: HTMLElement;
   private last = '';
 
+  /** Show 🔇 on the top-bar button when everything is muted. */
+  setMuted(muted: boolean): void {
+    const b = this.el.querySelector<HTMLElement>('[data-vol]');
+    if (!b) return;
+    b.textContent = muted ? '🔇' : '🔊';
+    b.setAttribute('aria-label', muted ? 'Turn sound on' : 'Mute sound');
+  }
+
   constructor(private h: HudHandlers) {
     this.el = html(`
       <div class="hud">
         <div class="hud-top">
           <button class="menu-btn" data-menu aria-label="Menu: happening now, news, settings"><i></i></button>
           <div class="clock" data-clock></div>
+          <button class="vol-btn" data-vol aria-label="Mute sound">🔊</button>
           <button class="metrocard" data-money aria-label="Money and bank"></button>
         </div>
         <div class="hud-left">
@@ -67,6 +78,7 @@ export class Hud {
     this.el.querySelectorAll<HTMLElement>('[data-nav]').forEach((b) => b.addEventListener('click', () => this.h.onNav(b.dataset.nav as 'here' | 'map' | 'phone' | 'leave' | 'storage')));
     this.el.querySelector('[data-money]')!.addEventListener('click', () => this.h.onMoney());
     this.el.querySelector('[data-menu]')!.addEventListener('click', () => this.h.onMenu());
+    this.el.querySelector('[data-vol]')!.addEventListener('click', () => this.h.onVolume?.());
     this.el.querySelector('[data-work]')!.addEventListener('click', () => this.h.onWork());
     this.el.querySelector('[data-speak]')!.addEventListener('click', () => this.h.onSpeak?.());
     // The HUD wrapper must not block taps on the 3D city; only its controls take touches.

@@ -19,6 +19,16 @@ let musicOn = true;
 let master: GainNode | null = null;
 const buses: Partial<Record<'sfx' | 'ambience' | 'loops', GainNode>> = {};
 const LEVEL = { sfx: 0.9, ambience: 0.55, loops: 0.6 };
+/** Player volume (0–1) for the music and for everything else (the 🔊 mixer). */
+const vol = { music: 0.7, sfx: 0.8 };
+const busLevel = (k: 'sfx' | 'ambience' | 'loops') => (k === 'ambience' ? (musicOn ? LEVEL.ambience * vol.music : 0) : LEVEL[k] * vol.sfx);
+/** Set the music and effects volume (0–1 each). */
+export function setVolumes(music: number, sfx: number): void {
+  vol.music = Math.max(0, Math.min(1, music));
+  vol.sfx = Math.max(0, Math.min(1, sfx));
+  if (!ctx) return;
+  for (const k of ['sfx', 'ambience', 'loops'] as const) buses[k]?.gain.setTargetAtTime(busLevel(k), ctx.currentTime, 0.05);
+}
 let noiseBuf: AudioBuffer | null = null;
 let brownBuf: AudioBuffer | null = null;
 
@@ -31,7 +41,7 @@ export function setSoundEnabled(on: boolean): void {
 export function setAmbienceEnabled(on: boolean): void {
   musicOn = on;
   const b = buses.ambience;
-  if (b && ctx) b.gain.setTargetAtTime(on ? LEVEL.ambience : 0, ctx.currentTime, 0.2);
+  if (b && ctx) b.gain.setTargetAtTime(busLevel('ambience'), ctx.currentTime, 0.2);
 }
 
 export function soundReady(): boolean {
@@ -52,7 +62,7 @@ export function ac(): AudioContext | null {
       comp.connect(master).connect(ctx.destination);
       for (const k of ['sfx', 'ambience', 'loops'] as const) {
         const g = ctx.createGain();
-        g.gain.value = k === 'ambience' && !musicOn ? 0 : LEVEL[k];
+        g.gain.value = busLevel(k);
         g.connect(comp);
         buses[k] = g;
       }

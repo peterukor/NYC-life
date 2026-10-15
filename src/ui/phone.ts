@@ -44,6 +44,9 @@ export interface PhoneHost {
   setQuality: (q: GameState['settings']['quality']) => void;
   toggleSound: () => void;
   toggleMusic?: () => void;
+  setVolume?: (kind: 'music' | 'sfx', v: number) => void;
+  toggleMute?: (kind: 'music' | 'sfx') => void;
+  saveSettings?: () => void;
   skipSong?: () => void;
   nowPlaying?: () => string | null;
   resetLife: () => void;
@@ -71,10 +74,31 @@ const APPS = [
   { id: 'settings', label: 'Settings', icon: '⚙️', bg: '#4a4e69', needsPhone: false },
 ];
 
+/** A volume row in Settings: mute button + slider (Peter, 2026-10-15: "just a slider and mute button for music and sound"). */
+function volumeRow(id: 'music' | 'sfx', emoji: string, label: string, value: number, on: boolean): string {
+  return `<div class="mixer-row">
+    <button class="mixer-mute${on ? '' : ' off'}" data-act="mute:${id}" aria-label="${on ? 'Mute' : 'Unmute'} ${label}" aria-pressed="${!on}">${on ? emoji : '🔇'}</button>
+    <label class="mixer-label" for="vol-${id}">${label}<span data-pct="${id}">${on ? `${value}%` : 'Muted'}</span></label>
+    <input id="vol-${id}" type="range" min="0" max="100" step="5" value="${value}" data-vol="${id}" ${on ? '' : 'disabled'} aria-label="${label} volume" />
+  </div>`;
+}
+
 export function openPhone(host: PhoneHost, startApp?: string): () => void {
   const el = html('<div class="phone" role="dialog" aria-label="Phone"></div>');
   root().appendChild(el);
   const s = host.state;
+  // Volume sliders (Settings): change live, save when let go.
+  el.addEventListener('input', (e) => {
+    const t = e.target as HTMLInputElement;
+    const kind = t.dataset.vol as 'music' | 'sfx' | undefined;
+    if (!kind) return;
+    host.setVolume?.(kind, Number(t.value));
+    const pct = el.querySelector(`[data-pct="${kind}"]`);
+    if (pct) pct.textContent = `${t.value}%`;
+  });
+  el.addEventListener('change', (e) => {
+    if ((e.target as HTMLElement).dataset.vol) host.saveSettings?.();
+  });
 
   const close = () => el.remove();
 
@@ -256,8 +280,11 @@ export function openPhone(host: PhoneHost, startApp?: string): () => void {
       page('Settings', `
         <div class="card"><h3>Graphics</h3><p>Lower settings run smoother on older phones.</p>
           <div class="seg" style="margin-top:10px">${(['auto', 'low', 'medium', 'high'] as const).map((x) => `<button data-act="q:${x}" class="${q === x ? 'on' : ''}">${x[0].toUpperCase() + x.slice(1)}</button>`).join('')}</div></div>
-        <div class="card"><h3>Sound</h3><button class="btn block" data-act="sound">${s.settings.sound ? '🔊 On' : '🔇 Off'}</button></div>
-        <div class="card"><h3>Music</h3><button class="btn block" data-act="music">${s.settings.music !== false ? '🎵 On' : '🔕 Off'}</button>${s.settings.music !== false && host.nowPlaying?.() ? `<p class="fine">Now playing: ${esc(host.nowPlaying()!)}</p><button class="btn block" data-act="skipsong">⏭ Next song</button>` : ''}</div>
+        <div class="card mixer"><h3>Sound</h3>
+          ${volumeRow('music', '🎵', 'Music', s.settings.musicVol ?? 70, s.settings.music !== false && s.settings.sound)}
+          ${volumeRow('sfx', '🔊', 'Sound effects', s.settings.sfxVol ?? 80, s.settings.sound)}
+          ${s.settings.music !== false && s.settings.sound && host.nowPlaying?.() ? `<p class="fine">Now playing: ${esc(host.nowPlaying()!)}</p><button class="btn block" data-act="skipsong">⏭ Next song</button>` : ''}
+        </div>
         <div class="card"><h3>Start over</h3><p>Deletes this life on this device. There’s no undo.</p><button class="btn block" style="margin-top:10px;color:var(--bad)" data-act="reset">Start a new life</button></div>
         <p class="fine">NYC Life preview · single-player · saves on this device. Places are inspired by real New York; brands are fictional unless marked “Sponsored”.</p>`);
     },
@@ -376,6 +403,10 @@ export function openPhone(host: PhoneHost, startApp?: string): () => void {
     }
     if (act.startsWith('q:')) {
       host.setQuality(act.slice(2) as GameState['settings']['quality']);
+      return apps.settings();
+    }
+    if (act === 'mute:music' || act === 'mute:sfx') {
+      host.toggleMute?.(act.slice(5) as 'music' | 'sfx');
       return apps.settings();
     }
     if (act === 'sound') {
