@@ -40,17 +40,17 @@ await page.$eval('[data-nav="map"]', (el) => el.click()); await page.waitForSele
 await page.evaluate(() => [...document.querySelectorAll('.sheet.open button')].find((b) => /Satellite/.test(b.textContent)).click());
 await wait(2500);
 const open0 = await page.evaluate(() => window.__nyc.camDist());
-ok(open0 > 3600, `satellite opens fully zoomed out (distance ${open0})`);
+ok(open0 > 1900 && open0 < 2150, `satellite opens fully zoomed out at ~0.4 of the island (distance ${open0})`);
 await page.screenshot({ path: 'test-results/maps-open.png' });
 await page.mouse.move(195, 420);
 for (let i = 0; i < 8; i++) { await page.mouse.wheel({ deltaY: -400 }); await wait(200); }
 await wait(1500);
 const inZ = await page.evaluate(() => window.__nyc.camDist());
-ok(inZ < 3000, `players can zoom in (distance ${inZ})`);
+ok(inZ < 1800, `players can zoom in (distance ${inZ})`);
 for (let i = 0; i < 20; i++) { await page.mouse.wheel({ deltaY: 400 }); await wait(200); }
 await wait(2500);
 const far = await page.evaluate(() => window.__nyc.camDist());
-ok(far > 3600 && far < 3900, `satellite max zoom-out shows ~3/4 of the island (distance ${far})`);
+ok(far > 1900 && far < 2150, `satellite max zoom-out is ~0.4 of the island (distance ${far})`);
 await page.screenshot({ path: 'test-results/maps-whole.png' });
 await page.$eval('.map3d [data-act="close"]', (el) => el.click());
 await wait(1500);

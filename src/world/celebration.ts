@@ -14,6 +14,7 @@
 // =====================================================================
 
 import * as THREE from 'three';
+import { sfx } from '../ui/audio.ts';
 import type { Celebration } from '../data/bottles.ts';
 import { makeAvatar, type Avatar } from './avatar.ts';
 import type { HomeInterior } from './home-interior.ts';
@@ -105,6 +106,7 @@ export class CelebrationFx {
 
   /** Fireworks: one burst of sparks. */
   private burst(at: THREE.Vector3, color: string, size: number, count = 70): Burst {
+    sfx.firework(size);
     const pos = new Float32Array(count * 3);
     const vel = new Float32Array(count * 3);
     for (let i = 0; i < count; i++) {

@@ -379,6 +379,13 @@ void main() {
   dx.y = -dx.y;
   dy.y = -dy.y;
   vec4 texel = textureGrad(uAtlas, auv, dx, dy);
+  // Far away (zoomed out on the sky map) a pixel covers several windows and
+  // the pattern shimmers as the camera moves (Peter: "glitter"). Fade to the
+  // tile's average colour, one texel per tile at mip log2(S), as windows
+  // shrink below a pixel.
+  float farCover = max(length(dFdx(vCell)), length(dFdy(vCell)));
+  vec4 tileAvg = textureLod(uAtlas, (tileOrigin + 0.5) / ${N}.0, ${Math.log2(S)}.0);
+  texel = mix(texel, tileAvg, smoothstep(0.2, 0.55, farCover));
   vec3 base = mix(texel.rgb, texel.rgb * vColor.rgb, texel.a);
   // Contact shading: darker right at the ground, full colour from ~3 m up.
   base *= mix(0.6, 1.0, smoothstep(0.0, 3.2, vY));
@@ -398,7 +405,7 @@ void main() {
       )
       .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n  totalEmissiveRadiance += windowLit * uNight * vec3(1.0, 0.8, 0.45) * 0.95;');
   };
-  m.customProgramCacheKey = () => 'nyc-city-v3';
+  m.customProgramCacheKey = () => 'nyc-city-v4';
   return m;
 }
 

@@ -101,7 +101,8 @@ import { arrest } from './sim/jail.ts';
 import { driveTrip, drivingCar, GARAGE, licenceSuspended } from './sim/garage.ts';
 import './ui/phone-apps.ts';
 import { buildSubwayRide, type TransitScene } from './world/transit.ts';
-import { installUiClicks, sfx, setSoundEnabled } from './ui/audio.ts';
+import { installUiClicks, sfx, setAmbienceEnabled, setSoundEnabled } from './ui/audio.ts';
+import { music } from './ui/music.ts';
 import { soundscape, type Scene } from './ui/soundscape.ts';
 import { nextTravelAd } from './ui/travel-ad.ts';
 import { closeSheet, fade, html, isSheetOpen, onAct, openModal, openSheet, progressBar, root, toast, wait } from './ui/dom.ts';
@@ -396,7 +397,9 @@ export class Game {
       indoorRoute: () => (this.indoor ? this.indoor.points.map((q) => ({ ...q })) : null),
       resetCam: () => this.fitInteriorCamera(),
       phoneApp: (id: string) => this.openPhoneApp(id),
+      nowPlaying: () => music.title,
       camDist: () => Math.round(this.engine.camera.position.distanceTo(this.engine.controls.target)),
+      camTarget: () => ({ x: Math.round(this.engine.controls.target.x), z: Math.round(this.engine.controls.target.z) }),
       admirers: () => this.party?.admirers.map((x) => x.name) ?? [],
       section: () => this.state.section ?? null,
       sectionCrew: () => this.sectionCrew?.count ?? -1,
@@ -647,6 +650,8 @@ export class Game {
 
   private applySettings(): void {
     setSoundEnabled(this.state.settings.sound);
+    setAmbienceEnabled(this.state.settings.music !== false);
+    music.setEnabled(this.state.settings.music !== false);
     if (!this.uiClicks) {
       this.uiClicks = true;
       installUiClicks();
@@ -2815,14 +2820,14 @@ export class Game {
     const fog = this.engine.cityScene.fog as THREE.Fog;
     const saved = {
       pos: camera.position.clone(), target: controls.target.clone(), follow: this.followCamera, min: controls.minDistance, max: controls.maxDistance,
-      minPolar: controls.minPolarAngle, maxPolar: controls.maxPolarAngle, pan: controls.enablePan, rotate: controls.enableRotate, ssp: controls.screenSpacePanning, touches: { ...controls.touches }, mouse: { ...controls.mouseButtons },
+      minPolar: controls.minPolarAngle, maxPolar: controls.maxPolarAngle, pan: controls.enablePan, rotate: controls.enableRotate, ssp: controls.screenSpacePanning, damping: controls.enableDamping, touches: { ...controls.touches }, mouse: { ...controls.mouseButtons },
       near: fog.near, far: fog.far, camFar: camera.far, camNear: camera.near, mode: this.engine.mode,
     };
     this.map3dSaved = () => {
       camera.position.copy(saved.pos);
       controls.target.copy(saved.target);
       this.followCamera = saved.follow;
-      Object.assign(controls, { minDistance: saved.min, maxDistance: saved.max, minPolarAngle: saved.minPolar, maxPolarAngle: saved.maxPolar, enablePan: saved.pan, enableRotate: saved.rotate, screenSpacePanning: saved.ssp });
+      Object.assign(controls, { minDistance: saved.min, maxDistance: saved.max, minPolarAngle: saved.minPolar, maxPolarAngle: saved.maxPolar, enablePan: saved.pan, enableRotate: saved.rotate, screenSpacePanning: saved.ssp, enableDamping: saved.damping });
       controls.touches = saved.touches;
       controls.mouseButtons = saved.mouse;
       fog.near = saved.near;
@@ -2836,10 +2841,11 @@ export class Game {
     // Lift the camera into the sky over where you are.
     this.engine.mode = 'city';
     this.followCamera = false;
-    // Straight down, north up, no tilting or spinning (Peter, 2026-10-14: "vertical, not slanted").
-    Object.assign(controls, { minDistance: 70, maxDistance: MAP_MAX_DISTANCE, minPolarAngle: 0.01, maxPolarAngle: 0.01, enablePan: true, enableRotate: false, screenSpacePanning: false });
-    controls.touches = { ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY_PAN };
-    controls.mouseButtons = { LEFT: THREE.MOUSE.PAN, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.PAN };
+    // The tilted sky view (Peter, 2026-10-14: back to the tilt; only the flat city map is straight down).
+    // No glide: the map stops the moment you let go (the glide read as "the map follows my mouse").
+    Object.assign(controls, { minDistance: 70, maxDistance: MAP_MAX_DISTANCE, minPolarAngle: 0.15, maxPolarAngle: 1.05, enablePan: true, enableRotate: true, screenSpacePanning: false, enableDamping: false });
+    controls.touches = { ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY_ROTATE };
+    controls.mouseButtons = { LEFT: THREE.MOUSE.PAN, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.ROTATE };
     fog.near = 4000;
     fog.far = 9000;
     camera.far = Math.max(camera.far, 9500); // zoomed all the way out you see the whole island
@@ -2855,7 +2861,9 @@ export class Game {
     const cx = manhattan ? (MANHATTAN_BOUNDS.minX + MANHATTAN_BOUNDS.maxX) / 2 : px;
     const cz = manhattan ? THREE.MathUtils.clamp(pz, MANHATTAN_BOUNDS.minZ + span / 2, MANHATTAN_BOUNDS.maxZ - span / 2) : pz;
     controls.target.set(cx, 0, cz);
-    camera.position.set(cx, MAP_MAX_DISTANCE * Math.cos(0.01), cz + MAP_MAX_DISTANCE * Math.sin(0.01));
+    // The old tilt (looking north, ~34° from straight down), from the furthest zoom-out.
+    const dir = new THREE.Vector3(60, 540, 360).normalize();
+    camera.position.set(cx, 0, cz).addScaledVector(dir, MAP_MAX_DISTANCE);
     controls.update();
     this.hud?.setVisible(false);
     const d = DISTRICTS[this.city.area];
@@ -3278,6 +3286,14 @@ export class Game {
           this.save();
           toast('Graphics change applies next time you load the game.', { icon: '⚙️' });
         },
+        toggleMusic: () => {
+          this.state.settings.music = this.state.settings.music === false;
+          setAmbienceEnabled(this.state.settings.music !== false);
+          music.setEnabled(this.state.settings.music !== false);
+          this.save();
+        },
+        skipSong: () => music.skip(),
+        nowPlaying: () => music.title,
         toggleSound: () => {
           this.state.settings.sound = !this.state.settings.sound;
           setSoundEnabled(this.state.settings.sound);
