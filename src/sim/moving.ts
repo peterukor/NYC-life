@@ -37,8 +37,10 @@ export function listingName(s: GameState, p: PlaceDef): string {
 }
 
 /** What moving in costs today: movers + the first week. */
-export function moveCost(p: PlaceDef): number {
-  return MOVING.fee + (p.rent ?? 0);
+export function moveCost(p: PlaceDef, s?: GameState): number {
+  // 🔑 Know Bianca the realtor (data/clubs.ts): the movers are on her.
+  const fee = s && (s.connections ?? []).includes('realtor') ? 0 : MOVING.fee;
+  return fee + (p.rent ?? 0);
 }
 
 /** Why you can't move there (null = you can). */
@@ -48,7 +50,7 @@ export function moveBlocker(s: GameState, p: PlaceDef): string | null {
   if (s.jail && s.jail.until > nowMs()) return 'Hard to sign a lease from a cell.';
   const rent = p.rent ?? 0;
   const have = s.money + s.bank;
-  if (have < moveCost(p)) return 'You can’t cover the movers and the first week.';
+  if (have < moveCost(p, s)) return 'You can’t cover the movers and the first week.';
   if (rent > 0 && have < rent * MOVING.proofWeeks) return `The landlord wants to see ${MOVING.proofWeeks} weeks of rent in the bank first.`;
   return null;
 }
@@ -57,7 +59,7 @@ export function moveBlocker(s: GameState, p: PlaceDef): string | null {
 export function moveTo(s: GameState, p: PlaceDef): string | null {
   const why = moveBlocker(s, p);
   if (why) return why;
-  const { short } = chargeBill(s, moveCost(p), `Moved to ${listingName(s, p)} (movers + first week)`);
+  const { short } = chargeBill(s, moveCost(p, s), `Moved to ${listingName(s, p)} (movers + first week)`);
   if (short > 0) return 'The payment didn’t go through.';
   // Rent is paid for this week; the next one is due in 7 days.
   s.home = { area: p.area, placeId: p.id, weeklyRent: p.rent ?? 0, rentDueDay: nycTime().dateKey };

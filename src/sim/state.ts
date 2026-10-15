@@ -166,5 +166,7 @@ export function newLife(opts: NewLifeOptions): GameState {
 export function skillGainMultiplier(s: GameState, key: SkillKey): number {
   let m = s.profile.origin === 'hustler' ? 1.25 : 1;
   for (const t of s.profile.traits) if (TRAITS[t]?.skill === key) m *= 1.5;
+  // 🎧 Know Kai the producer (data/clubs.ts).
+  if (key === 'music' && (s.connections ?? []).includes('producer')) m *= 1.25;
   return m;
 }

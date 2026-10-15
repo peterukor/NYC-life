@@ -128,6 +128,10 @@ export interface GameState {
   };
   /** 🔥 Street rep and 💼 corporate rep (sim/rep.ts). Old saves: missing. */
   rep?: { street: number; corporate: number };
+  /** People worth knowing you've met at clubs (data/clubs.ts CONNECTIONS ids). */
+  connections?: string[];
+  /** What you spent at a club tonight (the top-spenders board). */
+  clubNight?: { placeId: string; day: string; spent: number };
   /** 💊 Pharmacist heat with the police, and when it was last set (sim/job-perks.ts). */
   heat?: { value: number; at: number };
   /** 🚓 Cop corruption exposure, 0–100 (sim/job-perks.ts). */

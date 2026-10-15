@@ -325,7 +325,26 @@ const RAW: RawPlace[] = [
     id: 'velvetRoom', area: 'manhattan', name: 'The Velvet Room', emoji: '🌙', type: 'nightlife',
     blurb: 'Purple lights, a mirrored stage, a DJ who only plays bangers. Doors at 8 PM.',
     at: [40.7562, -73.9895], hours: [20, 4], interior: 'club', color: '#7b2cbf',
-    actions: ['getSection', 'bottleService', 'dancefloor', 'happyHour'],
+    actions: ['getSection', 'bottleService', 'dancefloor', 'happyHour', 'mingle'],
+  },
+  // More clubs, one per level (data/clubs.ts has the door policy and what makes each bigger).
+  {
+    id: 'basement212', area: 'manhattan', name: 'Basement 212', emoji: '🎧', type: 'nightlife',
+    blurb: 'Down a staircase on Ludlow. Sticky floor, loud speakers, nobody checks your shoes. Everyone starts here.',
+    at: [40.7203, -73.9885], hours: [21, 4], interior: 'club', color: '#36c5f0',
+    actions: ['bottleService', 'dancefloor', 'happyHour', 'mingle'],
+  },
+  {
+    id: 'skyeRooftop', area: 'manhattan', name: 'Skye Rooftop', emoji: '🌆', type: 'nightlife',
+    blurb: 'Twenty floors up over the Meatpacking District. City lights, a long bar, and a door that judges your shoes.',
+    at: [40.7397, -74.0065], hours: [20, 4], interior: 'club', color: '#ff8fab',
+    actions: ['getSection', 'bottleService', 'dancefloor', 'happyHour', 'mingle'],
+  },
+  {
+    id: 'aurumClub', area: 'manhattan', name: 'Aurum', emoji: '💎', type: 'nightlife',
+    blurb: 'No sign on the door. Gold everything, chandeliers, a famous DJ. Members only: billionaires, celebrities, and now maybe you.',
+    at: [40.7625, -73.9735], hours: [22, 4], interior: 'club', color: '#ffd700',
+    actions: ['getSection', 'bottleService', 'dancefloor', 'happyHour', 'mingle'],
   },
   {
     // Alley Pharmacist's spot. Every product here is made up.

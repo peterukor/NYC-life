@@ -91,6 +91,7 @@ const LIST: ActionDef[] = [
   { id: 'dateHere', label: 'Invite someone on a date here', emoji: '💘', seconds: 2, tags: ['service'] },
   // Entertainment (Peter, 2026-10-14): each opens its own game or screen.
   { id: 'getSection', label: 'Your VIP section', emoji: '🛋️', seconds: 2, tags: ['service'] },
+  { id: 'mingle', label: 'Mingle', emoji: '🍸', seconds: 2, tags: ['service', 'social'] },
   { id: 'playSlots', label: 'Play the slots', emoji: '🎰', seconds: 2, tags: ['service'] },
   { id: 'playBlackjack', label: 'Play blackjack', emoji: '🃏', seconds: 2, tags: ['service'] },
   { id: 'playRoulette', label: 'Play roulette', emoji: '🎡', seconds: 2, tags: ['service'] },
