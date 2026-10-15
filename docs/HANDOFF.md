@@ -15,6 +15,31 @@ Build and test:
 
 How to add or change content: **`docs/ADDING-CONTENT.md`**.
 
+## Batch 3: club tiers (2026-10-15)
+
+- **Four Manhattan clubs, one per tier** (`data/clubs.ts`):
+  - 🎧 Basement 212 (LES, open door)
+  - 🌙 The Velvet Room
+  - 🌆 Skye Rooftop (Meatpacking)
+  - 💎 Aurum (members only)
+  - Rooms club1 / club / club3 / club4 in `WORKPLACE_LAYOUTS`: bigger each tier, with more crowd, floor and booths.
+- **The door** (`sim/clubs.ts` `doorCheck`, game `clubDoor`):
+  - You're in on a 🔥 street rep rank or 😎 Cool.
+  - Knowing Dre the promoter gets you one tier up (Aurum needs the promoter and the heir).
+  - Turned away? Bribe = 6× cover; charisma helps; no bribing Aurum.
+  - Cover is charged on entry. Staff walk in free.
+- **Bigger = more fun:**
+  - Bottle shows × `show` (spotlight, fireworks, admirers).
+  - Street rep per bottle × `rep`.
+  - The DJ drops more often (`dropEvery`: the room cheers, you get fun).
+  - Better connections to meet.
+- **📺 Club screen** (`world/club-screen.ts`): an LED wall with the club name, the DJ and tonight's top spenders (regulars, fixed per night, plus you).
+  - Bottles and sections put your name on it, plus a big `.club-marquee` banner.
+  - It runs on real time, so a slow phone doesn't hold your name up longer.
+- **🍸 Mingle** (`mingle`): meet connections by tier: promoter, stylist (+10 Cool), realtor (no movers' fee), producer (music ×1.25), hedge fund guy (stock tips, corporate rep), heir (bottles 10% off).
+  - Listed in Phone → Me, with which club doors are open to you.
+- **Tests:** `tests/clubs.test.ts` (7). QA: `scripts/qa-batch3.mjs`, and `PLACES=basement212,velvetRoom,skyeRooftop,aurumClub node scripts/qa-workplaces.mjs` (0 clashes).
+
 ## Batch 2: interactive street life (2026-10-15)
 
 - **🥊 Fights you play** (`ui/minigames.ts` `playFight`, rules in `sim/brawl.ts`):

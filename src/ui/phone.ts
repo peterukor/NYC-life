@@ -9,6 +9,8 @@
 import { clockLabel, nycTime } from '../core/clock.ts';
 import { esc, money } from '../core/format.ts';
 import { CAREERS, CAREER_BY_ID } from '../data/careers.ts';
+import { CLUBS, CONNECTION_BY_ID } from '../data/clubs.ts';
+import { doorCheck } from '../sim/clubs.ts';
 import { PLACES, PLACE_BY_ID, isOpen } from '../data/places.ts';
 import { deposit, withdraw } from '../sim/economy.ts';
 import { computeMood, NEED_INFO } from '../sim/needs.ts';
@@ -252,7 +254,11 @@ export function openPhone(host: PhoneHost, startApp?: string): () => void {
         <h3 style="margin:14px 0 8px;font-size:15px">Rep</h3>
         ${(['street', 'corporate'] as RepKind[]).map((k) => { const v = repOf(s)[k]; const r = repRank(s, k); const next = REP_RANKS[r + 1]; const lo = REP_RANKS[r]; return `<div class="skill-row"><span>${REP_EMOJI[k]} ${repTitle(s, k)}</span><div class="bar"><i style="width:${next ? Math.round(((v - lo) / (next - lo)) * 100) : 100}%;background:${k === 'street' ? '#ff6a3d' : '#3d7bff'}"></i></div><span>${v}</span></div>`; }).join('')}
         <div class="skill-row"><span>💪 Respect</span><div class="bar"><i style="width:${respect(s)}%;background:#2a9d8f"></i></div><span>${respect(s)}</span></div>
-        <p class="blurb">🔥 Street rep: bottle service and nightlife shifts. 💼 Corporate rep: profitable trades and office shifts. 💪 Respect: street rep plus fitness.</p>
+        <p class="blurb">🔥 Street rep: bottles, nightlife shifts, fights won, Rideshare Black. 💼 Corporate rep: profitable trades and office shifts. 💪 Respect: street rep plus fitness.</p>
+        <h3 style="margin:14px 0 8px;font-size:15px">📇 Connections</h3>
+        ${(s.connections ?? []).length ? (s.connections ?? []).map((id) => CONNECTION_BY_ID[id]).filter(Boolean).map((c) => `<div class="list-item"><div style="font-size:24px">${c!.emoji}</div><div class="grow"><div class="title">${esc(c!.name)}</div><div class="sub">${esc(c!.perk)}</div></div></div>`).join('') : '<p class="blurb">Nobody yet. 🍸 Mingle at the clubs: the bigger the club, the bigger the people.</p>'}
+        <h3 style="margin:14px 0 8px;font-size:15px">🪩 Clubs</h3>
+        ${CLUBS.map((c) => { const d = doorCheck(s, c); const p = PLACE_BY_ID[c.placeId]; return `<div class="list-item"><div style="font-size:24px">${p?.emoji ?? '🪩'}</div><div class="grow"><div class="title">${esc(p?.name ?? c.placeId)} · ${'⭐'.repeat(c.tier)}</div><div class="sub">${esc(c.label)}<br>${d.ok ? '<span style="color:var(--good)">✓ You can get in</span>' : `🔒 ${esc(d.why.replace(/^“[^”]*” /, ''))}`}</div></div></div>`; }).join('')}
         <h3 style="margin:14px 0 8px;font-size:15px">Needs</h3>
         ${NEED_KEYS.map((k) => `<div class="skill-row"><span>${NEED_INFO[k].emoji} ${NEED_INFO[k].label}</span><div class="bar"><i style="width:${Math.round(s.needs[k])}%;background:${NEED_INFO[k].color}"></i></div><span>${Math.round(s.needs[k])}</span></div>`).join('')}
         <h3 style="margin:14px 0 8px;font-size:15px">Skills</h3>

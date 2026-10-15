@@ -19,6 +19,7 @@
 import { nowMs, nycTime } from '../core/clock.ts';
 import { Rng } from '../core/rng.ts';
 import { changeMoney } from './economy.ts';
+import { addClubSpend } from './clubs.ts';
 import { addMoodlet } from './needs.ts';
 import { adjustLikes, moodToday, personOf, remember } from './people.ts';
 import { addBond, logWith, tasteFor } from './friends.ts';
@@ -103,6 +104,7 @@ export function buySection(s: GameState, placeId: string, now = nowMs()): { ok: 
   if (activeSection(s, placeId, now)) return { ok: false, why: 'You already have a section here' };
   if (!pay(s, SECTION.price, 'VIP section')) return { ok: false, why: 'A section is $1,000' };
   s.section = { placeId, until: now + SECTION.minutes * 60_000, spent: SECTION.price, friends: [] };
+  addClubSpend(s, placeId, SECTION.price);
   addMoodlet(s, { id: 'section', label: 'Got a section', emoji: '🛋️', value: 6, minutes: 60 });
   return { ok: true, section: s.section };
 }
@@ -113,6 +115,7 @@ export function extendSection(s: GameState, placeId: string, now = nowMs()): str
   if (!pay(s, SECTION.extend.price, 'Section: more time')) return 'Not enough money';
   sec.until += SECTION.extend.minutes * 60_000;
   sec.spent += SECTION.extend.price;
+  addClubSpend(s, placeId, SECTION.extend.price);
   return null;
 }
 

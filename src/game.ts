@@ -85,6 +85,9 @@ import { recordVariety } from './sim/auto.ts';
 import { bustNow, levelBlockers, onPathAction, pathTitle, type Bust } from './sim/paths.ts';
 import { chaseReady, chaseSetup, escaped as chaseEscaped, fightSetup, finishFight, heatFor, markChase } from './sim/brawl.ts';
 import { playChase, playFight } from './ui/minigames.ts';
+import { clubOf, doorCheck, mingle, payCover, topSpenders, tryBribe } from './sim/clubs.ts';
+import { CONNECTION_BY_ID, type ClubDef } from './data/clubs.ts';
+import { ClubScreen } from './world/club-screen.ts';
 import { PATHS } from './data/paths.ts';
 import { DISTRICTS, crossStreets, blockRect } from './world/layout.ts';
 import { findPath, nearestWalkable } from './world/nav.ts';
@@ -414,6 +417,7 @@ export class Game {
       camTarget: () => ({ x: Math.round(this.engine.controls.target.x), z: Math.round(this.engine.controls.target.z) }),
       player: () => ({ x: this.player.root.position.x, z: this.player.root.position.z }),
       goWork: () => void this.goToWork(),
+      clubScreen: () => this.clubScreen?.showing ?? null,
       fight: (power = 3) => this.runFight('Test Foe', '😤', power),
       chase: (heat = 1) => this.runChase(heat, 'QA chase.'),
       cops: (risk = 0.1) => this.copsSawYou({ pathId: 'crime', risk, lvl: 1, bail: 20_000 }, 'Testing'),
@@ -1239,7 +1243,7 @@ export class Game {
     const actions = !canGoIn ? this.actionGrid(place.actions, open) : '';
     const moveWhy = place.type === 'home' && !isHome ? moveBlocker(s, place) : null;
     const rentable = place.type === 'home' && !isHome
-      ? `<div class="card"><h3>${place.rent ? `For rent: ${money(place.rent)} / week` : 'Free bed'}</h3><p>${place.rent ? 'Moving here makes it your home. Rent is charged weekly from your cash, then your bank.' : 'No rent. No privacy either. Somewhere to land while you get back up.'} Moving today: <b>${money(moveCost(place))}</b> (movers + first week).</p>${moveWhy ? `<p class="sub"><i>${esc(moveWhy)}</i></p>` : ''}<button class="btn primary block" style="margin-top:10px" data-act="move" ${moveWhy ? 'disabled' : ''}>Move in</button></div>`
+      ? `<div class="card"><h3>${place.rent ? `For rent: ${money(place.rent)} / week` : 'Free bed'}</h3><p>${place.rent ? 'Moving here makes it your home. Rent is charged weekly from your cash, then your bank.' : 'No rent. No privacy either. Somewhere to land while you get back up.'} Moving today: <b>${money(moveCost(place, s))}</b> (movers + first week).</p>${moveWhy ? `<p class="sub"><i>${esc(moveWhy)}</i></p>` : ''}<button class="btn primary block" style="margin-top:10px" data-act="move" ${moveWhy ? 'disabled' : ''}>Move in</button></div>`
       : '';
     const cityEvt = eventAt(place.area, place.id, t.dateKey, t.hour, weatherFor(t.dateKey, t.hour));
     const station = place.type === 'station' ? `<div class="stack" style="margin-bottom:12px">${OPEN_AREAS.filter((a) => a !== place.area).map((a) => `<button class="btn primary block" data-act="train:${a}">🚇 Take the train to ${DISTRICTS[a].name} · ${money(SUBWAY_FARE)}</button>`).join('')}</div>` : '';
@@ -1268,6 +1272,8 @@ export class Game {
       }
       if (act === 'enter') {
         sheet.close();
+        const club = clubOf(place.id);
+        if (club) return this.clubDoor(place, club);
         return this.enterInterior(place, true);
       }
       if (act === 'shop') {
@@ -1347,6 +1353,19 @@ export class Game {
       case 'bottleService':
         this.openBottleMenu();
         return true;
+      case 'mingle': {
+        const club = clubOf(this.state.location.placeId);
+        if (!club) return true;
+        const r = mingle(this.state, club);
+        if (r.met) {
+          sfx.levelUp();
+          const c = CONNECTION_BY_ID[r.met.id];
+          void this.resultCard(c.emoji, `New connection: ${c.name}`, `${r.text} Perk: ${c.perk}.`);
+        } else toast(r.text, { icon: '🍸', ms: 4200 });
+        this.save();
+        this.refreshHud(true);
+        return true;
+      }
       case 'getSection':
         this.openSectionSheet();
         return true;
@@ -1626,6 +1645,7 @@ export class Game {
         sfx.cash();
         this.venueLife?.cheer(4);
         rain(sheet.body, '🥂', 14);
+        this.onClubSpend(['🛋️ ' + s.profile.name.toUpperCase(), 'just got a VIP section']);
         toast('The section’s yours for 10 minutes. Invite your people.', { icon: '🛋️', tone: 'good', ms: 3500 });
       } else if (act === 'extend') {
         const why = extendSection(s, placeId);
@@ -1680,11 +1700,104 @@ export class Game {
       sfx.cork();
       window.setTimeout(() => sfx.cheer(), 450);
       sfx.cash();
-      this.startShow(r.bottle, `${r.bottle.emoji} ${r.bottle.name} for ${s.profile.name}!`);
-      window.setTimeout(() => toast(`+${r.street} 🔥 street rep${r.rankUp ? ` · you're now ${r.rankUp}` : ''}`, { icon: '🔥', tone: 'good', ms: 3000 }), 1200);
+      // Bigger clubs put on a bigger show (data/clubs.ts → show).
+      const club = clubOf(s.location.placeId);
+      const k = club?.show ?? 1;
+      const show = { ...r.bottle, spotlight: Math.round(r.bottle.spotlight * k), admirers: Math.min(9, Math.round(r.bottle.admirers * Math.min(1.5, k))), fireworks: { ...r.bottle.fireworks, size: Math.min(6, r.bottle.fireworks.size * k), seconds: Math.round(r.bottle.fireworks.seconds * Math.min(1.6, k)) } };
+      this.startShow(show, `${r.bottle.emoji} ${r.bottle.name} for ${s.profile.name}!`);
+      this.onClubSpend([`${r.bottle.emoji} ${s.profile.name.toUpperCase()}`, `just popped ${r.bottle.name}!`]);
+      window.setTimeout(() => toast(`+${r.street} street rep${r.rankUp ? ` · you're now ${r.rankUp}` : ''}`, { icon: '🔥', tone: 'good', ms: 3000 }), 1200);
       s.news.unshift({ id: `bottle-${nowMs()}`, at: nowMs(), scope: s.location.area, emoji: '🍾', headline: `${s.profile.name} popped a ${r.bottle.name} at ${PLACE_BY_ID[s.location.placeId ?? '']?.name ?? 'the club'}`, personal: true });
       this.save();
       this.refreshHud(true);
+    });
+  }
+
+  /** Money spent at a club: your name on the screen, and the top-spenders board. */
+  private onClubSpend(lines: string[]): void {
+    const club = clubOf(this.state.location.placeId);
+    if (!club || !this.clubScreen) return;
+    this.clubScreen.announce(lines, 8);
+    this.clubScreen.setBoard(topSpenders(this.state, club));
+    // And big across the top of your screen, so you see it at any zoom.
+    root().querySelector('.club-marquee')?.remove();
+    const m = html(`<div class="club-marquee" style="--c:${club.screen}" role="status"><span>📺</span><b>${esc(lines[0])}</b><small>${esc(lines.slice(1).join(' '))}</small></div>`);
+    root().appendChild(m);
+    window.setTimeout(() => m.remove(), 5200);
+  }
+
+  // ---- Clubs (data/clubs.ts, sim/clubs.ts) ----
+  private clubScreen: ClubScreen | null = null;
+
+  /** In a club: the LED wall, and the DJ dropping the beat now and then. */
+  private setupClub(place: PlaceDef): void {
+    const club = clubOf(place.id);
+    if (!club || !this.interior || !('layout' in this.interior)) return;
+    const home = this.interior as HomeInterior;
+    const screen = new ClubScreen(club, place.name, home.layout.width, home.layout.depth);
+    home.scene.add(screen.mesh);
+    screen.setBoard(topSpenders(this.state, club));
+    this.clubScreen = screen;
+    let dropIn = club.dropEvery * (0.35 + Math.random() * 0.3);
+    const update = home.update;
+    const dispose = home.dispose;
+    home.update = (dt) => {
+      update(dt);
+      screen.update(dt);
+      dropIn -= dt;
+      if (dropIn <= 0 && this.engine.mode === 'interior') {
+        dropIn = club.dropEvery * (0.8 + Math.random() * 0.4);
+        this.djDrop(club, screen);
+      }
+    };
+    home.dispose = () => {
+      screen.dispose();
+      if (this.clubScreen === screen) this.clubScreen = null;
+      dispose();
+    };
+    window.setTimeout(() => toast(`${place.emoji} ${club.label} · 🎧 ${screen.djName} tonight`, { icon: '🎶', ms: 3200 }), 1200);
+  }
+
+  /** The DJ drops the beat: the room goes off, you get a lift (more at bigger clubs). */
+  private djDrop(club: ClubDef, screen: ClubScreen): void {
+    screen.announce(['🔊 DROP!', screen.djName], 5);
+    this.venueLife?.cheer(4 + club.tier);
+    sfx.boom();
+    applyNeeds(this.state, { fun: 2 + club.tier * 2 });
+    toast(`🔊 ${screen.djName} drops the beat. The room goes off.`, { icon: '🪩', ms: 2600 });
+  }
+
+  /**
+   * The door (Peter, 2026-10-15): in on your 🔥 rep or 😎 Cool (or a
+   * promoter you know); else the bouncer says no and you can try to slip
+   * him something. Pays the cover. Returns true once you're inside.
+   */
+  private clubDoor(place: PlaceDef, club: ClubDef): void {
+    const s = this.state;
+    // Staff and anyone heading to a shift walk straight in.
+    if (s.job && CAREER_BY_ID[s.job.careerId]?.placeId === place.id) return this.enterInterior(place, true);
+    const d = doorCheck(s, club);
+    const enter = (line: string) => {
+      if (!payCover(s, club)) return void toast(`Cover is ${money(club.cover)}, cash only. You’re short.`, { icon: '🎟️', tone: 'bad' });
+      toast(`${line}${club.cover ? ` Cover ${money(club.cover)}.` : ''}`, { icon: '🎟️', ms: 3000 });
+      this.enterInterior(place, true);
+    };
+    if (d.ok) {
+      const line = { open: 'Down the stairs you go.', rep: 'The bouncer knows your name. Rope up.', cool: 'He looks at your fit, nods, rope up.', promoter: 'Dre put you on the list. You walk past the line.' }[d.how];
+      return enter(line);
+    }
+    sfx.bad();
+    const m = openModal(`<div class="big">🚫</div><h2>The bouncer says no</h2><p>${esc(d.why)}</p><p class="sub">Build 🔥 street rep (bottles, wins, Rideshare Black), get 😎 Cool (cars, clothes), or meet the right people at smaller clubs.</p><div class="choices">${d.bribe ? `<button class="choice" data-act="bribe">💵 <span>Slip him ${money(d.bribe)}<span class="hint">charisma helps · might not work</span></span></button>` : ''}<button class="choice" data-act="leave">🚶 <span>Walk away</span></button></div>`);
+    onAct(m.el, (act) => {
+      m.close();
+      if (act !== 'bribe') return;
+      const r = tryBribe(s, club);
+      this.refreshHud(true);
+      if (!r.ok) {
+        sfx.bad();
+        return void toast(r.text, { icon: '🚫', tone: 'bad', ms: 4500 });
+      }
+      enter(r.text);
     });
   }
 
@@ -2115,6 +2228,7 @@ export class Game {
       if (!this.state.stats.placesVisited.includes(place.id)) this.state.stats.placesVisited.push(place.id);
       if (place.interior !== 'none') this.state.recentPlaces = [place.id, ...(this.state.recentPlaces ?? []).filter((x) => x !== place.id)].slice(0, 6);
       bus.emit('place:entered', { placeId: place.id });
+      this.setupClub(place);
       this.refreshHud(true);
       this.resumeActivity(place.id);
       // Arrived at work: the shift starts.

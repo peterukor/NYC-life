@@ -194,7 +194,7 @@ PHONE_APPS.add({
   render: ({ s }) => {
     const pend = pendingHome ? PLACES[pendingHome] : null;
     const confirm = pend
-      ? `<div class="card" style="border:3px solid var(--ink)"><h3>📦 Move to ${esc(listingName(s, pend))}?</h3><p>Today: <b>${money(moveCost(pend))}</b> (movers ${money(MOVING.fee)} + first week ${money(pend.rent ?? 0)}). Then ${money(pend.rent ?? 0)} every week, from cash then bank.${s.home.weeklyRent === 0 && s.home.placeId !== 'shelter' ? ' <b>Your family pays your rent where you live now; they won’t pay for the new place.</b>' : ''} Your furniture stays arranged in each home; anything bought is in 📦 Storage.</p><div class="row" style="gap:8px;margin-top:10px"><button class="btn block" data-act="homes.cancel">Cancel</button><button class="btn primary block" data-act="homes.confirm">Move</button></div></div>`
+      ? `<div class="card" style="border:3px solid var(--ink)"><h3>📦 Move to ${esc(listingName(s, pend))}?</h3><p>Today: <b>${money(moveCost(pend, s))}</b> (movers ${money(moveCost(pend, s) - (pend.rent ?? 0))} + first week ${money(pend.rent ?? 0)}). Then ${money(pend.rent ?? 0)} every week, from cash then bank.${s.home.weeklyRent === 0 && s.home.placeId !== 'shelter' ? ' <b>Your family pays your rent where you live now; they won’t pay for the new place.</b>' : ''} Your furniture stays arranged in each home; anything bought is in 📦 Storage.</p><div class="row" style="gap:8px;margin-top:10px"><button class="btn block" data-act="homes.cancel">Cancel</button><button class="btn primary block" data-act="homes.confirm">Move</button></div></div>`
       : '';
     const rows = homesForRent()
       .map((p) => {

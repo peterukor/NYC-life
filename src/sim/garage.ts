@@ -176,7 +176,9 @@ export function coolScore(s: GameState): { total: number; car: number; outfit: n
   const worn = [l.topId, l.bottomId, l.shoesId, l.hatId, l.extraId].map((id) => (id ? CLOTHES.get(id) : undefined)).filter((x) => !!x);
   const outfit = Math.min(30, worn.reduce((sum, item) => sum + ({ plain: 1, premium: 4, exclusive: 7 } as const)[tierOf(item!)], 0));
   const fame = Math.min(20, Math.floor((s.paths.rep.celebrity ?? 0) / 40));
-  return { total: Math.min(100, car + outfit + fame), car, outfit, fame };
+  // 👗 Know Mira the stylist (data/clubs.ts): she fixes your fit.
+  const style = (s.connections ?? []).includes('stylist') ? 10 : 0;
+  return { total: Math.min(100, car + outfit + fame + style), car, outfit: outfit + style, fame };
 }
 
 /** Multiplier for social/fame gains from being cool (1.0 – 1.5). */

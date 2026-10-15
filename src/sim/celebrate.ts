@@ -13,6 +13,8 @@ import { addRep, BOTTLE_STREET_REP } from './rep.ts';
 import { changeMoney } from './economy.ts';
 import { addSectionSpend, noteBottle } from './section.ts';
 import { addMoodlet } from './needs.ts';
+import { CLUB_BY_PLACE } from '../data/clubs.ts';
+import { addClubSpend } from './clubs.ts';
 import type { GameState } from './types.ts';
 
 /**
@@ -27,7 +29,9 @@ export function bottleDiscount(s: GameState): number {
 
 /** What a bottle costs you, after any staff discount (cents). */
 export function bottlePrice(s: GameState, b: BottleDef): number {
-  return Math.round((b.price * (1 - bottleDiscount(s))) / 100) * 100;
+  // Staff discount, and 🛥️ the heir's (data/clubs.ts): they stack.
+  const heir = (s.connections ?? []).includes('heir') ? 0.1 : 0;
+  return Math.round((b.price * (1 - bottleDiscount(s)) * (1 - heir)) / 100) * 100;
 }
 
 /** Buy a bottle. Paid from cash, then the bank. */
@@ -45,8 +49,10 @@ export function buyBottle(s: GameState, id: string): { ok: true; bottle: BottleD
   // 🛋️ Bottles in your section make room for more friends.
   addSectionSpend(s, s.location.placeId ?? '', price);
   noteBottle(s, s.location.placeId ?? '');
-  // 🔥 Street rep: more for bigger bottles.
-  const street = BOTTLE_STREET_REP[BOTTLES.indexOf(b)] ?? 0;
+  // 🔥 Street rep: more for bigger bottles, and more at bigger clubs (data/clubs.ts).
+  const club = CLUB_BY_PLACE[s.location.placeId ?? ''];
+  const street = Math.round((BOTTLE_STREET_REP[BOTTLES.indexOf(b)] ?? 0) * (club?.rep ?? 1));
+  if (club) addClubSpend(s, club.placeId, price);
   const rankUp = addRep(s, 'street', street);
   return { ok: true, bottle: b, street, rankUp };
 }
