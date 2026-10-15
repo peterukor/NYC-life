@@ -101,7 +101,7 @@ import { arrest } from './sim/jail.ts';
 import { driveTrip, drivingCar, GARAGE, licenceSuspended } from './sim/garage.ts';
 import './ui/phone-apps.ts';
 import { buildSubwayRide, type TransitScene } from './world/transit.ts';
-import { installUiClicks, sfx, setAmbienceEnabled, setSoundEnabled } from './ui/audio.ts';
+import { installUiClicks, sfx, setAmbienceEnabled, setSoundEnabled, setVolumes } from './ui/audio.ts';
 import { music } from './ui/music.ts';
 import { soundscape, type Scene } from './ui/soundscape.ts';
 import { nextTravelAd } from './ui/travel-ad.ts';
@@ -398,6 +398,11 @@ export class Game {
       resetCam: () => this.fitInteriorCamera(),
       phoneApp: (id: string) => this.openPhoneApp(id),
       nowPlaying: () => music.title,
+      /** QA: ads inside buildings / props on roads across the whole loaded area (should be []). */
+      placementIssues: () => this.city?.placementIssues() ?? null,
+      adSlotCount: () => this.city?.adSlots.length ?? 0,
+      adReport: () => this.city?.adReport() ?? [],
+      onRoadSweep: () => this.city?.onRoadSweep() ?? {},
       camDist: () => Math.round(this.engine.camera.position.distanceTo(this.engine.controls.target)),
       camTarget: () => ({ x: Math.round(this.engine.controls.target.x), z: Math.round(this.engine.controls.target.z) }),
       admirers: () => this.party?.admirers.map((x) => x.name) ?? [],
@@ -596,6 +601,7 @@ export class Game {
         sfx.tap();
         openSpeak(this.peopleHost());
       },
+      onVolume: () => this.toggleMuteAll(),
       onMenu: () => {
         if (this.busy) return;
         sfx.tap();
@@ -610,6 +616,7 @@ export class Game {
         });
       },
     });
+    this.hud.setMuted(!this.state.settings.sound);
     this.started = true;
     document.querySelector('.loading')?.classList.add('done');
     bus.on('pin:tap', (e) => {
@@ -648,10 +655,29 @@ export class Game {
     soundscape.update(dt, { scene, hour, speed, activity: this.doing ? (this.state.activity?.actionId ?? null) : null });
   }
 
+  /** 🔊 in the top bar: mute or unmute everything in one tap (Peter, 2026-10-15). */
+  private toggleMuteAll(): void {
+    const st = this.state.settings;
+    st.sound = !st.sound;
+    this.applySound();
+    this.save();
+    toast(st.sound ? 'Sound on' : 'Sound off', { icon: st.sound ? '🔊' : '🔇', ms: 1200 });
+  }
+
+  /** Push the sound settings (on/off, music on/off, volumes) into the audio system. */
+  private applySound(): void {
+    const st = this.state.settings;
+    setSoundEnabled(st.sound);
+    if (!st.sound) soundscape.silence();
+    setAmbienceEnabled(st.music !== false);
+    music.setEnabled(st.music !== false && st.sound);
+    setVolumes((st.musicVol ?? 70) / 100, (st.sfxVol ?? 80) / 100);
+    this.hud?.setMuted?.(!st.sound);
+  }
+
   private applySettings(): void {
     setSoundEnabled(this.state.settings.sound);
-    setAmbienceEnabled(this.state.settings.music !== false);
-    music.setEnabled(this.state.settings.music !== false);
+    this.applySound();
     if (!this.uiClicks) {
       this.uiClicks = true;
       installUiClicks();
@@ -3293,6 +3319,19 @@ export class Game {
           this.save();
         },
         skipSong: () => music.skip(),
+        setVolume: (kind: 'music' | 'sfx', v: number) => {
+          if (kind === 'music') this.state.settings.musicVol = v;
+          else this.state.settings.sfxVol = v;
+          this.applySound();
+        },
+        toggleMute: (kind: 'music' | 'sfx') => {
+          const st = this.state.settings;
+          if (kind === 'music') st.music = st.music === false;
+          else st.sound = !st.sound;
+          this.applySound();
+          this.save();
+        },
+        saveSettings: () => this.save(),
         nowPlaying: () => music.title,
         toggleSound: () => {
           this.state.settings.sound = !this.state.settings.sound;
