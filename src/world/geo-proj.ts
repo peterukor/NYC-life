@@ -72,10 +72,54 @@ export function outline(id: BoroughId): XZ[][] {
 }
 
 export function pointInRing(x: number, z: number, poly: XZ[]): boolean {
+  // Big outlines (coastlines: thousands of points) get an index of their
+  // edges by height, so a test only looks at the few edges crossing z.
+  // Same answer as checking every edge; the start-up layout asks millions of times.
+  if (poly.length > 48) return pointInRingIndexed(x, z, poly);
   let inside = false;
   for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
     const a = poly[i];
     const b = poly[j];
+    if (a.z > z !== b.z > z && x < ((b.x - a.x) * (z - a.z)) / (b.z - a.z) + a.x) inside = !inside;
+  }
+  return inside;
+}
+
+type RingIndex = { zMin: number; zMax: number; h: number; buckets: Int32Array[] };
+const ringIndexes = new WeakMap<XZ[], RingIndex>();
+function ringIndex(poly: XZ[]): RingIndex {
+  let ix = ringIndexes.get(poly);
+  if (ix) return ix;
+  let zMin = Infinity;
+  let zMax = -Infinity;
+  for (const p of poly) {
+    zMin = Math.min(zMin, p.z);
+    zMax = Math.max(zMax, p.z);
+  }
+  const n = Math.max(1, Math.ceil(poly.length / 4));
+  const h = Math.max(1e-6, (zMax - zMin) / n);
+  const lists: number[][] = Array.from({ length: n }, () => []);
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const lo = Math.min(poly[i].z, poly[j].z);
+    const hi = Math.max(poly[i].z, poly[j].z);
+    const b0 = Math.max(0, Math.floor((lo - zMin) / h));
+    const b1 = Math.min(n - 1, Math.floor((hi - zMin) / h));
+    for (let b = b0; b <= b1; b++) lists[b].push(i);
+  }
+  ix = { zMin, zMax, h, buckets: lists.map((l) => Int32Array.from(l)) };
+  ringIndexes.set(poly, ix);
+  return ix;
+}
+function pointInRingIndexed(x: number, z: number, poly: XZ[]): boolean {
+  const ix = ringIndex(poly);
+  if (!(z >= ix.zMin && z <= ix.zMax)) return false;
+  const edges = ix.buckets[Math.min(ix.buckets.length - 1, Math.floor((z - ix.zMin) / ix.h))];
+  const n = poly.length;
+  let inside = false;
+  for (let k = 0; k < edges.length; k++) {
+    const i = edges[k];
+    const a = poly[i];
+    const b = poly[i === 0 ? n - 1 : i - 1];
     if (a.z > z !== b.z > z && x < ((b.x - a.x) * (z - a.z)) / (b.z - a.z) + a.x) inside = !inside;
   }
   return inside;
@@ -87,6 +131,40 @@ export function onLand(id: BoroughId, x: number, z: number): boolean {
   let rings = landCache.get(id);
   if (!rings) landCache.set(id, (rings = outline(id)));
   return rings.some((r) => pointInRing(x, z, r));
+}
+
+/**
+ * Land mask for a whole grid at once (cell centres), the same answer as
+ * calling onLand() per cell but scanline-fast: each row crosses each ring
+ * edge once instead of every cell testing every edge. Building the street
+ * nav grid went from ~80% of the city build to almost nothing (2026-10-15).
+ */
+export function landMask(id: BoroughId, minX: number, minZ: number, cols: number, rows: number, cell: number): Uint8Array {
+  let rings = landCache.get(id);
+  if (!rings) landCache.set(id, (rings = outline(id)));
+  const mask = new Uint8Array(cols * rows);
+  const xs: number[] = [];
+  for (let rr = 0; rr < rows; rr++) {
+    const z = minZ + (rr + 0.5) * cell;
+    for (const poly of rings) {
+      xs.length = 0;
+      for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+        const a = poly[i];
+        const b = poly[j];
+        if (a.z > z !== b.z > z) xs.push(((b.x - a.x) * (z - a.z)) / (b.z - a.z) + a.x);
+      }
+      if (xs.length < 2) continue;
+      xs.sort((p, q) => p - q);
+      // pointInRing: inside when an odd number of crossings lie strictly right of x,
+      // i.e. xs[2k] <= x < xs[2k+1].
+      for (let k = 0; k + 1 < xs.length; k += 2) {
+        const c0 = Math.max(0, Math.ceil((xs[k] - minX) / cell - 0.5));
+        const c1 = Math.min(cols - 1, Math.ceil((xs[k + 1] - minX) / cell - 0.5) - 1);
+        for (let cc = c0; cc <= c1; cc++) mask[rr * cols + cc] = 1;
+      }
+    }
+  }
+  return mask;
 }
 
 /** Which borough (if any) is at (x, z)? */

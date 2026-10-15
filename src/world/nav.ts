@@ -9,7 +9,7 @@
 // =====================================================================
 
 import { blockRect, districtBounds, SIDEWALK, type DistrictDef, type Rect } from './layout.ts';
-import { onLand } from './geo-proj.ts';
+import { landMask } from './geo-proj.ts';
 import { onCorridor } from './corridors.ts';
 
 export const CELL = 3;
@@ -59,11 +59,8 @@ export function buildNavGrid(d: DistrictDef, solids: Rect[] = []): NavGrid {
   for (const r of solids) block(r);
 
   // The river: anything off the borough's real coastline is water.
-  for (let rr = 0; rr < rows; rr++) {
-    for (let cc = 0; cc < cols; cc++) {
-      if (!onLand(d.borough, b.minX + (cc + 0.5) * CELL, b.minZ + (rr + 0.5) * CELL)) walk[rr * cols + cc] = 0;
-    }
-  }
+  const land = landMask(d.borough, b.minX, b.minZ, cols, rows, CELL);
+  for (let i = 0; i < walk.length; i++) if (!land[i]) walk[i] = 0;
   return grid;
 }
 

@@ -77,7 +77,8 @@ export function simplifyGeometry(geo: THREE.BufferGeometry, ratio: number): THRE
 
 /** Load one pack and merge each top-level node into a single geometry. */
 export async function loadKit(name: KitName): Promise<Map<string, KitModel>> {
-  await MeshoptSimplifier.ready.catch(() => undefined);
+  // The simplifier (a small wasm module) is only needed for cars.
+  if (name === 'cars') await MeshoptSimplifier.ready.catch(() => undefined);
   const gltf = await getLoader().loadAsync(`${import.meta.env.BASE_URL}models/kit-${name}.glb`);
   const out = new Map<string, KitModel>();
   gltf.scene.updateMatrixWorld(true);

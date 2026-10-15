@@ -13,13 +13,23 @@
     <!-- Lilita One (chunky headings and numbers) + Nunito (body). If they can't load, rounded system fonts are used. -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@600;700;800;900&display=swap" rel="stylesheet" />
+    <!-- Loaded in the background: the game never waits for a font (rounded system fonts until it arrives). -->
+    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@600;700;800;900&display=swap" />
+    <link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@600;700;800;900&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23ffc629'/%3E%3Ctext x='32' y='44' font-family='Arial Black,Arial' font-size='30' font-weight='900' text-anchor='middle' fill='%23111'%3ENY%3C/text%3E%3C/svg%3E" />
+    <!-- The loading screen paints before any script arrives (the game loads in pieces). -->
+    <style>
+      html, body { margin: 0; height: 100%; background: #7fd0ff; }
+      #boot-mark { position: fixed; inset: 0; display: grid; place-items: center; background: linear-gradient(180deg, #7fd0ff, #b8a6ff); z-index: 70; transition: opacity 0.4s; }
+      #boot-mark.done { opacity: 0; pointer-events: none; }
+      #boot-mark .mark { width: 78px; height: 78px; border: 3px solid #111; border-radius: 50%; background: #ffc629; box-shadow: 0 4px 0 #111; display: grid; place-items: center; font: 900 30px 'Lilita One', 'Arial Black', system-ui, sans-serif; color: #111; animation: boot-bob 1s ease-out infinite; }
+      @keyframes boot-bob { 50% { transform: translateY(-8px); } }
+    </style>
   </head>
   <body>
     <div id="app">
       <div id="stage"></div>
-      <div id="ui"></div>
+      <div id="ui"><div class="loading" id="boot-mark" aria-label="Loading"><div class="mark">NY</div></div></div>
       <noscript>NYC Life needs JavaScript to run.</noscript>
     </div>
     <script type="module" src="/src/main.ts"></script>
