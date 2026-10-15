@@ -17,7 +17,7 @@ How to add or change content: **`docs/ADDING-CONTENT.md`**.
 
 ## Sound controls, zoom, whole-map placement check (2026-10-15)
 
-- Zoom: rooms zoom out a little further (`MIN_ZOOM` 0.62). The satellite map stops a little closer (`MAP_SPAN_FRACTION` 0.18, ~910 m; the flat City map shows up to 0.6 of the island) because zooming out too far shimmered.
+- Zoom: rooms zoom out a little further (`MIN_ZOOM` 0.62). The satellite map stops a little closer (`MAP_SPAN_FRACTION` 0.15, ~758 m; the flat City map shows up to 0.75 of the island) because zooming out too far shimmered.
 - Sound: 🔊/🔇 in the top bar mutes everything with one tap. Phone ▸ Settings ▸ Sound has a slider and a mute button for 🎵 Music and for 🔔 Sound effects (`settings.musicVol` / `sfxVol`, `setVolumes` in ui/audio.ts). There's no mixer sheet: Peter asked for just a slider and a mute.
 - `src/world/placement-check.ts` checks the whole map at startup:
   - Ads: every ad is tested against an index of every building. Buried ads are pushed out, wall screens with no wall behind them slide along the wall or are dropped, and of two overlapping ads the smaller one is dropped.
