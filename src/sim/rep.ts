@@ -11,7 +11,8 @@
 // 💪 Respect (respect()): street rep plus fitness. People think twice
 // before messing with someone fit.
 //
-// Both only go up for now. Planned uses (not wired yet): how often bad
+// Street rep can go down now: losing fights and some event choices (Peter, 2026-10-15).
+// Before that it only went up. Planned uses (not wired yet): how often bad
 // things happen to you (robbed, spilled on, pickpocketed), which
 // properties you can buy and which places let you in.
 // =====================================================================
@@ -56,6 +57,23 @@ export function addRep(s: GameState, kind: RepKind, points: number): string | nu
   repOf(s)[kind] += Math.round(points);
   const after = repRank(s, kind);
   return after > before ? REP_TITLES[kind][after] : null;
+}
+
+/**
+ * Change rep up OR down (fights, events). Never below 0. Returns the new
+ * title if you ranked up, and whether you dropped a rank.
+ */
+export function changeRep(s: GameState, kind: RepKind, delta: number): { title: string | null; dropped: boolean } {
+  const before = repRank(s, kind);
+  const r = repOf(s);
+  r[kind] = Math.max(0, r[kind] + Math.round(delta));
+  const after = repRank(s, kind);
+  return { title: after > before ? REP_TITLES[kind][after] : null, dropped: after < before };
+}
+
+/** "🔥 +6 street rep" / "🔥 −4 street rep" */
+export function repLine(kind: RepKind, delta: number): string {
+  return `${REP_EMOJI[kind]} ${delta >= 0 ? '+' : '−'}${Math.abs(Math.round(delta))} ${kind} rep`;
 }
 
 /** Corporate rep for a sale: 1 per $100 of profit (max 300), plus a bonus for 10×+. */
