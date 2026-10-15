@@ -193,6 +193,14 @@ export interface GameState {
     dayKey: string;
     /** Last Rideshare Black that paid street rep (real ms). */
     lastBlackCar?: number;
+    /** Last police chase (real ms): chases have a cooldown (sim/brawl.ts). */
+    lastChase?: number;
+    /** NYC date of the last weird-NYC event (one most days). */
+    weirdDay?: string;
+    fightsWon?: number;
+    fightsLost?: number;
+    chasesEscaped?: number;
+    chasesCaught?: number;
   };
 
   events: { lastFiredAt: number; cooldowns: Record<string, number> };

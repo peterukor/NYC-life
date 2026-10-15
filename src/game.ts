@@ -82,7 +82,9 @@ import { openStore } from './ui/store.ts';
 import { openSidePanel } from './ui/side-panel.ts';
 import { openAutoMode } from './ui/auto-mode.ts';
 import { recordVariety } from './sim/auto.ts';
-import { levelBlockers, onPathAction, pathTitle } from './sim/paths.ts';
+import { bustNow, levelBlockers, onPathAction, pathTitle, type Bust } from './sim/paths.ts';
+import { chaseReady, chaseSetup, escaped as chaseEscaped, fightSetup, finishFight, heatFor, markChase } from './sim/brawl.ts';
+import { playChase, playFight } from './ui/minigames.ts';
 import { PATHS } from './data/paths.ts';
 import { DISTRICTS, crossStreets, blockRect } from './world/layout.ts';
 import { findPath, nearestWalkable } from './world/nav.ts';
@@ -105,7 +107,7 @@ import { installUiClicks, sfx, setAmbienceEnabled, setSoundEnabled, setVolumes }
 import { music } from './ui/music.ts';
 import { soundscape, type Scene } from './ui/soundscape.ts';
 import { nextTravelAd } from './ui/travel-ad.ts';
-import { addRep } from './sim/rep.ts';
+import { addRep, repLine } from './sim/rep.ts';
 import { moveTo, moveBlocker, moveCost, listingName } from './sim/moving.ts';
 import { closeSheet, fade, html, isSheetOpen, onAct, openModal, openSheet, progressBar, root, toast, wait } from './ui/dom.ts';
 import { Hud, type NavKey } from './ui/hud.ts';
@@ -412,6 +414,9 @@ export class Game {
       camTarget: () => ({ x: Math.round(this.engine.controls.target.x), z: Math.round(this.engine.controls.target.z) }),
       player: () => ({ x: this.player.root.position.x, z: this.player.root.position.z }),
       goWork: () => void this.goToWork(),
+      fight: (power = 3) => this.runFight('Test Foe', '😤', power),
+      chase: (heat = 1) => this.runChase(heat, 'QA chase.'),
+      cops: (risk = 0.1) => this.copsSawYou({ pathId: 'crime', risk, lvl: 1, bail: 20_000 }, 'Testing'),
       panMap: (dx: number, dz: number) => {
         const sh = new THREE.Vector3(dx, 0, dz);
         this.engine.controls.target.add(sh);
@@ -2642,10 +2647,8 @@ export class Game {
     const recovered = recordVariety(this.state, a.id);
     if (recovered) toast(recovered, { icon: '🌤️', tone: 'good', ms: 4500 });
     const path = onPathAction(this.state, a.id, a.risk ?? 0);
-    if (path.busted) {
-      sfx.bad();
-      toast(path.busted, { tone: 'bad', ms: 5000 });
-    } else if (path.rep) toast(`+${path.rep} rep · ${pathTitle(this.state)}`, { icon: PATHS.get(this.state.paths.active!)?.emoji ?? '⭐', ms: 1800 });
+    if (path.caught) void this.copsSawYou(path.caught, a.label);
+    else if (path.rep) toast(`+${path.rep} rep · ${pathTitle(this.state)}`, { icon: PATHS.get(this.state.paths.active!)?.emoji ?? '⭐', ms: 1800 });
     if (this.state.paths.active && !levelBlockers(this.state, this.state.paths.active).length) toast('You can level up! Phone → Life Path', { icon: '📈', tone: 'good', ms: 3500 });
     const bits = [`${a.emoji} ${a.label} — done`];
     if (out.earned > 0) bits.push(`+${money(out.earned)}`);
@@ -3236,6 +3239,76 @@ export class Game {
     });
   }
 
+  /**
+   * 🥊 A fight you play (ui/minigames.ts). Applies the result (rep, ER)
+   * and shows it. Resolves with whether you won.
+   */
+  private async runFight(foe: string, emoji: string, power: number, title?: string): Promise<boolean> {
+    const setup = fightSetup(this.state, foe, emoji, power);
+    const prevBusy = this.busy;
+    this.busy = true;
+    const r = await playFight(setup, { title });
+    const out = finishFight(this.state, setup, r.won, r.hpLeft);
+    const st = this.state.stats;
+    if (out.won) st.fightsWon = (st.fightsWon ?? 0) + 1;
+    else st.fightsLost = (st.fightsLost ?? 0) + 1;
+    this.busy = prevBusy;
+    await this.resultCard(out.won ? '🏆' : '🤕', out.won ? 'You won the fight' : 'You lost the fight', `${out.text} ${repLine('street', out.repDelta)}.${out.title ? ` You're now ${out.title}!` : ''}`);
+    this.save();
+    this.refreshHud(true);
+    return out.won;
+  }
+
+  /**
+   * 🚔 The cops saw you. If a chase is due (not too often), you run for it;
+   * get away and it's street rep, get caught and it's the arrest.
+   */
+  private async copsSawYou(b: Bust, what: string): Promise<void> {
+    const s = this.state;
+    if (!chaseReady(s)) {
+      sfx.bad();
+      toast(bustNow(s, b), { tone: 'bad', ms: 5000 });
+      this.save();
+      return;
+    }
+    markChase(s);
+    const got = await this.runChase(heatFor(s, b.risk), `Someone saw you: ${what.toLowerCase()}.`);
+    if (!got) {
+      sfx.bad();
+      await this.resultCard('🚔', 'Caught', bustNow(s, b));
+    }
+    this.save();
+    this.refreshHud(true);
+  }
+
+  /** Run from the police. True = you got away (rep applied, line shown). */
+  private async runChase(heat: number, reason: string): Promise<boolean> {
+    const s = this.state;
+    const prevBusy = this.busy;
+    this.busy = true;
+    const r = await playChase(chaseSetup(s, heat), { reason });
+    this.busy = prevBusy;
+    if (!r.escaped) {
+      s.stats.chasesCaught = (s.stats.chasesCaught ?? 0) + 1;
+      return false;
+    }
+    s.stats.chasesEscaped = (s.stats.chasesEscaped ?? 0) + 1;
+    const e = chaseEscaped(s, heat);
+    await this.resultCard('💨', 'You got away', `${e.text} ${repLine('street', e.repDelta)}.${e.title ? ` You're now ${e.title}!` : ''}`);
+    return true;
+  }
+
+  /** A simple "here's what happened" card. */
+  private resultCard(emoji: string, title: string, text: string): Promise<void> {
+    return new Promise((resolve) => {
+      const m = openModal(`<div class="big">${emoji}</div><h2>${esc(title)}</h2><p>${esc(text)}</p><button class="btn primary block" data-act="ok">OK</button>`);
+      onAct(m.el, () => {
+        m.close();
+        resolve();
+      });
+    });
+  }
+
   /** Out onto the street right away (no door animation): for trips that start indoors. */
   private toStreetNow(): void {
     if (this.engine.mode === 'interior' || this.engine.mode === 'transit') {
@@ -3339,8 +3412,9 @@ export class Game {
       }
     }
     // Or something happens on the train: a spill, or a fight.
-    const incident = eventShown ? null : subwayIncident(this.state);
-    if (incident) await this.showIncident(incident);
+    const incident = eventShown ? null : subwayIncident(this.state, Math.random, { playable: true });
+    if (incident?.kind === 'brawl') await this.subwayBrawl(incident);
+    else if (incident) await this.showIncident(incident);
     const rideStart = performance.now();
     while (!skip && performance.now() - rideStart < TRAVEL_SECONDS.trainScene * 1000) await wait(100);
     rideUi.remove();
@@ -3370,8 +3444,24 @@ export class Game {
     } else toast(`Arrived at ${station.name}`, { icon: '🚇' });
   }
 
+  /** Someone wants to fight on the train: square up (and play it) or switch cars. */
+  private subwayBrawl(b: { text: string; foe: string; emoji: string; power: number }): Promise<void> {
+    return new Promise((resolve) => {
+      const m = openModal(`<div class="big">${b.emoji}</div><h2>Trouble on the train</h2><p>${esc(b.text)}</p><div class="choices"><button class="choice" data-act="fight">🥊 <span>Square up<span class="hint">win: 🔥 street rep · lose: 🔥 rep down</span></span></button><button class="choice" data-act="walk">🚶 <span>Move to the next car<span class="hint">no harm done, slightly less cool</span></span></button></div>`);
+      onAct(m.el, async (act) => {
+        m.close();
+        if (act === 'fight') await this.runFight(b.foe, b.emoji, b.power, '🚇 Fight on the train');
+        else {
+          applyNeeds(this.state, { fun: -3 });
+          toast('You moved cars. He’s still muttering about it.', { icon: '🚶', ms: 3000 });
+        }
+        resolve();
+      });
+    });
+  }
+
   /** A subway spill or fight. Fights get a cartoon dust cloud, never anything graphic. */
-  private showIncident(inc: NonNullable<ReturnType<typeof subwayIncident>>): Promise<void> {
+  private showIncident(inc: Exclude<NonNullable<ReturnType<typeof subwayIncident>>, { kind: 'brawl' }>): Promise<void> {
     if (inc.kind === 'fight') sfx.bad();
     return new Promise((resolve) => {
       const top = inc.kind === 'spill' ? '<div class="big">☕</div><h2>Spill on the train</h2>' : `<div class="dust-fight" aria-hidden="true"><span>💨</span><span>💥</span><span>💨</span><span>⭐</span></div><h2>${inc.won ? 'You won the fight' : 'You lost the fight'}</h2>`;
@@ -3476,6 +3566,26 @@ export class Game {
         const choice = choices[Number(act)];
         if (!choice) return;
         const outcome = choice.run(ctx);
+        // A choice that turns into a fight or a chase: play it, then wrap up.
+        if (outcome.fight || outcome.chase) {
+          const lead = applyOutcome(this.state, outcome);
+          m.close();
+          void (async () => {
+            if (outcome.fight) {
+              toast(lead, { icon: ev.emoji, ms: 2500 });
+              await this.runFight(outcome.fight.foe, outcome.fight.emoji, outcome.fight.power, `${ev.emoji} ${ev.title}`);
+            } else if (outcome.chase) {
+              const c = outcome.chase;
+              markChase(this.state);
+              const got = await this.runChase(c.heat, lead);
+              if (!got) await this.resultCard('🚔', 'Caught', arrest(this.state, c.reason, c.hours, c.bail));
+            }
+            this.save();
+            this.refreshHud(true);
+            resolve();
+          })();
+          return;
+        }
         const before = this.state.money;
         const text = applyOutcome(this.state, outcome);
         const delta = this.state.money - before;
@@ -3621,6 +3731,7 @@ export class Game {
   private peopleHost(): PeopleHost {
     if (this._peopleHost) return this._peopleHost;
     this._peopleHost = {
+      fight: (foe, emoji, power) => this.runFight(foe, emoji, power),
       state: this.state,
       area: () => this.state.location.area,
       where: (id) => this.crowd?.where(id) ?? null,

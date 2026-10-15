@@ -31,6 +31,8 @@ import { postNews } from './news.ts';
 import { skillGainMultiplier } from './state.ts';
 import type { AreaId, GameState, NeedKey, SkillKey } from './types.ts';
 import { isWet, weatherFor, type Weather } from './weather.ts';
+import { changeRep, repLine, type RepKind } from './rep.ts';
+import { WEIRD_EVENTS } from './events-nyc.ts';
 
 /** Everything an event needs to decide if it fits the moment. */
 export interface EventContext {
@@ -63,6 +65,12 @@ export interface Outcome {
   hospitalBill?: number;
   /** Legendary good luck: a fortune lands in your bank (cents). */
   inherit?: number;
+  /** Street / corporate rep, up or down. */
+  rep?: Partial<Record<RepKind, number>>;
+  /** Then a fight you play (ui/minigames.ts): foe and how tough (1–10). */
+  fight?: { foe: string; emoji: string; power: number };
+  /** Then the cops chase you (heat 1–5); caught = arrested for `reason`. */
+  chase?: { heat: number; reason: string; hours: number; bail: number };
 }
 
 export interface EventChoice {
@@ -101,6 +109,8 @@ export interface RandomEventDef {
   /** Warning signs a sharp New Yorker would notice. Shown after the event. */
   redFlags?: string[];
   choices: EventChoice[];
+  /** Weird-NYC events (sim/events-nyc.ts): at least one most days you go out. */
+  weird?: boolean;
 }
 
 const chance = (p: number) => Math.random() < p;
@@ -195,6 +205,7 @@ export const EVENTS: RandomEventDef[] = [
         ? { text: 'You talk them down. They end up sharing a platter. Legend.', tone: 'good', moodlet: { id: 'peacemaker', label: 'Peacemaker', emoji: '🕊️', value: 14, minutes: 120 }, skill: { key: 'charisma', gain: 0.4 } }
         : { text: 'You catch an elbow. Your ego and your face are bruised.', tone: 'bad', needs: { energy: -10 }, moodlet: { id: 'elbow', label: 'Caught an elbow', emoji: '🤕', value: -16, minutes: 120 } }) },
       { label: 'Film it', emoji: '📹', show: (c) => c.s.phone.ok, run: () => ({ text: 'Your video gets 40k views. You feel slightly bad about it.', tone: 'info', needs: { fun: 10, social: 6 } }) },
+      { label: 'Jump in', emoji: '🥊', hint: 'win: 🔥 rep · lose: the ER', run: () => ({ text: 'You step in. The bigger one turns around. Oh.', tone: 'info', fight: { foe: 'Halal Line Guy', emoji: '😠', power: 5 } }) },
     ],
   },
   {
@@ -402,6 +413,9 @@ export const EVENTS: RandomEventDef[] = [
   },
 ];
 
+// The weird stuff (sim/events-nyc.ts).
+EVENTS.push(...WEIRD_EVENTS);
+
 export const EVENT_BY_ID: Record<string, RandomEventDef> = Object.fromEntries(EVENTS.map((e) => [e.id, e]));
 
 // ---------------------------------------------------------------------
@@ -430,10 +444,15 @@ const recentKinds: RandomEventDef['kind'][] = [];
  * Called by the game loop every DIRECTOR_TICK_SECONDS. Returns an event
  * to show, or null if nothing happens this time.
  */
+/** Where weird-NYC moments can happen. */
+const WEIRD_WHERE: EventContext['where'][] = ['street', 'plaza', 'park', 'subway', 'food', 'cafe'];
+
 export function directorPick(s: GameState, where: EventContext['where'], force = false): RandomEventDef | null {
   const now = nowMs();
   if (!force && now - s.events.lastFiredAt < EVENT_MIN_GAP_SECONDS * 1000) return null;
-  if (!force && Math.random() > EVENT_BASE_CHANCE) return null;
+  // No weird-NYC moment yet today and you're out and about: make one likely.
+  const weirdDue = s.stats.weirdDay !== nycTime().dateKey && WEIRD_WHERE.includes(where);
+  if (!force && Math.random() > (weirdDue ? Math.max(EVENT_BASE_CHANCE, 0.8) : EVENT_BASE_CHANCE)) return null;
 
   const ctx = buildContext(s, where);
   const lastTwoBad = recentKinds.slice(-2).every((k) => k === 'bad' || k === 'scam') && recentKinds.length >= 2;
@@ -446,6 +465,7 @@ export function directorPick(s: GameState, where: EventContext['where'], force =
     if (lastTwoBad && (e.kind === 'bad' || e.kind === 'scam')) w *= 0.3;
     // Streetwise players attract fewer scams; they look like they know.
     if (e.kind === 'scam' && s.profile.traits.includes('streetwise')) w *= 0.6;
+    if (weirdDue && e.weird) w *= 5;
     return w;
   });
   const i = weightedIndex(weights);
@@ -454,6 +474,7 @@ export function directorPick(s: GameState, where: EventContext['where'], force =
   s.events.lastFiredAt = now;
   s.events.cooldowns[ev.id] = now + EVENT_COOLDOWN_SECONDS * 1000;
   s.stats.eventsSeen[ev.id] = (s.stats.eventsSeen[ev.id] ?? 0) + 1;
+  if (ev.weird) s.stats.weirdDay = nycTime().dateKey;
   recentKinds.push(ev.kind);
   if (recentKinds.length > 6) recentKinds.shift();
   return ev;
@@ -495,5 +516,12 @@ export function applyOutcome(s: GameState, o: Outcome): string {
   if (o.scam === 'fell') s.stats.scamsFallenFor += 1;
   if (o.scam === 'spotted') s.stats.scamsSpotted += 1;
   if (o.news) postNews(s, { ...o.news, personal: true });
+  if (o.rep) {
+    for (const [k, v] of Object.entries(o.rep) as [RepKind, number][]) {
+      if (!v) continue;
+      const r = changeRep(s, k, v);
+      text += ` ${repLine(k, v)}.${r.title ? ` You're now ${r.title}!` : ''}`;
+    }
+  }
   return text;
 }

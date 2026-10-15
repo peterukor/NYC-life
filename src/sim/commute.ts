@@ -41,10 +41,12 @@ export const FIGHT_HOSPITAL = 4_000;
 
 export type SubwayIncident =
   | { kind: 'spill'; text: string }
-  | { kind: 'fight'; won: boolean; text: string };
+  | { kind: 'fight'; won: boolean; text: string }
+  /** A fight about to happen, for the game to play (ui/minigames.ts). */
+  | { kind: 'brawl'; text: string; foe: string; emoji: string; power: number };
 
 /** Something happening on the train (most rides: nothing). */
-export function subwayIncident(s: GameState, rand = Math.random): SubwayIncident | null {
+export function subwayIncident(s: GameState, rand = Math.random, opts: { playable?: boolean } = {}): SubwayIncident | null {
   const r = rand();
   if (r < SUBWAY_SPILL_CHANCE) {
     s.stained = true;
@@ -52,6 +54,11 @@ export function subwayIncident(s: GameState, rand = Math.random): SubwayIncident
     return { kind: 'spill', text: 'The train braked hard and a man’s whole iced coffee went on your shirt. He said sorry. You did not accept.' };
   }
   if (r < SUBWAY_SPILL_CHANCE + SUBWAY_FIGHT_CHANCE) {
+    if (opts.playable) {
+      const foes = [['Seat Guy', '😤'], ['Manspreader', '🦵'], ['Showtime Kid', '🤸'], ['Backpack Bro', '🎒']] as const;
+      const [foe, emoji] = foes[Math.floor(rand() * foes.length)];
+      return { kind: 'brawl', foe, emoji, power: 2 + Math.floor(rand() * 4), text: `${foe} says you took his seat. You did not. He is standing up anyway.` };
+    }
     const won = rand() >= fightLoseChance(s.skills.fitness);
     if (won) {
       addMoodlet(s, { id: 'wonFight', label: 'Won a fight on the train', emoji: '💪', value: 4, minutes: 60 });

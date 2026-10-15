@@ -15,6 +15,22 @@ Build and test:
 
 How to add or change content: **`docs/ADDING-CONTENT.md`**.
 
+## Batch 2: interactive street life (2026-10-15)
+
+- **🥊 Fights you play** (`ui/minigames.ts` `playFight`, rules in `sim/brawl.ts`):
+  - A needle sweeps a bar; tap in the green to hit. Miss, or hesitate, and they swing: tap DODGE in time.
+  - The zone, needle speed and dodge window come from fitness + street smarts + crew weapon vs foe power (1–10).
+  - Win: 🔥 street rep. Lose: rep down, and a beating from a tough foe means an ER bill.
+  - Used by: people you fight in the street (`PeopleHost.fight`), subway fights (`subwayIncident(..., { playable: true })` → `subwayBrawl`), and event choices with `fight`.
+- **🚔 Police chases** (`playChase`): a 3-lane runner. Dodge stuff; a 🍩 stops the cop.
+  - Heat 1–5 (`heatFor`: crime risk + your level) sets the length, speed and density.
+  - Crime path busts go through `copsSawYou`: a chase if one is due (`CHASE.cooldownGameMinutes` 180), else a straight arrest. `onPathAction` now returns `caught`; `bustNow` does the arrest.
+- **Rep goes both ways:** `changeRep` and `repLine` in rep.ts. Event outcomes take `rep`, `fight` and `chase`.
+- **Weird NYC** (`sim/events-nyc.ts`): 24 choice events (pigeon bagel heist, Pizza Rat, the cowboy, mugging, film shoot, street chess, bodega cat on the chips…).
+  - The director serves at least one most days you're out (`stats.weirdDay`, `WEIRD_WHERE`).
+- **Tests:** brawl (4) and events-nyc (every choice of every event runs). QA: `scripts/qa-batch2.mjs` has a bot that plays the fight, plus chase, cops cooldown and a weird event.
+- **Not yet:** gang brawls (`gang-events.ts`) and job-perk fights are still dice rolls; candidates to make playable.
+
 ## Batch 1 of Peter's "make it fun" list (2026-10-15)
 
 - **📍 Centre on me** on both maps: `map3d` `onCenter` slides the camera; the flat map uses `flyTo` at the current zoom.

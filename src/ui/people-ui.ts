@@ -42,6 +42,8 @@ export interface PeopleHost {
   save: () => void;
   refresh: () => void;
   sfx: (kind: 'good' | 'bad' | 'tap') => void;
+  /** A fight you play (ui/minigames.ts). Resolves true if you won. */
+  fight?: (foe: string, emoji: string, power: number) => Promise<boolean>;
 }
 
 const first = (name: string) => name.split(' ')[0];
@@ -120,16 +122,23 @@ function fightPrompt(h: PeopleHost, personId: string, lead: string): void {
   onAct(m.el, (act) => {
     m.close();
     const s = h.state;
-    if (act === 'fight') {
+    // Fights are played now (Peter, 2026-10-15); the old dice roll is the fallback.
+    const brawl = (lead2 = '') => {
+      if (h.fight) {
+        const mem = remember(s, personId, h.area(), nowMs());
+        mem.grudge = Math.min(100, mem.grudge + 20);
+        if (lead2) toast(lead2, { icon: '🏃', ms: 2000 });
+        void h.fight(p.name, p.warmth === 'mean' ? '😠' : '😤', p.strength).then(() => h.refresh());
+        return;
+      }
       const r = streetFight(s, personId, h.area());
       h.sfx(r.won ? 'good' : 'bad');
-      toast(r.text, { tone: r.won ? 'good' : 'bad', ms: 5500 });
-    } else if (act === 'run') {
+      toast(`${lead2} ${r.text}`.trim(), { tone: r.won ? 'good' : 'bad', ms: 5500 });
+    };
+    if (act === 'fight') brawl();
+    else if (act === 'run') {
       if (Math.random() < 0.45 + (s.skills.fitness ?? 0) * 0.06) toast('You got away. Heart pounding.', { icon: '🏃', ms: 3500 });
-      else {
-        const r = streetFight(s, personId, h.area());
-        toast(`They caught you. ${r.text}`, { tone: r.won ? 'good' : 'bad', ms: 5500 });
-      }
+      else brawl('They caught up with you.');
     } else {
       const mem = remember(s, personId, h.area(), nowMs());
       if (p.warmth !== 'mean' && Math.random() < 0.6) {

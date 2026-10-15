@@ -111,11 +111,11 @@ export function tryLevelUp(s: GameState, id: string): string | null {
 }
 
 /** After an activity: rep, counts, days, streak, and the risk of getting caught. */
-export function onPathAction(s: GameState, actionId: string, risk = 0): { rep: number; busted: string | null } {
+export function onPathAction(s: GameState, actionId: string, risk = 0): { rep: number; busted: string | null; caught: Bust | null } {
   const id = s.paths.active;
-  if (!id) return { rep: 0, busted: null };
+  if (!id) return { rep: 0, busted: null, caught: null };
   const p = PATHS.get(id);
-  if (!p) return { rep: 0, busted: null };
+  if (!p) return { rep: 0, busted: null, caught: null };
   const counts = (s.paths.counts[id] ??= {});
   counts[actionId] = (counts[actionId] ?? 0) + 1;
   if (actionId === 'betrayCrew') s.paths.betrayals++;
@@ -135,16 +135,27 @@ export function onPathAction(s: GameState, actionId: string, risk = 0): { rep: n
     if (id === 'celebrity') updateStreak(s, actionId, today);
   }
 
-  let busted: string | null = null;
-  if (risk > 0 && Math.random() < risk * (1 + lvl * 0.08)) {
-    // Caught: arrested. Bail costs about what the old fine did; or do the time.
-    const bail = Math.max(20_000, Math.round(s.money * 0.25 / 100) * 100);
-    s.paths.rep[id] = Math.floor((s.paths.rep[id] ?? 0) * 0.85);
-    addMoodlet(s, { id: 'busted', label: 'Busted', emoji: '🚔', value: -20, minutes: 60 * 6 });
-    busted = `${arrest(s, 'caught in the act', 6 + lvl * 3, bail)} You lost some rep.${lvl >= 4 ? ' It made the news.' : ''}`;
-    if (lvl >= 4) postNews(s, { scope: s.location.area, emoji: '🚔', headline: `${s.profile.name} caught in a police sting`, personal: true });
-  }
-  return { rep: gained, busted };
+  // Spotted by the police. The game may turn this into a chase first
+  // (sim/brawl.ts); `bustNow` is the arrest if you don't get away.
+  const caught: Bust | null = risk > 0 && Math.random() < risk * (1 + lvl * 0.08) ? { pathId: id, risk, lvl, bail: Math.max(20_000, Math.round((s.money * 0.25) / 100) * 100) } : null;
+  return { rep: gained, busted: null, caught };
+}
+
+/** The cops saw you do something (from onPathAction). */
+export interface Bust {
+  pathId: string;
+  risk: number;
+  lvl: number;
+  bail: number;
+}
+
+/** Arrested for a bust: bail or the cell, rep down, the news if you're big. Returns the line to show. */
+export function bustNow(s: GameState, b: Bust): string {
+  s.paths.rep[b.pathId] = Math.floor((s.paths.rep[b.pathId] ?? 0) * 0.85);
+  addMoodlet(s, { id: 'busted', label: 'Busted', emoji: '🚔', value: -20, minutes: 60 * 6 });
+  const line = `${arrest(s, 'caught in the act', 6 + b.lvl * 3, b.bail)} You lost some rep.${b.lvl >= 4 ? ' It made the news.' : ''}`;
+  if (b.lvl >= 4) postNews(s, { scope: s.location.area, emoji: '🚔', headline: `${s.profile.name} caught in a police sting`, personal: true });
+  return line;
 }
 
 function updateStreak(s: GameState, actionId: string, today: string): void {
