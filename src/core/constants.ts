@@ -163,7 +163,7 @@ export const CAMERA = { minDistance: 16, maxDistance: 190, startDistance: 100 } 
  * about three quarters of Manhattan, and it opens that way. The camera
  * distance follows from the 50° field of view: half the span / tan(25°).
  */
-export const MAP_SPAN_FRACTION = 0.4; // Peter: max 0.4 of the whole map
+export const MAP_SPAN_FRACTION = 0.3; // Peter: satellite max zoom-out = 0.3 of the map
 /** Manhattan's land in world units (data/geo/manhattan-shore.ts). */
 export const MANHATTAN_BOUNDS = { minX: -770, maxX: 1212, minZ: -2955, maxZ: 1754 } as const;
 export const MAP_MAX_DISTANCE = Math.round((MAP_SPAN_FRACTION * (MANHATTAN_BOUNDS.maxZ - MANHATTAN_BOUNDS.minZ)) / 2 / Math.tan((25 * Math.PI) / 180));

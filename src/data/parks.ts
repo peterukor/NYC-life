@@ -33,7 +33,16 @@ export function pondsFor(d: DistrictDef): { x: number; z: number; rx: number; rz
       }
       if (!found) continue;
     }
-    out.push({ x, z: at.z, rx: p.rx * X_STRETCH, rz: p.rz, name: p.name }); // wider with the map
+    // Keep the water inside its park block: the game's park is cut by
+    // cross streets, and a pond at its real spot could spill onto the road
+    // (Peter, 2026-10-14: "a pond on the road from Central Park").
+    const b = blockRect(d, colAt(d, x), rowAt(d, at.z));
+    const M = 7; // a lawn edge between the water and the sidewalk
+    const rx = Math.max(6, Math.min(p.rx * X_STRETCH, (b.maxX - b.minX) / 2 - M));
+    const rz = Math.max(5, Math.min(p.rz, (b.maxZ - b.minZ) / 2 - M));
+    const cx = Math.min(Math.max(x, b.minX + M + rx), b.maxX - M - rx);
+    const cz = Math.min(Math.max(at.z, b.minZ + M + rz), b.maxZ - M - rz);
+    out.push({ x: cx, z: cz, rx, rz, name: p.name }); // wider with the map, but never past the park's edge
   }
   return out;
 }

@@ -50,8 +50,9 @@ How to add or change content: **`docs/ADDING-CONTENT.md`**.
 
 ## Music, map fixes, no glitter (2026-10-14, night)
 - **Music, not noise:** `ui/music.ts` plays 7 original songs made in code (Bodega Bounce, Yellow Cab Funk, Rooftop Sunset, Times Square Rush, Subway Surfin’, Brooklyn Brunch, Empire Anthem): each a recipe (tempo, key, scale, chords, groove, bass, lead) with a seeded melody, ~1½ min, then a random next song, forever. Settings has a 🎵 Music switch (`settings.music`), now-playing and ⏭ Next song. The noise ambience and activity noise loops are gone; footsteps, taps and action sounds stay. 🎆 Every firework burst bangs and crackles (club bottle shows, trading-floor wins: `world/celebration.ts`).
-- **Satellite map:** back to the tilt; opens fully zoomed out at about 0.4 of Manhattan (`MAP_SPAN_FRACTION`); no glide after you let go (the glide was "the map follows my mouse"). Header stays above labels. **City (flat) map:** zoomed out shows at most 0.7 of the island; it's the only straight-down view.
+- **Satellite map:** back to the tilt; opens fully zoomed out at about 0.3 of Manhattan (`MAP_SPAN_FRACTION`); no glide after you let go (the glide was "the map follows my mouse"). Header stays above labels. **City (flat) map:** zoomed out shows at most 0.5 of the island; it's the only straight-down view.
 - **🚀 Fast travel** button sits top right under the map header and works (it lacked `pointer-events: auto` inside `#ui`; QA now clicks for real).
+- **Ponds** stay inside their park block with a lawn edge (`data/parks.ts`); The Pond used to spill onto a cross street.
 - **Glitter at full zoom-out:** facades fade to each tile's average colour as windows shrink below a pixel (`world/nycgen/atlas.ts`), and kit textures (cars, trees, people) have mipmaps.
 
 ## Sounds, map travel, ad loading screens (2026-10-14, late)
