@@ -167,6 +167,8 @@ export class Game {
   private mirrorCamera = new THREE.PerspectiveCamera(40, 1, 0.05, 60);
   /** Home furniture models (loaded at boot; null = use the simple room). */
   private furniture: FurnitureKit | null = null;
+  /** Home furniture loads after the city is up (boot); this is that load. */
+  private furnitureLoad: Promise<unknown> | null = null;
   /** The furniture piece being moved in move mode (home only). */
   private moving: { uid: string; bar: HTMLElement } | null = null;
   /** A finger dragging the held piece (move mode). */
@@ -546,8 +548,13 @@ export class Game {
     // Cartoon model packs. Waits at most a few seconds: on a very slow
     // connection the game starts with simple shapes instead of hanging.
     const timeout = <T,>(p: Promise<T>, ms: number, fallback: T) => Promise.race([p, new Promise<T>((r) => window.setTimeout(() => r(fallback), ms))]);
-    const [kits, folk, furniture] = await Promise.all([timeout(loadKits(), 12000, {} as Kits), timeout(loadFolk().catch(() => null), 12000, null), timeout(loadFurnitureKit(), 12000, null)]);
-    this.furniture = furniture;
+    performance.mark('boot:start');
+    const marked = <T,>(p: Promise<T>, name: string) => p.then((v) => (performance.mark(name), v));
+    // Only what the street needs holds up the start (street props, people).
+    // Home furniture is only needed indoors: it loads once the city is up.
+    const [kits, folk] = await Promise.all([timeout(marked(loadKits(), 'models:kits'), 12000, {} as Kits), timeout(marked(loadFolk().catch(() => null), 'models:folk'), 12000, null)]);
+    performance.mark('boot:models');
+    const furnitureReady = () => (this.furnitureLoad ??= timeout(marked(loadFurnitureKit(), 'models:furniture'), 12000, null).then((f) => (this.furniture = f)));
     this.kits = kits;
     this.folk = folk;
     const loaded = loadGame();
@@ -559,11 +566,15 @@ export class Game {
       const summary = advanceTo(this.state);
       this.loadArea(this.state.location.area);
       this.placePlayerAtLocation();
+      await this.engine.warmUp();
       this.engine.start((dt) => this.frame(dt));
       this.finishBoot();
       if (summary) window.setTimeout(() => toast(summary, { icon: '🕐', ms: 6000 }), 900);
       if (walkedOut) window.setTimeout(() => toast('You left in the middle of your last shift, so it wasn’t paid', { icon: '🥪', ms: 4500 }), 1400);
-      if (this.state.location.placeId) this.enterInterior(PLACE_BY_ID[this.state.location.placeId], false);
+      if (this.state.location.placeId) {
+        await furnitureReady();
+        this.enterInterior(PLACE_BY_ID[this.state.location.placeId], false);
+      } else window.setTimeout(() => void furnitureReady(), 500);
       return;
     }
 
@@ -574,8 +585,10 @@ export class Game {
     this.player.root.position.set((b.minX + b.maxX) / 2, 0.2, (b.minZ + b.maxZ) / 2 + 10);
     this.engine.controls.target.set(this.player.root.position.x, 2, this.player.root.position.z);
     this.engine.camera.position.set(this.player.root.position.x + 9, 7, this.player.root.position.z + 16);
+    await this.engine.warmUp();
     this.engine.start((dt) => this.frame(dt));
     document.querySelector('.loading')?.classList.add('done');
+    window.setTimeout(() => void furnitureReady(), 300); // while they make their character
     const opts = await runOnboarding((look: Look) => this.player.setLook(look));
     this.state = newLife(opts);
     this.player.setLook(opts.look);
@@ -583,6 +596,7 @@ export class Game {
     this.applySettings();
     this.placePlayerAtLocation();
     this.finishBoot();
+    await furnitureReady();
     this.enterInterior(PLACE_BY_ID[this.state.home.placeId], false);
     toast(`Welcome to New York, ${opts.name}!`, { icon: '🗽', tone: 'good', ms: 4000 });
     this.save();
@@ -712,8 +726,10 @@ export class Game {
     this.systems.areaUnloaded();
     this.city?.dispose();
     const q = this.engine.quality;
+    performance.mark('area:start');
     this.city = buildCity(area, { trees: q.trees, shadows: q.shadows, kits: this.kits, detailScale: q.tier === 'low' ? 0.75 : 1 });
     this.engine.cityScene.add(this.city.group);
+    performance.mark('area:city');
     this.crowd = new Crowd(this.city.nav, area, q.crowd, this.folk ?? undefined, q.tier === 'low' ? 6 : q.tier === 'medium' ? 12 : 20);
     this.engine.cityScene.add(this.crowd.group);
     this.crowd.familiar = (taken) => (this.state ? familiarFace(this.state, area, taken) : null);
@@ -721,6 +737,7 @@ export class Game {
     this.systems.areaLoaded(this.systemContext());
     this.ads = new AdManager(this.city.adSlots, q.tier);
     bus.emit('area:changed', { area });
+    performance.mark('area:done');
   }
 
   /** Switch between the city, an interior and the subway view (tells listeners). */

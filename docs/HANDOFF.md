@@ -15,6 +15,32 @@ Build and test:
 
 How to add or change content: **`docs/ADDING-CONTENT.md`**.
 
+## The game loads in pieces (2026-10-15)
+
+- **Build:** `vite.config.ts` no longer inlines everything into one 1.8 MB index.html.
+  - The page is a 2.6 KB shell that paints the NY loading screen by itself.
+  - three.js (`assets/three-*.js`, ~204 KB gzip) and the game (`assets/index-*.js`, ~357 KB gzip) are separate hashed files, so an update only re-downloads what changed.
+- **Device copy:** `sw.js` is generated at build time with the list of this build's files.
+  - It keeps a copy of the game on the device, and an unchanged model carries over between builds (`?v=` content hash).
+  - The page itself is fetched network-first (4 s timeout), so a refresh still shows a new deploy.
+  - It keeps the current cache plus the previous one. The game starts offline after one visit.
+  - It is registered in `main.ts`, production builds only.
+- **Start-up work cut:**
+  - The nav grid's land test is now one scanline pass (`landMask`), which made the city build ~4× faster.
+  - Big coastline outlines get an edge index in `pointInRing`.
+  - Corridor lookups use numeric cell keys plus a bounding-box early-out.
+  - Module start-up went from 1.4 s to 0.7 s.
+  - Shader error checks are off in production. `engine.warmUp()` compiles shaders before the first frame.
+  - Fonts load without blocking.
+  - Home furniture loads after the city is up, and each toy piece is built on first use.
+- **Proof:**
+  - `tests/land-mask.test.ts` checks the fast land tests against the old ones.
+  - `tests/toy-furniture.test.ts` checks that every piece builds.
+  - A layout fingerprint (plots, blocks, places, nav grid) is identical to the previous build.
+- **QA:**
+  - `scripts/qa-loadtime.mjs` measures phone-ish start (9 Mbps, 4× slower CPU) and prints `performance.mark`s (`boot:*`, `models:*`, `area:*`, `frame:*`).
+  - `scripts/qa-offline.mjs` checks the offline start and that a refresh picks up a new build.
+
 ## Sound controls, zoom, whole-map placement check (2026-10-15)
 
 - Zoom: rooms zoom out a little further (`MIN_ZOOM` 0.62). The satellite map stops a little closer (`MAP_SPAN_FRACTION` 0.12, ~606 m; the flat City map shows up to 0.75 of the island) because zooming out too far shimmered.

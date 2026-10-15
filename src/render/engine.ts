@@ -46,6 +46,9 @@ export class Engine {
 
   constructor(private host: HTMLElement, public quality: QualitySettings) {
     this.renderer = new THREE.WebGLRenderer({ antialias: quality.antialias, powerPreference: 'high-performance', alpha: false });
+    // Checking every shader for errors makes the browser wait for each one to
+    // finish compiling (seconds on phones). Only worth it while developing.
+    this.renderer.debug.checkShaderErrors = import.meta.env.DEV;
     this.renderer.setPixelRatio(quality.pixelRatio);
     this.renderer.setSize(host.clientWidth, host.clientHeight);
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -185,6 +188,22 @@ export class Engine {
     }
   }
 
+  private firstFrame = false;
+
+  /**
+   * Compile the city's shaders before the first frame, in the background
+   * where the browser supports it, so the loading screen keeps moving
+   * instead of freezing on the first picture. Never waits more than 4 s.
+   */
+  async warmUp(): Promise<void> {
+    try {
+      await Promise.race([this.renderer.compileAsync(this.cityScene, this.camera), new Promise((r) => setTimeout(r, 4000))]);
+    } catch {
+      /* the first frame compiles whatever is left */
+    }
+    performance.mark('frame:warm');
+  }
+
   start(frame: (dt: number) => void): void {
     this.frameCb = frame;
     this.clock.start();
@@ -199,6 +218,10 @@ export class Engine {
     if (this.mode === 'city') {
       this.controls.update();
       this.renderer.render(this.cityScene, this.camera);
+      if (!this.firstFrame) {
+        this.firstFrame = true;
+        performance.mark('frame:first');
+      }
     } else if (this.altScene && this.altCamera) {
       this.renderer.render(this.altScene, this.altCamera);
     }

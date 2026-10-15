@@ -513,22 +513,40 @@ Object.assign(TOYS, LUX, WORK_TOYS, FUN_TOYS);
 /** Pieces that hang on a wall: centred on their footprint but kept at their height. */
 const ON_WALL = new Set(['toyPosters', 'toyWindowAC', 'toyArtwork', ...WORK_ON_WALL, ...FUN_ON_WALL]);
 
-let cache: Map<string, THREE.BufferGeometry> | null = null;
-
-/** Every toy piece as a ready geometry (centred on its footprint, on y = 0), by name. */
-export function toyFurnitureModels(): Map<string, THREE.BufferGeometry> {
-  if (cache) return cache;
-  cache = new Map();
-  for (const [name, make] of Object.entries(TOYS)) {
-    const t = new Toy();
-    make(t);
-    const geo = t.geometry();
-    geo.computeBoundingBox();
-    const b = geo.boundingBox!;
-    geo.translate(-(b.min.x + b.max.x) / 2, ON_WALL.has(name) ? 0 : -b.min.y, -(b.min.z + b.max.z) / 2);
-    geo.computeBoundingBox();
-    geo.computeBoundingSphere();
-    cache.set(name, geo);
-  }
-  return cache;
+/** Build one toy piece (centred on its footprint, on y = 0). */
+function buildToy(name: string): THREE.BufferGeometry {
+  const t = new Toy();
+  TOYS[name](t);
+  const geo = t.geometry();
+  geo.computeBoundingBox();
+  const b = geo.boundingBox!;
+  geo.translate(-(b.min.x + b.max.x) / 2, ON_WALL.has(name) ? 0 : -b.min.y, -(b.min.z + b.max.z) / 2);
+  geo.computeBoundingBox();
+  geo.computeBoundingSphere();
+  return geo;
 }
+
+/**
+ * Every toy piece by name, built the first time a room asks for it (not
+ * all ~200 at start-up: that froze the screen for a second, 2026-10-15).
+ */
+class LazyToys extends Map<string, THREE.BufferGeometry> {
+  override has(name: string): boolean {
+    return super.has(name) || Object.prototype.hasOwnProperty.call(TOYS, name);
+  }
+  override get(name: string): THREE.BufferGeometry | undefined {
+    let g = super.get(name);
+    if (!g && Object.prototype.hasOwnProperty.call(TOYS, name)) super.set(name, (g = buildToy(name)));
+    return g;
+  }
+}
+
+let cache: LazyToys | null = null;
+
+/** Every toy piece as a ready geometry by name (built on first use). */
+export function toyFurnitureModels(): Map<string, THREE.BufferGeometry> {
+  return (cache ??= new LazyToys());
+}
+
+/** Names of all toy pieces (tests). */
+export const TOY_NAMES = (): string[] => Object.keys(TOYS);

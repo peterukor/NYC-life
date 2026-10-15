@@ -122,15 +122,20 @@ export function corridors(): Corridor[] {
   return cache;
 }
 
+const byArea = new Map<AreaId, Corridor[]>();
 export function corridorsIn(area: AreaId): Corridor[] {
-  return corridors().filter((c) => c.area === area);
+  let list = byArea.get(area);
+  if (!list) byArea.set(area, (list = corridors().filter((c) => c.area === area)));
+  return list;
 }
 
 // Segment buckets (40 m cells) so "is this point on a road?" stays cheap
 // even when thousands of buildings ask it.
 const CELL = 40;
-const buckets = new Map<Corridor, Map<string, number[]>>();
-function bucketsOf(c: Corridor): Map<string, number[]> {
+// Numeric cell keys (no string per lookup): the start-up layout asks millions of times.
+const cellKey = (gx: number, gz: number) => (gx + 32768) * 65536 + (gz + 32768);
+const buckets = new Map<Corridor, Map<number, number[]>>();
+function bucketsOf(c: Corridor): Map<number, number[]> {
   let m = buckets.get(c);
   if (m) return m;
   m = new Map();
@@ -140,9 +145,10 @@ function bucketsOf(c: Corridor): Map<string, number[]> {
     const x0 = Math.floor((Math.min(a.x, b.x) - 30) / CELL), x1 = Math.floor((Math.max(a.x, b.x) + 30) / CELL);
     const z0 = Math.floor((Math.min(a.z, b.z) - 30) / CELL), z1 = Math.floor((Math.max(a.z, b.z) + 30) / CELL);
     for (let gx = x0; gx <= x1; gx++) for (let gz = z0; gz <= z1; gz++) {
-      const k = `${gx},${gz}`;
-      if (!m.has(k)) m.set(k, []);
-      m.get(k)!.push(i);
+      const k = cellKey(gx, gz);
+      let list = m.get(k);
+      if (!list) m.set(k, (list = []));
+      list.push(i);
     }
   }
   buckets.set(c, m);
@@ -151,7 +157,7 @@ function bucketsOf(c: Corridor): Map<string, number[]> {
 
 /** Distance from (x, z) to a corridor's centre line (Infinity if more than ~30 m away). */
 export function distToCorridor(c: Corridor, x: number, z: number): number {
-  const segs = bucketsOf(c).get(`${Math.floor(x / CELL)},${Math.floor(z / CELL)}`);
+  const segs = bucketsOf(c).get(cellKey(Math.floor(x / CELL), Math.floor(z / CELL)));
   if (!segs) return Infinity;
   let best = Infinity;
   const n = c.pts.length;
@@ -174,7 +180,30 @@ export function onCorridor(area: AreaId, x: number, z: number, pad = 0): Corrido
 }
 
 /** Does a rectangle touch a corridor? (sampled every ~8 m over the rect) */
+const boxes = new Map<Corridor, { minX: number; maxX: number; minZ: number; maxZ: number }>();
+function boxOf(c: Corridor) {
+  let b = boxes.get(c);
+  if (!b) {
+    b = { minX: Infinity, maxX: -Infinity, minZ: Infinity, maxZ: -Infinity };
+    for (const p of c.pts) {
+      b.minX = Math.min(b.minX, p.x);
+      b.maxX = Math.max(b.maxX, p.x);
+      b.minZ = Math.min(b.minZ, p.z);
+      b.maxZ = Math.max(b.maxZ, p.z);
+    }
+    boxes.set(c, b);
+  }
+  return b;
+}
+
 export function rectOnCorridor(area: AreaId, r: { minX: number; maxX: number; minZ: number; maxZ: number }, pad = 0): boolean {
+  // Quick out: nowhere near any corridor's bounding box (most rects).
+  const near = corridorsIn(area).some((c) => {
+    const b = boxOf(c);
+    const m = c.width / 2 + 4 + Math.max(0, pad) + 1;
+    return !(r.maxX < b.minX - m || r.minX > b.maxX + m || r.maxZ < b.minZ - m || r.minZ > b.maxZ + m);
+  });
+  if (!near) return false;
   const nx = Math.max(2, Math.ceil((r.maxX - r.minX) / 8) + 1);
   const nz = Math.max(2, Math.ceil((r.maxZ - r.minZ) / 8) + 1);
   for (let i = 0; i < nx; i++) {

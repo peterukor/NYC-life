@@ -51,9 +51,18 @@ export function loadFurnitureKit(): Promise<FurnitureKit | null> {
         g.computeBoundingSphere();
         models.set(m.name || m.parent?.name || '', g);
       });
-      // The chunky cartoon pieces built in code (world/furniture-toys.ts).
-      for (const [name, g] of toyFurnitureModels()) models.set(name, g);
-      return { models, material: new THREE.MeshLambertMaterial({ vertexColors: true }) };
+      // The chunky cartoon pieces built in code (world/furniture-toys.ts),
+      // each built the first time a room needs it.
+      const toys = toyFurnitureModels();
+      const all = new (class extends Map<string, THREE.BufferGeometry> {
+        override has(k: string) {
+          return models.has(k) || toys.has(k);
+        }
+        override get(k: string) {
+          return toys.get(k) ?? models.get(k);
+        }
+      })();
+      return { models: all, material: new THREE.MeshLambertMaterial({ vertexColors: true }) };
     } catch (err) {
       console.info('[furniture] not loaded, using the simple apartment:', (err as Error)?.message ?? err);
       return null;

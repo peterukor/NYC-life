@@ -17,15 +17,23 @@ function webglAvailable(): boolean {
 }
 
 async function start(): Promise<void> {
+  performance.mark('main:start');
   initClockFromUrl(location.search);
   const ui = document.getElementById('ui')!;
-  ui.insertAdjacentHTML('beforeend', '<div class="loading" aria-label="Loading"><div class="mark">NY</div></div>');
+  // index.html already shows the loading screen; add it only if it isn't there.
+  if (!ui.querySelector('.loading')) ui.insertAdjacentHTML('beforeend', '<div class="loading" aria-label="Loading"><div class="mark">NY</div></div>');
   if (!webglAvailable()) {
     ui.innerHTML = '<div class="modal-wrap"><div class="modal"><div class="big">🗽</div><h2>Your browser can’t show 3D</h2><p>NYC Life needs WebGL. Try the latest Chrome, Safari or Firefox, or turn on hardware acceleration in your browser settings.</p></div></div>';
     return;
   }
   const game = new Game(document.getElementById('stage')!);
   await game.boot();
+}
+
+// Keep a copy of the game on the device (sw.js, made by vite.config.ts):
+// return visits start from the phone and work offline. Live builds only.
+if (import.meta.env.PROD && 'serviceWorker' in navigator && location.protocol !== 'file:') {
+  window.addEventListener('load', () => void navigator.serviceWorker.register('./sw.js').catch(() => {}));
 }
 
 start().catch((err) => {
