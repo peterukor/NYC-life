@@ -64,6 +64,8 @@ import { afterWalk, changedClothes, stainAtWork, subwayIncident } from './sim/co
 import { Roommates } from './world/roommates.ts';
 import { HINT_GAP_SECONDS, hintLevel, nextHint, whereFor, type HintLevel } from './sim/hints.ts';
 import { showHint } from './ui/hints.ts';
+import { buyCityMap } from './sim/citymap.ts';
+import { oddTwist } from './sim/oddities.ts';
 import { beatLine, dateLines, dateOutLine, eatShared, joinParty, lend, lostLeftovers, maybeRepay, refuse, skipParty, type Beat } from './sim/roommate-life.ts';
 import { InteriorView } from './world/interior-view.ts';
 import { Coworkers } from './world/coworkers.ts';
@@ -78,7 +80,7 @@ import { receiveOrders } from './sim/kitchen.ts';
 import { cookActionId, eatActionId, mealOfAction } from './data/groceries.ts';
 import { openFurnitureShop } from './ui/furniture-shop.ts';
 import { beginActivity, completeActivity, stopActivity, tickActivity, activityProgress } from './sim/home-activity.ts';
-import { abandonShift, careerBand, finishDeliShift, menuFor, payBand, startDeliShift } from './sim/shift.ts';
+import { abandonShift, careerBand, finishDeliShift, menuFor, payBand, REAL_SHIFT_ORDERS, startDeliShift } from './sim/shift.ts';
 import { autoSeconds, playDeliShift, shiftIntro, showPayslip } from './ui/deli-shift.ts';
 import { openCloset } from './ui/closet.ts';
 import { openStore } from './ui/store.ts';
@@ -1724,7 +1726,7 @@ export class Game {
   }
 
   /**
-   * 🛋️ Your section (sim/section.ts): $1,000 for 10 minutes, invite
+   * 🛋️ Your section (sim/section.ts): $300 for 10 minutes, invite
    * friends (2 to start, up to 12 the more you spend), order bottles,
    * buy more time.
    */
@@ -2962,6 +2964,16 @@ export class Game {
     if (path.caught) void this.copsSawYou(path.caught, a.label);
     else if (path.rep) toast(`+${path.rep} rep · ${pathTitle(this.state)}`, { icon: PATHS.get(this.state.paths.active!)?.emoji ?? '⭐', ms: 1800 });
     if (this.state.paths.active && !levelBlockers(this.state, this.state.paths.active).length) toast('You can level up! Phone → Life Path', { icon: '📈', tone: 'good', ms: 3500 });
+    // 🪦 The darkly funny places (data/uptown.ts): what happened this time.
+    const odd = oddTwist(this.state, a.id);
+    if (odd) {
+      this.earn('odd', POINTS.oddity, 'weird');
+      this.save();
+      this.refreshHud(true);
+      if (odd.twist.money && odd.twist.money > 0) sfx.cash();
+      void this.resultCard(odd.emoji, odd.title, `${odd.twist.text}${out.earned > 0 ? ` (+${money(out.earned)})` : ''}`);
+      return;
+    }
     const bits = [`${a.emoji} ${a.label} — done`];
     if (out.earned > 0) bits.push(`+${money(out.earned)}`);
     else if (a.pay && out.earned === 0 && a.id === 'lottoTicket') bits.push('no luck this time');
@@ -3148,7 +3160,9 @@ export class Game {
     }
     const play = mode === 'play' ? await playDeliShift(info) : { orders: [], picks: {}, skipped: true };
     if (mode === 'play') (s.shiftsPlayed ??= {})[career.id] = (s.shiftsPlayed[career.id] ?? 0) + 1;
-    this.earn('shifts', POINTS.shift * (mode === 'play' ? 2 : 1), 'shift');
+    // 🏆 A played shift is worth a lot more than auto, and a clean one more again.
+    const allRight = mode === 'play' && play.orders.length >= REAL_SHIFT_ORDERS && play.orders.every((o) => o.right);
+    this.earn('shifts', mode === 'play' ? POINTS.shiftPlayed + (allRight ? POINTS.perfectShift : 0) : POINTS.shift, 'shift');
     const mult = await this.resolveTwist();
     if (mult === null) {
       abandonShift(s);
@@ -3386,6 +3400,8 @@ export class Game {
         },
       });
     });
+    // Scrolling the list must never pan or zoom the map underneath.
+    for (const type of ['wheel', 'touchstart', 'touchmove', 'pointerdown', 'pointermove'] as const) el.addEventListener(type, (e) => e.stopPropagation(), { passive: true });
     (document.getElementById('ui') ?? document.body).appendChild(el);
     this.mapStrip = el;
   }
@@ -3449,6 +3465,18 @@ export class Game {
       onBillboard: (id) => this.openAdCard(id),
       onPlot: (id) => PLOT_BY_ID[id] && openPlotPanel(PLOT_BY_ID[id]),
       onFlyover: () => window.setTimeout(() => this.openCityMap(), 0),
+      onBuyMap: () => {
+        const why = buyCityMap(s);
+        if (why) {
+          toast(why, { icon: '🗺️', tone: 'bad' });
+          return false;
+        }
+        sfx.cash();
+        toast('🗺️ Full City Map: every place in the city is on your map now. Filter by kind at the bottom.', { icon: '🗺️', tone: 'good', ms: 4500 });
+        this.save();
+        this.refreshHud(true);
+        return true;
+      },
       onClose: () => {
         this.overlayClose = null;
         this.hideMapStrip();

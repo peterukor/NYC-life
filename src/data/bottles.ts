@@ -1,7 +1,8 @@
 // =====================================================================
 // bottles.ts — bottle service at the club (Peter, 2026-10-14).
 //
-// Seven bottles from $700 to $100,000. Names nod to the real ones
+// Twelve bottles from $500 to $80,000 (Peter, 2026-10-16: cheaper, more
+// of them; was seven from $700). Names nod to the real ones
 // (parodies, with our own label art). The more you spend, the bigger the
 // show: from the 3rd bottle a spotlight finds you (longer each step),
 // fireworks match the bottle's colours and get bigger and longer, and
@@ -30,13 +31,18 @@ export interface BottleDef extends Celebration {
 }
 
 export const BOTTLES: BottleDef[] = [
-  { id: 'mowet', name: 'Mowêt Impérial', kind: 'Champagne', emoji: '🍾', price: 70_000, spotlight: 0, fireworks: { size: 1.4, seconds: 4, colors: ['#ffd166', '#ffffff'] }, admirers: 2, roomMood: 2 },
-  { id: 'kliko', name: 'Veuve Kliko', kind: 'Champagne, yellow label', emoji: '🍾', price: 250_000, spotlight: 0, fireworks: { size: 1.7, seconds: 5, colors: ['#ffb703', '#fb8500'] }, admirers: 2, roomMood: 3 },
-  { id: 'perinyon', name: 'Dom Perinyon', kind: 'Vintage champagne', emoji: '🍾', price: 500_000, spotlight: 6, fireworks: { size: 2.2, seconds: 6, colors: ['#ffffff', '#ffd166', '#c0c0c0'] }, admirers: 3, roomMood: 4 },
-  { id: 'julyo', name: 'Don Julyo 1942', kind: 'Añejo tequila', emoji: '🥃', price: 1_000_000, spotlight: 9, fireworks: { size: 2.7, seconds: 8, colors: ['#f4a261', '#e9c46a', '#ffffff'] }, admirers: 4, roomMood: 5 },
-  { id: 'shades', name: 'Ace of Shades', kind: 'Gold-bottle champagne', emoji: '🍾', price: 2_500_000, spotlight: 13, fireworks: { size: 3.3, seconds: 10, colors: ['#ffd700', '#ffec99', '#ffffff'] }, admirers: 5, roomMood: 6 },
-  { id: 'cristalle', name: 'Cristalle Rosé', kind: 'Rosé champagne', emoji: '🥂', price: 5_000_000, spotlight: 18, fireworks: { size: 4.0, seconds: 13, colors: ['#ff8fab', '#ffc2d1', '#ffffff'] }, admirers: 6, roomMood: 8 },
-  { id: 'goliath', name: 'Gold Goliath Jeroboam', kind: 'The giant bottle', emoji: '👑', price: 10_000_000, spotlight: 26, fireworks: { size: 5.0, seconds: 18, colors: ['#ffd700', '#ff4fa3', '#36c5f0', '#9b5de5', '#ffffff'] }, admirers: 7, roomMood: 10 },
+  { id: 'prosecco', name: 'Prosecco di Bodega', kind: 'Sparkling, technically', emoji: '🥂', price: 50_000, spotlight: 0, fireworks: { size: 1.4, seconds: 4, colors: ['#fff3b0', '#ffffff'] }, admirers: 2, roomMood: 2 },
+  { id: 'mowet', name: 'Mowêt Impérial', kind: 'Champagne', emoji: '🍾', price: 60_000, spotlight: 0, fireworks: { size: 1.5, seconds: 4.5, colors: ['#ffd166', '#ffffff'] }, admirers: 2, roomMood: 2 },
+  { id: 'gooze', name: 'Grey Gooze', kind: 'French vodka', emoji: '🍸', price: 90_000, spotlight: 3, fireworks: { size: 1.65, seconds: 5, colors: ['#bde0fe', '#ffffff'] }, admirers: 2, roomMood: 3 },
+  { id: 'kliko', name: 'Veuve Kliko', kind: 'Champagne, yellow label', emoji: '🍾', price: 150_000, spotlight: 4, fireworks: { size: 1.8, seconds: 5.5, colors: ['#ffb703', '#fb8500'] }, admirers: 3, roomMood: 3 },
+  { id: 'hennerssy', name: 'Hennerssy XO', kind: 'Cognac', emoji: '🥃', price: 250_000, spotlight: 5, fireworks: { size: 2.0, seconds: 6, colors: ['#bc6c25', '#ffd166'] }, admirers: 3, roomMood: 4 },
+  { id: 'perinyon', name: 'Dom Perinyon', kind: 'Vintage champagne', emoji: '🍾', price: 350_000, spotlight: 6, fireworks: { size: 2.2, seconds: 6.5, colors: ['#ffffff', '#ffd166', '#c0c0c0'] }, admirers: 3, roomMood: 4 },
+  { id: 'azule', name: 'Clase Azulé', kind: 'Reposado tequila', emoji: '🥃', price: 500_000, spotlight: 8, fireworks: { size: 2.5, seconds: 7.5, colors: ['#3a86ff', '#ffffff'] }, admirers: 4, roomMood: 5 },
+  { id: 'julyo', name: 'Don Julyo 1942', kind: 'Añejo tequila', emoji: '🥃', price: 750_000, spotlight: 9, fireworks: { size: 2.7, seconds: 8, colors: ['#f4a261', '#e9c46a', '#ffffff'] }, admirers: 4, roomMood: 5 },
+  { id: 'shades', name: 'Ace of Shades', kind: 'Gold-bottle champagne', emoji: '🍾', price: 2_000_000, spotlight: 13, fireworks: { size: 3.3, seconds: 10, colors: ['#ffd700', '#ffec99', '#ffffff'] }, admirers: 5, roomMood: 6 },
+  { id: 'midas', name: 'Midas Magnum', kind: 'Champagne, double size', emoji: '🍾', price: 3_000_000, spotlight: 15, fireworks: { size: 3.6, seconds: 11.5, colors: ['#ffd700', '#e63946', '#ffffff'] }, admirers: 5, roomMood: 7 },
+  { id: 'cristalle', name: 'Cristalle Rosé', kind: 'Rosé champagne', emoji: '🥂', price: 4_000_000, spotlight: 18, fireworks: { size: 4.0, seconds: 13, colors: ['#ff8fab', '#ffc2d1', '#ffffff'] }, admirers: 6, roomMood: 8 },
+  { id: 'goliath', name: 'Gold Goliath Jeroboam', kind: 'The giant bottle', emoji: '👑', price: 8_000_000, spotlight: 26, fireworks: { size: 5.0, seconds: 18, colors: ['#ffd700', '#ff4fa3', '#36c5f0', '#9b5de5', '#ffffff'] }, admirers: 7, roomMood: 10 },
 ];
 export const BOTTLE_BY_ID: Record<string, BottleDef> = Object.fromEntries(BOTTLES.map((b) => [b.id, b]));
 

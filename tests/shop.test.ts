@@ -39,19 +39,19 @@ test('a basic bed really is better than the twin you start with', () => {
   assert.equal(bestOwned(s, 'bed')!.id, 'twinBed');
 });
 
-test('balance: the basic bed takes a few decent shifts starting broke (2–4)', () => {
+test('balance: the basic bed takes a shift or two starting broke (1–2, after the 2026-10-16 pay boost)', () => {
   const s = life();
   applyForJob(s, 'deli');
   const price = FURNITURE.get('bedSingle')!.price;
   let shifts = 0;
-  // A decent player over a 3-minute shift: about 15 orders, 5 in 6 right, half the wait left.
+  // A decent player over an 80-second shift: about 7 orders, 5 in 6 right, half the wait left.
   while (s.money < price && shifts < 20) {
     s.needs.energy = 100;
     s.job!.shiftsToday = 0;
     const r = startDeliShift(s);
     assert.ok(r.ok, (r as { why?: string }).why);
-    finishDeliShift(s, r.session.id, { orders: Array.from({ length: 15 }, (_, i) => ({ right: i % 6 !== 3, timeLeft: 0.5 })), picks: {} });
+    finishDeliShift(s, r.session.id, { orders: Array.from({ length: 7 }, (_, i) => ({ right: i % 6 !== 3, timeLeft: 0.5 })), picks: {} });
     shifts++;
   }
-  assert.ok(shifts >= 2 && shifts <= 4, `took ${shifts} shifts`);
+  assert.ok(shifts >= 1 && shifts <= 2, `took ${shifts} shifts`);
 });

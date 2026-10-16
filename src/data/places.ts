@@ -19,6 +19,7 @@
 import type { AreaId } from '../sim/types.ts';
 import { DISTRICTS, blockRect, SIDEWALK } from '../world/layout.ts';
 import { project } from '../world/geo-proj.ts';
+import { UPTOWN_PLACES } from './uptown.ts';
 
 export type InteriorKind = 'apartment' | 'bodega' | 'pizza' | 'cafe' | 'bar' | 'club' | 'office' | 'gym' | 'comedy' | 'furniture' | 'alley' | 'precinct' | 'arcade' | 'casino' | 'park' | 'none';
 
@@ -54,7 +55,7 @@ export interface PlaceDef {
   rentLabel?: string;
 }
 
-type RawPlace = Omit<PlaceDef, 'block' | 'side' | 'slot'>;
+export type RawPlace = Omit<PlaceDef, 'block' | 'side' | 'slot'>;
 
 const RAW: RawPlace[] = [
   // ======================= MANHATTAN =======================
@@ -462,6 +463,9 @@ const RAW: RawPlace[] = [
     actions: ['subwayShowtime', 'tipPerformer'],
   },
 ];
+
+// Midtown and uptown, and their darkly funny activities (data/uptown.ts, 2026-10-16).
+RAW.push(...UPTOWN_PLACES);
 
 // The Bronx places are appended to RAW below (see BRONX_PLACES).
 

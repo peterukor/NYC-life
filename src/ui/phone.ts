@@ -63,6 +63,17 @@ export interface PhoneHost {
 }
 
 const RISK_TAG: Record<StockDef['risk'], string> = { fund: '🛡️ fund', blue: '🏛️ blue chip', growth: '🚀 growth', penny: '🪙 penny', meme: '🎲 meme' };
+/** 📈 Stocks app tabs (Peter, 2026-10-16: "tabs so someone can see different types of stocks in groups"). */
+const STOCK_TABS: [StockDef['risk'] | 'mine', string][] = [['mine', '⭐ Mine'], ['fund', '🛡️ Funds'], ['blue', '🏛️ Blue'], ['growth', '🚀 Growth'], ['penny', '🪙 Penny'], ['meme', '🎲 Meme']];
+const STOCK_TAB_BLURB: Record<StockDef['risk'] | 'mine', string> = {
+  mine: 'What you own right now.',
+  fund: 'Calm and slow. The “I want to sleep at night” pile.',
+  blue: 'Big, steady companies. Boring in a good way.',
+  growth: 'Bigger swings, bigger dreams.',
+  penny: 'Cheap and jumpy. Can double. Can halve.',
+  meme: 'Can 10×. Can go to zero. The internet decides.',
+};
+let stockTab: StockDef['risk'] | 'mine' = 'fund';
 const EVENT_BADGE = { squeeze: '🔥 Short squeeze today', rug: '📉 Rug pull today', earnings: '📊 Earnings day', scandal: '🚨 Scandal in the news' } as const;
 const SKILL_LABEL: Record<SkillKey, string> = { charisma: 'Charisma', hustle: 'Hustle', fitness: 'Fitness', cooking: 'Cooking', coding: 'Coding', music: 'Music', streetSmarts: 'Street Smarts' };
 
@@ -153,9 +164,11 @@ export function openPhone(host: PhoneHost, startApp?: string): () => void {
     bank() {
       page('Big Apple Bank', `
         <div class="card"><p>Cash on you</p><div class="big-number">${money(s.money)}</div><p style="margin-top:8px">In the bank (safe from pickpockets and scams)</p><div class="big-number" style="color:var(--good)">${money(s.bank)}</div></div>
-        <div class="row" style="margin-top:10px">
-          <button class="btn" data-act="dep:5000">Deposit $50</button><button class="btn" data-act="dep:all">Deposit all</button>
-          <button class="btn" data-act="wd:5000">Withdraw $50</button><button class="btn" data-act="wd:20000">Withdraw $200</button>
+        <div class="card bank-amt"><label for="bank-amt"><b>Amount</b></label>
+          <div class="bank-input"><span aria-hidden="true">$</span><input id="bank-amt" data-amt type="text" inputmode="decimal" autocomplete="off" placeholder="0.00" aria-label="Amount in dollars"></div>
+          <div class="row" style="gap:8px;margin-top:8px"><button class="btn primary" style="flex:1" data-act="wd:typed">Withdraw</button><button class="btn" style="flex:1" data-act="dep:typed">Deposit</button></div>
+          <div class="row bank-quick" style="margin-top:8px"><button class="btn" data-act="wd:5000">$50</button><button class="btn" data-act="wd:20000">$200</button><button class="btn" data-act="wd:all">Withdraw all</button><button class="btn" data-act="dep:all">Deposit all</button></div>
+          <p class="sub" style="margin-top:6px">Quick buttons: $50 and $200 take money out.</p>
         </div>
         ${s.debt ? `<div class="card" style="border:2px solid var(--bad)"><h3>📞 In collections: ${money(s.debt.owed)}</h3><p>Unpaid bills since ${esc(s.debt.since)}. Collectors take ${Math.round(DEBT.dailyGrab * 100)}% a day from your cash and bank, and add interest when they can’t.</p><button class="btn primary block" style="margin-top:10px" data-act="debt.pay">Pay off what I can</button>${bankruptcyBlocker(s) ? `<p class="sub" style="margin-top:8px">${esc(bankruptcyBlocker(s)!)}</p>` : `<button class="btn block" style="margin-top:8px;color:var(--bad)" data-act="debt.ask">File for bankruptcy…</button>`}</div>` : ''}
         ${s.loan ? `<div class="card"><h3>🎓 Student loan</h3><p>${money(s.loan.owed)} left · ${money(s.loan.weekly)} taken every week automatically.</p></div>` : ''}
@@ -218,22 +231,27 @@ export function openPhone(host: PhoneHost, startApp?: string): () => void {
         return `<svg class="spark" viewBox="0 0 60 20" aria-hidden="true"><polyline points="${pts}" fill="none" stroke="${up ? '#1a9e55' : '#e0283f'}" stroke-width="2" stroke-linejoin="round"/></svg>`;
       };
       const pv = portfolioValue(s);
+      if (stockTab === 'mine' && !Object.keys(s.portfolio).length) stockTab = 'fund';
+      // Keep the chosen tab in view in the sideways-scrolling row.
+      requestAnimationFrame(() => document.querySelector('.phone .seg-scroll .on')?.scrollIntoView({ block: 'nearest', inline: 'center' }));
       page('Stocks', `
         <div class="card"><p>Net worth</p><div class="big-number">${money(netWorth(s))}</div><p style="margin-top:6px">Investments ${money(pv)} · Cash ${money(s.money)} · Bank ${money(s.bank)}</p></div>
         ${(() => {
           const tip = deskTip(s);
           return tip ? `<div class="card" style="margin-bottom:10px"><b>💡 Desk chatter</b><p>The floor thinks <b>${esc(STOCKS.get(tip.id)?.name ?? tip.id)}</b> goes ${tip.up ? 'up 📈' : 'down 📉'} tomorrow. Right about 3 times in 4. (📈 Finance perk)</p></div>` : '';
         })()}
-        <p class="blurb">Made-up companies, real lessons: 🛡️ funds are calm, 🏛️ blue chips are steady, 🚀 growth swings, 🪙 penny stocks jump, 🎲 memes can 10× or go to zero. Prices move every game hour. Fee: ${atTradingFloor(s) ? 'none' : s.job?.careerId === 'finance' ? `${money(tradeFee(10_000, s))} on a $100 trade (📈 Finance discount)` : `${money(TRADE_FEE.flat)} + ${TRADE_FEE.rate * 100}% per trade`}.</p>
-        ${atTradingFloor(s) ? '<div class="card" style="border:2px solid #2b9348"><h3>📍 On the trading floor</h3><p>No fees here, and profits earn 50% more 💼 corporate rep. Big wins get the whole floor cheering.</p></div>' : '<div class="card"><h3>📍 Trade in person</h3><p>At the trading floor in Midtown Tower: <b>no fees</b> and <b>+50% 💼 corporate rep</b> on profits.</p></div>'}
-        ${STOCKS.all().map((st) => {
+        <div class="seg seg-scroll" role="tablist" aria-label="Kinds of stock">${STOCK_TABS.filter(([t]) => t !== 'mine' || Object.keys(s.portfolio).length).map(([t, label]) => `<button role="tab" aria-selected="${t === stockTab}" data-act="stab:${t}" class="${t === stockTab ? 'on' : ''}">${label}</button>`).join('')}</div>
+        <p class="sub" style="margin:-4px 0 8px">${esc(STOCK_TAB_BLURB[stockTab])}</p>
+        ${STOCKS.all().filter((st) => (stockTab === 'mine' ? !!s.portfolio[st.id] : st.risk === stockTab)).map((st) => {
           const price = priceOf(st.id);
           const ch = dayChange(st.id);
           const h = s.portfolio[st.id];
           const val = h ? Math.round(h.shares * price) : 0;
           const gain = h ? val - h.cost : 0;
           return `<div class="list-item stock"><div style="font-size:24px">${st.emoji}</div><div class="grow"><div class="title">${st.ticker} · ${esc(st.name)}</div>${(() => { const e = eventFor(st, marketDay()); return e ? `<div class="sub"><b>${EVENT_BADGE[e.kind]}</b></div>` : ''; })()}<div class="sub">${RISK_TAG[st.risk]} · ${esc(st.sector)} · ${money(price)} <b style="color:${ch >= 0 ? 'var(--good)' : 'var(--bad)'}">${ch >= 0 ? '▲' : '▼'} ${Math.abs(ch).toFixed(1)}%</b></div>${h ? `<div class="sub">You own ${money(val)} (${gain >= 0 ? '+' : ''}${money(gain)})</div>` : ''}<div class="row" style="margin-top:6px"><button class="btn" data-act="buy:${st.id}:5000">Buy $50</button><button class="btn" data-act="buy:${st.id}:50000">Buy $500</button>${h ? `<button class="btn" data-act="sell:${st.id}">Sell all</button>` : ''}</div></div>${spark(recentPrices(st.id, 14))}</div>`;
-        }).join('')}`);
+        }).join('')}
+        <p class="blurb">Made-up companies, real lessons: 🛡️ funds are calm, 🏛️ blue chips are steady, 🚀 growth swings, 🪙 penny stocks jump, 🎲 memes can 10× or go to zero. Prices move every game hour. Fee: ${atTradingFloor(s) ? 'none' : s.job?.careerId === 'finance' ? `${money(tradeFee(10_000, s))} on a $100 trade (📈 Finance discount)` : `${money(TRADE_FEE.flat)} + ${TRADE_FEE.rate * 100}% per trade`}.</p>
+        ${atTradingFloor(s) ? '<div class="card" style="border:2px solid #2b9348"><h3>📍 On the trading floor</h3><p>No fees here, and profits earn 50% more 💼 corporate rep. Big wins get the whole floor cheering.</p></div>' : '<div class="card"><h3>📍 Trade in person</h3><p>At the trading floor in Midtown Tower: <b>no fees</b> and <b>+50% 💼 corporate rep</b> on profits.</p></div>'}`);
     },
     news() {
       const tabs: ('all' | 'city' | AreaId)[] = ['all', 'city', ...OPEN_AREAS];
@@ -343,6 +361,10 @@ export function openPhone(host: PhoneHost, startApp?: string): () => void {
       return openRegistered(app.id);
     }
     if (act.startsWith('ntab:')) return newsTab?.(act.slice(5));
+    if (act.startsWith('stab:')) {
+      stockTab = act.slice(5) as typeof stockTab;
+      return apps.stocks();
+    }
     if (act.startsWith('hire:')) {
       const id = act.slice(5);
       const err = applyForJob(s, id);
@@ -365,9 +387,21 @@ export function openPhone(host: PhoneHost, startApp?: string): () => void {
     }
     if (act.startsWith('dep:') || act.startsWith('wd:')) {
       const [kind, amt] = act.split(':');
-      const cents = amt === 'all' ? s.money : Number(amt);
+      let cents = amt === 'all' ? (kind === 'dep' ? s.money : s.bank) : Number(amt);
+      if (amt === 'typed') {
+        // What you typed, in dollars ("120", "$1,250.50").
+        const raw = document.querySelector<HTMLInputElement>('.phone [data-amt]')?.value ?? '';
+        const dollars = Number(raw.replace(/[$,\s]/g, ''));
+        if (!raw.trim() || !Number.isFinite(dollars) || dollars <= 0) {
+          toast('Type an amount first, like 120 or 45.50.', { icon: '🏦', tone: 'bad' });
+          return;
+        }
+        cents = Math.round(dollars * 100);
+      }
+      if (cents <= 0) return toast(kind === 'dep' ? 'No cash on you to deposit.' : 'Nothing in the bank to take out.', { icon: '🏦', tone: 'bad' });
       const r = kind === 'dep' ? deposit(s, cents) : withdraw(s, cents);
       if (!r.ok) toast(r.why, { icon: '🏦', tone: 'bad' });
+      else toast(`${kind === 'dep' ? 'Deposited' : 'Withdrew'} ${money(cents)}.`, { icon: '🏦', tone: 'good', ms: 2000 });
       host.save();
       host.refresh();
       return apps.bank();

@@ -15,6 +15,17 @@ Build and test:
 
 How to add or change content: **`docs/ADDING-CONTENT.md`**.
 
+## Batch 6: Peter's fixes and the uptown expansion (2026-10-16)
+
+- Fixes: tip "Got it" now takes taps (`.hint-tip` added to the pointer-events list in styles.css); the fast-travel list scrolls on its own (min-height:0 + touch-action pan-y + stopPropagation) without moving the map.
+- Shifts: played shift 80 s (SHIFT_PLAY_SECONDS), DESIGN_ROOM 5,600 (≈7 orders reach the top). PAY_BOOST: auto 2×, played max 2.5× (careerBand). Real shift = 4+ orders. Shift rep ×2 (SHIFT_REP_BOOST). Season points: played shift 25 (+15 all orders right), auto 6.
+- Clubs: section $300 (+1 seat per $300, extend $150); 12 bottles $500–$80,000 (new: Prosecco di Bodega, Grey Gooze, Hennerssy XO, Clase Azulé, Midas Magnum); covers lowered; BOTTLE_STREET_REP has 12 entries.
+- 🗺️ Full City Map (sim/citymap.ts, $250, button along the bottom of the flat city map): without it the map shows homes, stations, landmarks, visited places and anything within 350 m; with it everything, names from further out, and kind filters.
+- Uptown (data/uptown.ts, 17 places, Midtown → Inwood): darkly funny activities with random twists (sim/oddities.ts → result card): coffin showroom, rage room, open-office escape room, heartbreak karaoke, lost & found, tram scream therapy, pessimistic psychic, Museum of Bad Decisions, rat tour, paid study, barbershop GOAT debates, haunted open house, storage auctions, medieval stocks, haunted Inwood hike; plus bagels, soul food and a chimi truck.
+- Bank: type any amount to withdraw or deposit; Withdraw all. Stocks: tabs (Mine, Funds, Blue, Growth, Penny, Meme) at the top.
+- Businesses: daily sales ×1.5 (data/businesses.ts).
+- Fridge says to cook at the stove. QA: scripts/qa-batch6.mjs. Tests 190.
+
 ## Batch 5: hooks, homes, roommates, tips (2026-10-16)
 
 - 🏆 Leaderboard (sim/season.ts, Phone → 🏆): season points from almost everything fun; 3-real-day seasons vs seeded city regulars; top 3 paid $2,000 / $1,000 / $500 once. Three daily challenges per game day (+$500 for all three). Real-day streak gift ($50 × day, max 7).

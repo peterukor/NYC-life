@@ -30,7 +30,8 @@ export const REP_TITLES: Record<RepKind, string[]> = {
 export const REP_EMOJI: Record<RepKind, string> = { street: '🔥', corporate: '💼' };
 
 /** Street rep for each bottle on the menu, smallest to biggest (data/bottles.ts order). */
-export const BOTTLE_STREET_REP = [5, 10, 20, 35, 60, 100, 200];
+/** 🔥 Rep per bottle, by its place on the menu (data/bottles.ts, 12 bottles since 2026-10-16). */
+export const BOTTLE_STREET_REP = [4, 5, 8, 10, 15, 20, 28, 35, 60, 80, 100, 200];
 /** Corporate rep bonus for big multiples (on top of the profit's share). */
 const WIN_BONUS: [number, number][] = [[100, 200], [80, 120], [50, 70], [30, 40], [10, 20]];
 

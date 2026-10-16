@@ -45,7 +45,7 @@ test('🔥 street rep grows with bottle size', () => {
   const r1 = buyBottle(s, BOTTLES[0].id);
   assert.ok(r1.ok);
   const small = repOf(s).street - before;
-  const r2 = buyBottle(s, BOTTLES[6].id);
+  const r2 = buyBottle(s, BOTTLES.at(-1)!.id);
   assert.ok(r2.ok && r2.street > small);
 });
 

@@ -50,6 +50,8 @@ export const HINTS: HintDef[] = [
   { id: 'fun', emoji: '🎯', text: 'Fun spots earn 🏆 season points. Top 3 every 3 days win up to $2,000.', when: (_s, c) => c.where === 'fun' },
   { id: 'shop', emoji: '🛍️', text: 'Shops sell furniture, clothes and food. Better furniture means better sleep and more fun.', when: (_s, c) => c.where === 'shop' },
   { id: 'roommates', emoji: '🙋', text: 'Your roommates have lives too. Tap one to chat; good roommates help you out.', when: (s, c) => c.where === 'home' && c.placeId === 'harlemWalkup' && s.tutorialStep >= 1 },
+  { id: 'citymap', emoji: '🗺️', text: 'Your map only shows places you’ve been near. The 🗺️ Full City Map ($250, at the bottom of the Map) shows every place, with filters.', when: (s, c) => c.where === 'street' && !s.cityMap && s.tutorialStep >= 3 },
+  { id: 'odd', emoji: '🪦', text: 'Uptown is weird in the best way: a rage room, a pessimistic psychic, a haunted open house, a rat tour… Check 🏙️ Places.', when: (s, c) => c.where === 'street' && s.tutorialStep >= 5 },
   { id: 'paths', emoji: '🧭', text: 'Pick a life path (Phone → 🪜 Life Path) for goals that fit how you play: business, music, fighter, artist…', when: (s) => s.tutorialStep >= 4 && !s.paths.active },
 ];
 
