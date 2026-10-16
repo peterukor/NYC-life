@@ -13,6 +13,7 @@
 import type { NeedKey } from '../sim/types.ts';
 import type { ActionDef } from './actions.ts';
 import type { RawPlace } from './places.ts';
+import { NORTH_ODD } from './north.ts';
 
 export interface Twist {
   /** How likely (relative). */
@@ -31,7 +32,7 @@ export interface OddActivity {
 
 const odd = (action: Omit<ActionDef, 'tags'> & { tags?: string[] }, twists: Twist[]): OddActivity => ({ action: { ...action, tags: ['fun', 'odd', ...(action.tags ?? [])] }, twists });
 
-export const ODD_ACTIVITIES: OddActivity[] = [
+const UPTOWN_ODD: OddActivity[] = [
   // ⚰️ Eternal Rest Showroom (Murray Hill)
   odd({ id: 'coffinNap', label: 'Test-lie in a coffin', emoji: '⚰️', seconds: 8, needs: { energy: 20 } }, [
     { w: 3, text: 'Best nap you’ve had in years. Satin lining. Total silence. You’re a little worried about how much you liked it.', needs: { energy: 15 }, mood: { label: 'Rested like the dead', emoji: '⚰️', value: 6 } },
@@ -234,7 +235,7 @@ export const UPTOWN_PLACES: RawPlace[] = [
     id: 'harlemSoul', area: 'manhattan', name: 'Miss Dee’s Soul Kitchen', emoji: '🍗', type: 'food',
     blurb: 'Fried chicken, mac and cheese, candied yams. Miss Dee calls everybody baby and means it.',
     at: [40.8105, -73.9500], hours: [11, 23], interior: 'pizza', color: '#bc6c25',
-    actions: ['fullPie', 'dollarSlice'],
+    actions: ['soulPlate', 'peachCobbler'],
   },
   // ---------- Washington Heights / Inwood ----------
   {
@@ -247,7 +248,7 @@ export const UPTOWN_PLACES: RawPlace[] = [
     id: 'chimiTruck', area: 'manhattan', name: 'El Chimi King Truck', emoji: '🍔', type: 'food',
     blurb: 'The Dominican burger, late and loud, with the bachata up. Open till the sky goes light.',
     at: [40.8440, -73.9390], hours: [18, 6], interior: 'bodega', color: '#e63946',
-    actions: ['choppedCheese', 'bodegaCoffee', 'baconEggCheese'],
+    actions: ['chimiBurger', 'chimiBatida'],
   },
   {
     id: 'tortureMuseum', area: 'manhattan', name: 'Medieval Mistakes Museum', emoji: '🪵', type: 'fun',
@@ -262,3 +263,6 @@ export const UPTOWN_PLACES: RawPlace[] = [
     actions: ['hauntedHike'],
   },
 ];
+
+// North Manhattan's odd activities (data/north.ts) roll the same way.
+export const ODD_ACTIVITIES: OddActivity[] = [...UPTOWN_ODD, ...NORTH_ODD];

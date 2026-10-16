@@ -517,6 +517,7 @@ export class Game {
       dateOn: () => !!this.roommates?.dateOn,
       online: () => this.online?.debug() ?? null,
       earnPoints: (n: number) => this.earn('qa', n),
+      arcade: (id: string) => playArcade(this.funHost(), id, undefined, { phone: true }),
       /** QA: stand at (x, z) on the street. */
       placeAt: (x: number, z: number) => {
         this.path = [];
@@ -3652,6 +3653,7 @@ export class Game {
     this.busy = true;
     const r = await playChase(chaseSetup(s, heat), { reason });
     this.busy = prevBusy;
+    if (r.cash > 0) changeMoney(s, r.cash, '💵 Picked up on the run');
     if (!r.escaped) {
       s.stats.chasesCaught = (s.stats.chasesCaught ?? 0) + 1;
       return false;

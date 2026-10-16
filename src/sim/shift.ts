@@ -329,7 +329,14 @@ export interface ShiftSession {
 }
 
 /** One served order: right or wrong, and the fraction of the wait left (0–1). */
-export interface ServedOrder { right: boolean; timeLeft: number }
+export interface ServedOrder {
+  right: boolean;
+  timeLeft: number;
+  /** Right orders in a row before this one (a service streak tips more, up to +50%). */
+  streak?: number;
+  /** ⭐ A VIP: tips double. */
+  vip?: boolean;
+}
 
 export interface ShiftPlay {
   orders: ServedOrder[];
@@ -394,7 +401,7 @@ export function startDeliShift(s: GameState, rand = Math.random): { ok: true; se
 /** Tips for one order at the first rung: $2 to $7 for a right one (faster is more); nothing for a wrong one. */
 export function orderTip(o: ServedOrder, hustle = false): number {
   if (!o.right) return 0;
-  const base = 200 + Math.round(500 * clamp(o.timeLeft, 0, 1));
+  const base = (200 + Math.round(500 * clamp(o.timeLeft, 0, 1))) * (o.vip ? 2 : 1) * (1 + Math.min(0.5, (o.streak ?? 0) * 0.1));
   return Math.round((hustle ? base * 1.5 : base) / 25) * 25;
 }
 

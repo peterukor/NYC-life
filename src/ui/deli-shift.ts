@@ -19,6 +19,7 @@ import { NEED_INFO } from '../sim/needs.ts';
 import type { NeedKey } from '../sim/types.ts';
 import { openModal } from './dom.ts';
 import { sfx } from './audio.ts';
+import { burstAt, popAt, shakeEl } from './juice.ts';
 
 export interface ShiftIntro {
   place: string;
@@ -144,7 +145,8 @@ export function playDeliShift(info: ShiftIntro): Promise<ShiftPlay> {
       <div class="deli-shiftbar" aria-label="Shift progress"><i></i></div>
       <div class="deli-cust"><span class="deli-who"></span><span class="mg-bubble deli-ask"></span></div>
       <div class="deli-need" hidden></div>
-      <div class="deli-wait"><i></i></div>
+      <div class="deli-waitrow"><span class="deli-mood" aria-hidden="true">😀</span><div class="deli-wait"><i></i></div></div>
+      <div class="deli-streak" aria-live="polite"></div>
       <div class="deli-runner" aria-live="polite"></div>
       <div class="deli-tray" aria-label="Your tray"></div>
       <div class="deli-grid">${INGREDIENTS.map((g) => `<button class="deli-ing" data-ing="${g.id}"><span>${g.emoji}</span>${esc(g.label)}</button>`).join('')}</div>
@@ -158,6 +160,7 @@ export function playDeliShift(info: ShiftIntro): Promise<ShiftPlay> {
     const clockEl = q('.deli-clock'), countEl = q('.deli-count'), tipsEl = q('.deli-tips');
     const whoEl = q('.deli-who'), askEl = q('.deli-ask'), waitEl = q<HTMLElement>('.deli-wait i'), trayEl = q('.deli-tray');
     const barEl = q<HTMLElement>('.deli-shiftbar i'), runnerEl = q('.deli-runner');
+    const streakEl = q('.deli-streak');
     const choiceEl = q('.deli-choice');
     const needEl = q<HTMLElement>('.deli-need'), bookEl = q<HTMLElement>('.deli-book');
     const played = info.played ?? 0;
@@ -176,6 +179,8 @@ export function playDeliShift(info: ShiftIntro): Promise<ShiftPlay> {
     let boost = 1;
     let elapsed = 0;
     let runnerN = 0;
+    let streak = 0, vip = false;
+    const mood = q('.deli-mood');
 
     const progress = () => Math.min(1, elapsed / TOTAL);
     /** Training: light up what the order still needs (first shifts at a job). */
@@ -206,10 +211,14 @@ export function playDeliShift(info: ShiftIntro): Promise<ShiftPlay> {
       if (ci >= 0) return showChoice(info.choices[ci]);
       order = makeOrder(Math.random, menu);
       tray = [];
+      // Now and then a ⭐ VIP: double tips, less patience.
+      vip = ordersShown >= 2 && Math.random() < 0.14;
       // Customers get less patient as the shift goes on.
-      wait = ORDER_SECONDS - (ORDER_SECONDS - ORDER_SECONDS_END) * progress();
+      wait = (ORDER_SECONDS - (ORDER_SECONDS - ORDER_SECONDS_END) * progress()) * (vip ? 0.8 : 1);
       left = wait;
-      whoEl.innerHTML = `${order.who}${order.table ? `<small class="deli-table">🪑 ${order.table}</small>` : ''}`;
+      whoEl.innerHTML = `${order.who}${vip ? '<small class="deli-vip">⭐ VIP</small>' : ''}${order.table ? `<small class="deli-table">🪑 ${order.table}</small>` : ''}`;
+      q('.deli-cust').classList.toggle('vip', vip);
+      if (vip) sfx.chime();
       askEl.textContent = `“${order.ask}”`;
       ordersShown++;
       // Your first shift here spells out every order; the second, the first few.
@@ -253,12 +262,27 @@ export function playDeliShift(info: ShiftIntro): Promise<ShiftPlay> {
     const serve = (gaveUp = false) => {
       if (paused || done) return;
       const right = !gaveUp && orderRight(order, tray);
-      const o: ServedOrder = { right, timeLeft: left / wait };
+      const o: ServedOrder = { right, timeLeft: left / wait, streak, vip };
       served.push(o);
-      tipsSoFar += orderTip(o) * boost * scale * (info.tipMult ?? 1);
-      if (right) runDrink();
-      if (right) sfx.good();
-      else sfx.bad();
+      const tip = orderTip(o) * boost * scale * (info.tipMult ?? 1);
+      tipsSoFar += tip;
+      const card = m.el.querySelector<HTMLElement>('.deli')!;
+      if (right) {
+        runDrink();
+        streak++;
+        sfx.good();
+        popAt(whoEl, tip >= 1 ? `+${money(Math.round(tip / 25) * 25)}` : '✓', { color: vip ? '#ffd23f' : '#2b9348', size: vip ? 28 : 22 });
+        if (o.timeLeft > 0.7) window.setTimeout(() => popAt(askEl, 'SPEEDY! ⚡', { color: '#36c5f0', size: 18 }), 150);
+        burstAt(whoEl, vip ? ['💵', '⭐', '✨'] : ['💵'], vip ? 10 : 4);
+        if (streak >= 3) streakEl.textContent = `🔥 ${streak} streak · tips +${Math.min(50, streak * 10)}%`;
+        if (streak === 3 || streak === 6 || streak === 10) popAt(card, `🔥 ${streak} IN A ROW!`, { color: '#e76f51', y: 60, size: 26 });
+      } else {
+        if (streak >= 3) popAt(card, 'streak lost', { color: '#999', y: 60, size: 18 });
+        streak = 0;
+        streakEl.textContent = '';
+        shakeEl(card);
+        sfx.bad();
+      }
       // A quick reaction from the customer, then the next one.
       askEl.textContent = gaveUp ? '“Forget it, I’m out.” 😤' : right ? `“Perfect, thanks!” ${o.timeLeft > 0.6 ? '💵' : '🙂'}` : '“That’s not what I asked for…” 😕';
       askEl.classList.toggle('ok', right);
@@ -307,6 +331,8 @@ export function playDeliShift(info: ShiftIntro): Promise<ShiftPlay> {
       left -= 0.1;
       waitEl.style.width = `${Math.max(0, left / wait) * 100}%`;
       waitEl.style.background = left < 4 ? '#e0283f' : '';
+      const f = left / wait;
+      mood.textContent = f > 0.6 ? '😀' : f > 0.35 ? '🙂' : f > 0.18 ? '😐' : '😠';
       if (left <= 0) serve(true);
     }, 100);
     nextCustomer();

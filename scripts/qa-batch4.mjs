@@ -94,15 +94,16 @@ let landed = false;
 for (let attempt = 0; attempt < 6 && !landed; attempt++) {
   await page.waitForFunction(() => /Cast/.test(document.querySelector('[data-main]').textContent), { timeout: 8000 }).catch(() => {});
   await page.$eval('[data-main]', (e) => e.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })));
-  await page.waitForFunction(() => /Hook it/.test(document.querySelector('[data-main]').textContent), { timeout: 9000 }).catch(() => {});
+  await page.waitForFunction(() => /hook it/i.test(document.querySelector('[data-main]').textContent), { timeout: 12000 }).catch(() => {});
   await page.$eval('[data-main]', (e) => e.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })));
   // Reel: hold while tension < 80%, let go above.
   const t0 = Date.now();
   while (Date.now() - t0 < 25000) {
     const st = await ev(() => ({ w: parseFloat(document.querySelector('[data-fill]').style.width) || 0, txt: document.querySelector('[data-msg]').textContent, main: document.querySelector('[data-main]').textContent }));
-    if (/Landed/.test(st.txt)) { landed = true; break; }
-    if (/SNAP|swam off|Too slow/.test(st.txt)) break;
-    const hold = st.w < 75;
+    if (/landed/i.test(st.txt)) { landed = true; break; }
+    if (/SNAP|swam off|Too slow|Too early/.test(st.txt)) break;
+    // Hold toward the gold sweet spot; let go on a run.
+    const hold = st.w < 62 && !/RUNNING/.test(st.txt);
     await page.$eval('[data-main]', (e, h) => e.dispatchEvent(new PointerEvent(h ? 'pointerdown' : 'pointerup', { bubbles: true })), hold);
     await wait(60);
   }

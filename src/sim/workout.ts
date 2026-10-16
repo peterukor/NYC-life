@@ -13,9 +13,11 @@ export const WORKOUT_REPS = 12;
 /** Fitness per clean rep (a perfect set ≈ 1.4, vs 1.1 for a plain "Lift weights"). */
 export const PER_REP = 0.12;
 
-export function finishWorkout(s: GameState, clean: number): { gain: number; pump: boolean } {
+/** Perfect-form reps (dead centre) count a quarter extra. */
+export function finishWorkout(s: GameState, clean: number, perfect = 0): { gain: number; pump: boolean } {
   const reps = Math.max(0, Math.min(WORKOUT_REPS, clean));
-  const gain = reps * PER_REP * skillGainMultiplier(s, 'fitness');
+  const perf = Math.max(0, Math.min(reps, perfect));
+  const gain = (reps + perf * 0.25) * PER_REP * skillGainMultiplier(s, 'fitness');
   s.skills.fitness = Math.min(10, s.skills.fitness + gain);
   applyNeeds(s, { energy: -14, hygiene: -14, hunger: -6, fun: 6 });
   const pump = reps >= 10;

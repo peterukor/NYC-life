@@ -35,6 +35,9 @@ export interface FishDef {
 export const FISH: FishDef[] = [
   { id: 'boot', name: 'An old boot', emoji: '👢', lb: [1, 2], odds: 7, fight: 1, perLb: 0, line: 'Size 11. No idea where the other one is.' },
   { id: 'cart', name: 'A shopping cart', emoji: '🛒', lb: [18, 25], odds: 1.5, fight: 2, perLb: 0, line: 'How. HOW.' },
+  { id: 'metrocard', name: 'A soggy MetroCard', emoji: '🎫', lb: [0.1, 0.1], odds: 2.5, fight: 1, perLb: 0, line: 'It still has $2.75 on it. You will never know for sure.' },
+  { id: 'phone', name: 'Somebody’s phone', emoji: '📱', lb: [0.4, 0.4], odds: 1.2, fight: 1, perLb: 0, line: '3% battery and 41 unread texts from “Mom”. You hand it to a cop.' },
+  { id: 'citibike', name: 'A Citi Bike', emoji: '🚲', lb: [40, 45], odds: 0.6, fight: 3, perLb: 0, line: 'The meter is still running. That’s somebody’s problem.' },
   { id: 'porgy', name: 'Porgy', emoji: '🐟', lb: [0.5, 2], odds: 22, fight: 1, perLb: 400, line: 'Small, shiny, delicious. A classic.' },
   { id: 'fluke', name: 'Fluke', emoji: '🐠', lb: [1, 5], odds: 16, fight: 2, perLb: 900, line: 'Flat as a MetroCard. Tasty, though.' },
   { id: 'bluefish', name: 'Bluefish', emoji: '🐟', lb: [2, 12], odds: 12, fight: 3, perLb: 600, line: 'It bit the line, your hand, and your pride.' },
@@ -76,8 +79,9 @@ export function rollBite(rand = Math.random): { fish: FishDef; lb: number } {
 
 export const derbyOpen = (hour = nycTime().hour) => hour >= 6 && hour < 11;
 
-/** You landed it: record, sell (unless protected or junk), derby. Returns the line. */
-export function landFish(s: GameState, fish: FishDef, lb: number): string {
+/** You landed it: record, sell (unless protected or junk), derby. Returns the line.
+ *  A perfect catch (the line never left the green) sells for 25% more. */
+export function landFish(s: GameState, fish: FishDef, lb: number, opts: { perfect?: boolean } = {}): string {
   const rec = fishingOf(s);
   rec.caught++;
   const newBest = !rec.best || lb > rec.best.lb;
@@ -85,10 +89,10 @@ export function landFish(s: GameState, fish: FishDef, lb: number): string {
   applyNeeds(s, { fun: 8 + fish.fight * 2 });
   const bits = [`${fish.emoji} ${fish.name}, ${lb} lb. ${fish.line}`];
   if (fish.perLb > 0) {
-    const cents = Math.round((lb * fish.perLb) / 100) * 100;
+    const cents = Math.round((lb * fish.perLb * (opts.perfect ? 1.25 : 1)) / 100) * 100;
     if (cents > 0) {
       changeMoney(s, cents, `🎣 Sold a ${fish.name}`);
-      bits.push(`The fish guy pays $${Math.round(cents / 100)}.`);
+      bits.push(`The fish guy pays $${Math.round(cents / 100)}${opts.perfect ? ' (perfect catch +25%)' : ''}.`);
     }
     // The derby: your heaviest fish this morning counts.
     const day = nycTime().dateKey;
@@ -118,6 +122,21 @@ export function derbyBoard(s: GameState, day = nycTime().dateKey): { name: strin
 }
 
 export const DERBY_PRIZES = [50_000, 20_000, 10_000];
+
+/** 🎁 What's in the treasure you hauled up with the fish. */
+export const TREASURE: { emoji: string; text: string; cash: number }[] = [
+  { emoji: '💵', text: 'a soggy $20 bill. Still spends.', cash: 2_000 },
+  { emoji: '💍', text: 'a ring. The pawn shop on 10th gives you $60.', cash: 6_000 },
+  { emoji: '🪙', text: 'a jar of quarters. $14.25, exactly.', cash: 1_425 },
+  { emoji: '⌚', text: 'a “Rolex”. It’s a Rolax. $8.', cash: 800 },
+  { emoji: '🧳', text: 'a waterproof briefcase with $45 and a sandwich.', cash: 4_500 },
+];
+
+export function landTreasure(s: GameState, rand = Math.random): string {
+  const t = TREASURE[Math.floor(rand() * TREASURE.length)];
+  changeMoney(s, t.cash, '🎁 Fished up treasure');
+  return `🎁 Treasure! ${t.emoji} You pulled up ${t.text}`;
+}
 
 /** After 11 AM: pay this morning's derby if you placed. Returns a line or null. */
 export function settleDerby(s: GameState): string | null {
