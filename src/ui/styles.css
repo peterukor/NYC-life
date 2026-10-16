@@ -972,3 +972,12 @@ body.mirror .hud { opacity: 0; visibility: hidden; transition: opacity 0.2s, vis
 .bike canvas { display: block; width: 100%; height: min(40dvh, 300px); border: var(--line-thin); border-radius: 16px; }
 .bike-pedals { gap: 10px; margin-top: 6px; }
 .bike-pedals .btn { flex: 1; touch-action: manipulation; }
+
+/* 💡 Tips for new players (ui/hints.ts) */
+.hint-tip { position: absolute; left: 50%; bottom: calc(var(--safe-bottom) + 200px); transform: translateX(-50%); width: min(92vw, 400px); z-index: 31; display: flex; gap: 10px; align-items: flex-start; background: var(--paper); border: var(--line); border-radius: 18px; padding: 10px 12px; box-shadow: var(--drop); animation: hint-in .25s ease-out; transition: opacity .25s, transform .25s; }
+.hint-tip.out { opacity: 0; transform: translateX(-50%) translateY(8px); }
+.hint-tip .hint-emoji { font-size: 26px; line-height: 1.2; }
+.hint-tip p { margin: 2px 0 8px; font-size: 13px; line-height: 1.35; }
+.hint-tip .hint-btns { gap: 6px; flex-wrap: wrap; }
+.hint-tip .hint-btns .btn { padding: 6px 10px; font-size: 12px; }
+@keyframes hint-in { from { opacity: 0; transform: translateX(-50%) translateY(10px); } to { opacity: 1; transform: translateX(-50%); } }

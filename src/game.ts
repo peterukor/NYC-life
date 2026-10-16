@@ -62,6 +62,9 @@ import { raiseBlocker, resolveRaise } from './sim/raise.ts';
 import { resolveBribe, shiftTwist } from './sim/job-perks.ts';
 import { afterWalk, changedClothes, stainAtWork, subwayIncident } from './sim/commute.ts';
 import { Roommates } from './world/roommates.ts';
+import { HINT_GAP_SECONDS, hintLevel, nextHint, whereFor, type HintLevel } from './sim/hints.ts';
+import { showHint } from './ui/hints.ts';
+import { beatLine, dateLines, dateOutLine, eatShared, joinParty, lend, lostLeftovers, maybeRepay, refuse, skipParty, type Beat } from './sim/roommate-life.ts';
 import { InteriorView } from './world/interior-view.ts';
 import { Coworkers } from './world/coworkers.ts';
 import { addMoodlet, applyNeeds } from './sim/needs.ts';
@@ -92,6 +95,11 @@ import { raceBike } from './ui/cycling.ts';
 import { artTick } from './sim/art.ts';
 import { settleDerby } from './sim/fishing.ts';
 import { rentBike } from './sim/cycling.ts';
+import { addPoints, CHALLENGES, checkStreak, daily, POINTS, progress, rollSeason } from './sim/season.ts';
+import type { ChessHost } from './ui/chess.ts';
+import type { FishHost } from './ui/fishing.ts';
+import type { BikeHost } from './ui/cycling.ts';
+import type { ArtHost } from './ui/art.ts';
 import { clubOf, doorCheck, mingle, payCover, topSpenders, tryBribe } from './sim/clubs.ts';
 import { CONNECTION_BY_ID, type ClubDef } from './data/clubs.ts';
 import { ClubScreen } from './world/club-screen.ts';
@@ -173,6 +181,8 @@ export class Game {
   private myWorkSpot: { x: number; z: number; rot: number } | null = null;
   /** The people you live with (the walk-up), while you're home. */
   private roommates: Roommates | null = null;
+  /** This date's funny lines (picked once per date). */
+  private dateLineCache: string[] | null = null;
   private transit: TransitScene | null = null;
   private interiorCamera = new THREE.PerspectiveCamera(48, 1, 0.1, 200);
   /** Zoom and pan inside the big homes. */
@@ -493,7 +503,14 @@ export class Game {
       storage: () => [...(this.state.storage ?? [])],
       homeItems: () => (this.interior && 'items' in this.interior ? (this.interior as HomeInterior).items.map((i) => ({ ...i })) : null),
       blockedUse: () => (this.interior && 'blockedUse' in this.interior ? (this.interior as HomeInterior).blockedUse() : null),
-      roommates: () => this.roommates?.list.map((r) => ({ name: r.def.name, x: +r.avatar.root.position.x.toFixed(2), z: +r.avatar.root.position.z.toFixed(2), walking: r.path.length > 0 })) ?? [],
+      roommates: () => this.roommates?.list.map((r) => ({ name: r.def.name, x: +r.avatar.root.position.x.toFixed(2), z: +r.avatar.root.position.z.toFixed(2), walking: r.path.length > 0, away: r.away, visible: r.avatar.root.visible, busy: r.script.length > 0 })) ?? [],
+      roommateBeat: (kind: Beat['kind'], name?: string) => {
+        const rm = this.roommates;
+        if (!rm) return false;
+        const who = name ?? rm.list[0].def.name;
+        return rm.force({ kind, name: who, guest: kind === 'date' ? 'a QA tester' : undefined });
+      },
+      dateOn: () => !!this.roommates?.dateOn,
       chatRoommate: (name: string) => this.chatWithRoommate(name),
       /** Try a spot for a piece the way a drag-and-drop would: returns why not (null = placed). */
       tryPlace: (uid: string, x: number, z: number) => {
@@ -633,6 +650,10 @@ export class Game {
   private finishBoot(): void {
     this.player.setLook(this.state.profile.look);
     bindPeople(this.peopleHost());
+    // 🔥 Welcome back (a streak of real days), and last season's result.
+    const season = rollSeason(this.state);
+    const streak = checkStreak(this.state);
+    [streak, season].filter(Boolean).forEach((l, i) => window.setTimeout(() => toast(l!, { icon: i ? '🏆' : '🔥', tone: 'good', ms: 5000 }), 2500 + i * 2200));
     this.hud = new Hud({
       onNav: (w) => this.onNav(w),
       onMoney: () => this.openPhoneApp('bank'),
@@ -1390,6 +1411,7 @@ export class Game {
         const club = clubOf(this.state.location.placeId);
         if (!club) return true;
         const r = mingle(this.state, club);
+        this.earn('clubs', 2, 'mingle');
         if (r.met) {
           sfx.levelUp();
           const c = CONNECTION_BY_ID[r.met.id];
@@ -1466,14 +1488,41 @@ export class Game {
   }
 
   /** What the casino, arcade and sportsbook screens need. */
-  private funHost(): CasinoHost {
+  private funHost(): CasinoHost & ChessHost & FishHost & BikeHost & ArtHost {
     return {
       state: this.state,
       saved: () => {
         this.save();
         this.refreshHud(true);
       },
+      // 🏆 Season points and ✅ daily challenges (sim/season.ts).
+      onScore: (_game, score) => (this.credit('arcadeGame'), this.earn('arcade', Math.floor(score / 100) * POINTS.arcadePer100 + 2, 'arcade')),
+      onChess: (outcome, opp) => outcome === 'win' && (this.credit('chessWin'), this.earn('chess', POINTS.chessWin * (opp === 'gloria' ? 4 : opp === 'eddie' ? 2 : 1), 'chessWin')),
+      onCatch: (lb) => (this.credit('fishLanded'), this.earn('fishing', Math.max(1, Math.round(lb * POINTS.fishPerLb)), 'fish')),
+      onRace: (place) => (place === 0 && this.credit('raceWin'), this.earn('racing', place === 0 ? POINTS.raceWin : place < 3 ? POINTS.racePlace : 2, 'race')),
+      onArt: () => (this.credit('paintHung'), this.earn('art', 5, 'art')),
+      onSold: () => this.credit('artSold'),
     };
+  }
+
+  /**
+   * The playable stuff counts for life paths like actions do (Fighter,
+   * Artist, Game Shark: data/paths.ts). No risk roll.
+   */
+  private credit(actionId: string): void {
+    const r = onPathAction(this.state, actionId, 0);
+    if (r.rep) window.setTimeout(() => toast(`+${r.rep} rep · ${pathTitle(this.state)}`, { icon: PATHS.get(this.state.paths.active!)?.emoji ?? '⭐', ms: 2000 }), 1800);
+    if (this.state.paths.active && !levelBlockers(this.state, this.state.paths.active).length) window.setTimeout(() => toast('You can level up! Phone → Life Path', { icon: '📈', tone: 'good', ms: 3500 }), 3800);
+  }
+
+  /** Earn season points and count a daily challenge; show what that did. */
+  private earn(what: string, pts: number, challenge?: string, n = 1, placeId?: string): void {
+    const s = this.state;
+    if (pts > 0) addPoints(s, what, pts);
+    const lines = challenge ? progress(s, challenge, n, placeId) : [];
+    lines.forEach((l, i) => window.setTimeout(() => toast(l, { icon: '✅', tone: 'good', ms: 4200 }), 600 + i * 1600));
+    if (lines.length) sfx.levelUp();
+    this.save();
   }
 
   /** Once a second: the section timer and finished bets. */
@@ -1487,15 +1536,52 @@ export class Game {
     this.drawSectionChip();
     if (s.fun?.bets.some((b) => !b.settled)) settleAndTell(this.funHost());
     this.socialTick();
+    this.hintTick();
     // 🎨 Likes on your paintings, 🎣 the morning derby's result (every ~10 s).
     if (++this.slowTick % 10 === 0) {
-      for (const line of artTick(s)) toast(line, { icon: '🎨', tone: 'good', ms: 4500 });
+      // ✅ A new game day: new challenges.
+      if (s.daily && s.daily.day !== nycTime().dateKey) {
+        const d = daily(s);
+        toast(`✅ New daily challenges: ${d.picks.map((id) => CHALLENGES.find((c) => c.id === id)?.emoji).join(' ')} (Phone → 🏆)`, { icon: '✅', ms: 4500 });
+      }
+      const season = rollSeason(s);
+      if (season) toast(season, { icon: '🏆', tone: 'good', ms: 6000 });
+      for (const line of artTick(s)) {
+        toast(line, { icon: '🎨', tone: 'good', ms: 4500 });
+        if (/likes/.test(line)) {
+          addPoints(s, 'art', POINTS.artMilestone);
+          this.credit('artMilestone');
+        }
+      }
       const derby = settleDerby(s);
       if (derby) toast(derby, { icon: '🎣', tone: 'good', ms: 5000 });
+      if (derby && /1st/.test(derby)) this.credit('derbyWin');
       if (derby || s.art?.some((a) => a.told)) this.save();
     }
   }
   private slowTick = 0;
+  private sessionSeconds = 0;
+  private lastHintAt = -Infinity;
+
+  /** 💡 A tip for new players, now and then (sim/hints.ts). */
+  private hintTick(): void {
+    this.sessionSeconds++;
+    if (this.sessionSeconds - this.lastHintAt < HINT_GAP_SECONDS) return;
+    if (this.busy || isSheetOpen() || document.querySelector('.modal-wrap, .mg-wrap, .phone, .map, .onboard, .hint-tip')) return;
+    const s = this.state;
+    const h = nextHint(s, { where: whereFor(s, this.engine.mode), placeId: s.location.placeId, hour: nycTime().hour }, this.sessionSeconds);
+    if (!h) return;
+    this.lastHintAt = this.sessionSeconds;
+    this.save();
+    showHint(h, hintLevel(s), (l) => this.setHints(l));
+  }
+
+  private setHints(l: HintLevel): void {
+    this.state.settings.hints = l;
+    this.save();
+    this.refreshHud(true);
+    toast(l === 'off' ? 'Tips off. Turn them back on in Phone → Settings.' : l === 'few' ? 'Only the important tips from now on.' : 'Tips on.', { icon: '💡', ms: 3000 });
+  }
 
   /**
    * Friends (sim/invites.ts): plans you missed, friends arriving (or
@@ -1749,6 +1835,7 @@ export class Game {
       const show = { ...r.bottle, spotlight: Math.round(r.bottle.spotlight * k), admirers: Math.min(9, Math.round(r.bottle.admirers * Math.min(1.5, k))), fireworks: { ...r.bottle.fireworks, size: Math.min(6, r.bottle.fireworks.size * k), seconds: Math.round(r.bottle.fireworks.seconds * Math.min(1.6, k)) } };
       this.startShow(show, `${r.bottle.emoji} ${r.bottle.name} for ${s.profile.name}!`);
       this.onClubSpend([`${r.bottle.emoji} ${s.profile.name.toUpperCase()}`, `just popped ${r.bottle.name}!`]);
+      this.earn('bottles', POINTS.bottle * (BOTTLES.indexOf(r.bottle) + 1), 'bottle');
       window.setTimeout(() => toast(`+${r.street} street rep${r.rankUp ? ` · you're now ${r.rankUp}` : ''}`, { icon: '🔥', tone: 'good', ms: 3000 }), 1200);
       s.news.unshift({ id: `bottle-${nowMs()}`, at: nowMs(), scope: s.location.area, emoji: '🍾', headline: `${s.profile.name} popped a ${r.bottle.name} at ${PLACE_BY_ID[s.location.placeId ?? '']?.name ?? 'the club'}`, personal: true });
       this.save();
@@ -1914,10 +2001,63 @@ export class Game {
     this.refreshHud(true);
   }
 
+  /**
+   * A roommate beat (sim/roommate-life.ts): the words and any choice.
+   * Returns false when now's a bad time (a menu or minigame is open).
+   */
+  private roommateBeat(b: Beat): boolean {
+    if (this.busy || isSheetOpen() || document.querySelector('.modal-wrap, .mg-wrap')) return false;
+    const s = this.state;
+    const done = (line: string, icon = '🏠', tone: 'good' | 'bad' | 'info' = 'info') => {
+      toast(line, { icon, tone, ms: 4200 });
+      this.save();
+      this.refreshHud(true);
+    };
+    const line = beatLine(b);
+    switch (b.kind) {
+      case 'leave':
+        done(line, '🚪');
+        break;
+      case 'return': {
+        done(line, '🚪');
+        const paid = maybeRepay(s, b.name);
+        if (paid) window.setTimeout(() => done(paid, '🤝', 'good'), 2500);
+        break;
+      }
+      case 'date':
+        this.dateLineCache = null;
+        done(line, '🚪');
+        break;
+      case 'leftovers':
+        lostLeftovers(s);
+        done(line, '🍜', 'bad');
+        break;
+      case 'borrow':
+      case 'party':
+      case 'cook': {
+        const [yes, no] = b.kind === 'borrow' ? ['🤝 Lend $20', '🙅 Can’t right now'] : b.kind === 'party' ? ['🎉 Join in', '🎧 Headphones on'] : ['😋 Grab a bowl', '🙏 I’m good'];
+        const icon = b.kind === 'borrow' ? '💵' : b.kind === 'party' ? '🎉' : '🍲';
+        const m = openModal(`<div class="big">${icon}</div><p>${esc(line)}</p><div class="choices"><button class="choice" data-act="yes">${yes}</button><button class="choice" data-act="no">${no}</button></div>`);
+        onAct(m.el, (act) => {
+          m.close();
+          const y = act === 'yes';
+          if (b.kind === 'borrow') done(y ? lend(s, b.name) : refuse(s, b.name), '🤝', y ? 'good' : 'info');
+          else if (b.kind === 'party') {
+            if (y) sfx.cheer();
+            done(y ? joinParty(s) : skipParty(s), y ? '🎉' : '🎧', y ? 'good' : 'info');
+          } else done(y ? eatShared(s) : `${b.name}: “More for me.”`, '🍲', y ? 'good' : 'info');
+        });
+        break;
+      }
+    }
+    return true;
+  }
+
   /** Tap a roommate: walk over, they stop and turn to you, then you can chat. */
   private chatWithRoommate(name: string): void {
     const rm = this.roommates?.byName(name);
     if (!rm) return;
+    if (this.roommates!.busy(name)) return toast(`${name} is in the middle of something.`, { icon: '🙋', ms: 2200 });
     const p = this.player.root.position;
     const q = rm.avatar.root.position;
     // Stand a step away from them, on your side.
@@ -2204,7 +2344,18 @@ export class Game {
         // Roommates (the walk-up): they live there too, and wander the shared rooms.
         const mates = layout.conditions?.roommates;
         if (mates?.length) {
-          const rm = new Roommates(home, mates);
+          const rm = new Roommates(home, mates, {
+            hour: nycTime().hour,
+            onBeat: (b) => this.roommateBeat(b),
+            onDateLine: (b, i) => {
+              const lines = (this.dateLineCache ??= dateLines(b.name));
+              if (lines[i]) toast(lines[i], { icon: '🚪', ms: 4200 });
+            },
+            onDateOver: (b) => {
+              this.dateLineCache = null;
+              toast(dateOutLine(b), { icon: '🚪', ms: 4200 });
+            },
+          });
           this.roommates = rm;
           const update = home.update, dispose = home.dispose;
           home.update = (dt) => (update(dt), rm.update(dt));
@@ -2268,7 +2419,9 @@ export class Game {
       const door = doorOf(place);
       this.state.location.x = door.x;
       this.state.location.z = door.z;
-      if (!this.state.stats.placesVisited.includes(place.id)) this.state.stats.placesVisited.push(place.id);
+      const firstVisit = !this.state.stats.placesVisited.includes(place.id);
+      if (firstVisit) this.state.stats.placesVisited.push(place.id);
+      if (place.id !== this.state.home.placeId) this.earn('explore', firstVisit ? POINTS.newPlace : 0, 'places', 1, place.id);
       if (place.interior !== 'none') this.state.recentPlaces = [place.id, ...(this.state.recentPlaces ?? []).filter((x) => x !== place.id)].slice(0, 6);
       bus.emit('place:entered', { placeId: place.id });
       this.setupClub(place);
@@ -2995,6 +3148,7 @@ export class Game {
     }
     const play = mode === 'play' ? await playDeliShift(info) : { orders: [], picks: {}, skipped: true };
     if (mode === 'play') (s.shiftsPlayed ??= {})[career.id] = (s.shiftsPlayed[career.id] ?? 0) + 1;
+    this.earn('shifts', POINTS.shift * (mode === 'play' ? 2 : 1), 'shift');
     const mult = await this.resolveTwist();
     if (mult === null) {
       abandonShift(s);
@@ -3409,8 +3563,11 @@ export class Game {
     const r = await playFight(setup, { title });
     const out = finishFight(this.state, setup, r.won, r.hpLeft);
     const st = this.state.stats;
-    if (out.won) st.fightsWon = (st.fightsWon ?? 0) + 1;
-    else st.fightsLost = (st.fightsLost ?? 0) + 1;
+    if (out.won) {
+      st.fightsWon = (st.fightsWon ?? 0) + 1;
+      this.credit('fightWon');
+      this.earn('fights', POINTS.fightWon, 'fightWon');
+    } else st.fightsLost = (st.fightsLost ?? 0) + 1;
     this.busy = prevBusy;
     await this.resultCard(out.won ? '🏆' : '🤕', out.won ? 'You won the fight' : 'You lost the fight', `${out.text} ${repLine('street', out.repDelta)}.${out.title ? ` You're now ${out.title}!` : ''}`);
     this.save();
@@ -3452,6 +3609,8 @@ export class Game {
       return false;
     }
     s.stats.chasesEscaped = (s.stats.chasesEscaped ?? 0) + 1;
+    this.credit('chaseEscaped');
+    this.earn('chases', POINTS.chaseEscaped * heat);
     const e = chaseEscaped(s, heat);
     await this.resultCard('💨', 'You got away', `${e.text} ${repLine('street', e.repDelta)}.${e.title ? ` You're now ${e.title}!` : ''}`);
     return true;
@@ -3540,6 +3699,7 @@ export class Game {
     this.busy = true;
     closeSheet();
     sfx.chime();
+    this.earn('subway', 0, 'subway');
     // ~10 s in all (Peter, 2026-10-15): the ad, then the train car.
     await this.travelAd(TRAVEL_SECONDS.trainAd, 'Stand clear of the closing doors…', `🚇 To ${placeId ? PLACE_BY_ID[placeId].name : DISTRICTS[area].name}`);
     const leavingInterior = this.engine.mode === 'interior';
@@ -3727,6 +3887,7 @@ export class Game {
         const outcome = choice.run(ctx);
         // A choice that turns into a fight or a chase: play it, then wrap up.
         if (outcome.fight || outcome.chase) {
+          if (ev.weird) this.earn('weird', 3, 'weird');
           const lead = applyOutcome(this.state, outcome);
           m.close();
           void (async () => {
@@ -3745,6 +3906,7 @@ export class Game {
           })();
           return;
         }
+        if (ev.weird) this.earn('weird', 3, 'weird');
         const before = this.state.money;
         const text = applyOutcome(this.state, outcome);
         const delta = this.state.money - before;
@@ -3873,7 +4035,7 @@ export class Game {
       atHome: inside && !!this.interior && 'removePiece' in this.interior && (this.interior as HomeInterior).movable,
       canWork: !this.busy && (!s.job || !blocker),
       workLabel: !s.job ? 'Find a job' : s.location.placeId === CAREER_BY_ID[s.job.careerId].placeId ? `Work a shift · up to ${money(payBand(s).max)}` : `Go to work · up to ${money(payBand(s).max)}`,
-      goal: goal ? { title: goal.title, hint: goal.hint } : null,
+      goal: goal ? { title: goal.title, hint: hintLevel(s) === 'off' ? '' : goal.hint } : null,
     });
     void force;
     syncJail(s, () => {

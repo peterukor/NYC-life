@@ -15,6 +15,15 @@ Build and test:
 
 How to add or change content: **`docs/ADDING-CONTENT.md`**.
 
+## Batch 5: hooks, homes, roommates, tips (2026-10-16)
+
+- 🏆 Leaderboard (sim/season.ts, Phone → 🏆): season points from almost everything fun; 3-real-day seasons vs seeded city regulars; top 3 paid $2,000 / $1,000 / $500 once. Three daily challenges per game day (+$500 for all three). Real-day streak gift ($50 × day, max 7).
+- 🔑 Buy homes (sim/realestate.ts, Phone → 🏠 Homes): price = 260 weeks of rent; live in one you own = no rent; others are rented out (80% of rent weekly, 12% repair chance); sell for 90% (not where you live).
+- New life paths: 🥊 Fighter, 🎨 Artist, 🎲 Game Shark (rep from milestone actions).
+- Roommates have lives (sim/roommate-life.ts + world/roommates.ts): every 40–75 s one beat: heads out, comes home, comes home with a date (chat in the living room → behind their door, bouncing emoji sprite over the door, three funny lines, the guest leaves; nothing shown), eats your leftovers, borrows $20 (paid back $25 later, 70%), kitchen party, shares food. Night-shift Danny is often out at night. Beats wait if a menu is open. QA hooks: `__nyc.roommateBeat(kind, name)`, `__nyc.dateOn()`.
+- 💡 Tips for new players (sim/hints.ts, ui/hints.ts): one tip at a time, each once, ≥45 s apart, never over menus. Settings → All / Fewer (key ones) / Off, plus "show again". Off also hides the goal card's how-to line.
+- QA: scripts/qa-batch5.mjs. Tests 186.
+
 ## Batch 4: games & places (2026-10-15)
 
 - **📱 Games phone app:** free to play, for the high score (`PHONE_GAMES`, `playArcade(..., { phone: true })`).

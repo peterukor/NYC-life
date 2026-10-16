@@ -93,7 +93,7 @@ export class Hud {
     const t = nycTime();
     const w = WEATHER_INFO[weatherFor(t.dateKey, t.hour)];
     const mood = computeMood(s);
-    const key = [clockLabel(t), w.emoji, mood.label, s.money, JSON.stringify(where), opts.inside, opts.canWork, opts.workLabel, opts.goal?.title, NEED_KEYS.map((k) => Math.round(s.needs[k])).join(',')].join('|');
+    const key = [clockLabel(t), w.emoji, mood.label, s.money, JSON.stringify(where), opts.inside, opts.canWork, opts.workLabel, opts.goal?.title, opts.goal?.hint, NEED_KEYS.map((k) => Math.round(s.needs[k])).join(',')].join('|');
     if (key === this.last) return; // nothing changed: skip touching the page (saves battery)
     this.last = key;
 
@@ -126,7 +126,7 @@ export class Hud {
     (this.el.querySelector('[data-speak]') as HTMLElement).hidden = opts.inside;
     const goal = this.el.querySelector<HTMLElement>('[data-goal]')!;
     goal.hidden = !opts.goal;
-    if (opts.goal) goal.innerHTML = `<span class="goal-pin" aria-hidden="true">★</span><span><b>${esc(opts.goal.title)}</b><small>${esc(opts.goal.hint)}</small></span>`;
+    if (opts.goal) goal.innerHTML = `<span class="goal-pin" aria-hidden="true">★</span><span><b>${esc(opts.goal.title)}</b>${opts.goal.hint ? `<small>${esc(opts.goal.hint)}</small>` : ''}</span>`;
   }
 
   setVisible(v: boolean): void {

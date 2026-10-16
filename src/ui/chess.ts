@@ -20,6 +20,8 @@ export interface ChessHost {
   saved: () => void;
   /** A game finished (🏆 leaderboard: your rating). */
   onRating?: (rating: number) => void;
+  /** A game finished: how it went, against whom (season points, challenges). */
+  onChess?: (outcome: 'win' | 'loss' | 'draw', opponentId: string) => void;
 }
 
 // Text-style glyphs (︎ stops phones drawing ♟ as an emoji).
@@ -99,6 +101,7 @@ export function playChess(host: ChessHost, opp: Opponent, stake: number): void {
     const r = settleChess(s, opp, stake, outcome);
     host.saved();
     host.onRating?.(chessOf(s).rating);
+    host.onChess?.(outcome, opp.id);
     if (outcome === 'win') sfx.cheer();
     else if (outcome === 'loss') sfx.bad();
     status.innerHTML = `<b>${outcome === 'win' ? '🏆 You win' : outcome === 'loss' ? '😤 You lose' : '🤝 Draw'}</b> (${esc(why)}). ${esc(r.text)} <span class="sub">${r.ratingDelta >= 0 ? '+' : ''}${r.ratingDelta}</span>`;

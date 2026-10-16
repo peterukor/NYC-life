@@ -18,6 +18,10 @@ import { Rng } from '../core/rng.ts';
 export interface ArtHost {
   state: GameState;
   saved: () => void;
+  /** A painting went up (challenges). */
+  onArt?: () => void;
+  /** Sold to a collector (Artist path). */
+  onSold?: () => void;
 }
 
 const COLORS = ['#1c2340', '#ffffff', '#e63946', '#ff8fab', '#f4a261', '#ffd166', '#80b918', '#2a9d8f', '#3a86ff', '#9b5de5'];
@@ -128,6 +132,7 @@ export function openEasel(host: ArtHost): void {
       const img = small.toDataURL('image/jpeg', 0.72);
       const title = el.querySelector<HTMLInputElement>('[data-title]')!.value;
       const a = submitArt(host.state, title, img, { coverage, colors: used.size, strokes });
+      host.onArt?.();
       host.saved();
       sfx.cheer();
       el.remove();
@@ -156,6 +161,7 @@ export function openGallery(host: ArtHost): void {
     const why = sellArt(s, act.slice(5));
     if (why) return toast(why, { icon: '🎨', tone: 'bad' });
     sfx.cash();
+    host.onSold?.();
     toast('Sold! Your art is in a collection now. 🖼️', { icon: '💰', tone: 'good', ms: 4000 });
     host.saved();
     sheet.body.innerHTML = render();
