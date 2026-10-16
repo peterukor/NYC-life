@@ -4,3 +4,7 @@ dist/
 .DS_Store
 test-results/
 dist-map2d/
+server/data/
+*.db
+*.db-wal
+*.db-shm

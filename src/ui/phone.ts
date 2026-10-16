@@ -133,7 +133,10 @@ export function openPhone(host: PhoneHost, startApp?: string): () => void {
       </div>`;
   };
 
+  /** The plug-in app on screen ('' for built-in pages): async apps redraw only if still showing. */
+  let currentApp = '';
   const page = (title: string, body: string) => {
+    currentApp = '';
     el.innerHTML = `<div class="phone-app"><header><button class="back" data-act="home" aria-label="Back">‹</button><h2>${title}</h2><button class="back" style="margin-left:auto" data-act="close" aria-label="Close phone">✕</button></header><div class="content">${body}</div></div>`;
   };
 
@@ -333,12 +336,36 @@ export function openPhone(host: PhoneHost, startApp?: string): () => void {
   let newsTab: ((t: string) => void) | null = null;
 
   // Plug-in apps (ui/phone-apps.ts).
-  const ctx: PhoneAppCtx = { s, host, close: () => close() };
+  const ctx: PhoneAppCtx = {
+    s,
+    host,
+    close: () => close(),
+    rerender: (id: string) => {
+      if (currentApp !== id || !el.isConnected) return;
+      // Keep what you were typing, where the cursor was, and the scroll.
+      const typed = new Map([...el.querySelectorAll<HTMLInputElement>('input[name], textarea[name]')].map((i) => [i.name, i.value]));
+      const focus = document.activeElement instanceof HTMLInputElement && el.contains(document.activeElement) ? { name: document.activeElement.name, at: document.activeElement.selectionStart } : null;
+      const scroll = el.querySelector('.content')?.scrollTop ?? 0;
+      const open = [...el.querySelectorAll('details')].map((d) => d.open);
+      openRegistered(id);
+      el.querySelectorAll<HTMLInputElement>('input[name], textarea[name]').forEach((i) => typed.has(i.name) && (i.value = typed.get(i.name)!));
+      el.querySelectorAll('details').forEach((d, i) => open[i] && (d.open = true));
+      const c = el.querySelector('.content');
+      if (c) c.scrollTop = scroll;
+      if (focus) {
+        const f = el.querySelector<HTMLInputElement>(`input[name="${focus.name}"]`);
+        f?.focus({ preventScroll: true });
+        if (f && focus.at !== null) f.setSelectionRange?.(focus.at, focus.at);
+      }
+    },
+  };
   const openRegistered = (id: string) => {
     const app = PHONE_APPS.get(id);
     if (!app) return home();
     const r = app.render(ctx);
     page(r.title, r.body);
+    currentApp = id;
+    app.opened?.(ctx, el);
   };
 
   onAct(el, (act) => {

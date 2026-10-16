@@ -34,7 +34,11 @@ jobs:
       - run: npm ci
       # Unit tests first: a broken build never goes live.
       - run: npm test
+      # 🌐 Online play: set a repository variable API_URL (Settings → Secrets and
+      # variables → Actions → Variables) to the server's address. Unset = offline game.
       - run: npm run build
+        env:
+          VITE_API_URL: ${{ vars.API_URL }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

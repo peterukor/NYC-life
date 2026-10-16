@@ -22,6 +22,10 @@ export interface ArtHost {
   onArt?: () => void;
   /** Sold to a collector (Artist path). */
   onSold?: () => void;
+  /** 🌐 Signed in: also hang it on the players' wall. */
+  onHang?: (title: string, img: string) => void;
+  /** 🌐 Signed in: the players' wall (likes). */
+  net?: { loadWall: () => Promise<{ id: number; title: string; img: string; likes: number; artist: string; liked: boolean; mine: boolean }[]>; like: (id: number) => Promise<number | null>; report: (kind: 'art', target: string, reason: string) => Promise<void> };
 }
 
 const COLORS = ['#1c2340', '#ffffff', '#e63946', '#ff8fab', '#f4a261', '#ffd166', '#80b918', '#2a9d8f', '#3a86ff', '#9b5de5'];
@@ -133,6 +137,7 @@ export function openEasel(host: ArtHost): void {
       const title = el.querySelector<HTMLInputElement>('[data-title]')!.value;
       const a = submitArt(host.state, title, img, { coverage, colors: used.size, strokes });
       host.onArt?.();
+      host.onHang?.(a.title, img);
       host.saved();
       sfx.cheer();
       el.remove();
@@ -156,7 +161,23 @@ export function openGallery(host: ArtHost): void {
         .join('')}</div>`;
   };
   const sheet = openSheet({ emoji: '🖼️', title: 'The gallery wall', sub: 'Bowery Art Parlor', body: render() });
-  onAct(sheet.body, (act) => {
+  // 🌐 Real players' paintings, with likes.
+  const net = host.net;
+  const drawNet = async () => {
+    if (!net || !sheet.body.isConnected) return;
+    const wall = await net.loadWall();
+    const box = sheet.body.querySelector<HTMLElement>('[data-netwall]') ?? sheet.body.insertAdjacentElement('afterbegin', Object.assign(document.createElement('section'), { className: 'netwall' })) as HTMLElement;
+    box.dataset.netwall = '1';
+    box.innerHTML = `<h3 style="margin:6px 0">🌐 Players’ wall</h3>${wall.length ? `<div class="gallery">${wall.map((w) => `<figure class="${w.mine ? 'mine' : ''}"><img src="${w.img}" alt="${esc(w.title)}"><figcaption><b>${esc(w.title)}</b><small>${esc(w.artist)} · ❤️ ${w.likes}</small>${w.mine ? '' : `<button class="btn" data-act="nlike:${w.id}" ${w.liked ? 'disabled' : ''}>${w.liked ? '❤️ Liked' : '🤍 Like'}</button><button class="btn ghost" data-act="nrep:${w.id}" aria-label="Report">🚩</button>`}</figcaption></figure>`).join('')}</div>` : '<p class="sub">Nobody’s hung anything in the last few days. Be the first!</p>'}`;
+  };
+  void drawNet();
+  onAct(sheet.body, async (act) => {
+    if (net && act.startsWith('nlike:')) {
+      const n = await net.like(Number(act.slice(6)));
+      if (n !== null) sfx.tap();
+      return void drawNet();
+    }
+    if (net && act.startsWith('nrep:')) return void net.report('art', act.slice(5), 'From the gallery');
     if (!act.startsWith('sell:')) return;
     const why = sellArt(s, act.slice(5));
     if (why) return toast(why, { icon: '🎨', tone: 'bad' });
@@ -165,6 +186,7 @@ export function openGallery(host: ArtHost): void {
     toast('Sold! Your art is in a collection now. 🖼️', { icon: '💰', tone: 'good', ms: 4000 });
     host.saved();
     sheet.body.innerHTML = render();
+    void drawNet();
   });
 }
 
