@@ -65,6 +65,8 @@ import { Roommates } from './world/roommates.ts';
 import { HINT_GAP_SECONDS, hintLevel, nextHint, whereFor, type HintLevel } from './sim/hints.ts';
 import { showHint } from './ui/hints.ts';
 import { buyCityMap } from './sim/citymap.ts';
+import { Online } from './net/online.ts';
+import { openChat, setOnline } from './ui/online-app.ts';
 import { oddTwist } from './sim/oddities.ts';
 import { beatLine, dateLines, dateOutLine, eatShared, joinParty, lend, lostLeftovers, maybeRepay, refuse, skipParty, type Beat } from './sim/roommate-life.ts';
 import { InteriorView } from './world/interior-view.ts';
@@ -513,6 +515,15 @@ export class Game {
         return rm.force({ kind, name: who, guest: kind === 'date' ? 'a QA tester' : undefined });
       },
       dateOn: () => !!this.roommates?.dateOn,
+      online: () => this.online?.debug() ?? null,
+      earnPoints: (n: number) => this.earn('qa', n),
+      /** QA: stand at (x, z) on the street. */
+      placeAt: (x: number, z: number) => {
+        this.path = [];
+        this.player.root.position.set(x, this.player.root.position.y, z);
+        this.state.location = { ...this.state.location, placeId: null, x, z };
+      },
+      onlineSay: (t: string) => this.online?.say(t),
       chatRoommate: (name: string) => this.chatWithRoommate(name),
       /** Try a spot for a piece the way a drag-and-drop would: returns why not (null = placed). */
       tryPlace: (uid: string, x: number, z: number) => {
@@ -682,6 +693,7 @@ export class Game {
     });
     this.hud.setMuted(!this.state.settings.sound);
     this.started = true;
+    this.startOnline();
     document.querySelector('.loading')?.classList.add('done');
     bus.on('pin:tap', (e) => {
       const p = PLACE_BY_ID[e.placeId];
@@ -829,6 +841,7 @@ export class Game {
   private frame(dt: number): void {
     this.time += dt;
     const t = nycTime();
+    if (this.started) this.online?.update(dt);
 
     if (this.started) {
       // Simulation: cheap, but no need to run it 60 times a second.
@@ -1503,6 +1516,8 @@ export class Game {
       onCatch: (lb) => (this.credit('fishLanded'), this.earn('fishing', Math.max(1, Math.round(lb * POINTS.fishPerLb)), 'fish')),
       onRace: (place) => (place === 0 && this.credit('raceWin'), this.earn('racing', place === 0 ? POINTS.raceWin : place < 3 ? POINTS.racePlace : 2, 'race')),
       onArt: () => (this.credit('paintHung'), this.earn('art', 5, 'art')),
+      onHang: (title: string, img: string) => this.online?.hangArt(title, img),
+      net: this.online?.signedIn ? this.online : undefined,
       onSold: () => this.credit('artSold'),
     };
   }
@@ -1539,6 +1554,11 @@ export class Game {
     if (s.fun?.bets.some((b) => !b.settled)) settleAndTell(this.funHost());
     this.socialTick();
     this.hintTick();
+    if (this.netChip && this.online) {
+      const show = this.online.signedIn && this.engine.mode === 'city';
+      this.netChip.hidden = !show;
+      if (show) this.netChip.textContent = `🌐 ${this.online.here}`;
+    }
     // 🎨 Likes on your paintings, 🎣 the morning derby's result (every ~10 s).
     if (++this.slowTick % 10 === 0) {
       // ✅ A new game day: new challenges.
@@ -4212,6 +4232,55 @@ export class Game {
       this.save();
       window.setTimeout(() => this.openPlace(place), 400);
     }, floorIt ? 1500 : 2000); // long enough to see the ad on the loading screen
+  }
+
+  // ===================================================================
+  // 🌐 Online (net/online.ts, ui/online-app.ts): only when a server is set.
+  // ===================================================================
+  private online: Online | null = null;
+  private netChip: HTMLButtonElement | null = null;
+
+  private startOnline(): void {
+    const o = new Online({
+      state: () => this.state,
+      cityScene: () => (this.engine.mode === 'city' ? this.engine.cityScene : null),
+      me: () => {
+        const s = this.state;
+        const city = this.engine.mode === 'city';
+        const p = this.player.root.position;
+        return { area: s.location.area, x: city ? p.x : s.location.x, z: city ? p.z : s.location.z, ry: this.player.root.rotation.y, moving: city && this.path.length > 0, placeId: city ? null : s.location.placeId };
+      },
+      saved: () => {
+        this.save();
+        this.refreshHud(true);
+      },
+      toast: (text, opts) => toast(text, opts),
+      choose: (title, text, options) =>
+        new Promise((resolve) => {
+          const m = openModal(`<div class="big">☁️</div><h2>${esc(title)}</h2><p style="white-space:pre-line">${esc(text)}</p><div class="choices">${options.map((x) => `<button class="choice" data-act="${esc(x.id)}">${esc(x.label)}</button>`).join('')}</div>`);
+          onAct(m.el, (act) => {
+            m.close();
+            resolve(act);
+          });
+        }),
+    });
+    this.online = o;
+    setOnline(o);
+    if (!o.available) return;
+    void o.boot().then((open) => {
+      if (open === 'reset') this.openPhoneApp('online');
+    });
+    // 💬 Street chip: other players nearby, emotes and chat.
+    const chip = document.createElement('button');
+    chip.className = 'net-chip';
+    chip.hidden = true;
+    chip.setAttribute('aria-label', 'Online players nearby: wave or chat');
+    chip.addEventListener('click', () => {
+      sfx.tap();
+      openChat(o);
+    });
+    document.getElementById('ui')?.appendChild(chip);
+    this.netChip = chip;
   }
 
   private save(): void {

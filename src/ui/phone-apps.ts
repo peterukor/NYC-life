@@ -44,6 +44,8 @@ export interface PhoneAppCtx {
   s: GameState;
   host: PhoneHost;
   close: () => void;
+  /** Redraw this app if it's still on screen (after data arrives from the server). */
+  rerender: (id: string) => void;
 }
 
 export interface PhoneAppDef {
@@ -57,6 +59,8 @@ export interface PhoneAppDef {
   order?: number;
   render: (ctx: PhoneAppCtx) => { title: string; body: string };
   act?: (act: string, ctx: PhoneAppCtx) => void | 'close' | string;
+  /** After each render: wire up inputs, start loading data. */
+  opened?: (ctx: PhoneAppCtx, el: HTMLElement) => void;
 }
 
 export const PHONE_APPS = new Registry<PhoneAppDef>('phone app');

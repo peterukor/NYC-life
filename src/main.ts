@@ -5,6 +5,7 @@
 
 import './ui/styles.css';
 import { initClockFromUrl } from './core/clock.ts';
+import { initApi } from './net/api.ts';
 import { Game } from './game.ts';
 
 function webglAvailable(): boolean {
@@ -19,6 +20,7 @@ function webglAvailable(): boolean {
 async function start(): Promise<void> {
   performance.mark('main:start');
   initClockFromUrl(location.search);
+  initApi(location.search);
   const ui = document.getElementById('ui')!;
   // index.html already shows the loading screen; add it only if it isn't there.
   if (!ui.querySelector('.loading')) ui.insertAdjacentHTML('beforeend', '<div class="loading" aria-label="Loading"><div class="mark">NY</div></div>');

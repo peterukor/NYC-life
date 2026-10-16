@@ -72,6 +72,17 @@ export function seasonOf(s: GameState): SeasonState {
   return st;
 }
 
+// 🌐 Online (net/online.ts): points also go to the real players' board,
+// and the real board decides the prizes (the city's regulars don't pay out).
+let pointsHook: ((pts: number) => void) | null = null;
+let realBoard = false;
+export function onPoints(fn: ((pts: number) => void) | null): void {
+  pointsHook = fn;
+}
+export function useRealBoard(on: boolean): void {
+  realBoard = on;
+}
+
 /** Earn season points (and roll into a new season first if one ended). */
 export function addPoints(s: GameState, what: string, pts: number): void {
   if (pts <= 0) return;
@@ -80,6 +91,7 @@ export function addPoints(s: GameState, what: string, pts: number): void {
   st.points += Math.round(pts);
   st.from[what] = (st.from[what] ?? 0) + Math.round(pts);
   st.best = Math.max(st.best, st.points);
+  pointsHook?.(Math.round(pts));
 }
 
 const RIVALS = ['Tasha "Two Trains" Reed', 'Big Sal', 'Kenji M.', 'Marisol Vega', 'DJ Leftover Pizza', 'Coach Bev', 'Fast Eddie', 'Priya K.', 'The Bodega Cat (account)', 'Lil Brooklyn'];
@@ -110,7 +122,11 @@ export function rollSeason(s: GameState, now = nowMs()): string | null {
   const id = seasonId(now);
   if (st.id === id) return null;
   let line: string | null = null;
-  if (!st.paid.includes(st.id) && st.points > 0) {
+  if (!st.paid.includes(st.id) && st.points > 0 && realBoard) {
+    // Signed in: the real players' board pays (🌐 Online claims it).
+    st.paid.push(st.id);
+    line = `🏆 Season ${st.id} is over. Real players' results: 🌐 Online.`;
+  } else if (!st.paid.includes(st.id) && st.points > 0) {
     st.paid.push(st.id);
     const final = [...rivals(st.id, seasonEnds(st.id) - 1).map((r) => ({ ...r, you: false })), { name: s.profile.name, points: st.points, you: true }].sort((a, b) => b.points - a.points);
     const place = final.findIndex((x) => x.you);

@@ -1001,3 +1001,17 @@ body.mirror .hud { opacity: 0; visibility: hidden; transition: opacity 0.2s, vis
 .seg-scroll { overflow-x: auto; scrollbar-width: none; touch-action: pan-x; }
 .seg-scroll::-webkit-scrollbar { display: none; }
 .seg-scroll button { flex: 0 0 auto; padding: 0 12px; white-space: nowrap; }
+
+/* 🌐 Online (ui/online-app.ts): street chip, forms, chat. */
+.net-chip { position: absolute; left: 10px; bottom: calc(var(--safe-bottom) + 216px); z-index: 30; pointer-events: auto; min-height: 44px; min-width: 64px; padding: 0 14px; border: var(--line-thin); border-radius: 999px; background: #3a86ff; color: #fff; box-shadow: var(--drop-sm); font-weight: 900; font-size: 15px; }
+.net-chip[hidden] { display: none; }
+.net-field { display: block; margin-bottom: 10px; }
+.net-field span { display: block; font-size: 13px; margin-bottom: 4px; color: var(--ink-soft); }
+.net-field .input { width: 100%; font-size: 16px; }
+.net-note.good { background: #e3f9e9; }
+.net-note.bad { background: #ffe3e6; }
+.net-emotes { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin: 8px 0 12px; }
+.net-emotes .btn { min-height: 44px; font-size: 20px; padding: 0; }
+.net-chatlog { max-height: 30dvh; overflow-y: auto; margin-bottom: 10px; font-size: 14px; }
+.net-chatlog p { margin: 0 0 4px; }
+.netwall .btn { margin-top: 4px; padding: 4px 8px; font-size: 12px; min-height: 32px; }

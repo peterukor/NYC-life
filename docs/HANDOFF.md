@@ -15,6 +15,17 @@ Build and test:
 
 How to add or change content: **`docs/ADDING-CONTENT.md`**.
 
+## Backend (2026-10-16): built and tested, not deployed yet
+
+- `server/` (own package, Node 22+, runs .ts directly): Colyseus 0.18 rooms + an HTTP API under /api on one port, SQLite via node:sqlite. README there has settings, deploy steps and the API list. Dockerfile at the repo root (copies src/core for the shared game clock).
+- Accounts: username + password + email (Peter's choice). scrypt hashes, sessions stored as SHA-256, forgot/reset by email link (?reset=), confirm email (?verify=), change password/email, delete account. Emails go to the log until RESEND_API_KEY is set.
+- Features: cloud save with revisions; real players' season board (points capped 300/post, 2,500/hour; top 3 claim prizes once; local NPC prizes stop while signed in via useRealBoard); gallery + likes; transfers ($3k/game day straight, more = admin-reviewed wire; needs a confirmed email; receiver collects); reports; admin (ADMINS env).
+- Live city: room "city" per area (filterBy area, 60 seats). Server clamps moves to 32 m/s, "travel" jumps once per 3 s, emotes from a list, chat 80 chars filtered and rate-limited, 20 s reconnection, one seat per account.
+- Game side: net/api.ts (server from VITE_API_URL or ?api=, token in localStorage), net/online.ts (all of the above + other players drawn with makeAvatar and name sprites), ui/online-app.ts (🌐 Online phone app + 💬 chip on the street), gallery players' wall in ui/art.ts. The SDK loads only when signed in (separate chunk). With no server set, nothing connects and the app says "coming soon".
+- Turning it on: deploy the server (https), then set the GitHub repo variable API_URL; deploy-pages.yml passes it to the build.
+- Tests: server/test (15: every API flow, two live clients). Browser QA: scripts/qa-online.mjs (two players: sign up, email link, see each other, chat, money, board, gallery like, password reset) against a local server.
+- Known limits: the economy still runs on the phone (server caps what it can). Next: deploy, then server-side economy checks, story mode, gangs vs players, employing players.
+
 ## Batch 6: Peter's fixes and the uptown expansion (2026-10-16)
 
 - Fixes: tip "Got it" now takes taps (`.hint-tip` added to the pointer-events list in styles.css); the fast-travel list scrolls on its own (min-height:0 + touch-action pan-y + stopPropagation) without moving the map.
