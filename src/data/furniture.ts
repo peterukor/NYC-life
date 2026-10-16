@@ -268,6 +268,8 @@ FURNITURE.add(
   { id: 'cabHoops', name: 'Hoop Shot', emoji: '🏀', price: 0, parts: [{ model: 'toyCabHoops' }], actions: ['playHoops'], fixed: true },
   { id: 'cabPigeons', name: 'Pigeon Pop', emoji: '🐦', price: 0, parts: [{ model: 'toyCabPigeons' }], actions: ['playPigeons'], fixed: true },
   { id: 'cabBeats', name: 'Beat Street', emoji: '🎵', price: 0, parts: [{ model: 'toyCabBeats' }], actions: ['playBeats'], fixed: true },
+  { id: 'cabStack', name: 'Bodega Stack', emoji: '🥪', price: 0, parts: [{ model: 'toyCabHoops' }], actions: ['playStack'], fixed: true },
+  { id: 'cabDash', name: 'Delivery Dash', emoji: '🛵', price: 0, parts: [{ model: 'toyCabSnake' }], actions: ['playDash'], fixed: true },
   { id: 'clawMachine', name: 'Claw machine', emoji: '🧸', price: 0, parts: [{ model: 'toyClawMachine' }], actions: ['playClaw'], fixed: true },
   { id: 'prizeCounter', name: 'Prize counter', emoji: '🎟️', price: 0, parts: [{ model: 'toyPrizeCounter' }], actions: ['prizeCounter'], fixed: true },
   { id: 'airHockeyTable', name: 'Air hockey', emoji: '🏒', price: 0, parts: [{ model: 'toyAirHockey' }], actions: ['airHockey'], fixed: true },

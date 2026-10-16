@@ -85,6 +85,13 @@ import { recordVariety } from './sim/auto.ts';
 import { bustNow, levelBlockers, onPathAction, pathTitle, type Bust } from './sim/paths.ts';
 import { chaseReady, chaseSetup, escaped as chaseEscaped, fightSetup, finishFight, heatFor, markChase } from './sim/brawl.ts';
 import { playChase, playFight } from './ui/minigames.ts';
+import { openChessHouse } from './ui/chess.ts';
+import { openEasel, openGallery } from './ui/art.ts';
+import { goFishing, openDerby } from './ui/fishing.ts';
+import { raceBike } from './ui/cycling.ts';
+import { artTick } from './sim/art.ts';
+import { settleDerby } from './sim/fishing.ts';
+import { rentBike } from './sim/cycling.ts';
 import { clubOf, doorCheck, mingle, payCover, topSpenders, tryBribe } from './sim/clubs.ts';
 import { CONNECTION_BY_ID, type ClubDef } from './data/clubs.ts';
 import { ClubScreen } from './world/club-screen.ts';
@@ -1179,7 +1186,7 @@ export class Game {
     const s = this.state;
     const p = this.engine.mode === 'city' ? this.player.root.position : new THREE.Vector3(s.location.x, 0, s.location.z);
     const h = nycTime().hour;
-    const GROUPS: [PlaceType, string][] = [['food', '🍕 Food'], ['cafe', '☕ Cafés'], ['nightlife', '🪩 Nightlife'], ['shop', '🛍️ Shops'], ['fitness', '💪 Fitness'], ['work', '💼 Work'], ['park', '🌳 Parks'], ['plaza', '🏙️ Plazas'], ['landmark', '🗽 Landmarks'], ['station', '🚇 Stations'], ['home', '🏠 Homes']];
+    const GROUPS: [PlaceType, string][] = [['fun', '🎲 Fun'], ['food', '🍕 Food'], ['cafe', '☕ Cafés'], ['nightlife', '🪩 Nightlife'], ['shop', '🛍️ Shops'], ['fitness', '💪 Fitness'], ['work', '💼 Work'], ['park', '🌳 Parks'], ['plaza', '🏙️ Plazas'], ['landmark', '🗽 Landmarks'], ['station', '🚇 Stations'], ['home', '🏠 Homes']];
     const all = Object.values(PLACE_BY_ID)
       .filter((pl) => pl.area === s.location.area)
       .map((pl) => {
@@ -1353,6 +1360,32 @@ export class Game {
       case 'bottleService':
         this.openBottleMenu();
         return true;
+      case 'chess':
+      case 'playChess':
+        openChessHouse(this.funHost(), s.location.placeId === 'chessHouse' ? 'The Chess House' : 'Chess in the park');
+        return true;
+      case 'paintArt':
+        openEasel(this.funHost());
+        return true;
+      case 'viewGallery':
+        openGallery(this.funHost());
+        return true;
+      case 'goFishing':
+        goFishing(this.funHost());
+        return true;
+      case 'fishDerby':
+        openDerby(this.funHost());
+        return true;
+      case 'bikeRace': {
+        const why = rentBike(s);
+        if (why) {
+          toast(why, { icon: '🚴', tone: 'bad' });
+          return true;
+        }
+        this.refreshHud(true);
+        raceBike(this.funHost());
+        return true;
+      }
       case 'mingle': {
         const club = clubOf(this.state.location.placeId);
         if (!club) return true;
@@ -1388,6 +1421,8 @@ export class Game {
       case 'playHoops':
       case 'playPigeons':
       case 'playBeats':
+      case 'playStack':
+      case 'playDash':
       case 'playClaw':
         playArcade(this.funHost(), id.slice(4).toLowerCase());
         return true;
@@ -1452,7 +1487,15 @@ export class Game {
     this.drawSectionChip();
     if (s.fun?.bets.some((b) => !b.settled)) settleAndTell(this.funHost());
     this.socialTick();
+    // 🎨 Likes on your paintings, 🎣 the morning derby's result (every ~10 s).
+    if (++this.slowTick % 10 === 0) {
+      for (const line of artTick(s)) toast(line, { icon: '🎨', tone: 'good', ms: 4500 });
+      const derby = settleDerby(s);
+      if (derby) toast(derby, { icon: '🎣', tone: 'good', ms: 5000 });
+      if (derby || s.art?.some((a) => a.told)) this.save();
+    }
   }
+  private slowTick = 0;
 
   /**
    * Friends (sim/invites.ts): plans you missed, friends arriving (or
@@ -2737,6 +2780,8 @@ export class Game {
 
   private async runAction(actionId: string, _el?: HTMLElement): Promise<void> {
     if (this.busy) return;
+    // Actions that open a screen (chess, fishing, bottles…) aren't timed.
+    if (this.serviceAction(actionId)) return;
     this.stopDoing();
     const r = startAction(this.state, actionId);
     if (!r.ok) return toast(r.why, { icon: '🔒', tone: 'bad' });
@@ -3730,6 +3775,10 @@ export class Game {
         state: this.state,
         rideQuote: (id, lux) => this.rideQuote(id, lux),
         moveHome: (id) => (PLACE_BY_ID[id] ? this.moveHome(PLACE_BY_ID[id]) : 'No such home.'),
+        playGame: (id) => {
+          this.overlayClose = null;
+          window.setTimeout(() => playArcade(this.funHost(), id, undefined, { phone: true }), 250);
+        },
         rideshare: (id, lux) => {
           this.overlayClose = null;
           this.rideshare(id, lux);

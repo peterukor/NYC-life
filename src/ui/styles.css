@@ -915,3 +915,60 @@ body.mirror .hud { opacity: 0; visibility: hidden; transition: opacity 0.2s, vis
 @keyframes marquee-in { from { transform: translateX(-50%) scale(0.6); opacity: 0; } }
 @keyframes marquee-flash { to { box-shadow: 0 0 6px var(--c), 0 5px 0 var(--ink); } }
 @media (prefers-reduced-motion: reduce) { .club-marquee { animation: none; } }
+
+/* ♟️ Chess (ui/chess.ts) */
+.chess { padding: 12px; }
+.chess-top { display: flex; align-items: center; gap: 8px; text-align: left; }
+.chess-top b { display: block; font-family: var(--display); font-weight: 400; font-size: 18px; }
+.chess-top small { font-weight: 800; font-size: 12px; color: #6b7088; }
+.chess-top .grow { flex: 1; min-width: 0; }
+.chess-opp { font-size: 34px; }
+.chess-say { margin: 6px 0; font-style: italic; font-weight: 700; color: #6b7088; min-height: 20px; }
+.chess-board { display: grid; grid-template-columns: repeat(8, 1fr); width: 100%; aspect-ratio: 1; border: var(--line); border-radius: 10px; overflow: hidden; touch-action: manipulation; }
+.chess-sq { position: relative; display: grid; place-items: center; padding: 0; border: 0; border-radius: 0; font-size: min(8.4vw, 38px); line-height: 1; cursor: pointer; }
+.chess-sq.light { background: #f0d9b5; }
+.chess-sq.dark { background: #b58863; }
+.chess-sq.last { background: #e8d56a; }
+.chess-sq.dark.last { background: #c7b23e; }
+.chess-sq.sel { box-shadow: inset 0 0 0 4px #2a9d8f; }
+.chess-sq.check { background: radial-gradient(circle, #ff4d4d 30%, transparent 75%), #b58863; }
+.chess-sq.dot::after { content: ''; width: 28%; height: 28%; border-radius: 50%; background: rgba(28, 35, 64, 0.35); }
+.chess-sq.take { box-shadow: inset 0 0 0 4px rgba(230, 57, 70, 0.75); }
+.chess-sq .pc { font-family: "Segoe UI Symbol", "DejaVu Sans", "Noto Sans Symbols2", serif; }
+.chess-sq .pc.w { color: #fff; -webkit-text-stroke: 1.2px #1c2340; text-shadow: 0 2px 0 rgba(0, 0, 0, 0.25); }
+.chess-sq .pc.b { color: #1c2340; text-shadow: 0 1px 0 rgba(255, 255, 255, 0.35); }
+.chess-status { margin-top: 8px; font-weight: 800; min-height: 22px; }
+.chess-log { margin-top: 4px; font-size: 12px; color: #6b7088; font-family: ui-monospace, monospace; min-height: 16px; }
+
+/* 🎨 Easel + gallery (ui/art.ts) */
+.art { padding: 12px; }
+.art-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.art-top b { font-family: var(--display); font-weight: 400; font-size: 20px; }
+.art-canvas { display: block; width: 100%; aspect-ratio: 1; border: var(--line); border-radius: 12px; background: #fbf8f1; touch-action: none; cursor: crosshair; }
+.art-colors { display: grid; grid-template-columns: repeat(10, 1fr); gap: 4px; margin: 8px 0; }
+.art-color { aspect-ratio: 1; border: 2px solid rgba(0, 0, 0, 0.2); border-radius: 50%; padding: 0; }
+.art-color.on { outline: 3px solid var(--ink); outline-offset: 1px; }
+.art-tools { gap: 6px; }
+.art-tools .btn { flex: 1; min-height: 40px; padding: 0; }
+.art-tools .btn.on { background: var(--cab); }
+.gallery { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.gallery figure { margin: 0; padding: 6px; border: var(--line-thin); border-radius: 12px; background: #fff; }
+.gallery figure.mine { border: 3px solid #e76f51; }
+.gallery img, .gal-gen { display: block; width: 100%; aspect-ratio: 1; border-radius: 8px; object-fit: cover; }
+.gallery figcaption b { display: block; font-size: 13px; margin-top: 4px; }
+.gallery figcaption small { font-weight: 700; color: #6b7088; font-size: 12px; }
+
+/* 🎣 Fishing (ui/fishing.ts) */
+.fish { padding: 12px; }
+.fish-water { position: relative; height: min(34dvh, 240px); border: var(--line-thin); border-radius: 16px; background: linear-gradient(180deg, #8ecae6, #219ebc 40%, #023047); overflow: hidden; }
+.fish-water::before { content: '🏙️🌉'; position: absolute; top: 4px; left: 8px; font-size: 22px; opacity: 0.8; }
+.fish-bob { position: absolute; left: 50%; top: 40%; font-size: 22px; transform-origin: center; transition: top 0.3s; margin-left: -11px; }
+.fish-meter { position: relative; height: 22px; margin: 10px 0 4px; border: var(--line-thin); border-radius: 10px; background: #eef0f6; overflow: hidden; }
+.fish-meter i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: #ffd166; }
+.fish-green { position: absolute; left: 12%; width: 83%; top: 0; bottom: 0; border-left: 2px dashed #2b9348; border-right: 2px dashed #e63946; pointer-events: none; }
+
+/* 🚴 Bike loop (ui/cycling.ts) */
+.bike { padding: 12px; }
+.bike canvas { display: block; width: 100%; height: min(40dvh, 300px); border: var(--line-thin); border-radius: 16px; }
+.bike-pedals { gap: 10px; margin-top: 6px; }
+.bike-pedals .btn { flex: 1; touch-action: manipulation; }

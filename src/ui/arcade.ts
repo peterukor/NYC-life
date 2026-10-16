@@ -510,13 +510,214 @@ const claw: Run = (cv, g, done, hud) => {
   };
 };
 
-const RUNS: Record<string, Run> = { snake, hoops, pigeons, beats, claw };
+// ================================================================= 🥪 bodega stack
+// A layer slides back and forth; tap to drop it on the stack. What hangs
+// over is cut off, so the stack gets narrower. A perfect drop keeps the
+// width (and gets a cheer). Miss completely and it's over.
+const stack: Run = (cv, g, done, hud) => {
+  const LAYERS = ['🍞', '🥓', '🧀', '🥬', '🍅', '🥚', '🍗', '🧅', '🥒', '🌶️'];
+  const COLORS = ['#e9c46a', '#e76f51', '#ffd166', '#80b918', '#e63946', '#fefae0', '#bc6c25', '#cdb4db', '#52b788', '#d00000'];
+  const LH = 22;
+  type L = { x: number; w: number; c: string; e: string };
+  const placed: L[] = [{ x: W / 2 - 80, w: 160, c: '#c68b59', e: '🍞' }];
+  let cur: L = { x: 0, w: 160, c: COLORS[1], e: LAYERS[1] };
+  let dir = 1, speed = 150, score = 0, perfectRun = 0, raf = 0, over = false, last = performance.now(), camY = 0, flash = '', flashT = 0;
+  const top = () => placed[placed.length - 1];
+  const drop = () => {
+    if (over) return;
+    const t = top();
+    const l = Math.max(cur.x, t.x), r = Math.min(cur.x + cur.w, t.x + t.w);
+    if (r - l <= 2) {
+      over = true;
+      sfx.bad();
+      flash = 'It fell! 🥪';
+      flashT = 1;
+      window.setTimeout(() => done(score), 900);
+      return;
+    }
+    const perfect = Math.abs(cur.x - t.x) < 5;
+    const piece: L = perfect ? { ...cur, x: t.x, w: t.w } : { ...cur, x: l, w: r - l };
+    placed.push(piece);
+    if (perfect) {
+      perfectRun++;
+      score += 2 + Math.min(5, perfectRun);
+      flash = perfectRun > 1 ? `PERFECT ×${perfectRun}!` : 'PERFECT!';
+      flashT = 0.8;
+      sfx.coin();
+    } else {
+      perfectRun = 0;
+      score += 1;
+      sfx.tap();
+    }
+    const i = placed.length % LAYERS.length;
+    speed = Math.min(420, 150 + placed.length * 9);
+    dir = Math.random() < 0.5 ? 1 : -1;
+    cur = { x: dir > 0 ? -piece.w : W, w: piece.w, c: COLORS[i], e: LAYERS[i] };
+  };
+  const loop = (now: number) => {
+    const dt = Math.min(0.05, (now - last) / 1000);
+    last = now;
+    if (!over) {
+      cur.x += dir * speed * dt;
+      if (cur.x > W - cur.w * 0.25) dir = -1;
+      if (cur.x < -cur.w * 0.75) dir = 1;
+    }
+    flashT = Math.max(0, flashT - dt);
+    // Camera follows the stack up.
+    const want = Math.max(0, placed.length * LH - H * 0.5);
+    camY += (want - camY) * Math.min(1, dt * 6);
+    g.fillStyle = '#16213e';
+    g.fillRect(0, 0, W, H);
+    // The deli counter at the bottom.
+    g.fillStyle = '#8d5524';
+    g.fillRect(0, H - 40 + camY, W, 40);
+    const y0 = H - 40 + camY;
+    placed.forEach((p, i) => {
+      const y = y0 - (i + 1) * LH;
+      if (y < -LH || y > H) return;
+      g.fillStyle = p.c;
+      g.fillRect(p.x, y, p.w, LH - 3);
+      emoji(g, p.e, p.x + p.w / 2, y + LH / 2, 16);
+    });
+    const cy = y0 - (placed.length + 1) * LH;
+    g.fillStyle = cur.c;
+    g.fillRect(cur.x, cy, cur.w, LH - 3);
+    emoji(g, cur.e, cur.x + cur.w / 2, cy + LH / 2, 16);
+    if (flashT > 0) {
+      g.globalAlpha = Math.min(1, flashT * 2);
+      g.fillStyle = '#ffd166';
+      g.font = '900 34px "Lilita One", "Arial Black", sans-serif';
+      g.textAlign = 'center';
+      g.fillText(flash, W / 2, 80);
+      g.globalAlpha = 1;
+    }
+    hud(`🥪 ${score} · ${placed.length - 1} layers`);
+    if (!over || flashT > 0) raf = requestAnimationFrame(loop);
+  };
+  const tap = (e: Event) => {
+    e.preventDefault();
+    drop();
+  };
+  const key = (e: KeyboardEvent) => {
+    if (e.key === ' ' || e.key === 'Enter') tap(e);
+  };
+  cv.addEventListener('pointerdown', tap);
+  window.addEventListener('keydown', key);
+  raf = requestAnimationFrame(loop);
+  return () => {
+    over = true;
+    cancelAnimationFrame(raf);
+    cv.removeEventListener('pointerdown', tap);
+    window.removeEventListener('keydown', key);
+  };
+};
+
+// ================================================================= 🛵 delivery dash
+// You ride a bike lane (3 lanes). Grab 💵 tips and 🥡 orders, dodge car
+// doors, potholes and people. It gets faster. Three hits and you're done.
+const dash: Run = (cv, g, done, hud) => {
+  type O = { lane: number; y: number; e: string; good: number };
+  const BAD = ['🚪', '🕳️', '🚶', '🛴', '🚧', '🐕'];
+  const obs: O[] = [];
+  let lane = 1, shown = 1, lives = 3, score = 0, dist = 0, speed = 220, spawn = 0.5, raf = 0, over = false, last = performance.now(), hitT = 0;
+  const lx = (l: number) => (W / 3) * (l + 0.5);
+  const py = H - 90;
+  const loop = (now: number) => {
+    const dt = Math.min(0.05, (now - last) / 1000);
+    last = now;
+    if (!over) {
+      speed = Math.min(560, speed + dt * 9);
+      dist += speed * dt;
+      spawn -= dt;
+      if (spawn <= 0) {
+        const good = Math.random() < 0.38;
+        obs.push({ lane: Math.floor(Math.random() * 3), y: -30, e: good ? (Math.random() < 0.7 ? '💵' : '🥡') : BAD[Math.floor(Math.random() * BAD.length)], good: good ? 1 : 0 });
+        spawn = Math.max(0.28, 0.75 - speed / 1400) * (0.7 + Math.random() * 0.6);
+      }
+      for (let i = obs.length - 1; i >= 0; i--) {
+        const o = obs[i];
+        o.y += speed * dt;
+        if (o.lane === lane && Math.abs(o.y - py) < 28) {
+          obs.splice(i, 1);
+          if (o.good) {
+            score += o.e === '🥡' ? 25 : 10;
+            sfx.coin();
+          } else {
+            lives--;
+            hitT = 0.4;
+            sfx.punch();
+            if (lives <= 0) {
+              over = true;
+              window.setTimeout(() => done(score + Math.floor(dist / 100)), 700);
+            }
+          }
+        } else if (o.y > H + 40) obs.splice(i, 1);
+      }
+    }
+    shown += (lane - shown) * Math.min(1, dt * 16);
+    hitT = Math.max(0, hitT - dt);
+    // Draw: road, bike lane stripes, stuff, you.
+    g.fillStyle = '#3d4451';
+    g.fillRect(0, 0, W, H);
+    g.fillStyle = '#2a9d8f';
+    g.fillRect(0, 0, W, H);
+    g.globalAlpha = 0.25;
+    g.fillStyle = '#000';
+    g.fillRect(0, 0, W, H);
+    g.globalAlpha = 1;
+    g.strokeStyle = 'rgba(255,255,255,.6)';
+    g.lineWidth = 3;
+    g.setLineDash([20, 18]);
+    g.lineDashOffset = -(dist % 38);
+    for (const x of [W / 3, (2 * W) / 3]) {
+      g.beginPath();
+      g.moveTo(x, 0);
+      g.lineTo(x, H);
+      g.stroke();
+    }
+    g.setLineDash([]);
+    for (const o of obs) emoji(g, o.e, lx(o.lane), o.y, 32);
+    if (hitT > 0) {
+      g.fillStyle = 'rgba(255,60,60,.25)';
+      g.fillRect(0, 0, W, H);
+    }
+    emoji(g, '🛵', lx(0) + (lx(2) - lx(0)) * (shown / 2), py, 40);
+    hud(`🛵 ${score + Math.floor(dist / 100)} · ${'❤️'.repeat(Math.max(0, lives))}`);
+    if (!over || hitT > 0) raf = requestAnimationFrame(loop);
+  };
+  const move = (d: number) => {
+    if (!over) lane = Math.max(0, Math.min(2, lane + d));
+  };
+  const down = (e: PointerEvent) => {
+    e.preventDefault();
+    move(at(cv, e).x < W / 2 ? -1 : 1);
+  };
+  const key = (e: KeyboardEvent) => {
+    if (e.key === 'ArrowLeft' || e.key === 'a') move(-1);
+    if (e.key === 'ArrowRight' || e.key === 'd') move(1);
+  };
+  cv.addEventListener('pointerdown', down);
+  window.addEventListener('keydown', key);
+  raf = requestAnimationFrame(loop);
+  return () => {
+    over = true;
+    cancelAnimationFrame(raf);
+    cv.removeEventListener('pointerdown', down);
+    window.removeEventListener('keydown', key);
+  };
+};
+
+const RUNS: Record<string, Run> = { snake, hoops, pigeons, beats, claw, stack, dash };
 
 /** Play one cabinet: pay, play, tickets. */
 /** Head-to-head with a friend: they play after you (their score is theirs, not rigged). */
 export interface Versus { name: string; skill: number; done: (mine: number, theirs: number) => void }
 
-export function playArcade(host: CasinoHost, id: string, versus?: Versus): void {
+/** On your phone (📱 Games): free, for the high score; tickets only at the arcade. */
+export const PHONE_GAMES = ['stack', 'dash', 'pigeons', 'hoops', 'beats', 'snake'];
+
+export function playArcade(host: CasinoHost, id: string, versus?: Versus, opts: { phone?: boolean } = {}): void {
+  const phone = !!opts.phone;
   const game = ARCADE_BY_ID[id];
   const run = RUNS[id];
   if (!game || !run) return;
@@ -524,10 +725,10 @@ export function playArcade(host: CasinoHost, id: string, versus?: Versus): void 
   const m = openModal(`<div class="arc" style="--cab:${game.color}">
     <div class="arc-top"><b>${game.emoji} ${esc(game.name)}</b><span class="arc-hud" aria-live="off"></span></div>
     <div class="arc-screen"><canvas width="${W}" height="${H}"></canvas>
-      <div class="arc-over"><div class="big">${game.emoji}</div><p>${esc(game.howTo)}</p><p class="sub">${versus ? `Head-to-head with ${esc(versus.name)}: you go first.` : `Best: ${bestScore(s, id)} · 🎟️ ${tickets(s)}`}</p><button class="btn primary" data-go>${versus ? 'Start' : `Insert coin · ${money(PLAY_COST)}`}</button></div>
+      <div class="arc-over"><div class="big">${game.emoji}</div><p>${esc(game.howTo)}</p><p class="sub">${versus ? `Head-to-head with ${esc(versus.name)}: you go first.` : phone ? `Best: ${bestScore(s, id)} · 📱 free on your phone · 🎟️ tickets only at Pixel Palace` : `Best: ${bestScore(s, id)} · 🎟️ ${tickets(s)}`}</p><button class="btn primary" data-go>${versus ? 'Start' : phone ? '▶️ Play' : `Insert coin · ${money(PLAY_COST)}`}</button></div>
     </div>
     ${id === 'snake' ? '<div class="arc-pad"><button data-d="0,-1" aria-label="Up">⬆️</button><button data-d="-1,0" aria-label="Left">⬅️</button><button data-d="1,0" aria-label="Right">➡️</button><button data-d="0,1" aria-label="Down">⬇️</button></div>' : ''}
-    <button class="btn ghost block" data-close>Leave the cabinet</button>
+    <button class="btn ghost block" data-close>${phone ? 'Close' : 'Leave the cabinet'}</button>
   </div>`);
   m.el.classList.add('arc-modal');
   const cv = m.el.querySelector('canvas')!;
@@ -547,7 +748,7 @@ export function playArcade(host: CasinoHost, id: string, versus?: Versus): void 
     }
     if (!t.closest('[data-go]')) return;
     // A head-to-head was paid for already (two plays).
-    const why = versus ? null : payToPlay(s);
+    const why = versus || phone ? null : payToPlay(s);
     if (why) return toast(why, { icon: '🕹️', tone: 'bad' });
     sfx.coin();
     host.saved();
@@ -555,7 +756,7 @@ export function playArcade(host: CasinoHost, id: string, versus?: Versus): void 
     stop = run(cv, g, (score) => {
       stop?.();
       stop = null;
-      const r = recordScore(s, id, score);
+      const r = recordScore(s, id, score, { phone });
       host.saved();
       overlay.hidden = false;
       if (versus) {
@@ -567,7 +768,10 @@ export function playArcade(host: CasinoHost, id: string, versus?: Versus): void 
         done(score, theirs);
         return;
       }
-      overlay.innerHTML = `<div class="big">${r.best ? '🏆' : game.emoji}</div><h3>${r.best ? 'New best!' : 'Game over'}</h3><p class="arc-score">${score}</p><p>+${r.tickets} 🎟️ · you have ${tickets(s)}</p><button class="btn primary" data-go>Play again · ${money(PLAY_COST)}</button>`;
+      host.onScore?.(id, score);
+      overlay.innerHTML = phone
+        ? `<div class="big">${r.best ? '🏆' : game.emoji}</div><h3>${r.best ? 'New best!' : 'Game over'}</h3><p class="arc-score">${score}</p><p class="sub">At 🕹️ Pixel Palace this would’ve won you ${Math.floor(game.tickets(score))} 🎟️.</p><button class="btn primary" data-go>Play again</button>`
+        : `<div class="big">${r.best ? '🏆' : game.emoji}</div><h3>${r.best ? 'New best!' : 'Game over'}</h3><p class="arc-score">${score}</p><p>+${r.tickets} 🎟️ · you have ${tickets(s)}</p><button class="btn primary" data-go>Play again · ${money(PLAY_COST)}</button>`;
       if (r.best) rain(m.el, '🎟️', 18);
       r.tickets ? sfx.win() : sfx.tap();
     }, (text) => (hudEl.textContent = text));

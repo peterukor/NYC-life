@@ -29,6 +29,8 @@ import type { AreaId, GameState } from '../sim/types.ts';
 import { DISTRICTS } from '../world/layout.ts';
 import type { PhoneHost } from './phone.ts';
 import { toast } from './dom.ts';
+import { PHONE_GAMES } from './arcade.ts';
+import { ARCADE_BY_ID, bestScore } from '../sim/arcade.ts';
 import { homesForRent, listingName, moveBlocker, moveCost, MOVING } from '../sim/moving.ts';
 import { layoutForPlace } from '../data/homes.ts';
 import { PLACE_BY_ID as PLACES } from '../data/places.ts';
@@ -177,6 +179,33 @@ PHONE_APPS.add({
     if (what === 'sell') {
       const got = sellCar(s, a);
       toast(`Sold for ${money(got)} (paid into your bank).`, { icon: '🚗' });
+    }
+  },
+});
+
+// ---------------------------------------------------------------------
+// 📱 Games (Peter, 2026-10-15: "add playable games that can be played on
+// phone that are fun"). Free here, for the high score; the same games at
+// Pixel Palace pay out 🎟️ tickets for prizes (a reason to go out).
+// ---------------------------------------------------------------------
+PHONE_APPS.add({
+  id: 'games',
+  label: 'Games',
+  icon: '🎮',
+  bg: '#ff4fa3',
+  needsPhone: true,
+  render: ({ s }) => ({
+    title: 'Games',
+    body: `<p class="sub">Free on your phone. Play the same games at 🕹️ Pixel Palace to win 🎟️ tickets and prizes.</p>${PHONE_GAMES.map((id) => {
+      const g = ARCADE_BY_ID[id];
+      return `<button class="list-item tap" style="width:100%;text-align:left" data-act="games.play:${id}"><div style="font-size:30px">${g.emoji}</div><div class="grow"><div class="title">${esc(g.name)}</div><div class="sub">${esc(g.howTo)}<br>🏆 Best ${bestScore(s, id)}</div></div><span class="btn primary">▶️</span></button>`;
+    }).join('')}`,
+  }),
+  act: (act, { host }) => {
+    const [what, id] = act.split(':');
+    if (what === 'play' && host.playGame) {
+      host.playGame(id);
+      return 'close';
     }
   },
 });

@@ -15,6 +15,31 @@ Build and test:
 
 How to add or change content: **`docs/ADDING-CONTENT.md`**.
 
+## Batch 4: games & places (2026-10-15)
+
+- **📱 Games phone app:** free to play, for the high score (`PHONE_GAMES`, `playArcade(..., { phone: true })`).
+  - Same engine as Pixel Palace, but 🎟️ tickets only at the arcade (`recordScore` `phone` → 0 tickets).
+  - New games in ui/arcade.ts: 🥪 Bodega Stack (stacker) and 🛵 Delivery Dash (3-lane runner). They also have cabinets at the arcade (`cabStack`, `cabDash`).
+- **♟️ Chess** (`sim/chess.ts`): full rules, verified by standard perft counts (start, Kiwipete, positions 3 and 4).
+  - Alpha-beta opponents: Kid Kasparov, Professor Pawn, Fast Eddie, Grandmaster Gloria (depth, blunder rate, rating, stakes).
+  - Bets, Elo rating, rep and news in `sim/chess-club.ts`; board UI in `ui/chess.ts`.
+  - The Chess House (Thompson St, `chessHouse` layout). Park chess tables (`chess` action) open the same thing.
+- **🎨 Bowery Art Parlor** (`sim/art.ts`, `ui/art.ts`): paint (10 colours, 3 sizes, eraser, undo), title it, hang it.
+  - Likes climb over ~5 h toward a target set by quality (coverage, colours, strokes) and fame.
+  - Milestones give 🎬 celebrity rep and a toast (`artTick` in `funTick`). At 60 likes a collector makes an offer (`sellArt`).
+  - The gallery shows your pieces first, then the day's wall.
+- **🎣 Pier 84** (`sim/fishing.ts`, `ui/fishing.ts`): cast (power), hook on the bite, reel while keeping tension in the green.
+  - 10 catches, from a boot or a shopping cart up to a sturgeon or a shark (protected: you get rep and a photo, no sale).
+  - The morning derby runs 6–11 AM against seeded regulars, paid after 11 (`settleDerby`).
+- **🚴 Central Park Bike Loop** (`sim/cycling.ts`, `ui/cycling.ts`): $5 bike; alternate taps to pedal; corners have safe speeds.
+  - "Corner ahead" warning, braking when you coast, a wipe-out costs 2.5 s.
+  - The field is seeded per hour. Prizes for the top 3.
+- **Go-outside perks:**
+  - Trading floor (Midtown Tower): no fees, +50% corporate rep (`atTradingFloor`, `FLOOR_REP_BONUS`).
+  - Arcade tickets, chess money, art, fishing and races all happen in person only.
+- **New place type `fun`** (crowd routines updated). Place-card actions now go through `serviceAction` first (`runAction`).
+- **Tests:** chess (perft), fun-places. QA: `scripts/qa-batch4.mjs` (bots play a stack game, chess, painting, fishing, a race). `qa-workplaces` on chessHouse and artParlor: 0 clashes.
+
 ## Batch 3: club tiers (2026-10-15)
 
 - **Four Manhattan clubs, one per tier** (`data/clubs.ts`):

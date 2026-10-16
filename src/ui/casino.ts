@@ -19,6 +19,8 @@ export interface CasinoHost {
   state: GameState;
   /** Save and refresh the HUD after money moves. */
   saved(): void;
+  /** A game finished with this score (the 🏆 leaderboard listens). */
+  onScore?: (game: string, score: number) => void;
 }
 
 const CHIPS = [500, 2_500, 10_000, 50_000, 100_000, 500_000];

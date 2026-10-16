@@ -22,7 +22,7 @@ import { project } from '../world/geo-proj.ts';
 
 export type InteriorKind = 'apartment' | 'bodega' | 'pizza' | 'cafe' | 'bar' | 'club' | 'office' | 'gym' | 'comedy' | 'furniture' | 'alley' | 'precinct' | 'arcade' | 'casino' | 'park' | 'none';
 
-export type PlaceType = 'home' | 'food' | 'cafe' | 'nightlife' | 'work' | 'fitness' | 'park' | 'plaza' | 'landmark' | 'station' | 'shop';
+export type PlaceType = 'home' | 'food' | 'cafe' | 'nightlife' | 'work' | 'fitness' | 'park' | 'plaza' | 'landmark' | 'station' | 'shop' | 'fun';
 
 export interface PlaceDef {
   id: string;
@@ -326,6 +326,31 @@ const RAW: RawPlace[] = [
     blurb: 'Purple lights, a mirrored stage, a DJ who only plays bangers. Doors at 8 PM.',
     at: [40.7562, -73.9895], hours: [20, 4], interior: 'club', color: '#7b2cbf',
     actions: ['getSection', 'bottleService', 'dancefloor', 'happyHour', 'mingle'],
+  },
+  // Fun things to do in person (Peter, 2026-10-15): chess, art, fishing, cycling.
+  {
+    id: 'chessHouse', area: 'manhattan', name: 'The Chess House', emoji: '♟️', type: 'fun',
+    blurb: 'A narrow shop on Thompson Street full of chess sets and people who take chess very seriously. Play for fun, or for money.',
+    at: [40.7299, -73.9993], hours: [11, 24], interior: 'cafe', color: '#6b4226',
+    actions: ['playChess'],
+  },
+  {
+    id: 'artParlor', area: 'manhattan', name: 'Bowery Art Parlor', emoji: '🎨', type: 'fun',
+    blurb: 'Easels, paint everywhere, a gallery wall. Paint something, hang it, and see if the city likes it.',
+    at: [40.7243, -73.9928], hours: [10, 23], interior: 'cafe', color: '#e76f51',
+    actions: ['paintArt', 'viewGallery'],
+  },
+  {
+    id: 'pier84', area: 'manhattan', name: 'Pier 84 Fishing', emoji: '🎣', type: 'fun',
+    blurb: 'Free fishing on the Hudson. Rods to borrow, a bucket, and a morning derby: biggest fish by 11 AM wins cash.',
+    at: [40.7635, -73.9982], hours: [5, 22], interior: 'none', color: '#3a86ff',
+    actions: ['goFishing', 'fishDerby'],
+  },
+  {
+    id: 'bikeLoop', area: 'manhattan', name: 'Central Park Bike Loop', emoji: '🚴', type: 'fun',
+    blurb: 'Grab a Citi Bike at Columbus Circle and race the six-mile loop. Racers line up every hour. Watch the corners.',
+    at: [40.7678, -73.9813], hours: [6, 22], interior: 'none', color: '#2a9d8f',
+    actions: ['bikeRace'],
   },
   // More clubs, one per level (data/clubs.ts has the door policy and what makes each bigger).
   {

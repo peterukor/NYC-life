@@ -128,6 +128,14 @@ export interface GameState {
   };
   /** 🔥 Street rep and 💼 corporate rep (sim/rep.ts). Old saves: missing. */
   rep?: { street: number; corporate: number };
+  /** 🎨 Your paintings at the Bowery Art Parlor (sim/art.ts). */
+  art?: import('./art.ts').Artwork[];
+  /** 🎣 Fishing: best catches (sim/fishing.ts). */
+  fishing?: import('./fishing.ts').FishingRecord;
+  /** 🚴 Bike loop: best time in seconds and wins (sim/cycling.ts). */
+  bike?: { best: number; wins: number };
+  /** ♟️ Chess House record (sim/chess-club.ts). */
+  chess?: import('./chess-club.ts').ChessRecord;
   /** People worth knowing you've met at clubs (data/clubs.ts CONNECTIONS ids). */
   connections?: string[];
   /** What you spent at a club tonight (the top-spenders board). */
