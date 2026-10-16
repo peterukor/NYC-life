@@ -29,12 +29,13 @@ export const NEXT_STOP: Record<Stop, Partial<Record<Stop, number>>> = {
   food: { wander: 3, park: 2, home: 2, work: 1, plaza: 1 },
   nightlife: { nightlife: 1, food: 3, station: 2, home: 3 },
   fitness: { cafe: 2, home: 2, food: 2 },
-  park: { wander: 2, cafe: 2, food: 2, plaza: 1 },
+  park: { wander: 2, cafe: 2, food: 2, plaza: 1, fun: 1 },
   plaza: { plaza: 2, food: 2, landmark: 2, station: 2, wander: 2 },
   landmark: { plaza: 2, food: 2, station: 2, park: 1 },
   station: { wander: 3, work: 2, plaza: 2, home: 2, shop: 1 },
   shop: { wander: 3, food: 2, cafe: 2, shop: 1, station: 2 },
-  wander: { wander: 2, food: 2, cafe: 1, plaza: 2, park: 1, station: 1, nightlife: 1, shop: 1 },
+  fun: { food: 2, cafe: 2, wander: 2, park: 1 },
+  wander: { wander: 2, food: 2, cafe: 1, plaza: 2, park: 1, station: 1, nightlife: 1, shop: 1, fun: 1 },
 };
 
 /** Time-of-day nudge for a stop (1 = no change). */

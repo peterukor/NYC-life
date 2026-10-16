@@ -29,6 +29,8 @@ export const ARCADE_GAMES: ArcadeGame[] = [
   { id: 'hoops', name: 'Hoop Shot', emoji: '🏀', color: '#ff7f11', howTo: 'Tap when the power bar is in the green. 30 seconds. Swishes score 3.', tickets: (s) => s * 2 },
   { id: 'pigeons', name: 'Pigeon Pop', emoji: '🐦', color: '#8d99ae', howTo: 'Pigeons pop out of manholes. Tap them before they fly. Don’t tap the 🐀 rat.', tickets: (s) => Math.floor(s / 4) },
   { id: 'beats', name: 'Beat Street', emoji: '🎵', color: '#ff4fa3', howTo: 'Notes fall down four lanes. Tap the lane as a note crosses the line. Keep the combo going.', tickets: (s) => Math.floor(s / 5) },
+  { id: 'stack', name: 'Bodega Stack', emoji: '🥪', color: '#e9c46a', howTo: 'A layer slides across. Tap to drop it on the sandwich. What hangs over gets cut. Perfect drops keep it wide.', tickets: (s) => s * 2 },
+  { id: 'dash', name: 'Delivery Dash', emoji: '🛵', color: '#2a9d8f', howTo: 'Tap left or right to switch lanes. Grab 💵 tips and 🥡 orders, dodge doors, potholes and people. Three hits and you’re out.', tickets: (s) => Math.floor(s / 6) },
   { id: 'claw', name: 'Claw Machine', emoji: '🧸', color: '#9b5de5', howTo: 'Move the claw, then drop it. Centre it on a prize to grab it.', tickets: (s) => s },
 ];
 export const ARCADE_BY_ID = Object.fromEntries(ARCADE_GAMES.map((g) => [g.id, g]));
@@ -48,10 +50,11 @@ export function payToPlay(s: GameState): string | null {
 }
 
 /** After a game: tickets and a new best? */
-export function recordScore(s: GameState, game: string, score: number): { tickets: number; best: boolean } {
+export function recordScore(s: GameState, game: string, score: number, opts: { phone?: boolean } = {}): { tickets: number; best: boolean } {
   const g = ARCADE_BY_ID[game];
   const f = funOf(s);
-  const t = Math.max(0, Math.floor(g?.tickets(score) ?? 0));
+  // On your phone you play for the high score; 🎟️ tickets only at the arcade (go outside!).
+  const t = opts.phone ? 0 : Math.max(0, Math.floor(g?.tickets(score) ?? 0));
   f.tickets += t;
   const best = score > (f.best[game] ?? 0);
   if (best) f.best[game] = score;

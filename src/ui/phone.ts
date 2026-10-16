@@ -34,7 +34,7 @@ import { raiseBlocker } from '../sim/raise.ts';
 import './instadash.ts'; // registers the InstaDash app
 import './linkup.ts'; // registers Link Up (friends and plans)
 import { bankruptcyBlocker, DEBT } from '../sim/debt.ts';
-import { buyStock, dayChange, deskTip, eventFor, marketDay, netWorth, portfolioValue, priceOf, recentPrices, sellStock, tradeFee, TRADE_FEE } from '../sim/market.ts';
+import { atTradingFloor, buyStock, dayChange, deskTip, eventFor, marketDay, netWorth, portfolioValue, priceOf, recentPrices, sellStock, tradeFee, TRADE_FEE } from '../sim/market.ts';
 import { REP_EMOJI, REP_RANKS, repOf, repRank, repTitle, respect, type RepKind } from '../sim/rep.ts';
 
 export interface PhoneHost {
@@ -56,6 +56,8 @@ export interface PhoneHost {
   refresh: () => void;
   /** A stock sold for `mult`× what you paid (10×+ gets fireworks at the trading floor). */
   onTradeWin?: (mult: number) => void;
+  /** Play a phone game (📱 Games: ui/arcade.ts, phone mode). */
+  playGame?: (id: string) => void;
   /** Move house (🏠 Homes). Returns an error, or null once you're moving. */
   moveHome?: (placeId: string) => string | null;
 }
@@ -222,7 +224,8 @@ export function openPhone(host: PhoneHost, startApp?: string): () => void {
           const tip = deskTip(s);
           return tip ? `<div class="card" style="margin-bottom:10px"><b>💡 Desk chatter</b><p>The floor thinks <b>${esc(STOCKS.get(tip.id)?.name ?? tip.id)}</b> goes ${tip.up ? 'up 📈' : 'down 📉'} tomorrow. Right about 3 times in 4. (📈 Finance perk)</p></div>` : '';
         })()}
-        <p class="blurb">Made-up companies, real lessons: 🛡️ funds are calm, 🏛️ blue chips are steady, 🚀 growth swings, 🪙 penny stocks jump, 🎲 memes can 10× or go to zero. Prices move every game hour. Fee: ${s.job?.careerId === 'finance' ? `${money(tradeFee(10_000, s))} on a $100 trade (📈 Finance discount)` : `${money(TRADE_FEE.flat)} + ${TRADE_FEE.rate * 100}% per trade`}.</p>
+        <p class="blurb">Made-up companies, real lessons: 🛡️ funds are calm, 🏛️ blue chips are steady, 🚀 growth swings, 🪙 penny stocks jump, 🎲 memes can 10× or go to zero. Prices move every game hour. Fee: ${atTradingFloor(s) ? 'none' : s.job?.careerId === 'finance' ? `${money(tradeFee(10_000, s))} on a $100 trade (📈 Finance discount)` : `${money(TRADE_FEE.flat)} + ${TRADE_FEE.rate * 100}% per trade`}.</p>
+        ${atTradingFloor(s) ? '<div class="card" style="border:2px solid #2b9348"><h3>📍 On the trading floor</h3><p>No fees here, and profits earn 50% more 💼 corporate rep. Big wins get the whole floor cheering.</p></div>' : '<div class="card"><h3>📍 Trade in person</h3><p>At the trading floor in Midtown Tower: <b>no fees</b> and <b>+50% 💼 corporate rep</b> on profits.</p></div>'}
         ${STOCKS.all().map((st) => {
           const price = priceOf(st.id);
           const ch = dayChange(st.id);

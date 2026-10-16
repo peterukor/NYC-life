@@ -147,7 +147,17 @@ export function dayChange(id: string, day = marketDay()): number {
  * The fee for a trade. 📈 Finance workers pay less (a job perk): half the
  * rate to start, less each raise, and no flat fee from Director up.
  */
+/**
+ * 📍 At the trading floor (Midtown Tower) in person: no fees, and profits
+ * earn 50% more 💼 corporate rep (Peter, 2026-10-15: perks for going out).
+ */
+export function atTradingFloor(s?: GameState): boolean {
+  return s?.location.placeId === 'midtownTower';
+}
+export const FLOOR_REP_BONUS = 1.5;
+
 export function tradeFee(cents: number, s?: GameState): number {
+  if (atTradingFloor(s)) return 0;
   const fin = s?.job?.careerId === 'finance' ? s.job.level : -1;
   if (fin < 0) return TRADE_FEE.flat + Math.round(cents * TRADE_FEE.rate);
   const rate = TRADE_FEE.rate * Math.max(0.1, 0.5 - 0.08 * fin);
@@ -197,7 +207,7 @@ export function sellStock(s: GameState, id: string): { got: number; mult: number
   if (!r.ok) return { error: r.why };
   delete s.portfolio[id];
   // 💼 Corporate rep for a profitable trade.
-  const corp = tradeRep(got - h.cost, mult);
+  const corp = Math.round(tradeRep(got - h.cost, mult) * (atTradingFloor(s) ? FLOOR_REP_BONUS : 1));
   const rankUp = addRep(s, 'corporate', corp);
   return { got, mult, corp, rankUp };
 }
