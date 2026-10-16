@@ -13,6 +13,7 @@ import { bestMove, fromFen, inCheck, kingSquare, legalMoves, moveLabel, OPPONENT
 import { chessOf, settleChess, stakeUp } from '../sim/chess-club.ts';
 import type { GameState } from '../sim/types.ts';
 import { sfx } from './audio.ts';
+import { burstAt, popAt, shakeEl } from './juice.ts';
 import { html, onAct, openSheet, root, toast } from './dom.ts';
 
 export interface ChessHost {
@@ -26,6 +27,30 @@ export interface ChessHost {
 
 // Text-style glyphs (︎ stops phones drawing ♟ as an emoji).
 const GLYPH: Record<string, string> = { K: '♔', Q: '♕', R: '♖', B: '♗', N: '♘', P: '♙', k: '♚', q: '♛', r: '♜', b: '♝', n: '♞', p: '♟' };
+/** When you take one of their pieces / they take yours / you check them. */
+const LOST: Record<string, string[]> = {
+  kid: ['HEY. That was my favourite one.', 'I let you have that.', 'Mom!!'],
+  professor: ['Ah. I underestimated you.', 'A fair trade. Mostly.', 'Noted.'],
+  eddie: ['Lucky. Pure luck.', 'Okay, okay, the tourist bites.', 'I was testing you.'],
+  gloria: ['Hm.', '…well played.', '(she sips her tea, louder)'],
+};
+const TOOK: Record<string, string[]> = {
+  kid: ['YOINK!', 'Mine now!', 'I’m putting that on my shelf.'],
+  professor: ['As the books predicted.', 'Elementary.', 'You left that undefended. Twice.'],
+  eddie: ['Thank you for your donation.', 'Ka-ching.', 'Rookie mistake. I love rookies.'],
+  gloria: ['Mm.', 'Thank you, dear.', '(doesn’t even look up)'],
+};
+const CHECKED: Record<string, string[]> = {
+  kid: ['That’s not fair!', 'Is that allowed?!'],
+  professor: ['Ah. Check. Very good.', 'A sharp move.'],
+  eddie: ['Whoa, whoa. Relax.', 'Calm down, Bobby Fischer.'],
+  gloria: ['Oh my.', '(puts the crossword down)'],
+};
+const line = (set: Record<string, string[]>, id: string) => {
+  const a = set[id] ?? ['…'];
+  return a[Math.floor(Math.random() * a.length)];
+};
+
 const TALK: Record<string, string[]> = {
   kid: ['My mom says I’m gifted.', 'Wait, can the horse do that?', 'I’m telling everyone at school.'],
   professor: ['Hmm. Interesting choice.', 'In 1974 I played this exact position.', 'Take your time. I have all day.'],
@@ -102,8 +127,9 @@ export function playChess(host: ChessHost, opp: Opponent, stake: number): void {
     host.saved();
     host.onRating?.(chessOf(s).rating);
     host.onChess?.(outcome, opp.id);
-    if (outcome === 'win') sfx.cheer();
+    if (outcome === 'win') (sfx.cheer(), burstAt(boardEl, ['♛', '🏆', '✨', '🎉'], 18), shakeEl(boardEl, true));
     else if (outcome === 'loss') sfx.bad();
+    say.textContent = `“${outcome === 'win' ? line(LOST, opp.id) : outcome === 'loss' ? line(TOOK, opp.id) : 'A draw. Respectable.'}”`;
     status.innerHTML = `<b>${outcome === 'win' ? '🏆 You win' : outcome === 'loss' ? '😤 You lose' : '🤝 Draw'}</b> (${esc(why)}). ${esc(r.text)} <span class="sub">${r.ratingDelta >= 0 ? '+' : ''}${r.ratingDelta}</span>`;
     const btn = el.querySelector<HTMLButtonElement>('[data-act="resign"]')!;
     btn.textContent = 'Done';
@@ -125,13 +151,23 @@ export function playChess(host: ChessHost, opp: Opponent, stake: number): void {
       if (finished) return;
       const m = bestMove(pos, opp);
       if (!m) return void checkEnd();
+      const took = pos.board[m.to];
       log.push(`…${moveLabel(pos, m)}`);
       pos = play(pos, m);
       last = m;
       thinking = false;
       sfx.tick();
-      if (Math.random() < 0.3) say.textContent = `“${TALK[opp.id]?.[Math.floor(Math.random() * 3)] ?? '…'}”`;
+      if (took) say.textContent = `“${line(TOOK, opp.id)}”`;
+      else if (Math.random() < 0.3) say.textContent = `“${TALK[opp.id]?.[Math.floor(Math.random() * 3)] ?? '…'}”`;
       draw();
+      if (took) {
+        const sq = boardEl.querySelector<HTMLElement>(`[data-sq="${m.to}"]`);
+        if (sq) (shakeEl(sq), popAt(sq, GLYPH[took] ?? '✕', { color: '#e0283f', size: 26 }));
+      }
+      if (inCheck(pos)) {
+        shakeEl(boardEl);
+        popAt(boardEl, 'CHECK!', { color: '#e0283f', size: 30 });
+      }
       if (!checkEnd()) status.textContent = inCheck(pos) ? 'Check! Your move.' : 'Your move.';
     }, 350);
   };
@@ -143,13 +179,23 @@ export function playChess(host: ChessHost, opp: Opponent, stake: number): void {
     const i = Number(t.dataset.sq);
     const move = targets.find((m) => m.to === i && (!m.promo || m.promo === 'Q'));
     if (move) {
+      const took = pos.board[move.to];
       log.push(`${Math.floor(log.length / 2) + 1}. ${moveLabel(pos, move)}`);
       pos = play(pos, move);
       last = move;
       selected = -1;
       targets = [];
-      sfx.tap();
+      took ? sfx.punch() : sfx.tap();
       draw();
+      if (took) {
+        const sq = boardEl.querySelector<HTMLElement>(`[data-sq="${move.to}"]`);
+        if (sq) (burstAt(sq, ['💥', '✨'], 6), popAt(sq, GLYPH[took] ?? '✕', { color: '#ffd23f', size: 26 }));
+        say.textContent = `“${line(LOST, opp.id)}”`;
+      }
+      if (inCheck(pos)) {
+        popAt(boardEl, 'CHECK!', { color: '#ffd23f', size: 30 });
+        say.textContent = `“${line(CHECKED, opp.id)}”`;
+      }
       if (!checkEnd()) theirTurn();
       return;
     }

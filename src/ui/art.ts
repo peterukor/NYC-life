@@ -28,6 +28,19 @@ export interface ArtHost {
   net?: { loadWall: () => Promise<{ id: number; title: string; img: string; likes: number; artist: string; liked: boolean; mine: boolean }[]>; like: (id: number) => Promise<number | null>; report: (kind: 'art', target: string, reason: string) => Promise<void> };
 }
 
+const STICKERS = ['🐦', '🍕', '🗽', '🌇', '🚕', '⭐', '💖', '🐀', '🌳', '☁️'];
+
+/** What the gallery's resident critic says about your piece (dark comedy, never mean to you). */
+function critique(coverage: number, colors: number, strokes: number, mirrored: boolean): string {
+  const pick = (a: string[]) => a[Math.floor(Math.random() * a.length)];
+  if (coverage < 0.08) return pick(['“Minimalism. Or you ran out of time. Either way: brave.”', '“So much empty space. Like my apartment after the divorce.”']);
+  if (mirrored) return pick(['“Symmetry. The comfort of order in a city with none.”', '“Perfectly balanced. Unlike my checkbook.”']);
+  if (colors >= 6) return pick(['“A riot of colour. A riot, frankly.”', '“It screams. I, too, scream.”']);
+  if (strokes > 40) return pick(['“The energy! The chaos! The rent increase!”', '“You can feel the deadline in every stroke.”']);
+  if (colors <= 1) return pick(['“Monochrome. A bold statement about the MTA.”', '“One colour. Like the sky in February.”']);
+  return pick(['“It speaks to me. It says ‘pay me’.”', '“I have no idea what this is. I love it.”', '“Derivative of Pigeon at Dawn, but in a good way.”', '“This will be worth something. Probably after you die. Sorry.”']);
+}
+
 const COLORS = ['#1c2340', '#ffffff', '#e63946', '#ff8fab', '#f4a261', '#ffd166', '#80b918', '#2a9d8f', '#3a86ff', '#9b5de5'];
 const SIZE = 320;
 
@@ -38,7 +51,8 @@ export function openEasel(host: ArtHost): void {
         <div class="art-top"><b>🎨 Your canvas</b><button class="btn ghost" data-act="close" aria-label="Close">✕</button></div>
         <canvas class="art-canvas" width="${SIZE}" height="${SIZE}" aria-label="Canvas: draw with your finger"></canvas>
         <div class="art-colors">${COLORS.map((c, i) => `<button class="art-color${i === 0 ? ' on' : ''}" data-color="${c}" style="background:${c}" aria-label="Colour ${c}"></button>`).join('')}</div>
-        <div class="row art-tools"><button class="btn" data-size="4">•</button><button class="btn on" data-size="10">●</button><button class="btn" data-size="22">⬤</button><button class="btn" data-act="erase">🧽</button><button class="btn" data-act="undo">↩️</button><button class="btn" data-act="clear">🗑️</button></div>
+        <div class="row art-tools"><button class="btn" data-size="4">•</button><button class="btn on" data-size="10">●</button><button class="btn" data-size="22">⬤</button><button class="btn" data-act="spray" aria-label="Spray paint">💨</button><button class="btn" data-act="mirror" aria-label="Mirror mode">🪞</button><button class="btn" data-act="erase">🧽</button><button class="btn" data-act="undo">↩️</button><button class="btn" data-act="clear">🗑️</button></div>
+        <div class="row art-stickers" aria-label="Stickers">${STICKERS.map((e) => `<button class="btn" data-sticker="${e}" aria-label="Sticker ${e}">${e}</button>`).join('')}</div>
         <input class="input" data-title maxlength="40" placeholder="Title (e.g. “Pigeon at Dawn”)" aria-label="Title" style="width:100%;margin:8px 0">
         <button class="btn primary block" data-act="hang">🖼️ Hang it on the wall</button>
       </div>
@@ -51,6 +65,7 @@ export function openEasel(host: ArtHost): void {
   let color = COLORS[0];
   let size = 10;
   let erasing = false;
+  let spray = false, mirror = false, sticker: string | null = null;
   let strokes = 0;
   const used = new Set<string>();
   const undo: ImageData[] = [];
@@ -60,7 +75,20 @@ export function openEasel(host: ArtHost): void {
     const r = cv.getBoundingClientRect();
     return { x: ((e.clientX - r.left) / r.width) * SIZE, y: ((e.clientY - r.top) / r.height) * SIZE };
   };
-  const dot = (a: { x: number; y: number }, b: { x: number; y: number }) => {
+  const line = (a: { x: number; y: number }, b: { x: number; y: number }) => {
+    if (spray && !erasing) {
+      // Spray can: a fuzzy cloud of dots along the stroke.
+      g.fillStyle = color;
+      const steps = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / 4));
+      for (let k = 0; k <= steps; k++) {
+        const x = a.x + ((b.x - a.x) * k) / steps, y = a.y + ((b.y - a.y) * k) / steps;
+        for (let d = 0; d < size * 1.5; d++) {
+          const r = Math.random() * size * 1.4, t = Math.random() * Math.PI * 2;
+          g.fillRect(x + Math.cos(t) * r, y + Math.sin(t) * r, 1.5, 1.5);
+        }
+      }
+      return;
+    }
     g.strokeStyle = erasing ? '#fbf8f1' : color;
     g.lineWidth = size;
     g.lineCap = 'round';
@@ -70,15 +98,34 @@ export function openEasel(host: ArtHost): void {
     g.lineTo(b.x, b.y);
     g.stroke();
   };
+  // 🪞 Mirror mode paints the other half too.
+  const dot = (a: { x: number; y: number }, b: { x: number; y: number }) => {
+    line(a, b);
+    if (mirror) line({ x: SIZE - a.x, y: a.y }, { x: SIZE - b.x, y: b.y });
+  };
+  const stamp = (p: { x: number; y: number }) => {
+    g.font = `${size * 3 + 18}px system-ui, "Apple Color Emoji", "Segoe UI Emoji"`;
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillStyle = '#000';
+    g.fillText(sticker!, p.x, p.y);
+    if (mirror) g.fillText(sticker!, SIZE - p.x, p.y);
+    sfx.tap();
+  };
   cv.addEventListener('pointerdown', (e) => {
     e.preventDefault();
     cv.setPointerCapture(e.pointerId);
     undo.push(g.getImageData(0, 0, SIZE, SIZE));
     if (undo.length > 20) undo.shift();
+    strokes++;
+    if (sticker) {
+      stamp(pt(e));
+      used.add(sticker);
+      return;
+    }
     drawing = true;
     last = pt(e);
     dot(last, last);
-    strokes++;
     if (!erasing) used.add(color);
   });
   cv.addEventListener('pointermove', (e) => {
@@ -97,8 +144,17 @@ export function openEasel(host: ArtHost): void {
     b.addEventListener('click', () => {
       color = b.dataset.color!;
       erasing = false;
+      sticker = null;
+      el.querySelectorAll('[data-sticker]').forEach((x) => x.classList.remove('on'));
       el.querySelectorAll('[data-color]').forEach((x) => x.classList.toggle('on', x === b));
       el.querySelector('[data-act="erase"]')!.classList.remove('on');
+    }),
+  );
+  el.querySelectorAll<HTMLButtonElement>('[data-sticker]').forEach((b) =>
+    b.addEventListener('click', () => {
+      const pickIt = sticker !== b.dataset.sticker;
+      sticker = pickIt ? b.dataset.sticker! : null;
+      el.querySelectorAll('[data-sticker]').forEach((x) => x.classList.toggle('on', pickIt && x === b));
     }),
   );
   el.querySelectorAll<HTMLButtonElement>('[data-size]').forEach((b) =>
@@ -112,6 +168,14 @@ export function openEasel(host: ArtHost): void {
     if (act === 'erase') {
       erasing = !erasing;
       btn.classList.toggle('on', erasing);
+    }
+    if (act === 'spray') {
+      spray = !spray;
+      btn.classList.toggle('on', spray);
+    }
+    if (act === 'mirror') {
+      mirror = !mirror;
+      btn.classList.toggle('on', mirror);
     }
     if (act === 'undo' && undo.length) g.putImageData(undo.pop()!, 0, 0);
     if (act === 'clear') {
@@ -142,6 +206,8 @@ export function openEasel(host: ArtHost): void {
       sfx.cheer();
       el.remove();
       toast(`🖼️ “${a.title}” is on the wall. Likes come in over the next few hours.`, { icon: '🎨', tone: 'good', ms: 4500 });
+      // The parlor's critic has thoughts.
+      window.setTimeout(() => toast(`🧐 The critic: ${critique(coverage, used.size, strokes, mirror)}`, { icon: '🎨', ms: 6000 }), 1200);
     }
   });
 }

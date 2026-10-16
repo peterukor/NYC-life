@@ -20,6 +20,7 @@ import type { AreaId } from '../sim/types.ts';
 import { DISTRICTS, blockRect, SIDEWALK } from '../world/layout.ts';
 import { project } from '../world/geo-proj.ts';
 import { UPTOWN_PLACES } from './uptown.ts';
+import { NORTH_PLACES } from './north.ts';
 
 export type InteriorKind = 'apartment' | 'bodega' | 'pizza' | 'cafe' | 'bar' | 'club' | 'office' | 'gym' | 'comedy' | 'furniture' | 'alley' | 'precinct' | 'arcade' | 'casino' | 'park' | 'none';
 
@@ -465,7 +466,7 @@ const RAW: RawPlace[] = [
 ];
 
 // Midtown and uptown, and their darkly funny activities (data/uptown.ts, 2026-10-16).
-RAW.push(...UPTOWN_PLACES);
+RAW.push(...UPTOWN_PLACES, ...NORTH_PLACES);
 
 // The Bronx places are appended to RAW below (see BRONX_PLACES).
 

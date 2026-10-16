@@ -14,6 +14,7 @@ import { BET, colourOf, crashPoint, dealBlackjack, doubleDown, handValue, hit, p
 import type { GameState } from '../sim/types.ts';
 import { sfx } from './audio.ts';
 import { openModal, toast } from './dom.ts';
+import { burstAt, popAt, shakeEl } from './juice.ts';
 
 export interface CasinoHost {
   state: GameState;
@@ -108,18 +109,29 @@ export function openSlots(host: CasinoHost): void {
     cash(m.el, s);
     m.el.querySelector('.slot-window')!.classList.remove('won', 'jackpot');
     const land = [spinReel(), spinReel(), spinReel()];
+    // Two matching on the first reels: the last one takes its sweet time (suspense!).
+    const tease = REEL[land[0]].sym === REEL[land[1]].sym;
+    const lastStop = 1.1 + 2 * 0.45 + (tease ? 1.3 : 0);
     msg.textContent = 'Spinning…';
     strips.forEach((st, i) => {
       fill(st, land[i]);
       st.style.transition = 'none';
       st.style.transform = 'translateY(0)';
       void st.offsetHeight;
-      st.style.transition = `transform ${1.1 + i * 0.45}s cubic-bezier(.15,.85,.25,1.02)`;
+      st.style.transition = `transform ${i === 2 ? lastStop : 1.1 + i * 0.45}s cubic-bezier(.15,.85,.25,1.02)`;
       st.style.transform = `translateY(calc(-${STRIP - 1} * var(--sym)))`;
     });
-    // Ticking while the reels spin.
-    const ticker = window.setInterval(() => sfx.tick(), 70);
+    if (tease)
+      window.setTimeout(() => {
+        msg.innerHTML = `<b>${REEL[land[0]].sym} ${REEL[land[0]].sym} … come on…</b>`;
+        m.el.querySelector('.slot-window')!.classList.add('tease');
+      }, 1550);
+    // Ticking while the reels spin (faster during the tease).
+    let tickMs = 70;
+    let ticker = window.setInterval(() => sfx.tick(), tickMs);
+    if (tease) window.setTimeout(() => (window.clearInterval(ticker), (tickMs = 45), (ticker = window.setInterval(() => sfx.tick(), tickMs))), 1550);
     window.setTimeout(() => {
+      m.el.querySelector('.slot-window')!.classList.remove('tease');
       window.clearInterval(ticker);
       const mult = slotMultiplier(land);
       if (mult > 0) payout(s, b * mult, 'Slots');
@@ -130,15 +142,18 @@ export function openSlots(host: CasinoHost): void {
         sfx.jackpot();
         win.classList.add('jackpot');
         rain(m.el, '🪙', 40);
+        shakeEl(m.el.querySelector('.cas')!, true);
+        popAt(win as HTMLElement, `JACKPOT ${mult}×`, { color: '#ffd23f', size: 36 });
         msg.innerHTML = `<b>JACKPOT! ${mult}× · +${money(b * mult)}</b>`;
       } else if (mult > 0) {
         sfx.win();
         win.classList.add('won');
-        if (mult >= 8) rain(m.el, '🪙', 18);
+        if (mult >= 8) (rain(m.el, '🪙', 18), shakeEl(m.el.querySelector('.cas')!));
+        popAt(win as HTMLElement, `+${money(b * mult)}`, { color: mult >= 8 ? '#ffd23f' : '#7bd88f', size: mult >= 8 ? 30 : 24 });
         msg.innerHTML = `<b>${mult}× · +${money(b * mult)}</b>`;
-      } else msg.textContent = 'No luck. Spin again?';
+      } else msg.textContent = tease ? 'SO close. The machine knows what it did. 😤' : 'No luck. Spin again?';
       host.saved();
-    }, 1100 + 2 * 450 + 80);
+    }, lastStop * 1000 + 80);
   });
 }
 
@@ -182,7 +197,12 @@ export function openBlackjack(host: CasinoHost): void {
       payout(s, h.returned, 'Blackjack');
       const net = h.returned - h.bet;
       msg.innerHTML = `<b>${words[h.outcome!]}</b>${net > 0 ? ` +${money(net)}` : net < 0 ? ` −${money(-net)}` : ''}`;
-      if (h.outcome === 'blackjack' || h.outcome === 'win') (sfx.win(), h.outcome === 'blackjack' && rain(m.el, '🪙', 16));
+      const table = m.el.querySelector<HTMLElement>('.cas')!;
+      if (h.outcome === 'blackjack' || h.outcome === 'win') {
+        sfx.win();
+        popAt(table, h.outcome === 'blackjack' ? '🃏 BLACKJACK!' : `+${money(net)}`, { color: '#ffd23f', size: h.outcome === 'blackjack' ? 34 : 26 });
+        if (h.outcome === 'blackjack') (rain(m.el, '🪙', 16), shakeEl(table, true));
+      } else if (h.outcome === 'bust') (sfx.bad(), shakeEl(table), burstAt(table, '💥', 6));
       else if (h.outcome !== 'push') sfx.bad();
       cash(m.el, s);
       host.saved();
@@ -285,8 +305,11 @@ export function openRoulette(host: CasinoHost): void {
       cash(m.el, s);
       const col = colourOf(n);
       msg.innerHTML = `<span class="landed ${col}">${n}</span> ${ret ? `<b>You win ${money(ret - stakeAmt)}!</b>` : 'House wins.'}`;
-      if (ret) (sfx.win(), ret >= stakeAmt * 36 && (sfx.jackpot(), rain(m.el, '🪙', 40)));
-      else sfx.bad();
+      if (ret) {
+        sfx.win();
+        popAt(msg, `+${money(ret - stakeAmt)}`, { color: '#ffd23f', size: ret >= stakeAmt * 36 ? 36 : 26 });
+        if (ret >= stakeAmt * 36) (sfx.jackpot(), rain(m.el, '🪙', 40), shakeEl(m.el.querySelector<HTMLElement>('.cas')!, true), popAt(msg, 'STRAIGHT UP! 35×', { color: '#ff4fa3', y: -30, size: 28 }));
+      } else sfx.bad();
       host.saved();
     }, 4300);
   });
@@ -361,11 +384,16 @@ export function openRocket(host: CasinoHost): void {
       drawSky(t, flight.crash, true);
       multEl.textContent = `💥 ${flight.crash.toFixed(2)}×`;
       multEl.classList.add('boom');
+      shakeEl(m.el.querySelector<HTMLElement>('.rocket-sky')!, true);
+      burstAt(multEl, ['💥', '🔥', '💨'], 12);
       if (flight.out === null) msg.innerHTML = `<b>Blew up at ${flight.crash.toFixed(2)}×.</b> Lost ${money(flight.stake)}.`;
       return end(true);
     }
     drawSky(t, mult, false);
     multEl.textContent = `${mult.toFixed(2)}×`;
+    // The number grows and glows as it climbs (and your heart rate with it).
+    multEl.style.transform = `scale(${Math.min(1.6, 1 + (mult - 1) * 0.06)})`;
+    multEl.style.color = mult >= 10 ? '#ff4fa3' : mult >= 3 ? '#ffd23f' : '';
     if (flight.out === null) outBtn.textContent = `Cash out ${money(Math.floor(flight.stake * mult))}`;
     raf = requestAnimationFrame(frame);
   };
@@ -387,6 +415,8 @@ export function openRocket(host: CasinoHost): void {
       if (why) return toast(why, { icon: '🚀', tone: 'bad' });
       cash(m.el, s);
       multEl.classList.remove('boom', 'safe');
+      multEl.style.transform = '';
+      multEl.style.color = '';
       msg.textContent = '3… 2… 1… liftoff!';
       flight = { stake: b, crash: crashPoint(), t0: performance.now(), out: null };
       betting.hidden = true;
@@ -402,6 +432,7 @@ export function openRocket(host: CasinoHost): void {
       payout(s, won, 'Rocket');
       sfx.win();
       if (mult >= 5) rain(m.el, '🪙', 20);
+      popAt(multEl, `+${money(won - flight.stake)}`, { color: '#7bd88f', size: 28 });
       multEl.classList.add('safe');
       msg.innerHTML = `<b>Cashed out at ${mult.toFixed(2)}× · +${money(won - flight.stake)}</b> (watch where it would have gone)`;
       outBtn.hidden = true;

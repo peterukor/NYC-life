@@ -27,8 +27,8 @@ const playFightBot = async (skill = 1) => {
     const st = await ev(() => {
       const fight = document.querySelector('.mg-fight');
       if (!fight) return 'gone';
-      const dodge = document.querySelector('[data-dodge]');
-      if (dodge && !dodge.hidden) return 'dodge';
+      const dodges = document.querySelector('[data-dodges]');
+      if (dodges && !dodges.hidden) return 'dodge';
       const hit = document.querySelector('[data-hit]');
       if (!hit || hit.hidden) return 'wait';
       const z = document.querySelector('[data-zone]'), n = document.querySelector('[data-needle]');
@@ -36,7 +36,8 @@ const playFightBot = async (skill = 1) => {
       return nl > zl + zw * 0.2 && nl < zl + zw * 0.8 ? 'swing' : 'aim';
     });
     if (st === 'gone') return true;
-    if (st === 'dodge') await ev(() => document.querySelector('[data-dodge]').click());
+    // Dodge away from the hook (a left hook → dodge right).
+    if (st === 'dodge') await ev(() => document.querySelector(`[data-dodge="${document.querySelector('[data-dodges]').dataset.side === 'L' ? 'R' : 'L'}"]`).click());
     if (st === 'swing' && Math.random() < skill) await ev(() => document.querySelector('[data-hit]').click());
     await wait(15);
   }

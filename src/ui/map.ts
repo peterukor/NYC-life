@@ -726,6 +726,12 @@ export function openMap(opts: MapOptions): () => void {
     }
   });
 
+  // Test hook: centre the map on a real lat/lon at a zoom (scripts/qa-north*.mjs).
+  (window as unknown as Record<string, unknown>).__mapView = (lat: number, lon: number, sc: number) => {
+    const p = project(lat, lon);
+    setView({ sc, ox: W() / 2 - p.x * sc, oy: H() / 2 - p.z * sc });
+    draw();
+  };
   // Test hook (scripts/qa-map3d.mjs): where a real lat/lon is on screen.
   (window as unknown as Record<string, unknown>).__mapPoint = (lat: number, lon: number) => {
     const p = project(lat, lon);

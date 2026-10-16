@@ -9,6 +9,7 @@
 import { esc, money } from '../core/format.ts';
 import { RAISE_SECONDS, inZone, newRaiseGame, stepRaiseGame } from '../sim/raise.ts';
 import { html, root } from './dom.ts';
+import { burstAt, popAt, shakeEl } from './juice.ts';
 
 export interface RaiseInfo {
   /** Raise number (1–5). */
@@ -43,6 +44,7 @@ export function playRaiseGame(info: RaiseInfo): Promise<boolean> {
     const g = newRaiseGame(info.raise);
     const el = html(`<div class="raise-game" role="application" aria-label="Raise mini-game: hold to lift the line, keep it in the green">
       <div class="rg-head"><b>📈 ${esc(info.to.title)}</b><span class="rg-time">${RAISE_SECONDS}s</span></div>
+      <div class="rg-boss"><span class="rg-face">😐</span><em class="rg-says">“So. You wanted to talk?”</em></div>
       <div class="rg-body">
         <div class="rg-bar"><div class="rg-zone"></div><div class="rg-line"></div></div>
         <div class="rg-meter"><div class="rg-fill"></div></div>
@@ -64,6 +66,12 @@ export function playRaiseGame(info: RaiseInfo): Promise<boolean> {
     const key = (e: KeyboardEvent) => { if (e.code === 'Space') { e.preventDefault(); holding = e.type === 'keydown'; } };
     window.addEventListener('keydown', key);
     window.addEventListener('keyup', key);
+    const face = el.querySelector<HTMLElement>('.rg-face')!;
+    const says = el.querySelector<HTMLElement>('.rg-says')!;
+    const BOSS_OK = ['“Go on…”', '“Okay, I’m listening.”', '“Huh. Fair point.”', '“That’s… actually true.”'];
+    const BOSS_NO = ['“Times are tough, you know.”', '“Have you tried passion instead of money?”', '“We’re a family here.”', '“Let’s circle back.”', '“The budget is… complicated.”'];
+    const YOU = ['I closed three deals!', 'I trained the new guy.', 'I never call out.', 'I fixed the printer. Twice.', 'Customers ask for me by name.', 'I know where the good stapler is.'];
+    let lastLine = 0, lastPoint = 0, wasIn = false;
     let last = performance.now();
     const frame = (now: number) => {
       // Small fixed steps, so a slow phone plays the same game.
@@ -77,8 +85,23 @@ export function playRaiseGame(info: RaiseInfo): Promise<boolean> {
       zone.style.height = `${g.d.zone * 100}%`;
       zone.style.bottom = `${(g.zoneY - g.d.zone / 2) * 100}%`;
       line.style.bottom = `calc(${g.y * 100}% - 3px)`;
-      bar.classList.toggle('in', inZone(g));
+      const inside = inZone(g);
+      bar.classList.toggle('in', inside);
       fill.style.height = `${g.meter * 100}%`;
+      // The boss reacts to how it's going.
+      face.textContent = g.meter > 0.75 ? '😃' : g.meter > 0.45 ? '🙂' : inside ? '🤔' : g.meter < 0.15 ? '😠' : '😐';
+      if (now - lastLine > 2600 || inside !== wasIn) {
+        if (now - lastLine > 900) {
+          says.textContent = (inside ? BOSS_OK : BOSS_NO)[Math.floor(Math.random() * (inside ? BOSS_OK : BOSS_NO).length)];
+          lastLine = now;
+        }
+        wasIn = inside;
+      }
+      // Your talking points pop up while you're making your case.
+      if (inside && now - lastPoint > 1500) {
+        lastPoint = now;
+        popAt(bar, YOU[Math.floor(Math.random() * YOU.length)], { color: '#fff', size: 16, y: 30 });
+      }
       time.textContent = `${Math.max(0, Math.ceil(g.time))}s`;
       if (!g.done) return void requestAnimationFrame(frame);
       el.removeEventListener('pointerdown', down);
@@ -86,10 +109,16 @@ export function playRaiseGame(info: RaiseInfo): Promise<boolean> {
       window.removeEventListener('pointercancel', up);
       window.removeEventListener('keydown', key);
       window.removeEventListener('keyup', key);
+      const won = g.done === 'won';
+      face.textContent = won ? '🤝' : '🙃';
+      says.textContent = won ? '“Fine. You earned it. Don’t tell anyone.”' : '“Let’s revisit this next quarter.” (They won’t.)';
+      el.classList.add(won ? 'rg-won' : 'rg-lost');
+      if (won) burstAt(face, ['💵', '📈', '🎉'], 14);
+      else shakeEl(face);
       window.setTimeout(() => {
         el.remove();
-        resolve(g.done === 'won');
-      }, 500);
+        resolve(won);
+      }, 1600);
     };
     requestAnimationFrame(frame);
   });

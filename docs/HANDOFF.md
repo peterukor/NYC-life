@@ -15,6 +15,15 @@ Build and test:
 
 How to add or change content: **`docs/ADDING-CONTENT.md`**.
 
+## Batch 7: the north and better mini games (2026-10-16)
+
+- North Manhattan (data/north.ts): 24 places from 110th St to Inwood, real landmarks (Grant's Tomb, the Cloisters, the High Bridge, the Little Red Lighthouse, each with an official site) plus local spots (Apollyon Amateur Night, Lenox Lounge jazz, Rucker Park, dominoes, a laundromat, El Barrio murals, La Marqueta, a Dominican bakery, a boxing club, Dyckman hookah, the canoe club, Mofongo King). 12 odd activities (twists via sim/oddities.ts) and 12 plain food/fun actions. Harlem Soul and the chimi truck serve their own food now. tests/north.test.ts keeps 30+ places north of 110th.
+- Game feel toolkit (ui/juice.ts): Fx for canvas games (particles, floating scores, shake, flash, hit-stop, stamps), Combo, and DOM helpers popAt / shakeEl / burstAt. Reduced motion = gentler.
+- Arcade (ui/arcade-games.ts, split out of arcade.ts): Snake combos, golden slices, slow-mo soda and roadworks; Hoops ON FIRE, money balls and bonus time; Pigeon Pop combos, golden-pigeon frenzy and bread; Beat Street PERFECT/GREAT/GOOD, crowd meter, hype ×2 and a grade; Stack falling overhang, regrowth and golden layers; Dash cash lines, magnet, helmet, turbo and close calls; Claw steering, sway, grip and shiny prizes. Ticket rates retuned in sim/arcade.ts.
+- Fight (Punch-Out): left/right hook tells, dodge the other way, counters, crits, star punch, K.O. Chase (Subway Surfers): jump, skateboard, cash (kept if you escape), close calls, a distance-to-the-cop bar.
+- Fishing: nibbles vs bites, perfect hook, fish runs, sweet spot, treasure, perfect catch +25%, catch streaks, new junk. Bike: rocket start, cadence rhythm, slipstream, clean-line corner boosts, sprint. Shifts: service streak (+10% tips each, max +50%), ⭐ VIP customers (double tips), customer mood. Workout coach and perfect-form reps; the raise boss reacts; casino near-miss suspense and bigger wins; chess banter and capture/check effects; easel stickers, mirror, spray and a critic.
+- QA: scripts/qa-games.mjs plays every arcade game; batch2/4 bots updated for the new fight and fishing rules. Tests 193.
+
 ## Backend (2026-10-16): built and tested, not deployed yet
 
 - `server/` (own package, Node 22+, runs .ts directly): Colyseus 0.18 rooms + an HTTP API under /api on one port, SQLite via node:sqlite. README there has settings, deploy steps and the API list. Dockerfile at the repo root (copies src/core for the shared game clock).
