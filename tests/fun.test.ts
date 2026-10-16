@@ -11,12 +11,12 @@ initClockFromUrl('?hour=22');
 const life = (cls: 'billionaire' | 'poor' = 'billionaire') => newLife({ name: 'T', origin: 'hustler', spawnClass: cls, look: { body: 'm', skin: '#000', top: '#000', bottom: '#000', hair: '#000' }, birthYear: 1990, traits: [] });
 
 // -------------------------------------------------------------- 🛋️ sections
-test("Peter's section: $1,000 for 10 minutes, 2 friends, up to 12 at $10,000", () => {
-  assert.equal(friendSlots(100_000), 2);
-  assert.equal(friendSlots(1_000_000), 12);
+test("Peter's section: $300 for 10 minutes, 2 friends, up to 12 at $3,300", () => {
+  assert.equal(friendSlots(30_000), 2);
+  assert.equal(friendSlots(330_000), 12);
   assert.equal(friendSlots(5_000_000), 12);
-  assert.ok(friendSlots(500_000) > 2 && friendSlots(500_000) < 12);
-  assert.equal(nextSeatIn(1_000_000), 0);
+  assert.ok(friendSlots(150_000) > 2 && friendSlots(150_000) < 12);
+  assert.equal(nextSeatIn(330_000), 0);
   const s = life();
   const now = nowMs();
   const r = buySection(s, 'velvetRoom', now);

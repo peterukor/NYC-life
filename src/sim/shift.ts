@@ -5,7 +5,7 @@
 //  ⏩ Auto: 30 real seconds, and you have to stay in the game. Pays the
 //     lowest wage (about $30 at the first rung). A convenience only: no
 //     performance, skill or rep, and it doesn't count toward a raise.
-//  🎮 Play: about 3 real minutes at the counter (the clock in the corner
+//  🎮 Play: 80 real seconds at the counter (the clock in the corner
 //     runs through the 4 game hours). Build each order from the job's
 //     items before the customer gives up; 3 choices come up along the
 //     way. Pays the base plus tips and overtime, up to about $90, counts
@@ -288,8 +288,8 @@ export const SHIFT_ORDERS = 6;
 /** Seconds a customer waits per order: 16 at the start, down to 10 at the end of the rush. */
 export const ORDER_SECONDS = 16;
 export const ORDER_SECONDS_END = 10;
-/** A played shift lasts this long in real seconds (Peter, 2026-10-14: 3 minutes). */
-export const SHIFT_PLAY_SECONDS = 180;
+/** A played shift lasts this long in real seconds (Peter, 2026-10-16: "cut the times down to like 1min 20sec"; was 3 minutes). */
+export const SHIFT_PLAY_SECONDS = 80;
 /** Choices per shift (at a quarter, half and three quarters of the way). */
 export const SHIFT_CHOICES_PER = 3;
 /** Pay at the first rung when a career doesn't set its own (cents): auto, and the most a played shift can pay. */
@@ -297,10 +297,21 @@ export const SHIFT_PAY = { auto: 3_000, max: 9_000 } as const;
 /** An auto shift takes this long in real seconds (you have to stay in the game). */
 export const AUTO_SHIFT_SECONDS = 30;
 /**
- * Tips and overtime scale to the job's room. Tuned so a good 3-minute
- * shift (about 15 orders) can just reach the top pay.
+ * Tips and overtime scale to the job's room. Tuned so a good 80-second
+ * shift (about 7 orders) can just reach the top pay.
  */
-const DESIGN_ROOM = 12_500;
+const DESIGN_ROOM = 5_600;
+
+/**
+ * Pay boost (Peter, 2026-10-16: "multiply quick working by 2 … working by
+ * playing the game by 2.5"): ⏩ auto pays 2× the job's listed base, and a
+ * played shift can reach 2.5× its listed top.
+ */
+export const PAY_BOOST = { auto: 2, played: 2.5 } as const;
+/** Orders that make a played shift "real" (counts toward raises, rep). */
+export const REAL_SHIFT_ORDERS = 4;
+/** 🔥/💼 rep from a played shift: the job's rep × this (Peter: "increase the reps … for a full shift"). */
+export const SHIFT_REP_BOOST = 2;
 
 /** How much the tips and overtime are scaled for this pay band. */
 export function tipScale(band: { auto: number; max: number }): number {
@@ -365,7 +376,7 @@ export function careerBand(careerId: string, level = 0): { auto: number; max: nu
   const c = CAREER_BY_ID[careerId];
   const f = c ? c.ladder[Math.min(level, c.ladder.length - 1)].pay / c.ladder[0].pay : 1;
   const base = c?.shift ?? SHIFT_PAY;
-  return { auto: Math.round((base.auto * f) / 100) * 100, max: Math.round((base.max * f) / 100) * 100 };
+  return { auto: Math.round((base.auto * f * PAY_BOOST.auto) / 100) * 100, max: Math.round((base.max * f * PAY_BOOST.played) / 100) * 100 };
 }
 
 /** Clock in: checks you can work, then records the shift (save after this). */
@@ -443,20 +454,20 @@ export function finishDeliShift(s: GameState, shiftId: string, play: ShiftPlay, 
   overtime = Math.round(overtime / 25) * 25;
   applyNeeds(s, needs);
   // Performance, skill and the shift count through the shared work rules.
-  const played = !play.skipped && of >= 5;
+  const played = !play.skipped && of >= REAL_SHIFT_ORDERS;
   const done = completeShift(s, 'chill', { perf, needsDone: true, payCents: base, played, quality: of ? right / of : 0 });
   const extra = tips + overtime + covered;
   if (extra > 0) changeMoney(s, extra, 'Tips and overtime');
   else if (extra < 0) changeMoney(s, extra, 'Out of your pocket');
   s.stats.actionsDone['__shift'] = (s.stats.actionsDone['__shift'] ?? 0) + 1;
-  // 🔥/💼 Rep for a played shift: the job's most for getting every order right (needs a real shift: 5+ orders).
+  // 🔥/💼 Rep for a played shift: the job's most for getting every order right (needs a real shift: REAL_SHIFT_ORDERS+ orders).
   const rep: Payslip['rep'] = [];
-  if (!play.skipped && of >= 5 && mult > 0) {
+  if (!play.skipped && of >= REAL_SHIFT_ORDERS && mult > 0) {
     // 🚓 Cops earn both: taking envelopes (exposure) leans street, staying clean leans corporate.
     const dirty = session.careerId === 'cop' && (s.exposure ?? 0) > 0;
     for (const d of CAREER_BY_ID[session.careerId]?.shift?.rep ?? []) {
       const lean = session.careerId === 'cop' && (d.kind === 'street') === dirty ? 1 : 0;
-      const points = Math.round((d.max + lean) * (right / of));
+      const points = Math.round((d.max + lean) * SHIFT_REP_BOOST * (right / of));
       if (points > 0) rep.push({ kind: d.kind, points, rankUp: addRep(s, d.kind, points) });
     }
   }

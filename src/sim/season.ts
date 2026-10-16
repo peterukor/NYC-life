@@ -42,6 +42,11 @@ export const POINTS = {
   artMilestone: 10,
   bottle: 8,
   shift: 6,
+  /** A played shift (Peter, 2026-10-16: more for a full shift), plus a bonus for every order right. */
+  shiftPlayed: 25,
+  perfectShift: 15,
+  /** Something odd at an uptown spot (data/uptown.ts). */
+  oddity: 6,
   challenge: 40,
   allChallenges: 80,
   newPlace: 5,

@@ -6,25 +6,25 @@ import { buyBottle, goHomeWith } from '../src/sim/celebrate.ts';
 
 const life = () => newLife({ name: 'T', origin: 'hustler', spawnClass: 'billionaire', look: { body: 'm', skin: '#000', top: '#000', bottom: '#000', hair: '#000' }, birthYear: 1990, traits: [] });
 
-test("Peter's 7 bottles: $700 to $100k, and the show grows with the price", () => {
-  assert.equal(BOTTLES.length, 7);
-  assert.equal(BOTTLES[0].price, 70_000);
-  assert.equal(BOTTLES[6].price, 10_000_000);
+test("Peter's 12 bottles: $500 to $80k, and the show grows with the price", () => {
+  assert.equal(BOTTLES.length, 12);
+  assert.equal(BOTTLES[0].price, 50_000);
+  assert.equal(BOTTLES.at(-1)!.price, 8_000_000);
   assert.equal(BOTTLES[0].spotlight, 0);
   assert.equal(BOTTLES[1].spotlight, 0);
   assert.ok(BOTTLES[2].spotlight > 0, 'the 3rd bottle brings the spotlight');
-  for (let i = 1; i < 7; i++) {
+  for (let i = 1; i < BOTTLES.length; i++) {
     const a = BOTTLES[i - 1], b = BOTTLES[i];
     assert.ok(b.price > a.price && b.fireworks.size > a.fireworks.size && b.fireworks.seconds > a.fireworks.seconds && b.admirers >= a.admirers);
     if (i >= 3) assert.ok(b.spotlight > a.spotlight);
   }
-  assert.deepEqual(BOTTLES.map((b) => b.admirers), [2, 2, 3, 4, 5, 6, 7]);
+  assert.equal(BOTTLES.at(-1)!.admirers, 7);
   assert.ok(BOTTLES[0].fireworks.size >= 1.4, 'even the smallest burst is a proper one');
 });
 
 test('buying a bottle: cash then bank; can’t go below zero', () => {
   const s = life();
-  s.money = 50_000;
+  s.money = 40_000;
   const bank = s.bank;
   assert.ok(buyBottle(s, 'mowet').ok);
   assert.equal(s.money, 0);

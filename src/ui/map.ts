@@ -15,7 +15,8 @@
 //   • 🛰️ flies over the borough you're in, in 3D (ui/map3d.ts).
 // =====================================================================
 
-import { doorOf, isOpen, placesIn, PLACE_BY_ID } from '../data/places.ts';
+import { doorOf, isOpen, placesIn, PLACE_BY_ID, type PlaceDef } from '../data/places.ts';
+import { CITY_MAP, hasCityMap, placeOnMap } from '../sim/citymap.ts';
 import { HOODS } from '../data/neighborhoods.ts';
 import type { AreaId, GameState } from '../sim/types.ts';
 import { SAFE_AREAS, turfMap } from '../sim/gangs.ts';
@@ -43,6 +44,8 @@ export interface MapOptions {
   onPlot?: (plotId: string) => void;
   /** Open the 3D fly-over of the borough you're in. */
   onFlyover?: () => void;
+  /** Buy the 🗺️ Full City Map (sim/citymap.ts). Returns true when bought. */
+  onBuyMap?: () => boolean;
   onClose: () => void;
 }
 
@@ -61,12 +64,26 @@ export function openMap(opts: MapOptions): () => void {
         <button class="btn" data-act="close" aria-label="Close map">✕</button>
       </div>
       <canvas></canvas>
+      <div class="map-filters" data-filters></div>
       <div class="map-legend" data-legend>Pinch or scroll to zoom · tap a borough</div>
     </div>`);
   root().appendChild(el);
   const canvas = el.querySelector('canvas')!;
   const g = canvas.getContext('2d')!;
   const s = opts.state;
+  // 🗺️ Which places show (all with the Full City Map), and the kind filter.
+  const FILTERS: [string, string][] = [['', 'All'], ['food', '🍕'], ['cafe', '☕'], ['nightlife', '🪩'], ['fun', '🎲'], ['shop', '🛍️'], ['fitness', '💪'], ['work', '💼'], ['park', '🌳']];
+  let kind = '';
+  const shown = (p: PlaceDef) => placeOnMap(s, p, opts.player) && (!kind || p.type === kind || p.type === 'home' || p.type === 'station');
+  const drawFilters = () => {
+    const box = el.querySelector<HTMLElement>('[data-filters]')!;
+    box.innerHTML = hasCityMap(s)
+      ? FILTERS.map(([k, label]) => `<button class="map-chip${k === kind ? ' on' : ''}" data-act="kind:${k}" aria-pressed="${k === kind}">${label}</button>`).join('')
+      : opts.onBuyMap
+        ? `<button class="map-chip buy" data-act="buymap">🗺️ Full City Map · $${CITY_MAP.price / 100}<small>see every place</small></button>`
+        : '';
+  };
+  drawFilters();
 
   let scale = 1;
   let ox = 0;
@@ -550,9 +567,12 @@ export function openMap(opts: MapOptions): () => void {
         }
       }
       // Places (homes and stations always; the rest when zoomed in).
+      const full = hasCityMap(s);
       for (const p of places) {
         if (p.landmark || p.type === 'landmark') continue;
-        const near = scale > 0.9;
+        if (!shown(p)) continue;
+        // With the Full City Map places show from further out (and a filter shows its kind at any zoom).
+        const near = scale > (full ? (kind ? 0 : 0.6) : 0.9);
         if (!near && p.type !== 'home' && p.type !== 'station') continue;
         if (p.type === 'home' && p.id !== s.home.placeId && !near) continue;
         const door = doorOf(p);
@@ -570,7 +590,7 @@ export function openMap(opts: MapOptions): () => void {
         g.textBaseline = 'middle';
         g.fillText(p.emoji, x, y + 1);
         g.textBaseline = 'alphabetic';
-        if (scale > 1.6) halo(p.name.length > 22 ? `${p.name.slice(0, 21)}…` : p.name, x, y + r + 11, `700 10px ${FONT}`);
+        if (scale > (full ? 1.15 : 1.6)) halo(p.name.length > 22 ? `${p.name.slice(0, 21)}…` : p.name, x, y + r + 11, `700 10px ${FONT}`);
       }
     }
 
@@ -654,6 +674,7 @@ export function openMap(opts: MapOptions): () => void {
     if (!area) return;
     let best: { id: string; d: number } | null = null;
     for (const p of placesIn(area)) {
+      if (!shown(p)) continue;
       const at = p.landmark || p.type === 'landmark' ? (p.model ? project(p.model[0], p.model[1]) : project(p.at[0], p.at[1])) : doorOf(p);
       const dd = Math.hypot(sx(at.x) - px, sy(at.z) - py);
       if (dd < 26 && (!best || dd < best.d)) best = { id: p.id, d: dd };
@@ -678,6 +699,18 @@ export function openMap(opts: MapOptions): () => void {
 
   onAct(el, (act) => {
     if (act === 'close') return void close();
+    if (act === 'buymap') {
+      if (opts.onBuyMap?.()) {
+        drawFilters();
+        draw();
+      }
+      return;
+    }
+    if (act.startsWith('kind:')) {
+      kind = act.slice(5);
+      drawFilters();
+      return draw();
+    }
     if (act === 'city') return flyTo(closeView());
     // 📍 You in the middle, at the zoom you're at (Peter, 2026-10-15).
     if (act === 'me') return flyTo(clampView({ sc: scale, ox: W() / 2 - opts.player.x * scale, oy: H() / 2 + 20 - opts.player.z * scale }));

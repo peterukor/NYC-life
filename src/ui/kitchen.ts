@@ -53,7 +53,7 @@ export function openFridge(s: GameState, title: string, emoji: string, hooks: Fr
         : '<p class="blurb">No leftovers. Cook something on the stove and keep the extra portions here.</p>'}
       <h3 class="shop-group">Ingredients</h3>
       ${stock.length
-        ? `<div class="k-chips">${stock.map((i) => `<span class="k-chip">${i.emoji} ${esc(i.name)} <b>${units(i.id, k.pantry[i.id])}</b></span>`).join('')}</div>`
+        ? `<div class="k-chips">${stock.map((i) => `<span class="k-chip">${i.emoji} ${esc(i.name)} <b>${units(i.id, k.pantry[i.id])}</b></span>`).join('')}</div><p class="sub">🔥 To cook with these, close the fridge and tap the stove.</p>`
         : '<p class="blurb">Nothing to cook with yet.</p>'}
       ${coming !== null ? `<p class="blurb k-coming">🛵 InstaDash order on its way · about ${coming}s</p>` : ''}
       <button class="btn block k-order" data-act="order">🛵 Order groceries on InstaDash</button>

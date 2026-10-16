@@ -234,6 +234,8 @@ export interface GameState {
   activity?: import('./home-activity.ts').Activity | null;
   news: NewsItem[];
   tutorialStep: number;
+  /** Owns the 🗺️ Full City Map (sim/citymap.ts). */
+  cityMap?: boolean;
   /** Tips already shown (sim/hints.ts). */
   hintsSeen?: string[];
   settings: { quality: 'auto' | 'low' | 'medium' | 'high'; sound: boolean; /** The soundtrack (ui/music.ts); undefined = on. */ music?: boolean; /** Volume 0–100 (🔊 mixer); undefined = default. */ musicVol?: number; sfxVol?: number; /** 💡 Tips for new players (sim/hints.ts); undefined = all. */ hints?: 'all' | 'few' | 'off' };

@@ -103,7 +103,8 @@ export function autoSeconds(): number {
 export function shiftIntro(info: ShiftIntro): Promise<'play' | 'auto' | null> {
   return new Promise((resolve) => {
     const menu = menuFor(info.careerId);
-    const mins = Math.round(playSeconds() / 60);
+    const secs = playSeconds();
+    const mins = secs % 60 ? `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}` : `${secs / 60}`;
     const m = openModal(`
       <div class="big">${menu.emoji}</div>
       <h2>${esc(info.title)} at ${esc(info.place)}</h2>
