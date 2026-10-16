@@ -128,6 +128,12 @@ export interface GameState {
   };
   /** 🔥 Street rep and 💼 corporate rep (sim/rep.ts). Old saves: missing. */
   rep?: { street: number; corporate: number };
+  /** 🔑 Homes you own (sim/realestate.ts). */
+  owned?: import('./realestate.ts').OwnedHome[];
+  /** 🏆 Season points, ✅ daily challenges, 🔥 streak (sim/season.ts). */
+  season?: import('./season.ts').SeasonState;
+  daily?: import('./season.ts').DailyState;
+  streak?: { last: string; days: number };
   /** 🎨 Your paintings at the Bowery Art Parlor (sim/art.ts). */
   art?: import('./art.ts').Artwork[];
   /** 🎣 Fishing: best catches (sim/fishing.ts). */
@@ -213,6 +219,8 @@ export interface GameState {
     fightsLost?: number;
     chasesEscaped?: number;
     chasesCaught?: number;
+    /** Money your roommates owe you (cents, by name). */
+    roommateLoans?: Record<string, number>;
   };
 
   events: { lastFiredAt: number; cooldowns: Record<string, number> };
@@ -226,5 +234,7 @@ export interface GameState {
   activity?: import('./home-activity.ts').Activity | null;
   news: NewsItem[];
   tutorialStep: number;
-  settings: { quality: 'auto' | 'low' | 'medium' | 'high'; sound: boolean; /** The soundtrack (ui/music.ts); undefined = on. */ music?: boolean; /** Volume 0–100 (🔊 mixer); undefined = default. */ musicVol?: number; sfxVol?: number };
+  /** Tips already shown (sim/hints.ts). */
+  hintsSeen?: string[];
+  settings: { quality: 'auto' | 'low' | 'medium' | 'high'; sound: boolean; /** The soundtrack (ui/music.ts); undefined = on. */ music?: boolean; /** Volume 0–100 (🔊 mixer); undefined = default. */ musicVol?: number; sfxVol?: number; /** 💡 Tips for new players (sim/hints.ts); undefined = all. */ hints?: 'all' | 'few' | 'off' };
 }

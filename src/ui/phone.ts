@@ -296,6 +296,9 @@ export function openPhone(host: PhoneHost, startApp?: string): () => void {
           ${volumeRow('sfx', '🔊', 'Sound effects', s.settings.sfxVol ?? 80, s.settings.sound)}
           ${s.settings.music !== false && s.settings.sound && host.nowPlaying?.() ? `<p class="fine">Now playing: ${esc(host.nowPlaying()!)}</p><button class="btn block" data-act="skipsong">⏭ Next song</button>` : ''}
         </div>
+        <div class="card"><h3>💡 Tips for new players</h3><p>Little pop-up tips while you learn the city.</p>
+          <div class="seg" style="margin-top:10px">${(['all', 'few', 'off'] as const).map((x) => `<button data-act="hints:${x}" class="${(s.settings.hints ?? 'all') === x ? 'on' : ''}">${{ all: 'All', few: 'Fewer', off: 'Off' }[x]}</button>`).join('')}</div>
+          ${s.hintsSeen?.length ? '<button class="btn block" style="margin-top:8px" data-act="hints:again">Show tips again from the start</button>' : ''}</div>
         <div class="card"><h3>Start over</h3><p>Deletes this life on this device. There’s no undo.</p><button class="btn block" style="margin-top:10px;color:var(--bad)" data-act="reset">Start a new life</button></div>
         <p class="fine">NYC Life preview · single-player · saves on this device. Places are inspired by real New York; brands are fictional unless marked “Sponsored”.</p>`);
     },
@@ -411,6 +414,14 @@ export function openPhone(host: PhoneHost, startApp?: string): () => void {
       host.save();
       host.refresh();
       return apps.stocks();
+    }
+    if (act.startsWith('hints:')) {
+      const v = act.slice(6);
+      if (v === 'again') s.hintsSeen = [];
+      else s.settings.hints = v as 'all' | 'few' | 'off';
+      host.save();
+      host.refresh();
+      return apps.settings();
     }
     if (act.startsWith('q:')) {
       host.setQuality(act.slice(2) as GameState['settings']['quality']);

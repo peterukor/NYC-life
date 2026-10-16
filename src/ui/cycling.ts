@@ -16,6 +16,8 @@ export interface BikeHost {
   state: GameState;
   saved: () => void;
   onTime?: (seconds: number) => void;
+  /** Where you finished (0 = first). */
+  onRace?: (place: number) => void;
 }
 
 /** Corners: start and end (share of the loop) and the safe speed. */
@@ -99,6 +101,7 @@ export function raceBike(host: BikeHost): void {
     const r = finishRace(s, t, racers);
     host.saved();
     host.onTime?.(t);
+    host.onRace?.(r.place);
     r.place === 0 ? sfx.cheer() : sfx.win();
     msg.innerHTML = `<b>${r.text}</b>`;
     el.querySelector('.bike-pedals')!.innerHTML = '<button class="btn primary block" data-act="close">Done</button>';

@@ -1,5 +1,6 @@
 // =====================================================================
-// paths.ts — the big life ladders: Crime Boss, CEO and Celebrity.
+// paths.ts — the big life ladders: Crime Boss, CEO, Celebrity, Fighter,
+// Artist and Game Shark.
 //
 // Each path has 7 levels (Celebrity tops out at 6). To climb you need
 // REP (it builds fast early and very, very slowly later — see repCurve)
@@ -108,6 +109,61 @@ PATHS.add(
       { pick: 3, pool: [T.act('karaoke', 8, 'Own 8 karaoke nights'), T.skill('charisma', 5, 'Charisma 5'), T.places(14, 'Be seen at 14 spots'), T.days(6, 'Active on 6 days'), T.act('postContent', 25, 'Post 25 times')] },
       { pick: 3, fixed: [T.days(14, 'Two weeks in the spotlight (14 days)')], pool: [T.skill('music', 7, 'Music 7'), T.skill('charisma', 7, 'Charisma 7'), T.act('openMic', 40, '40 open mics'), T.worth(10_000_000, 'Net worth $100,000')] },
       { pick: 0, fixed: [{ kind: 'streak', days: 21, label: 'Keep a borough entertained 21 days in a row (no repeats)' }], pool: [] },
+    ],
+  },
+  // New paths (Peter, 2026-10-15: "I love the life path, add more"). Their
+  // rep comes from the playable stuff: fights, chases, art, chess, races…
+  // (game.ts → credit(): these ids count like actions).
+  {
+    id: 'fighter',
+    name: 'Fighter',
+    emoji: '🥊',
+    blurb: 'From scrapping outside the halal cart to headlining. Win fights, train hard, never back down. Every win builds your name.',
+    titles: ['Scrapper', 'Brawler', 'Contender', 'Prospect', 'Champion', 'Legend', 'GOAT'],
+    repCurve: [0, 40, 150, 400, 950, 2_300, 5_200],
+    rep: { fightWon: 18, punchBag: 3, gymSession: 4, treadmill: 2, chaseEscaped: 6 },
+    warning: 'Fights hurt. Losing costs street rep and sometimes an ER bill.',
+    tasks: [
+      { pick: 2, pool: [T.act('fightWon', 1, 'Win a fight'), T.act('punchBag', 3, 'Hit the heavy bag 3 times'), T.skill('fitness', 2, 'Fitness 2')] },
+      { pick: 2, pool: [T.act('fightWon', 4, 'Win 4 fights'), T.act('gymSession', 4, 'Lift 4 times'), T.skill('fitness', 3, 'Fitness 3'), T.skill('streetSmarts', 3, 'Street Smarts 3')] },
+      { pick: 3, pool: [T.act('fightWon', 10, 'Win 10 fights'), T.skill('fitness', 5, 'Fitness 5'), T.act('chaseEscaped', 2, 'Outrun the cops twice'), T.days(5, 'Active on 5 days'), T.act('punchBag', 15, '15 heavy bag sessions')] },
+      { pick: 3, pool: [T.act('fightWon', 25, 'Win 25 fights'), T.skill('fitness', 7, 'Fitness 7'), T.skill('streetSmarts', 6, 'Street Smarts 6'), T.days(9, 'Active on 9 days')] },
+      { pick: 3, fixed: [T.days(15, 'Two weeks of training (15 days)')], pool: [T.act('fightWon', 60, 'Win 60 fights'), T.skill('fitness', 9, 'Fitness 9'), T.act('chaseEscaped', 10, 'Outrun the cops 10 times')] },
+      { pick: 2, fixed: [T.days(26, 'Active on 26 days')], pool: [T.act('fightWon', 140, 'Win 140 fights'), T.skill('fitness', 10, 'Fitness 10'), T.worth(20_000_000, 'Net worth $200,000')] },
+    ],
+  },
+  {
+    id: 'artist',
+    name: 'Artist',
+    emoji: '🎨',
+    blurb: 'Paint at the Bowery Art Parlor, get noticed, sell to collectors. One day the whole city knows your style.',
+    titles: ['Doodler', 'Painter', 'Up-and-Comer', 'Gallery Regular', 'Collected', 'Famous', 'Master'],
+    repCurve: [0, 35, 130, 380, 900, 2_200, 5_000],
+    rep: { paintHung: 10, artMilestone: 8, artSold: 35, busk: 3, openMic: 3 },
+    tasks: [
+      { pick: 2, pool: [T.act('paintHung', 1, 'Hang a painting'), T.act('artMilestone', 1, 'Get a painting to 10 likes'), T.places(4, 'Find 4 spots for inspiration')] },
+      { pick: 2, pool: [T.act('paintHung', 4, 'Hang 4 paintings'), T.act('artMilestone', 3, 'Hit 3 like milestones'), T.skill('charisma', 2, 'Charisma 2')] },
+      { pick: 3, pool: [T.act('paintHung', 10, 'Hang 10 paintings'), T.act('artSold', 1, 'Sell to a collector'), T.act('artMilestone', 8, 'Hit 8 like milestones'), T.days(5, 'Active on 5 days')] },
+      { pick: 3, pool: [T.act('artSold', 4, 'Sell 4 paintings'), T.act('artMilestone', 20, '20 like milestones'), T.worth(5_000_000, 'Net worth $50,000'), T.days(9, 'Active on 9 days')] },
+      { pick: 3, fixed: [T.days(15, 'Two weeks at the easel (15 days)')], pool: [T.act('artSold', 12, 'Sell 12 paintings'), T.act('paintHung', 50, 'Hang 50 paintings'), T.skill('charisma', 6, 'Charisma 6')] },
+      { pick: 2, fixed: [T.days(26, 'Active on 26 days')], pool: [T.act('artSold', 30, 'Sell 30 paintings'), T.worth(50_000_000, 'Net worth $500,000')] },
+    ],
+  },
+  {
+    id: 'shark',
+    name: 'Game Shark',
+    emoji: '🎲',
+    blurb: 'Chess hustler, arcade legend, derby champ, bike-loop king. If there’s a game in this city, you win it.',
+    titles: ['Rookie', 'Regular', 'Shark', 'Hustler', 'Pro', 'Legend', 'Unbeatable'],
+    repCurve: [0, 40, 140, 400, 950, 2_300, 5_200],
+    rep: { chessWin: 14, arcadeGame: 2, raceWin: 14, fishLanded: 2, derbyWin: 25 },
+    tasks: [
+      { pick: 2, pool: [T.act('chessWin', 1, 'Win a game of chess'), T.act('arcadeGame', 5, 'Play 5 arcade or phone games'), T.act('fishLanded', 2, 'Land 2 fish')] },
+      { pick: 2, pool: [T.act('chessWin', 4, 'Win 4 chess games'), T.act('raceWin', 1, 'Win the bike loop'), T.act('arcadeGame', 20, 'Play 20 games'), T.skill('streetSmarts', 3, 'Street Smarts 3')] },
+      { pick: 3, pool: [T.act('chessWin', 10, 'Win 10 chess games'), T.act('raceWin', 4, 'Win the loop 4 times'), T.act('fishLanded', 20, 'Land 20 fish'), T.days(5, 'Active on 5 days')] },
+      { pick: 3, pool: [T.act('derbyWin', 1, 'Win the fishing derby'), T.act('chessWin', 25, 'Win 25 chess games'), T.act('raceWin', 10, 'Win the loop 10 times'), T.days(9, 'Active on 9 days')] },
+      { pick: 3, fixed: [T.days(15, 'Two weeks on top (15 days)')], pool: [T.act('chessWin', 60, 'Win 60 chess games'), T.act('derbyWin', 4, 'Win 4 derbies'), T.skill('streetSmarts', 7, 'Street Smarts 7')] },
+      { pick: 2, fixed: [T.days(26, 'Active on 26 days')], pool: [T.act('chessWin', 140, 'Win 140 chess games'), T.worth(20_000_000, 'Net worth $200,000')] },
     ],
   },
 );

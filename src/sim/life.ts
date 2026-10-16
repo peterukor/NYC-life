@@ -3,6 +3,7 @@
 // a new day starts at New York midnight, and weekly bills come due.
 // =====================================================================
 
+import { collectRents } from './realestate.ts';
 import { PLACE_BY_ID } from '../data/places.ts';
 import { runCollections } from './debt.ts';
 import { runGangDay } from './gangs.ts';
@@ -75,6 +76,9 @@ function rollDays(state: GameState): string | null {
   // Crews raid each other; NPC bosses may demote idle members (sim/gangs.ts).
   const gangNote = runGangDay(state, today);
   if (gangNote) notes.push(gangNote);
+
+  // ----- 🔑 Tenants pay you (homes you own but don't live in) -----
+  for (const n of collectRents(state, today)) notes.push(n);
 
   // ----- Rent: every 7 days from the move-in day -----
   if (state.home.weeklyRent > 0) {

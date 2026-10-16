@@ -30,8 +30,10 @@ import { DISTRICTS } from '../world/layout.ts';
 import type { PhoneHost } from './phone.ts';
 import { toast } from './dom.ts';
 import { PHONE_GAMES } from './arcade.ts';
+import { board, CHALLENGES, daily, POINTS, SEASON, seasonEnds, seasonOf } from '../sim/season.ts';
 import { ARCADE_BY_ID, bestScore } from '../sim/arcade.ts';
 import { homesForRent, listingName, moveBlocker, moveCost, MOVING } from '../sim/moving.ts';
+import { buyHome, homePrice, owns, REAL_ESTATE, sellHome } from '../sim/realestate.ts';
 import { layoutForPlace } from '../data/homes.ts';
 import { PLACE_BY_ID as PLACES } from '../data/places.ts';
 import { personOf, RELATION, vibe } from '../sim/people.ts';
@@ -184,6 +186,49 @@ PHONE_APPS.add({
 });
 
 // ---------------------------------------------------------------------
+// 🏆 Leaderboard (Peter, 2026-10-15): this season's board (3 days, top 3
+// paid), today's three challenges, your streak, your records.
+// ---------------------------------------------------------------------
+PHONE_APPS.add({
+  id: 'leaders',
+  label: 'Leaderboard',
+  icon: '🏆',
+  bg: '#ffb703',
+  needsPhone: false,
+  render: ({ s }) => {
+    const st = seasonOf(s);
+    const rows = board(s);
+    const me = rows.findIndex((r) => r.you);
+    const left = Math.max(0, seasonEnds() - nowMs());
+    const h = Math.floor(left / 3_600_000);
+    const d = daily(s);
+    const recs: [string, string][] = [
+      ['♟️ Chess rating', String(s.chess?.rating ?? '—')],
+      ['🎣 Biggest fish', s.fishing?.best ? `${s.fishing.best.lb} lb` : '—'],
+      ['🚴 Best loop', s.bike?.best ? `${s.bike.best} s` : '—'],
+      ['🥪 Bodega Stack', String(bestScore(s, 'stack') || '—')],
+      ['🛵 Delivery Dash', String(bestScore(s, 'dash') || '—')],
+      ['🥊 Fights won', String(s.stats.fightsWon ?? 0)],
+      ['💨 Cops escaped', String(s.stats.chasesEscaped ?? 0)],
+      ['🏆 Best season', `${st.best} pts`],
+    ];
+    return {
+      title: 'Leaderboard',
+      body: `<div class="card" style="border:3px solid #ffb703"><h3>🏆 Season ${st.id}: you’re #${me + 1}</h3><p><b>${st.points} points</b> · ends in ${h >= 24 ? `${Math.floor(h / 24)}d ${h % 24}h` : `${h}h`} · top 3 win 🥇 ${money(SEASON.prizes[0])} · 🥈 ${money(SEASON.prizes[1])} · 🥉 ${money(SEASON.prizes[2])}</p></div>
+        <div class="travel">${rows.map((r, i) => `<div class="opt" style="${r.you ? 'border-color:var(--ink);background:#fff3c4' : ''}"><span style="font-size:20px;min-width:30px">${['🥇', '🥈', '🥉'][i] ?? `${i + 1}.`}</span><span class="grow"><b>${esc(r.name)}${r.you ? ' (you)' : ''}</b></span><span class="cost">${r.points}</span></div>`).join('')}</div>
+        <p class="sub">Earn points: win fights, escape the cops, win at chess, catch fish, race the loop, play games, hang art, pop bottles, work shifts, explore, and finish daily challenges.</p>
+        <h3 style="margin:14px 0 6px">✅ Today’s challenges ${d.done.length}/${d.picks.length}</h3>
+        ${d.picks.map((id) => { const c = CHALLENGES.find((x) => x.id === id)!; const n = Math.min(c.need, d.progress[id] ?? 0); const done = d.done.includes(id); return `<div class="list-item"><div style="font-size:24px">${done ? '✅' : c.emoji}</div><div class="grow"><div class="title">${esc(c.label)}</div><div class="sub">${done ? 'Done!' : `${n}/${c.need}`} · ${money(c.cash)} + ${POINTS.challenge} 🏆</div></div></div>`; }).join('')}
+        <p class="sub">All three: +${money(50_000)} bonus. New challenges every game day.</p>
+        <h3 style="margin:14px 0 6px">🔥 Streak: ${s.streak?.days ?? 0} day${(s.streak?.days ?? 0) === 1 ? '' : 's'}</h3>
+        <p class="sub">Come back every day: the welcome-back gift grows for 7 days.</p>
+        <h3 style="margin:14px 0 6px">📒 Your records</h3>
+        ${recs.map(([k, v]) => `<div class="skill-row"><span>${k}</span><span style="flex:1"></span><b>${esc(v)}</b></div>`).join('')}`,
+    };
+  },
+});
+
+// ---------------------------------------------------------------------
 // 📱 Games (Peter, 2026-10-15: "add playable games that can be played on
 // phone that are fun"). Free here, for the high score; the same games at
 // Pixel Palace pay out 🎟️ tickets for prizes (a reason to go out).
@@ -232,13 +277,26 @@ PHONE_APPS.add({
         const c = lay.conditions;
         const extras = [c?.roommates?.length ? `👥 ${c.roommates.length} roommates` : '', c?.doorman ? '🛎️ doorman' : '', c?.housekeeper ? '🧹 housekeeper' : '', `${lay.rooms.length} rooms`].filter(Boolean).join(' · ');
         const why = mine ? null : moveBlocker(s, p);
-        return `<div class="list-item"><div style="font-size:26px">${p.emoji}</div><div class="grow"><div class="title">${esc(listingName(s, p))}${mine ? ' · <span style="color:var(--good)">you live here</span>' : ''}</div><div class="sub">${p.rent ? `${money(p.rent)}/week` : 'Free'} · ${esc(extras)}<br>${esc(p.blurb)}${why ? `<br><i>${esc(why)}</i>` : ''}</div></div>${mine ? '' : `<button class="btn ${why ? '' : 'primary'}" data-act="homes.pick:${p.id}" ${why ? 'disabled' : ''}>Move</button>`}</div>`;
+        const own = owns(s, p.id);
+        const price = homePrice(p);
+        const tenants = own && !mine ? `<br>🔑 Rented out: +${money(Math.round((p.rent ?? 0) * REAL_ESTATE.keep))}/week` : '';
+        const deal = price ? (own ? `<button class="btn ghost" data-act="homes.sell:${p.id}" ${mine ? 'disabled' : ''}>Sell ${money(Math.round(price * REAL_ESTATE.sellBack))}</button>` : `<button class="btn" data-act="homes.buy:${p.id}" ${s.money + s.bank >= price ? '' : 'disabled'}>Buy ${money(price)}</button>`) : '';
+        return `<div class="list-item" style="flex-wrap:wrap"><div style="font-size:26px">${p.emoji}</div><div class="grow"><div class="title">${esc(listingName(s, p))}${mine ? ' · <span style="color:var(--good)">you live here</span>' : ''}${own ? ' · 🔑 yours' : ''}</div><div class="sub">${own && mine ? 'No rent: you own it' : p.rent ? `${money(p.rent)}/week` : 'Free'} · ${esc(extras)}<br>${esc(p.blurb)}${tenants}${why ? `<br><i>${esc(why)}</i>` : ''}</div></div><div class="row" style="gap:6px;width:100%;justify-content:flex-end;margin-top:6px">${deal}${mine ? '' : `<button class="btn ${why ? '' : 'primary'}" data-act="homes.pick:${p.id}" ${why ? 'disabled' : ''}>Move</button>`}</div></div>`;
       })
       .join('');
-    return { title: 'Homes', body: `${confirm}<p class="sub">Move any time: movers + the first week up front. Landlords want to see ${MOVING.proofWeeks} weeks of rent in your cash + bank.</p>${rows}` };
+    const owned = (s.owned ?? []).length;
+    return { title: 'Homes', body: `${confirm}<p class="sub">Move any time: movers + the first week up front. Landlords want to see ${MOVING.proofWeeks} weeks of rent in your cash + bank. 🔑 Or buy: live rent-free, or rent it out for weekly income.${owned ? ` You own ${owned}.` : ''}</p>${rows}` };
   },
   act: (act, { s, host }) => {
     const [what, id] = act.split(':');
+    if (what === 'buy') {
+      const err = buyHome(s, id);
+      toast(err ?? `It’s yours! ${s.home.placeId === id ? 'No more rent here.' : 'Tenants will pay you rent every week.'}`, { icon: '🔑', tone: err ? 'bad' : 'good', ms: 4000 });
+    }
+    if (what === 'sell') {
+      const r = sellHome(s, id);
+      toast('error' in r ? r.error : `Sold for ${money(r.got)}.`, { icon: '🔑', tone: 'error' in r ? 'bad' : 'good' });
+    }
     if (what === 'pick') pendingHome = id;
     if (what === 'cancel') pendingHome = null;
     if (what === 'confirm' && pendingHome) {

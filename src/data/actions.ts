@@ -92,6 +92,18 @@ const LIST: ActionDef[] = [
   // Entertainment (Peter, 2026-10-14): each opens its own game or screen.
   { id: 'getSection', label: 'Your VIP section', emoji: '🛋️', seconds: 2, tags: ['service'] },
   { id: 'mingle', label: 'Mingle', emoji: '🍸', seconds: 2, tags: ['service', 'social'] },
+  // Milestones from the playable stuff (fights, art, chess…): never buttons,
+  // they only count for life paths (data/paths.ts → Fighter, Artist, Game Shark).
+  { id: 'fightWon', label: 'Won a fight', emoji: '🥊', seconds: 0, tags: ['milestone'] },
+  { id: 'chaseEscaped', label: 'Outran the cops', emoji: '💨', seconds: 0, tags: ['milestone'] },
+  { id: 'paintHung', label: 'Hung a painting', emoji: '🎨', seconds: 0, tags: ['milestone'] },
+  { id: 'artMilestone', label: 'A painting hit a like milestone', emoji: '❤️', seconds: 0, tags: ['milestone'] },
+  { id: 'artSold', label: 'Sold a painting', emoji: '💰', seconds: 0, tags: ['milestone'] },
+  { id: 'chessWin', label: 'Won at chess', emoji: '♟️', seconds: 0, tags: ['milestone'] },
+  { id: 'arcadeGame', label: 'Played a game', emoji: '🕹️', seconds: 0, tags: ['milestone'] },
+  { id: 'raceWin', label: 'Won the bike loop', emoji: '🚴', seconds: 0, tags: ['milestone'] },
+  { id: 'fishLanded', label: 'Landed a fish', emoji: '🎣', seconds: 0, tags: ['milestone'] },
+  { id: 'derbyWin', label: 'Won the fishing derby', emoji: '🏆', seconds: 0, tags: ['milestone'] },
   { id: 'playChess', label: 'Play chess (pick an opponent and a bet)', emoji: '♟️', seconds: 2, tags: ['service', 'fun'] },
   { id: 'paintArt', label: 'Paint something', emoji: '🖌️', seconds: 2, tags: ['service', 'fun'] },
   { id: 'viewGallery', label: 'The gallery wall', emoji: '🖼️', seconds: 2, tags: ['service', 'fun'] },
