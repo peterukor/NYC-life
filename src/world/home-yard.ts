@@ -20,6 +20,8 @@ export interface YardOptions {
   /** The car on the driveway (a vehicle id and paint), or none. */
   car?: { model: string; paint: string } | null;
   shadows?: boolean;
+  /** Upstairs: the garden sits this far below, with the ground floor's outside walls in between. */
+  storey?: number;
 }
 
 export interface Yard {
@@ -222,6 +224,29 @@ export function buildYard(layout: HomeLayout, opts: YardOptions = {}): Yard {
     m.rotation.y = Math.PI; // nose to the house
     m.castShadow = !!opts.shadows;
     m.name = 'yard-car';
+    group.add(m);
+  }
+
+  // ---- upstairs: the storey below (outside walls with windows), the garden at its foot
+  const storey = opts.storey ?? 0;
+  if (storey > 0) {
+    group.position.y = -storey;
+    const parts: THREE.BufferGeometry[] = [];
+    const top = storey - 0.45, h = top - LAWN_Y;
+    parts.push(clean(colored(new THREE.BoxGeometry(layout.width + 0.4, h, layout.depth + 0.4).translate(0, LAWN_Y + h / 2, 0), '#e6d6bd')));
+    parts.push(clean(colored(new THREE.BoxGeometry(layout.width + 0.6, 0.18, layout.depth + 0.6).translate(0, top - 0.09, 0), '#f4efe6')));
+    const winY = LAWN_Y + h * 0.55, wh = h * 0.45;
+    const win = (cx: number, cz: number, alongX: boolean) => {
+      const g = alongX ? new THREE.BoxGeometry(1.6, wh, 0.06) : new THREE.BoxGeometry(0.06, wh, 1.6);
+      parts.push(clean(colored(g.translate(cx, winY, cz), '#3c4f6b')));
+    };
+    for (let x = -hw + 2; x <= hw - 2; x += 3.2) { win(x, -hd - 0.22, true); win(x, hd + 0.22, true); }
+    for (let z = -hd + 2; z <= hd - 2; z += 3.2) { win(-hw - 0.22, z, false); win(hw + 0.22, z, false); }
+    const g = keep(mergeGeometries(parts)!);
+    parts.forEach((q) => q.dispose());
+    const m = new THREE.Mesh(g, keep(new THREE.MeshLambertMaterial({ vertexColors: true })));
+    m.name = 'yard-storey';
+    m.receiveShadow = !!opts.shadows;
     group.add(m);
   }
 

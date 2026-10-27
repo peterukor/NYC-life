@@ -429,6 +429,41 @@ export const DECO_TOYS: Record<string, (t: Toy) => void> = {
     t.add(new THREE.PlaneGeometry(0.012, 0.12).translate(0, 0.25, 0.044), '#1d1e22');
     t.add(new THREE.PlaneGeometry(0.09, 0.012).rotateZ(0.5).translate(0.035, 0.22, 0.044), '#1d1e22');
   },
+  /** A grand staircase going up (steps rise towards the back, a black rail each side). 1.3 × 3.8 m. */
+  decoStairsUp(t) {
+    const W = 1.3, L = 3.8, N = 14, H = 2.85;
+    for (let i = 0; i < N; i++) {
+      const z0 = L / 2 - (i + 1) * (L / N);
+      t.inSlot(1, () => t.block(W - 0.1, (H * (i + 1)) / N, L / N, 0, 0, z0 + L / N / 2, WHITE, 0.01));
+    }
+    t.inSlot(2, () => {
+      for (const sx of [-1, 1]) {
+        const x = sx * (W / 2 - 0.03);
+        tube(t, [[x, 0.95, L / 2 - 0.05], [x, 0.95 + H, -L / 2 + 0.05]], 0.025, WHITE);
+        for (let i = 0; i <= 6; i++) {
+          const f = i / 6, z = L / 2 - 0.05 - f * (L - 0.1), y = f * H;
+          t.cyl(0.012, 0.012, 0.95, x, y, z, WHITE, 5);
+        }
+      }
+    });
+  },
+  /** The top of the stairs: an opening in the floor with a rail round three sides and the first steps going down. 1.3 × 3.8 m. */
+  decoStairsDown(t) {
+    const W = 1.3, L = 3.8;
+    t.add(new THREE.PlaneGeometry(W, L).rotateX(-Math.PI / 2).translate(0, 0.012, 0), '#2a2622');
+    for (let i = 0; i < 6; i++) {
+      const k = 1 - i * 0.13;
+      t.inSlot(1, () => t.add(new THREE.PlaneGeometry(W - 0.12, L / 14).rotateX(-Math.PI / 2).translate(0, 0.016, L / 2 - 0.15 - i * (L / 14)), new THREE.Color(WHITE).multiplyScalar(k)));
+    }
+    t.inSlot(2, () => {
+      for (const sx of [-1, 1]) {
+        const x = sx * (W / 2 + 0.02);
+        t.block(0.05, 0.05, L, x, 0.95, 0, WHITE, 0.01);
+        for (let i = 0; i <= 7; i++) t.cyl(0.012, 0.012, 0.95, x, 0, -L / 2 + (i * L) / 7, WHITE, 5);
+      }
+      t.block(W + 0.09, 0.05, 0.05, 0, 0.95, -L / 2, WHITE, 0.01);
+    });
+  },
   /** A live stage: a platform with a glowing edge, drum kit, mic stand, two speakers. */
   decoLiveStage(t) {
     const W = 5, D = 3;

@@ -56,7 +56,7 @@ import { DesignMode } from './ui/design-mode.ts';
 import { doorOfLayout } from './world/footprint.ts';
 import { initThumbs } from './render/furniture-thumbs.ts';
 import { setHomeAnisotropy, setHomeSurfaceDetail } from './render/home-surfaces.ts';
-import { layoutForPlace, type HomeLayout } from './data/homes.ts';
+import { floorLayout, layoutForPlace, type HomeLayout } from './data/homes.ts';
 import { VENUE_LAYOUT_FOR, VENUE_LAYOUTS, WORKPLACE_LAYOUTS, WORKPLACE_LAYOUT_FOR } from './data/venues.ts';
 import { FURNITURE, FURNITURE_QUALITY, qualityLine, SHOP_ITEMS } from './data/furniture.ts';
 import { buyFurniture } from './sim/shop.ts';
@@ -406,6 +406,8 @@ export class Game {
         if (p) this.enterInterior(p, false);
         return !!p;
       },
+      /** Two-floor homes: take the stairs (QA). */
+      takeStairs: () => this.changeFloor(),
       /** Where the player stands (for screenshots). */
       playerPos: () => ({ x: this.player.root.position.x, z: this.player.root.position.z }),
       /** Point the camera inside a home from (x, y, z) at (tx, 0.6, tz) — for close-up screenshots. */
@@ -2210,6 +2212,7 @@ export class Game {
     const homeItem = movableId && this.interior && 'items' in this.interior ? (this.interior as HomeInterior).items.find((i) => i.uid === movableId) : undefined;
     const homeDef = homeItem ? FURNITURE.get(homeItem.item) : undefined;
     // The fridge and the stove have their own screens (ui/kitchen.ts).
+    if (homeItem && homeDef?.opens === 'stairs') return this.changeFloor();
     if (homeItem && homeDef?.opens === 'fridge') return this.openKitchenFridge(homeItem.uid);
     if (homeItem && homeDef?.opens === 'stove') return this.openKitchenStove(homeItem.uid);
     const opensCloset = homeDef?.opens === 'closet';
@@ -2367,7 +2370,7 @@ export class Game {
     }
     const placeId = this.state.location.placeId;
     if (keep && placeId) {
-      this.state.homes[placeId] = home.items.map((i) => ({ ...i }));
+      this.state.homes[this.homeKey(placeId)] = home.items.map((i) => ({ ...i }));
       this.save();
       toast('Saved your new layout', { icon: '🛋️', tone: 'good', ms: 1800 });
     }
@@ -2398,7 +2401,32 @@ export class Game {
   // Interiors
   // ===================================================================
 
-  private enterInterior(place: PlaceDef, animate: boolean): void {
+  /** Which floor of a two-floor home you're on (0 = ground, 1 = upstairs). */
+  private homeFloor = 0;
+
+  /** Where a home floor's furniture and style are saved: the place id, plus "@up" upstairs. */
+  private homeKey(placeId: string): string {
+    return this.homeFloor > 0 && layoutForPlace(placeId).upper ? `${placeId}@up` : placeId;
+  }
+
+  /** Take the stairs: rebuild the home on the other floor and stand at the stairs. */
+  private changeFloor(): void {
+    const placeId = this.state.location.placeId;
+    const place = placeId ? PLACE_BY_ID[placeId] : null;
+    if (!place || !layoutForPlace(place.id).upper) return;
+    this.saveHomeLayout();
+    const up = this.homeFloor === 0;
+    sfx.door();
+    this.enterInterior(place, false, up ? 1 : 0);
+    const home = this.interior as HomeInterior | null;
+    const stairs = home && 'items' in home ? home.items.find((i) => FURNITURE.get(i.item)?.opens === 'stairs') : null;
+    const obj = stairs && home ? home.objects.find((o) => o.id === stairs.uid) : null;
+    if (obj) this.player.root.position.copy(obj.stand);
+    toast(up ? 'Upstairs' : 'Downstairs', { icon: '🪜', ms: 1500 });
+  }
+
+  private enterInterior(place: PlaceDef, animate: boolean, floor = 0): void {
+    this.homeFloor = floor;
     if (animate) sfx.door();
     const go = () => {
       this.design?.close();
@@ -2408,11 +2436,12 @@ export class Game {
       const venue = WORKPLACE_LAYOUTS[WORKPLACE_LAYOUT_FOR[place.id] ?? ''] ?? VENUE_LAYOUTS[VENUE_LAYOUT_FOR[place.interior] ?? ''];
       if (place.interior === 'apartment' && this.furniture) {
         // Sims-style home: its own floor plan, real furniture, saved arrangement.
-        const layout = layoutForPlace(place.id);
-        this.migrateHome(place.id, layout);
+        const layout = floorLayout(place.id, this.homeFloor);
+        const key = this.homeKey(place.id);
+        this.migrateHome(key, layout);
         const myCar = this.state.garage.cars[0];
-        const home = buildHome(place, layout, this.state.homes[place.id] ?? layout.furniture, this.furniture, {
-          style: this.state.homeStyles?.[place.id],
+        const home = buildHome(place, layout, this.state.homes[key] ?? layout.furniture, this.furniture, {
+          style: this.state.homeStyles?.[key],
           clock: () => nycTime().hourFloat,
           tier: this.engine.quality.tier,
           yard: { car: myCar ? { model: myCar.model, paint: myCar.paint } : layout.yardCar ?? null },
@@ -2758,8 +2787,8 @@ export class Game {
     const home = this.interior as HomeInterior | null;
     const placeId = this.state.location.placeId;
     if (home && 'items' in home && placeId) {
-      this.state.homes[placeId] = home.items.map((i) => ({ ...i }));
-      if (home.movable) (this.state.homeStyles ??= {})[placeId] = structuredClone(home.style);
+      this.state.homes[this.homeKey(placeId)] = home.items.map((i) => ({ ...i }));
+      if (home.movable) (this.state.homeStyles ??= {})[this.homeKey(placeId)] = structuredClone(home.style);
     }
     this.save();
   }

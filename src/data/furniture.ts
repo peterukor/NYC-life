@@ -69,7 +69,7 @@ export interface FurnitureDef {
   /** Where the screen sits on a TV piece (metres from its centre): width, height, x, y, z. */
   screen?: [number, number, number, number, number];
   /** Opens a screen when tapped (the closet opens your wardrobe). */
-  opens?: 'closet' | 'fridge' | 'stove';
+  opens?: 'closet' | 'fridge' | 'stove' | 'stairs';
   /** Venue counters: offers whatever the PLACE sells (its actions list) instead of `actions`. */
   placeActions?: boolean;
   /** Where it goes in the buy menu (pieces without one aren't sold there). */

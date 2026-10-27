@@ -27,6 +27,7 @@ for (const id of ids) {
   const ok = await page.evaluate((h) => window.__nyc.enterPlace(h), id);
   if (!ok) { console.log(id, 'no such place'); continue; }
   await wait(4500);
+  if (process.env.UP) { await page.evaluate(() => window.__nyc.takeStairs()); await wait(3000); }
   if (process.env.ZOOM) await page.evaluate((z) => window.__nyc.zoomAt(+z, 0, 0), process.env.ZOOM);
   await wait(600);
   const clashes = await page.evaluate(() => window.__nyc.furnitureClashes());

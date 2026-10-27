@@ -358,7 +358,7 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
   }
   const door = doorOfLayout(layout);
   // Homes sit in a garden (Lagos Life style), venues in their own light.
-  const yard = !opts.venue && opts.yard ? t(buildYard(layout, { ...opts.yard, shadows })) : null;
+  const yard = !opts.venue && opts.yard ? t(buildYard(layout, { ...opts.yard, shadows, storey: layout.upstairs ? WALL_H + 0.3 : 0 })) : null;
   if (yard) scene.add(yard.group);
 
   // ---------------------------------------------------------------- floors & walls (rebuilt by setStyle)
@@ -403,7 +403,7 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
       const onIt = alongX ? Math.abs(door.z - e.az) < 0.05 && door.x > Math.min(e.ax, e.bx) && door.x < Math.max(e.ax, e.bx) : Math.abs(door.x - e.ax) < 0.05 && door.z > Math.min(e.az, e.bz) && door.z < Math.max(e.az, e.bz);
       const a: [number, number] = [Math.min(e.ax, e.bx), Math.min(e.az, e.bz)], b: [number, number] = [Math.max(e.ax, e.bx), Math.max(e.az, e.bz)];
       const at = alongX ? door.x - a[0] : door.z - a[1];
-      addLine(a, b, true, onIt ? [[at - 1.2, at + 1.2]] : [], [e.nx, e.nz]);
+      addLine(a, b, true, onIt && !layout.upstairs ? [[at - 1.2, at + 1.2]] : [], [e.nx, e.nz]);
     }
   } else {
     addLine([-hw, -hd], [hw, -hd], true, [], [0, -1]); // back

@@ -163,6 +163,9 @@ export function CATALOG(cook: string[]): FurnitureDef[] {
     piece('loungeSet', 'Lounge table', '🥂', 0, 'decor', 'decoLoungeSet', { fixed: true, actions: ['happyHour', 'dateHere'], colors: { a: '#8c2f39', b: '#efe9dd' }, light: L('fire', 0.9, 1.2, 0.35, { color: '#ffb766' }) }),
     piece('liveStage', 'The stage', '🎤', 0, 'decor', 'decoLiveStage', { fixed: true, placeActions: true, colors: { b: '#2b2d33' } }),
     piece('neonArch', 'Entrance', '✨', 0, 'decor', 'decoNeonArch', { fixed: true, flat: true, pulse: 'breathe' }),
+    // Two-floor homes (Peter, 2026-10-27): tap the stairs to go up or down.
+    piece('stairsUp', 'Grand staircase', '🪜', 0, 'decor', 'decoStairsUp', { fixed: true, opens: 'stairs', colors: { a: '#e9dcc4', b: '#1d1e22' } }),
+    piece('stairsDown', 'Stairs down', '🪜', 0, 'decor', 'decoStairsDown', { fixed: true, opens: 'stairs', colors: { a: '#e9dcc4', b: '#1d1e22' } }),
     // Lagos Life staples (Peter, 2026-10-27).
     piece('splitAC', 'Split AC', '❄️', 45_000, 'tech', one('decoSplitAC', { y: 2.2 }), { wall: true, colors: { b: '#f4f4f2' }, pitch: 'Cold air, quiet hum. Every room needs one.' }),
     piece('ringLight', 'Ring light', '💡', 9_000, 'lights', 'decoRingLight', { ...lamp('floor', 1.78, 2.2, 0.6, { color: '#fff1d6' }), actions: ['postContent'], pitch: 'Your angles, sorted.' }),
