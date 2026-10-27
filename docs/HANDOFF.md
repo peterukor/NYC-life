@@ -39,7 +39,15 @@ Peter's plan: redo the people, NPCs and every location with the Quaternius/Kenne
 **Stage 3, the existing rooms (first pass done).** `data/venue-looks.ts` dresses every venue plan from `data/venues.ts` (23 plans, used by all the bars, clubs, bodegas, cafés, pizza places, offices and workplaces): rooms grow 10–25% (pieces against a wall stay against it), each gets a lighting `mood` (bright, cozy, bar, club, arcade, casino, outdoor), floors and walls (new finishes: arcade cosmic carpet, casino carpet, gloss black, gym rubber, grass, asphalt, dark wood panelling, tufted velvet, black brick, acoustic foam, hedges), colours for the old pieces, extra lights / LED strips / plants / art, and neon words on the walls (`layout.signs`, drawn in home-interior.ts). Clubs get sweeping light beams (venue-life.ts). `node scripts/qa-venues.mjs` screenshots every venue into test-results/venues-sheet.png and lists clashes (none) and draw calls (53–117).
 - Still to do in stage 3: swap the chunky code-built work pieces (counters, slot machines, cabinets…) for higher-detail ones where it helps, more variety between venues of the same kind.
 
-**Stage 4** (the 59 new rooms) and **stage 5** (social) not started.
+**Peter's second round (2026-10-27): "not rectangular, too small, dead".** He compared it with Lagos Life (angled view, big many-roomed houses, lively clubs).
+- View: every home and venue now opens at a 45° corner angle (`game.ts fitInteriorCamera`, `startZoomFor`), like Lagos Life.
+- Shaped plans: `HomeLayout.shaped` + `door`. The home is the union of its rooms; `world/footprint.ts` traces the outer walls (`outline`), checks placement (`rectInsideRooms`) and finds the door (`doorOfLayout`). Walls, windows (auto-spaced), base, door, spawn, wall-snapping and clash checks all follow the outline.
+- Homes v3: UES "Upper East Side residence" (30×22, ten rooms incl. cinema, study, guest room) and the penthouse became the "Billionaires' Row mansion" (40×28 U shape, eleven rooms: great room, pool hall with a pool, spa, library, gym, cinema, dining hall…). Old arrangements reset to Storage via `version`.
+- Venues: `venue-looks.ts` can `notch` corners out (no more plain boxes), `remove`/`move`/`swap` pieces, and add `screens` (animated video walls: galaxy, waves, stocks, game). New nightlife pieces: LED dance floor, light-up bar, bottle shelf, truss ring with moving heads, VIP riser, lounge set with candles, live stage, neon arch (glow pulses: disco, breathe, chase via `Finish.pulse` and `FURNITURE_TIME`). Every location got a lively pass; moods are brighter.
+- Skills added: interior-design-expert and color-theory-palette-harmony-expert (`.claude/skills/THIRD_PARTY_SKILLS.md`).
+- QA: `scripts/qa-venues.mjs` (hides random events/tips), `scripts/qa-design.mjs`.
+
+**Stage 4** (the 59 new rooms): Peter said "not yet for now". **Stage 5** (social) needs the server hosted.
 
 ## Batch 7: the north and better mini games (2026-10-16)
 
