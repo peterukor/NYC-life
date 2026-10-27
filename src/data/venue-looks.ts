@@ -41,6 +41,7 @@ type Look = {
 };
 
 const H = Math.PI / 2;
+const PI = Math.PI;
 /** A wall piece on the back wall at x (rot 0), the left wall at z (rot H), or the right wall at z (rot −H). */
 const back = (item: string, x: number, hd: number, extra: Partial<HomeItem> = {}): Omit<HomeItem, 'uid'> => ({ item, x, z: -hd + 0.17, rot: 0, ...extra });
 const left = (item: string, z: number, hw: number, extra: Partial<HomeItem> = {}): Omit<HomeItem, 'uid'> => ({ item, x: -hw + 0.14, z, rot: H, ...extra });
@@ -58,32 +59,36 @@ const PINK = '#ff4fb8', CYAN = '#22d3ee', PURPLE = '#9b5cff', AMBER = '#ffae42',
 export const VENUE_LOOKS: Record<string, Look> = {
   // 🛋️ Lexington Home Goods: a bright showroom (17.5 × 12.5).
   furniture: {
+    notch: [[-8.75, 4.4, -6.2, 6.25]],
     scale: 1.25, mood: 'bright',
     rooms: [{ floor: 'ash', wall: 'paint:#eef2ee' }],
-    add: [hang('crystalChandelier', -2.0, -1.2), hang('geoTrio', 3.5, 1.6), hang('globePendantGrey', -6, 2), at('persianRug', -2.0, 3.6, 0), at('arcLamp', 6.0, 4.2, Math.PI), at('oliveTree', -8.0, 5.4), at('monstera', 8.1, -5.6), left('artTriptych', 0.4, 8.75), right('mirrorArch', -2.4, 8.75)],
+    add: [at('sectionalL', 5.4, 3.6, PI), at('fireplace', -8.35, -1.8, H), hang('crystalChandelier', -2.0, -1.2), hang('geoTrio', 3.5, 1.6), hang('globePendantGrey', -6, 2), at('persianRug', -2.0, 3.6, 0), at('monstera', 8.1, -5.6), left('artTriptych', 0.4, 8.75), right('mirrorArch', -2.4, 8.75)],
     signs: [neonBack('Home Goods', '#ff8a5b', -3.4, 2.15, 6.25, 0.5, 'script')],
   },
   // ☕ Café (17.5 × 12.5): white brick, chevron floor, bulbs over the counter.
   cafe: {
+    move: { sofa: [7.75, -0.8] },
+    notch: [[5.8, 3.8, 8.75, 6.25]],
     scale: 1.25, mood: 'cozy',
     rooms: [{ floor: 'herringbone', wall: 'whiteBrick' }],
     tint: { t1: { a: '#3f6f5e' }, t2: { a: '#3f6f5e' }, t3: { a: '#3f6f5e' }, sofa: { a: '#8c5a3c' }, rug: { a: '#c47f2c' } },
-    add: [hang('edisonCluster', -1.9, -2.9), hang('domePendant', -5.6, 1.5), hang('domePendant', 0, 2.0), hang('domePendant', 5.6, 1.5), hang('hangingPlant', -7.6, -1.5), hang('hangingPlant', 7.4, 2.8), left('artSkyline', 1.6, 8.75), back('wallShelf', 5.8, 6.25), back('wallShelf', -5.6, 6.25)],
+    add: [at('pedestalTable', -5.6, 4.6), at('diningChair', -6.6, 4.6, H, { a: '#3f6f5e' }), at('diningChair', -4.6, 4.6, -H, { a: '#3f6f5e' }), at('flowerVase', -5.6, 1.5), at('flowerVase', 5.6, 1.5), at('candles', 0, 2.0), at('monstera', 4.9, 5.6), at('coffeeMaker', -1.9, -2.8), back('fairyLights', 0.5, 6.25), hang('edisonCluster', -1.9, -2.9), hang('domePendant', -5.6, 1.5), hang('domePendant', 0, 2.0), hang('domePendant', 5.6, 1.5), hang('hangingPlant', -7.6, -1.5), hang('hangingPlant', 7.4, 2.8), left('artSkyline', 1.6, 8.75), back('wallShelf', 5.8, 6.25), back('wallShelf', -5.6, 6.25)],
     signs: [neonBack('coffee', AMBER, 2.4, 2.2, 6.25, 0.6, 'script')],
   },
   // 🏪 Bodega (15 × 11.25): linoleum, bright tubes, neon in the window.
   bodega: {
     scale: 1.25, mood: 'bright',
     rooms: [{ floor: 'vinyl', wall: 'paint:#f6f1e1' }],
-    add: [hang('flushLight', -3, -2), hang('flushLight', 3, -2), hang('flushLight', -3, 2.2), hang('flushLight', 3, 2.2), at('trashSmall', -6.8, 4.9)],
+    add: [at('catBed', -6.6, 4.4), at('coffeeMaker', 3.1, -2.5), at('radio', 2.0, -2.5), at('boxes', -1.6, -1.0), at('flowerVase', 5.6, 3.2), at('trashGreen', 6.6, 2.0), hang('flushLight', -3, -2), hang('flushLight', 3, -2), hang('flushLight', -3, 2.2), hang('flushLight', 3, 2.2), at('trashSmall', -6.8, 4.9)],
     signs: [neonBack('OPEN', RED, 3.2, 2.25, 5.625, 0.45), neonBack('COLD BEER', BLUE, -2.4, 2.25, 5.625, 0.36), neonLeft('LOTTO', GOLD, 3.0, 2.1, 7.5, 0.36)],
   },
   // 🍕 Pizza (15 × 11.25): checkerboard, white tile, ceiling fans.
   pizza: {
+    notch: [[-7.5, 3.6, -5.0, 5.63]],
     scale: 1.25, mood: 'cozy',
     rooms: [{ floor: 'checker', wall: 'subway:#f6efe3' }],
     tint: { t1: { a: '#c8553d' }, t2: { a: '#c8553d' } },
-    add: [hang('ceilingFan', -4.4, 1.8), hang('ceilingFan', 4.4, 1.8), hang('bellPendant', -1.2, -2.6), hang('bellPendant', 1.2, -2.6), at('palmPot', 6.8, 4.9), left('artSkyline', 1.6, 7.5)],
+    add: [at('pedestalTable', 2.6, 4.3), at('diningChair', 1.7, 4.3, H, { a: '#c8553d' }), at('diningChair', 3.5, 4.3, -H, { a: '#c8553d' }), at('candles', 2.6, 4.3), back('ledStrip', -5.6, 5.625, { lc: '#ff6a3d' }), hang('ceilingFan', -4.4, 1.8), hang('ceilingFan', 4.4, 1.8), hang('bellPendant', -1.2, -2.6), hang('bellPendant', 1.2, -2.6), at('palmPot', 6.9, 0.6), left('artSkyline', 1.6, 7.5)],
     signs: [neonBack('PIZZA', RED, 2.8, 2.2, 5.625, 0.6, 'script'), neonBack('HOT', AMBER, -2.6, 2.3, 5.625, 0.4)],
   },
   // 🍸 Bar (17.5 × 12.5): brick, a glowing bar, lit bottles, lounge tables with candles.
@@ -97,10 +102,12 @@ export const VENUE_LOOKS: Record<string, Look> = {
   },
   // 🏢 Office (18.75 × 12.5): carpet tiles, panel lights, plants.
   office: {
+    screens: [{ x: -3.0, y: 1.8, z: -6.13, rot: 0, w: 4, h: 1.6, kind: 'stocks' }],
+    notch: [[-9.38, -6.25, -7.2, -4.0]],
     scale: 1.25, mood: 'bright',
     rooms: [{ floor: 'carpet:#6f6a63', wall: 'paint:#e6e9ec' }],
     tint: { sofa: { a: '#1f3b4d' } },
-    add: [hang('flushLight', -5.5, 0.5), hang('flushLight', -1.5, 0.5), hang('flushLight', 2.5, 0.5), hang('flushLight', -5.5, 4), hang('flushLight', 2.5, 4), at('palmPot', -8.9, 5.6), at('monstera', 8.9, -5.7), left('artTriptych', -1.8, 9.375)],
+    add: [at('modernSofa', 6.6, 2.4, PI), at('squareCoffee', 6.6, 1.0), at('palmPot', 4.9, 5.7), at('snakePlant', -8.9, -3.4), hang('flushLight', -5.5, 0.5), hang('flushLight', -1.5, 0.5), hang('flushLight', 2.5, 0.5), hang('flushLight', -5.5, 4), hang('flushLight', 2.5, 4), at('palmPot', -8.9, 5.6), at('monstera', 8.9, -5.7), left('artTriptych', -1.8, 9.375)],
   },
   // 🎤 Comedy club (17.5 × 12.5): the black brick wall, a real stage, red neon, candles on every table.
   comedy: {
@@ -129,22 +136,28 @@ export const VENUE_LOOKS: Record<string, Look> = {
   },
   // 🏋️ Iron (24 × 16.8): rubber floor, black brick, red neon.
   gym: {
+    screens: [{ x: 11.88, y: 1.85, z: 1.2, rot: -H, w: 3.4, h: 1.7, kind: 'game' }, { x: -8.4, y: 2.35, z: -8.28, rot: 0, w: 6, h: 0.8, kind: 'waves' }],
+    notch: [[-12, 6.4, -9.6, 8.4]],
     scale: 1.2, mood: 'bright',
     rooms: [{ floor: 'rubber', wall: 'concreteWall' }, { floor: 'ash', wall: 'concreteWall' }],
-    add: [hang('flushLight2', -6, -3), hang('flushLight2', 0, -3), hang('flushLight2', 6, -3), hang('flushLight2', -6, 3), hang('flushLight2', 0, 3), hang('flushLight2', 6, 3), right('mirrorArch', 5.5, 12), right('mirrorArch', 7.0, 12), back('ledStrip', -6.6, 8.4, { lc: RED }), back('ledStrip', 4.4, 8.4, { lc: RED })],
+    add: [at('speaker', -11.6, -1.5, H), at('speaker', 11.6, -1.5, -H), at('palmPot', 2.0, 7.7), back('ledStripLow', 0, 8.4, { lc: '#ff3b3b' }), hang('flushLight2', -6, -3), hang('flushLight2', 0, -3), hang('flushLight2', 6, -3), hang('flushLight2', -6, 3), hang('flushLight2', 0, 3), hang('flushLight2', 6, 3), right('mirrorArch', 5.5, 12), right('mirrorArch', 7.0, 12), back('ledStrip', -6.6, 8.4, { lc: RED }), back('ledStrip', 4.4, 8.4, { lc: RED })],
     signs: [neonBack('IRON', RED, -2.4, 2.2, 8.4, 0.7), neonLeft('no pain no gain', '#ff6a3d', -2.0, 2.1, 12, 0.4, 'script')],
   },
   // 💻 Chelsea Works (24 × 16.8): concrete, white brick, a neon motto.
   startup: {
+    screens: [{ x: 4.2, y: 1.9, z: -8.28, rot: 0, w: 4, h: 1.7, kind: 'waves' }],
+    notch: [[8.6, -8.4, 12, -5.4]],
     scale: 1.2, mood: 'bright',
     rooms: [{ floor: 'concrete', wall: 'whiteBrick' }, { floor: 'terrazzo', wall: 'whiteBrick' }, { floor: 'carpet:#cfe3ea', wall: 'whiteBrick' }],
-    add: [hang('edisonCluster', -6.7, -6.0), hang('edisonCluster', -6.7, -2.6), hang('ringPendant', 7.4, 0.6, CYAN), hang('paperLantern', -6, 6.3), hang('paperLantern', -3, 6.3), at('oliveTree', 11.2, -7.8), back('wallShelf', 4.4, 8.4), left('artShapes', -1.0, 12)],
+    add: [at('island', 2.6, 5.6, 0), at('monstera', -1.6, 7.7), hang('edisonCluster', -6.7, -6.0), hang('edisonCluster', -6.7, -2.6), hang('ringPendant', 7.4, 0.6, CYAN), hang('paperLantern', -6, 6.3), hang('paperLantern', -3, 6.3), back('wallShelf', 4.4, 8.4), left('artShapes', -1.0, 12)],
     signs: [neonBack('ship it', PINK, 5.4, 2.2, 8.4, 0.55, 'script')],
   },
   // 📈 Trading floor (24 × 16.8): grey carpet, a walnut meeting room, a marble client lounge.
   tradingFloor: {
+    screens: [{ x: -11.88, y: 1.8, z: -4.0, rot: H, w: 5, h: 1.8, kind: 'stocks' }, { x: 7.9, y: 1.9, z: -8.28, rot: 0, w: 3.6, h: 1.6, kind: 'stocks' }],
+    notch: [[-12, 6.6, -8.8, 8.4]],
     scale: 1.2, mood: 'bright',
-    rooms: [{ floor: 'carpet:#3b3b3f', wall: 'paint:#e6e9ec' }, { floor: 'walnut', wall: 'panel:#1f3b4d' }, { floor: 'marble', wall: 'paint:#f4f1ea' }],
+    rooms: [{ floor: 'carpet:#5d6a80', wall: 'paint:#e6e9ec' }, { floor: 'walnut', wall: 'panel:#1f3b4d' }, { floor: 'marble', wall: 'paint:#f4f1ea' }],
     tint: { lounge: { a: '#1f3b4d' } },
     add: [hang('flushLight', -8.8, -5), hang('flushLight', -5.3, -5), hang('flushLight', -1.7, -5), hang('flushLight', -8.8, -1.6), hang('flushLight', -5.3, -1.6), hang('tulipChandelier', 7.9, -5.8), hang('geoPendant', 6.2, 1.7), hang('geoPendant', 9.8, 1.7), at('palmPot', 11.3, -0.4), at('fiddleFig', 2.4, 7.6)],
     signs: [neonLeft('BUY', GREEN, -1.0, 2.25, 12, 0.45), neonLeft('SELL', RED, 1.2, 2.25, 12, 0.45)],
@@ -161,16 +174,18 @@ export const VENUE_LOOKS: Record<string, Look> = {
   },
   // ♟️ The Chess House (17.5 × 12.5): parquet, wood panels, a lamp over every board.
   chessHouse: {
+    notch: [[5.8, 4.0, 8.75, 6.25]],
     scale: 1.25, mood: 'cozy',
     rooms: [{ floor: 'parquet', wall: 'woodPanel' }],
-    add: [hang('bellPendant', -5.25, 0.25), hang('bellPendant', 0, 0.25), hang('bellPendant', 5.25, 0.25), hang('bellPendant', -2.6, 3.75), hang('bellPendant', 2.6, 3.75), at('persianRug', 0, 1.9), left('artSkyline', 2.6, 8.75)],
+    add: [at('fireplace', 8.35, -2.0, -H), at('clubChair', 6.6, -3.4, 0), at('clubChair', 6.6, -0.6, PI), left('whiteBookshelf', -4.6, 8.66), at('palmPot', -8.1, 5.6), hang('bellPendant', -5.25, 0.25), hang('bellPendant', 0, 0.25), hang('bellPendant', 5.25, 0.25), hang('bellPendant', -2.6, 3.75), hang('bellPendant', 2.6, 3.75), at('persianRug', 0, 1.9), left('artSkyline', 2.6, 8.75)],
     signs: [neonBack('check', GOLD, -0.6, 2.3, 6.25, 0.5, 'script')],
   },
   // 🎨 Bowery Art Parlor (17.5 × 12.5): a white gallery with spotlights.
   artParlor: {
+    notch: [[6.2, -6.25, 8.75, -4.4]],
     scale: 1.25, mood: 'bright',
     rooms: [{ floor: 'concrete', wall: 'whiteBrick' }],
-    add: [back('artShapes', -5.6, 6.25), back('artTriptych', 5.4, 6.25), left('galleryWall', 3.6, 8.75), right('artSkyline', -3.8, 8.75), hang('spotLight', -5.6, -4.6), hang('spotLight', 5.4, -4.6), hang('paperLantern', 0, 1.5), at('pampas', 8.1, 5.6)],
+    add: [at('oliveTree', -8.0, -5.4), hang('paperLantern', -5.3, 0.8), hang('paperLantern', 5.3, 0.8), at('flowerVase', 0, 1.5), back('artShapes', -5.6, 6.25), back('artTriptych', 5.4, 6.25), left('galleryWall', 3.6, 8.75), right('artSkyline', -3.8, 8.75), hang('spotLight', -5.6, -4.6), hang('spotLight', 5.4, -4.6), hang('paperLantern', 0, 1.5), at('pampas', 8.1, 5.6)],
     signs: [neonBack('make art', PINK, 0, 2.35, 6.25, 0.5, 'script')],
   },
   // 🎧 Basement 212 (19.2 × 14.4): bare concrete and black brick, an LED floor, red and blue everywhere.
@@ -201,16 +216,19 @@ export const VENUE_LOOKS: Record<string, Look> = {
   },
   // 💊 Orchard Street alley (19.2 × 16.8): asphalt, brick, a string of bulbs.
   alley: {
-    scale: 1.2, mood: 'outdoor',
+    notch: [[6.8, -8.4, 9.6, -5.6]],
+    scale: 1.2, mood: 'bar',
     rooms: [{ floor: 'asphalt', wall: 'brick' }],
-    add: [back('fairyLights', -3.0, 8.4), back('fairyLights', 3.4, 8.4)],
+    add: [at('trashGreen', -1.0, -7.8), at('boxes', 2.6, 6.8), at('streetLamp', -6.0, 0.0), at('streetLamp', 4.0, -2.0), left('fairyLights', 0.6, 9.6), back('fairyLights', -3.0, 8.4), back('fairyLights', 3.4, 8.4)],
     signs: [neonLeft('OPEN', RED, 5.4, 2.2, 9.6, 0.4)],
   },
   // 🚓 18th Precinct (24 × 16.8): institutional green-grey, strip lights.
   precinct: {
+    screens: [{ x: 11.88, y: 1.9, z: -0.4, rot: -H, w: 2.4, h: 1.4, kind: 'waves' }],
+    notch: [[9.0, 6.0, 12, 8.4]],
     scale: 1.2, mood: 'bright',
     rooms: [{ floor: 'tile:#cfd8dc', wall: 'panel:#5b6b78' }, { floor: 'carpet:#5b6b78', wall: 'paint:#cfd8dc' }],
-    add: [hang('flushLight2', -6, 0), hang('flushLight2', 0, 0), hang('flushLight2', -6, 4), hang('flushLight2', 0, 4), hang('flushLight2', 6, -5), hang('flushLight2', 6, -2), right('bathMirror', 6.0, 12)],
+    add: [at('palmPot', -11.4, 7.6), at('trashTall', 2.0, -7.9), hang('flushLight2', -6, 0), hang('flushLight2', 0, 0), hang('flushLight2', -6, 4), hang('flushLight2', 0, 4), hang('flushLight2', 6, -5), hang('flushLight2', 6, -2), right('bathMirror', 6.0, 12)],
   },
   // 🕹️ Pixel Palace (21.6 × 16.8): the cosmic carpet, a marquee video strip over the cabinets, neon, a lit entrance.
   arcade: {

@@ -413,8 +413,8 @@ function rubber(): Drawn {
     size: [1, 1],
     canvas: pixels(N, N, (u, v, x, y) => {
       const fleck = hash(x, y, 9) > 0.93 ? (hash(x, y, 10) > 0.5 ? 60 : 30) : 0;
-      const b = 38 + fleck + (noise(u * 30, v * 30, 30, 2) - 0.5) * 10;
-      const c: RGB = [b, b, b + 4];
+      const b = 72 + fleck + (noise(u * 30, v * 30, 30, 2) - 0.5) * 12;
+      const c: RGB = [b, b + 2, b + 10]; // slate, not black (Peter: "not dark and dead")
       return mix(scale(c, 0.55), c, inTile(u, v, 0.006));
     }),
   };

@@ -20,6 +20,8 @@ await page.$eval('#ob-go', (el) => el.click());
 await page.waitForSelector('#ob-start', { timeout: 10000 });
 await page.$eval('#ob-start', (el) => el.click());
 await wait(3000);
+// Random events and tips would cover the shots: hide them (QA only).
+await page.addStyleTag({ content: '.modal-wrap, .hint-tip { display: none !important; }' });
 const shots = [];
 for (const id of ids) {
   const ok = await page.evaluate((h) => window.__nyc.enterPlace(h), id);
