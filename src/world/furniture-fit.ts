@@ -15,6 +15,7 @@
 // =====================================================================
 
 import type { HomeItem, HomeLayout } from '../data/homes.ts';
+import { doorOfLayout, insideRooms, nearestEdge, rectInsideRooms } from './footprint.ts';
 
 export interface Rect { x0: number; z0: number; x1: number; z1: number }
 /** A piece's footprint around its own centre, before turning (metres). */
@@ -70,8 +71,14 @@ export function wallRects(layout: HomeLayout): { solid: Rect[]; doors: Rect[] } 
     }
     seg(s, len, t, solid);
   }
-  // The front door: the middle of the front wall (see home-interior.ts).
-  doors.push({ x0: -1.2, x1: 1.2, z0: hd - 1.0, z1: hd });
+  // The front door: the middle of the front wall, or where a shaped home says.
+  const d = doorOfLayout(layout);
+  if (layout.door) {
+    const along = Math.abs(d.nz) > 0.5;
+    doors.push(along
+      ? { x0: d.x - 1.2, x1: d.x + 1.2, z0: d.z - (d.nz > 0 ? 1.0 : 0), z1: d.z + (d.nz < 0 ? 1.0 : 0) }
+      : { x0: d.x - (d.nx > 0 ? 1.0 : 0), x1: d.x + (d.nx < 0 ? 1.0 : 0), z0: d.z - 1.2, z1: d.z + 1.2 });
+  } else doors.push({ x0: -1.2, x1: 1.2, z0: hd - 1.0, z1: hd });
   void hw;
   return { solid, doors };
 }
@@ -95,6 +102,7 @@ export function whyNot(w: FitWorld, uid: string, x: number, z: number, rot: numb
   const hw = w.layout.width / 2, hd = w.layout.depth / 2;
   const inner = WALL_T / 2 - WALL_SLACK;
   if (r.x0 < -hw + inner || r.x1 > hw - inner || r.z0 < -hd + inner || r.z1 > hd - inner) return 'Too close to the wall';
+  if (w.layout.shaped && !rectInsideRooms(w.layout, r.x0 + inner, r.z0 + inner, r.x1 - inner, r.z1 - inner)) return 'Too close to the wall';
   const kind = w.kind(it.item);
   if (kind === 'flat') return null;
   if (kind === 'floor') {
@@ -129,6 +137,19 @@ export function snapToWall(w: FitWorld, item: string, x: number, z: number): { x
   const fp = w.footprint(item) ?? { minX: -0.2, maxX: 0.2, minZ: -0.05, maxZ: 0.05 };
   const depth = fp.maxZ - fp.minZ, half = (fp.maxX - fp.minX) / 2;
   const hw = w.layout.width / 2, hd = w.layout.depth / 2;
+  if (w.layout.shaped) {
+    // Shaped homes: the nearest outer wall, facing into the room.
+    const e = nearestEdge(w.layout, x, z);
+    if (e) {
+      const inset = WALL_T / 2 + depth / 2 + 0.005;
+      const alongX = Math.abs(e.nz) > 0.5;
+      const lo = alongX ? Math.min(e.ax, e.bx) : Math.min(e.az, e.bz), hi = alongX ? Math.max(e.ax, e.bx) : Math.max(e.az, e.bz);
+      const t = Math.min(hi - WALL_T / 2 - half, Math.max(lo + WALL_T / 2 + half, alongX ? e.px : e.pz));
+      return alongX
+        ? { x: t, z: e.pz - e.nz * inset, rot: e.nz > 0 ? Math.PI : 0 }
+        : { x: e.px - e.nx * inset, z: t, rot: e.nx > 0 ? -Math.PI / 2 : Math.PI / 2 };
+    }
+  }
   const inset = WALL_T / 2 + depth / 2 + 0.005;
   const dl = x + hw, dr = hw - x, db = z + hd;
   const clampX = (v: number) => Math.min(hw - WALL_T / 2 - half, Math.max(-hw + WALL_T / 2 + half, v));
@@ -142,6 +163,10 @@ export function snapToWall(w: FitWorld, item: string, x: number, z: number): { x
 export function spotFree(w: FitWorld, x: number, z: number, r = 0.22): boolean {
   const hw = w.layout.width / 2, hd = w.layout.depth / 2;
   if (x - r < -hw + WALL_T / 2 || x + r > hw - WALL_T / 2 || z - r < -hd + WALL_T / 2 || z + r > hd - WALL_T / 2) return false;
+  if (w.layout.shaped) {
+    const k = r + WALL_T / 2;
+    if (!insideRooms(w.layout, x - k, z - k) || !insideRooms(w.layout, x + k, z - k) || !insideRooms(w.layout, x - k, z + k) || !insideRooms(w.layout, x + k, z + k)) return false;
+  }
   const me: Rect = { x0: x - r, x1: x + r, z0: z - r, z1: z + r };
   if (wallRects(w.layout).solid.some((s) => overlaps(me, s, 0))) return false;
   for (const o of w.items) {

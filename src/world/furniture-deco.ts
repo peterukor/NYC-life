@@ -216,6 +216,33 @@ export const DECO_TOYS: Record<string, (t: Toy) => void> = {
     });
   },
 
+  /** An indoor pool, 6 × 3.2 m: stone coping, tiled sides, glowing water, steps and a ladder. */
+  decoPool(t) {
+    const W = 6, D = 3.2, c = 0.3;
+    t.inSlot(2, () => {
+      t.block(W + c * 2, 0.12, c, 0, 0, -D / 2 - c / 2, WHITE, 0.1);
+      t.block(W + c * 2, 0.12, c, 0, 0, D / 2 + c / 2, WHITE, 0.1);
+      t.block(c, 0.12, D, -W / 2 - c / 2, 0, 0, WHITE, 0.1);
+      t.block(c, 0.12, D, W / 2 + c / 2, 0, 0, WHITE, 0.1);
+    });
+    t.inSlot(3, () => t.add(new THREE.PlaneGeometry(W, D, 12, 6).rotateX(-Math.PI / 2).translate(0, 0.06, 0), '#3fb6e0'));
+    for (let i = 0; i < 3; i++) t.block(1.0, 0.05, 0.3, -W / 2 + 0.6, 0.0, -D / 2 + 0.25 + i * 0.3, '#cfe9f1', 0.1); // steps under the water
+    for (const x of [W / 2 - 0.6, W / 2 - 0.2]) tube(t, [[x, 0.06, D / 2 - 0.1], [x, 0.7, D / 2 + 0.05], [x, 0.7, D / 2 + 0.2], [x, 0.1, D / 2 + 0.3]], 0.02, '#c0c4ca');
+  },
+  /** A sun lounger with a cushion and a rolled towel. */
+  decoLounger(t) {
+    t.inSlot(2, () => {
+      t.block(0.7, 0.08, 1.9, 0, 0.25, 0, WHITE, 0.15);
+      for (const x of [-0.3, 0.3]) for (const z of [-0.85, 0.85]) t.block(0.05, 0.25, 0.05, x, 0, z, WHITE, 0.2);
+      t.add(new THREE.BoxGeometry(0.66, 0.06, 0.7).translate(0, 0.03, -0.35).rotateX(-0.6).translate(0, 0.42, -0.62), WHITE);
+    });
+    t.inSlot(1, () => {
+      t.block(0.62, 0.06, 1.2, 0, 0.33, 0.3, WHITE, 0.3);
+      t.add(new THREE.BoxGeometry(0.6, 0.05, 0.62).translate(0, 0.03, -0.31).rotateX(-0.6).translate(0, 0.46, -0.6), WHITE);
+    });
+    t.add(new THREE.CylinderGeometry(0.06, 0.06, 0.5, 8).rotateZ(Math.PI / 2).translate(0, 0.45, 0.75), '#f6efe1');
+  },
+
   // ================================================================ wall decor
   /** Abstract canvas: big soft shapes (main colour) on cream. */
   decoArtShapes(t) {

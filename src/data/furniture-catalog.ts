@@ -153,6 +153,8 @@ export function CATALOG(cook: string[]): FurnitureDef[] {
     piece('neonHeart', 'Neon heart', '💗', 22_000, 'lights', one('decoNeonHeart', { y: 1.5 }), { wall: true, ...lamp('strip', 1.75, 2.4, 1.1, { color: '#ff5fa2', colorful: true }) }),
     piece('neonBolt', 'Neon bolt', '⚡', 22_000, 'lights', one('decoNeonBolt', { y: 1.4 }), { wall: true, ...lamp('strip', 1.75, 2.4, 1.1, { color: '#3d8bff', colorful: true }) }),
     piece('neonNyc', 'Neon NYC sign', '🗽', 38_000, 'lights', one('decoNeonNyc', { y: 1.55 }), { wall: true, ...lamp('strip', 1.8, 2.8, 1.2, { color: '#22d3c5', colorful: true }) }),
+    piece('pool', 'Indoor pool', '🏊', 850_000, 'decor', 'decoPool', { quality: 'luxury', colors: { b: '#e9e2d4' }, ...lamp('fire', 0.1, 5, 0.9, { color: '#5fd4ff' }), pitch: 'Lit from below. Very Billionaires’ Row.' }),
+    piece('lounger', 'Sun lounger', '🏖️', 18_000, 'seating', 'decoLounger', { ...SEAT, colors: { a: '#f4efe6', b: '#3b2a20' } }),
     piece('fireplace', 'Stone fireplace', '🔥', 240_000, 'decor', [{ model: 'Fireplace' }, { model: 'decoFire', y: 0.08, z: 0.05 }], { quality: 'luxury', colors: { b: '#e9e2d4' }, ...lamp('fire', 0.4, 3.6, 1.2, { color: '#ff9a3c' }), pitch: 'A real fire. Cosy on a cold night.' }),
 
     // ================================================================ rugs

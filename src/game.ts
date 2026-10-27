@@ -53,6 +53,7 @@ import { buildInterior, type Interior } from './world/interior.ts';
 import { buildHome, type HomeInterior } from './world/home-interior.ts';
 import { loadFurnitureKit, type FurnitureKit } from './assets/furniture-kit.ts';
 import { DesignMode } from './ui/design-mode.ts';
+import { doorOfLayout } from './world/footprint.ts';
 import { initThumbs } from './render/furniture-thumbs.ts';
 import { setHomeAnisotropy, setHomeSurfaceDetail } from './render/home-surfaces.ts';
 import { layoutForPlace, type HomeLayout } from './data/homes.ts';
@@ -1215,7 +1216,9 @@ export class Game {
       const home = this.interior as HomeInterior | null;
       if (home && 'walkPath' in home && home.movable && this.engine.mode === 'interior') {
         const hd = home.layout.depth / 2;
-        return this.walkInside(0, hd - 0.35, () => this.leaveInterior());
+        const d = doorOfLayout(home.layout);
+        void hd;
+        return this.walkInside(d.x - d.nx * 0.35, d.z - d.nz * 0.35, () => this.leaveInterior());
       }
       return this.leaveInterior();
     }
@@ -2513,16 +2516,28 @@ export class Game {
     cam.fov = aspect < 0.8 ? 62 : 48;
     cam.aspect = aspect;
     const layout0 = this.interior && 'layout' in this.interior ? (this.interior as HomeInterior).layout : null;
-    // A long home on a phone held upright: swing the view a quarter turn so its long side runs up the screen.
-    const swing = layout0 && aspect < 0.8 && layout0.width > layout0.depth * 1.15 ? -Math.PI / 2 : 0;
-    const roomHalfWidth = swing && layout0 ? layout0.depth / 2 + 1.1 : this.interior?.halfWidth ?? 7.2;
+    // Look in from a corner at 45° (Lagos Life style, Peter 2026-10-27): the room reads as a diamond,
+    // its two far walls standing, the near ones cut down.
+    const swing = layout0 ? -Math.PI / 4 : 0;
+    const roomHalfWidth = layout0 ? (layout0.width / 2 + layout0.depth / 2) * Math.SQRT1_2 + 0.6 : this.interior?.halfWidth ?? 7.2;
     const hFov = 2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(cam.fov) / 2) * aspect);
     const dist = Math.max(9, roomHalfWidth / Math.tan(hFov / 2)); // small homes fill the screen too
     cam.far = dist * 4;
     cam.updateProjectionMatrix();
     // Pinch to zoom and drag to pan, in every room, on top of the whole-room framing.
     const layout = this.interior && 'layout' in this.interior ? (this.interior as HomeInterior).layout : null;
-    this.view.frame(new THREE.Vector3(0, 0.6, -0.5), new THREE.Vector3(0, dist * 0.72, dist * 0.7), (layout?.width ?? 12) / 2, (layout?.depth ?? 10) / 2, true, keep, swing, layout && layout.width * layout.depth > 180 ? 1.05 : undefined); // every room can zoom (Peter, 2026-10-14)
+    this.view.frame(new THREE.Vector3(0, 0.4, layout0 ? 0 : -0.5), new THREE.Vector3(0, dist * 0.8, dist * 0.68), (layout?.width ?? 12) / 2, (layout?.depth ?? 10) / 2, true, keep, swing, this.startZoomFor(layout, aspect)); // every room can zoom (Peter, 2026-10-14)
+  }
+
+  /** Big homes open zoomed in on a phone held upright (pinch out to see the whole place). */
+  private startZoomFor(layout: HomeLayout | null, aspect: number): number | undefined {
+    if (!layout) return undefined;
+    const area = layout.width * layout.depth;
+    const portrait = aspect < 0.8;
+    if (area > 700) return portrait ? 1.75 : 1.25;
+    if (area > 400) return portrait ? 1.5 : 1.15;
+    if (area > 180) return portrait ? 1.2 : 1.05;
+    return undefined;
   }
 
   /**

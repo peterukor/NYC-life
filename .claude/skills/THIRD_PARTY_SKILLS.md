@@ -26,3 +26,4 @@ Not included, and why:
 - game-creator's deploy, monetize (Play.fun), Meshy, World Labs and Retro Diffusion skills: tied to outside paid services or platforms we aren't using.
 - Trail of Bits insecure-defaults: packaged as a command plugin, not a skill.
 - anthemflynn asset-pipeline-3d: repository not publicly available.
+| interior-design-expert, color-theory-palette-harmony-expert | github.com/erichowens/some_claude_skills | MIT (Erich Owens) | Room layout, lighting layers, colour palettes for homes and venues (2026-10-27) |

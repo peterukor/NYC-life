@@ -32,6 +32,7 @@ import { floorMaterial, wallMaterial } from '../render/home-surfaces.ts';
 import { HAIR_COLORS, makeAvatar, OUTFIT_COLORS, SKIN_TONES } from './avatar.ts';
 import { MODELS_INFO, type Finish, type FurnitureKit } from '../assets/furniture-kit.ts';
 import type { Interior, InteriorObject } from './interior.ts';
+import { doorOfLayout, outline } from './footprint.ts';
 import { rectAt, snapToWall, spotFree, WalkGrid, whyNot, type FitKind, type FitWorld, type Footprint } from './furniture-fit.ts';
 
 export const WALL_H = 2.9;
@@ -335,9 +336,13 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
   }
 
   // ---------------------------------------------------------------- the base (a diorama plinth)
-  const base = new THREE.Mesh(t(new THREE.BoxGeometry(W + 0.5, 0.45, D + 0.5)), t(new THREE.MeshLambertMaterial({ color: '#2e3240' })));
-  base.position.y = -0.235;
-  scene.add(base);
+  const baseMat = t(new THREE.MeshLambertMaterial({ color: '#2e3240' }));
+  for (const r of layout.shaped ? layout.rooms.map((x) => x.rect) : [[-hw, -hd, hw, hd] as [number, number, number, number]]) {
+    const base = new THREE.Mesh(t(new THREE.BoxGeometry(r[2] - r[0] + 0.5, 0.45, r[3] - r[1] + 0.5)), baseMat);
+    base.position.set((r[0] + r[2]) / 2, -0.235, (r[1] + r[3]) / 2);
+    scene.add(base);
+  }
+  const door = doorOfLayout(layout);
 
   // ---------------------------------------------------------------- floors & walls (rebuilt by setStyle)
   const floors: THREE.Object3D[] = [];
@@ -360,24 +365,35 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
   let faces: Face[] = [];
 
   // Every wall line (outer box + the layout's inner walls), split at door gaps.
-  interface Seg { ax: number; az: number; bx: number; bz: number; outer: boolean; on: [number, number] }
+  interface Seg { ax: number; az: number; bx: number; bz: number; outer: boolean; on: [number, number]; n?: [number, number] }
   const segs: Seg[] = [];
-  const gapsOf: { a: [number, number]; b: [number, number]; s0: number; s1: number }[] = [];
-  const addLine = (a: [number, number], b: [number, number], outer: boolean, gaps: [number, number][] = []) => {
+  const gapsOf: { a: [number, number]; b: [number, number]; s0: number; s1: number; n?: [number, number] }[] = [];
+  const addLine = (a: [number, number], b: [number, number], outer: boolean, gaps: [number, number][] = [], n?: [number, number]) => {
     const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
     const dx = (b[0] - a[0]) / len, dz = (b[1] - a[1]) / len;
     let s = 0;
     for (const [g0, g1] of [...gaps].sort((p, q) => p[0] - q[0])) {
-      if (g0 - s > 0.05) segs.push({ ax: a[0] + dx * s, az: a[1] + dz * s, bx: a[0] + dx * g0, bz: a[1] + dz * g0, outer, on: [s, g0] });
-      gapsOf.push({ a, b, s0: g0, s1: g1 });
+      if (g0 - s > 0.05) segs.push({ ax: a[0] + dx * s, az: a[1] + dz * s, bx: a[0] + dx * g0, bz: a[1] + dz * g0, outer, on: [s, g0], n });
+      gapsOf.push({ a, b, s0: g0, s1: g1, n });
       s = g1;
     }
-    if (len - s > 0.05) segs.push({ ax: a[0] + dx * s, az: a[1] + dz * s, bx: b[0], bz: b[1], outer, on: [s, len] });
+    if (len - s > 0.05) segs.push({ ax: a[0] + dx * s, az: a[1] + dz * s, bx: b[0], bz: b[1], outer, on: [s, len], n });
   };
-  addLine([-hw, -hd], [hw, -hd], true); // back
-  addLine([-hw, -hd], [-hw, hd], true); // left
-  addLine([hw, -hd], [hw, hd], true); // right
-  addLine([-hw, hd], [hw, hd], true, [[hw - 1.2, hw + 1.2]]); // front, the front door in the middle
+  if (layout.shaped) {
+    // Outer walls traced round the rooms (world/footprint.ts), the front door cut where the plan says.
+    for (const e of outline(layout)) {
+      const alongX = Math.abs(e.nz) > 0.5;
+      const onIt = alongX ? Math.abs(door.z - e.az) < 0.05 && door.x > Math.min(e.ax, e.bx) && door.x < Math.max(e.ax, e.bx) : Math.abs(door.x - e.ax) < 0.05 && door.z > Math.min(e.az, e.bz) && door.z < Math.max(e.az, e.bz);
+      const a: [number, number] = [Math.min(e.ax, e.bx), Math.min(e.az, e.bz)], b: [number, number] = [Math.max(e.ax, e.bx), Math.max(e.az, e.bz)];
+      const at = alongX ? door.x - a[0] : door.z - a[1];
+      addLine(a, b, true, onIt ? [[at - 1.2, at + 1.2]] : [], [e.nx, e.nz]);
+    }
+  } else {
+    addLine([-hw, -hd], [hw, -hd], true, [], [0, -1]); // back
+    addLine([-hw, -hd], [-hw, hd], true, [], [-1, 0]); // left
+    addLine([hw, -hd], [hw, hd], true, [], [1, 0]); // right
+    addLine([-hw, hd], [hw, hd], true, [[hw - 1.2, hw + 1.2]], [0, 1]); // front, the front door in the middle
+  }
   for (const w of layout.walls) addLine(w.a, w.b, false, w.gaps);
 
   const capMat = cutaway(t(new THREE.MeshLambertMaterial({ color: '#fbf6ee' })));
@@ -425,6 +441,26 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
     }
   }
 
+  /** Where the windows go: the plan's, on the back wall, or (shaped homes) spaced along every outer wall. */
+  const windowList: { cx: number; cz: number; nx: number; nz: number; w: number; h: number; y: number }[] = [];
+  {
+    const win = layout.windows ?? { xs: [-hw * 0.45, hw * 0.25], w: 2.0, h: 1.4, y: 1.75, view: 'sky' as const };
+    if (layout.shaped) {
+      const w = win.w || 1.8, h = win.h || 1.7, y = win.y || 1.6;
+      if (win.xs.length) for (const e of outline(layout)) {
+        const alongX = Math.abs(e.nz) > 0.5;
+        const lo = alongX ? Math.min(e.ax, e.bx) : Math.min(e.az, e.bz), hi = alongX ? Math.max(e.ax, e.bx) : Math.max(e.az, e.bz);
+        const n = Math.floor((hi - lo - 1.0) / (w + 1.6));
+        for (let k = 0; k < n; k++) {
+          const t = lo + ((k + 0.5) * (hi - lo)) / n;
+          const cx = alongX ? t : e.ax, cz = alongX ? e.az : t;
+          if (Math.hypot(cx - door.x, cz - door.z) < w / 2 + 1.6) continue;
+          windowList.push({ cx, cz, nx: e.nx, nz: e.nz, w, h, y });
+        }
+      }
+    } else for (const x of win.xs) windowList.push({ cx: x, cz: -hd, nx: 0, nz: -1, w: win.w, h: win.h, y: win.y });
+  }
+
   const buildShell = () => {
     shellDisposables.forEach((d) => d.dispose());
     shellDisposables.length = 0;
@@ -462,10 +498,10 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
         const mid = (u0 + u1) / 2;
         const probe = alongX ? roomAt(mid, c + side * (T + 0.3)) : roomAt(c + side * (T + 0.3), mid);
         // Outer walls: the side facing out is the outside of the building.
-        const inward = !s.outer || (alongX ? Math.sign(-c) === side : Math.sign(-c) === side);
+        const inward = !s.outer || side === -(alongX ? s.n![1] : s.n![0]);
         const key = `${si}${side > 0 ? '+' : '-'}`;
         const mat = !inward ? outsideMat : cutaway(wallMaterial(style.faces?.[key] ?? (probe >= 0 ? roomWall(probe) : `paint:${layout.wallColor}`)));
-        const outward: [number, number] = s.outer ? [n[0], n[2]].map((v) => (inward ? -v : v)) as [number, number] : [n[0], n[2]];
+        const outward: [number, number] = s.outer ? s.n! : [n[0], n[2]];
         const flag: [number, number, number] = [outward[0], outward[1], s.outer ? 1 : 0];
         // Two strips (below and above the ledge) so a cut wall keeps its pattern unsquashed.
         const flip = alongX ? side < 0 : side > 0; // keep the face pointing out of the wall
@@ -487,8 +523,7 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
         }
       }
       // The whole wall's cut flag: outer walls by their outward normal (inner walls cut either way).
-      const flag: [number, number, number] = alongX ? [0, Math.sign(-c) || 1, s.outer ? 1 : 0] : [Math.sign(-c) || 1, 0, s.outer ? 1 : 0];
-      if (s.outer) (flag[0] *= -1), (flag[1] *= -1);
+      const flag: [number, number, number] = s.outer ? [s.n![0], s.n![1], 1] : alongX ? [0, 1, 0] : [1, 0, 0];
       // End faces (door jambs) and the cap on top, the "cut edge" of a Sims wall.
       for (const [u, sgn] of [[u0, -1], [u1, 1]] as const) {
         const n: [number, number, number] = alongX ? [sgn, 0, 0] : [0, 0, sgn];
@@ -505,30 +540,35 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
     // Door headers over inner doorways (vanish when that wall is cut).
     for (const g of wallH > 2.3 ? gapsOf : []) {
       const alongX = Math.abs(g.b[1] - g.a[1]) < 1e-3;
-      const outer = g === gapsOf.find((x) => x.a[1] === hd && x.b[1] === hd && x.a[0] === -hw);
+      const outer = !!g.n;
       const len = Math.hypot(g.b[0] - g.a[0], g.b[1] - g.a[1]);
       const dx = (g.b[0] - g.a[0]) / len, dz = (g.b[1] - g.a[1]) / len;
       const p0 = [g.a[0] + dx * g.s0, g.a[1] + dz * g.s0], p1 = [g.a[0] + dx * g.s1, g.a[1] + dz * g.s1];
-      const flag: [number, number, number] = [alongX ? 0 : 1, alongX ? 1 : 0, outer ? 3 : 2];
-      if (outer) flag[1] = 1;
+      const flag: [number, number, number] = outer ? [g.n![0], g.n![1], 3] : [alongX ? 0 : 1, alongX ? 1 : 0, 2];
       if (alongX) B.box(capMat, Math.min(p0[0], p1[0]), 2.15, p0[1] - WALL_T / 2, Math.max(p0[0], p1[0]), wallH, p0[1] + WALL_T / 2, flag);
       else B.box(capMat, p0[0] - WALL_T / 2, 2.15, Math.min(p0[1], p1[1]), p0[0] + WALL_T / 2, wallH, Math.max(p0[1], p1[1]), flag);
     }
-    // Windows on the back wall: a white frame, a sill, and the view (sky by day, the city lit up at night).
-    const win = layout.windows ?? { xs: [-hw * 0.45, hw * 0.25], w: 2.0, h: 1.4, y: 1.75, view: 'sky' as const };
-    const zf = -hd + WALL_T / 2;
-    const backFlag: [number, number, number] = [0, -1, 3];
-    for (const x of win.xs) {
-      const x0 = x - win.w / 2, x1 = x + win.w / 2, y0 = win.y - win.h / 2, y1 = win.y + win.h / 2;
-      B.quad(glassMat, [[x0, y0, zf + 0.012], [x1, y0, zf + 0.012], [x1, y1, zf + 0.012], [x0, y1, zf + 0.012]], [0, 0, 1], [[0, 0], [1, 0], [1, 1], [0, 1]], backFlag);
+    // Windows: a white frame, a sill, and the view (sky by day, the city lit up at night).
+    for (const wv of windowList) {
+      // Local frame: u along the wall, d into the room, from the wall's inner face.
+      const ax = -wv.nz, az = wv.nx, ix = -wv.nx, iz = -wv.nz;
+      const ox = wv.cx + ix * (WALL_T / 2), oz = wv.cz + iz * (WALL_T / 2);
+      const P3 = (u: number, y: number, d: number): [number, number, number] => [ox + ax * u + ix * d, y, oz + az * u + iz * d];
+      const flag: [number, number, number] = [wv.nx, wv.nz, 3];
+      const bx = (u0: number, y0: number, d0: number, u1: number, y1: number, d1: number) => {
+        const p = P3(u0, y0, d0), q = P3(u1, y1, d1);
+        B.box(trimMat, Math.min(p[0], q[0]), y0, Math.min(p[2], q[2]), Math.max(p[0], q[0]), y1, Math.max(p[2], q[2]), flag);
+      };
+      const hwW = wv.w / 2, y0 = wv.y - wv.h / 2, y1 = wv.y + wv.h / 2;
+      B.quad(glassMat, [P3(-hwW, y0, 0.012), P3(hwW, y0, 0.012), P3(hwW, y1, 0.012), P3(-hwW, y1, 0.012)], [ix, 0, iz], [[0, 0], [1, 0], [1, 1], [0, 1]], flag);
       const f = 0.07;
-      B.box(trimMat, x0 - f, y0 - f, zf, x1 + f, y0, zf + 0.04, backFlag); // bottom rail
-      B.box(trimMat, x0 - f - 0.04, y0 - f - 0.03, zf, x1 + f + 0.04, y0 - f, zf + 0.1, backFlag); // sill
-      B.box(trimMat, x0 - f, y1, zf, x1 + f, y1 + f, zf + 0.04, backFlag); // top rail
-      B.box(trimMat, x0 - f, y0, zf, x0, y1, zf + 0.04, backFlag); // sides
-      B.box(trimMat, x1, y0, zf, x1 + f, y1, zf + 0.04, backFlag);
-      B.box(trimMat, x - 0.025, y0, zf, x + 0.025, y1, zf + 0.03, backFlag); // mullion
-      B.box(trimMat, x0, win.y - 0.02, zf, x1, win.y + 0.02, zf + 0.03, backFlag); // transom
+      bx(-hwW - f, y0 - f, 0, hwW + f, y0, 0.04); // bottom rail
+      bx(-hwW - f - 0.04, y0 - f - 0.03, 0, hwW + f + 0.04, y0 - f, 0.1); // sill
+      bx(-hwW - f, y1, 0, hwW + f, y1 + f, 0.04); // top rail
+      bx(-hwW - f, y0, 0, -hwW, y1, 0.04); // sides
+      bx(hwW, y0, 0, hwW + f, y1, 0.04);
+      bx(-0.025, y0, 0, 0.025, y1, 0.03); // mullion
+      bx(-hwW, wv.y - 0.02, 0, hwW, wv.y + 0.02, 0.03); // transom
     }
     for (const m of B.meshes()) shell.add(m);
   };
@@ -620,13 +660,13 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
    */
   const blockedUse = (): string | null => {
     const g = new WalkGrid(fit);
-    const door = { x: 0, z: hd - 1 };
+    const doorIn = { x: door.x - door.nx * 1.0, z: door.z - door.nz * 1.0 };
     const v = new THREE.Vector3();
     for (const it of items) {
       const def = FURNITURE.get(it.item);
       if (!def || !(def.actions.length || def.opens || def.placeActions) || def.deco || def.hang) continue;
       standFor(it, v);
-      const path = g.path(door.x, door.z, v.x, v.z);
+      const path = g.path(doorIn.x, doorIn.z, v.x, v.z);
       const end = path?.[path.length - 1];
       if (!end || Math.hypot(end.x - v.x, end.z - v.z) > 0.35) return def.name;
     }
@@ -743,10 +783,13 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
   // Sun patches on the floor under the windows (daytime only).
   const sunMat = t(new THREE.MeshBasicMaterial({ map: t(windowLightTexture()), blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, toneMapped: false, color: '#000000' }));
   const sunPatches = new THREE.Group();
-  for (const x of (layout.windows ?? { xs: [-hw * 0.45, hw * 0.25], w: 2.0 }).xs) {
-    const w = (layout.windows?.w ?? 2) * 1.1;
-    const m = new THREE.Mesh(t(new THREE.PlaneGeometry(w, w * 0.9).rotateX(-Math.PI / 2)), sunMat);
-    m.position.set(x + 0.35, 0.012, -hd + WALL_T / 2 + w * 0.5 + 0.2);
+  const patchGeo = t(new THREE.PlaneGeometry(1, 0.9).rotateX(-Math.PI / 2));
+  for (const wv of windowList) {
+    const w = wv.w * 1.1;
+    const m = new THREE.Mesh(patchGeo, sunMat);
+    m.scale.set(w, 1, w);
+    m.rotation.y = Math.atan2(-wv.nx, -wv.nz);
+    m.position.set(wv.cx - wv.nx * (WALL_T / 2 + w * 0.5 + 0.2), 0.012, wv.cz - wv.nz * (WALL_T / 2 + w * 0.5 + 0.2));
     sunPatches.add(m);
   }
   scene.add(sunPatches);
@@ -1108,7 +1151,7 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
       return style;
     },
     focus: new THREE.Vector3(0, 0.6, -0.4),
-    spawn: new THREE.Vector3(0, 0, hd - 1),
+    spawn: new THREE.Vector3(door.x - door.nx * 1.0, 0, door.z - door.nz * 1.0),
     halfWidth: hw + 1.1, // margin: the front of the room is nearer the camera, so it looks wider
     playTvAd,
     beginMove(uid) {
