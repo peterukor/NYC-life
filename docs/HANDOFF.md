@@ -47,6 +47,8 @@ Peter's plan: redo the people, NPCs and every location with the Quaternius/Kenne
 - Skills added: interior-design-expert and color-theory-palette-harmony-expert (`.claude/skills/THIRD_PARTY_SKILLS.md`).
 - QA: `scripts/qa-venues.mjs` (hides random events/tips), `scripts/qa-design.mjs`.
 
+**Square homes (Peter, 2026-10-27, third round: "all apartments should be square", big living rooms, walk-in closets and showers in the big rooms, a guest bathroom, no pool).** Every home is now a square `shaped` plan, sized by wealth: shelter and Harlem walk-up 10×10, studio 12×12, loft 16×16 (two bedrooms), Upper East Side residence 20×20 and Billionaires' Row penthouse 24×24 (primary suite with walk-in closet and en-suite, a second bedroom with a glass shower, a third bedroom, open living / dining / kitchen with an island, a pool-table den or game lounge, a guest bathroom; the penthouse adds a grand piano). Versions bumped (old arrangements go to Storage). The plans were laid out with a small generator that uses real footprints (`scripts/qa-footprints.mjs` dumps them via `__nyc.footprints`). Inside walls now stay waist-high (1.05 m, `INNER_LOW` in home-interior.ts) when cut away, Lagos Life style; outer walls still drop to 0.55 m. Square homes open showing the whole floor (`startZoomFor`). `qa-venues.mjs` also checks `blockedUse` and can print `STATS=1` mesh counts. Penthouse: ~180–200 draw calls at full view (one per piece); merging static furniture would be the next perf step if an iPhone X struggles.
+
 **Stage 4** (the 59 new rooms): Peter said "not yet for now". **Stage 5** (social) needs the server hosted.
 
 ## Batch 7: the north and better mini games (2026-10-16)

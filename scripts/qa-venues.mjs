@@ -30,7 +30,10 @@ for (const id of ids) {
   if (process.env.ZOOM) await page.evaluate((z) => window.__nyc.zoomAt(+z, 0, 0), process.env.ZOOM);
   await wait(600);
   const clashes = await page.evaluate(() => window.__nyc.furnitureClashes());
+  const blocked = await page.evaluate(() => window.__nyc.blockedUse());
+  if (blocked) console.log(id, 'BLOCKED', blocked);
   const info = await page.evaluate(() => [window.__nyc.drawCalls(), window.__nyc.triangles()]);
+  if (process.env.STATS) console.log(JSON.stringify(await page.evaluate(() => window.__nyc.interiorMeshes())));
   console.log(id, 'calls/tris', JSON.stringify(info), 'clashes', JSON.stringify(clashes));
   await page.screenshot({ path: `test-results/venue-${id}.png` });
   shots.push(`test-results/venue-${id}.png`);

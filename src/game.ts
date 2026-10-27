@@ -422,6 +422,7 @@ export class Game {
       moveFurniture: (uid: string) => this.startMoving(uid),
       doneMoving: (keep: boolean) => this.stopMoving(keep),
       furnitureClashes: () => (this.interior && 'clashes' in this.interior ? (this.interior as HomeInterior).clashes() : null),
+      footprints: (ids: string[]) => (this.interior && 'footprintOf' in this.interior ? Object.fromEntries(ids.map((i) => [i, (this.interior as HomeInterior).footprintOf(i)])) : null),
       furnitureAt: (uid: string) => (this.interior && 'items' in this.interior ? (this.interior as HomeInterior).items.find((i) => i.uid === uid) ?? null : null),
       itemScreen: (uid: string) => {
         const it = this.interior && 'items' in this.interior ? (this.interior as HomeInterior).items.find((i) => i.uid === uid) : null;
@@ -580,6 +581,18 @@ export class Game {
           out[k] = (out[k] ?? 0) + 1;
         });
         return out;
+      },
+      /** Interior: visible meshes per top-level group name (QA: what costs draw calls). */
+      interiorMeshes: () => {
+        const n: Record<string, number> = {};
+        this.engine.altScene?.traverseVisible((o) => {
+          if (!(o as THREE.Mesh).isMesh) return;
+          let p: THREE.Object3D = o;
+          while (p.parent && p.parent !== this.engine.altScene) p = p.parent;
+          const k = `${p.name || p.type}/${o.name || ''}`.replace(/[0-9]+/g, '#').slice(0, 40);
+          n[k] = (n[k] ?? 0) + 1;
+        });
+        return Object.entries(n).sort((a, b) => b[1] - a[1]).slice(0, 25);
       },
       meshStats: () => {
         const rows: [string, number][] = [];
@@ -2534,6 +2547,8 @@ export class Game {
     if (!layout) return undefined;
     const area = layout.width * layout.depth;
     const portrait = aspect < 0.8;
+    // Square homes (2026-10-27) open showing the whole floor, a touch zoomed in (like Lagos Life).
+    if (layout.width === layout.depth && layout.shaped && !layout.mood) return area > 300 ? (portrait ? 1.2 : 1.05) : undefined;
     if (area > 700) return portrait ? 1.75 : 1.25;
     if (area > 400) return portrait ? 1.5 : 1.15;
     if (area > 180) return portrait ? 1.2 : 1.05;
@@ -2883,7 +2898,7 @@ export class Game {
       }
       delete s.homes[placeId];
       if (s.homeStyles) delete s.homeStyles[placeId];
-      window.setTimeout(() => toast('Your place got bigger! Anything extra you owned is in 🎨 Design → Storage', { icon: '🏠', tone: 'good', ms: 4500 }), 900);
+      window.setTimeout(() => toast('Your place has a new floor plan! Anything extra you owned is in 🎨 Design → Storage', { icon: '🏠', tone: 'good', ms: 4500 }), 900);
     }
     vers[placeId] = v;
   }

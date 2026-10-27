@@ -37,6 +37,8 @@ import { rectAt, snapToWall, spotFree, WalkGrid, whyNot, type FitKind, type FitW
 
 export const WALL_H = 2.9;
 const LOW_WALL = 0.55;
+/** How high an inside wall stays when it's cut away. */
+const INNER_LOW = 1.05;
 const WALL_T = 0.2;
 
 /** Shared by every wall material: which way the camera looks, so the near walls drop (see cutWalls). */
@@ -46,6 +48,10 @@ const CUT = {
   uNoCut: { value: 0 },
   uLow: { value: LOW_WALL },
   uDrop: { value: WALL_H - LOW_WALL },
+  // Inside walls cut down to waist height, not to the floor: you see every
+  // room but the rooms still read as rooms (Lagos Life, Peter 2026-10-27).
+  uLowIn: { value: INNER_LOW },
+  uDropIn: { value: WALL_H - INNER_LOW },
 };
 
 /**
@@ -62,7 +68,7 @@ function cutaway<M extends THREE.Material>(m: M): M {
     prev?.call(m, shader, r);
     Object.assign(shader.uniforms, CUT);
     shader.vertexShader = shader.vertexShader
-      .replace('#include <common>', '#include <common>\nattribute vec3 aWall;\nuniform vec2 uView;\nuniform float uCutAll;\nuniform float uNoCut;\nuniform float uLow;\nuniform float uDrop;')
+      .replace('#include <common>', '#include <common>\nattribute vec3 aWall;\nuniform vec2 uView;\nuniform float uCutAll;\nuniform float uNoCut;\nuniform float uLow;\nuniform float uDrop;\nuniform float uLowIn;\nuniform float uDropIn;')
       .replace(
         '#include <begin_vertex>',
         `#include <begin_vertex>
@@ -70,9 +76,10 @@ function cutaway<M extends THREE.Material>(m: M): M {
           float facing = dot(aWall.xy, uView);
           float outer = mod(aWall.z, 2.0);
           bool cut = uNoCut < 0.5 && (uCutAll > 0.5 || (outer > 0.5 ? facing > 0.3 : abs(facing) > 0.5));
-          if (cut && position.y > uLow + 0.01) {
+          float low = outer > 0.5 ? uLow : uLowIn;
+          if (cut && position.y > low + 0.01) {
             if (aWall.z > 1.5) transformed.y = -1.0;
-            else transformed.y -= uDrop;
+            else transformed.y -= outer > 0.5 ? uDrop : uDropIn;
           }
         }`,
       );
@@ -110,6 +117,8 @@ export interface HomeInterior extends Interior {
   addPiece: (item: string, x: number, z: number, rot?: number, finish?: Pick<HomeItem, 'a' | 'b' | 'lc'>) => string | null;
   /** A piece's spot, turn and footprint (for posing the player on it). */
   pieceInfo: (uid: string) => { item: string; x: number; z: number; rot: number; fp: Footprint } | null;
+  /** Any catalogue piece's footprint and height (QA: planning layouts). */
+  footprintOf: (item: string) => (Footprint & { h: number }) | null;
   /** The first piece you use that can't be reached from the door (null = all fine). */
   blockedUse: () => string | null;
   /** Pieces standing where they shouldn't (for QA of the home layouts). */
@@ -310,6 +319,8 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
   const tier = opts.tier ?? 'medium';
   const wallH = layout.wallHeight ?? WALL_H;
   CUT.uDrop.value = Math.max(0, wallH - LOW_WALL);
+  CUT.uLowIn.value = Math.min(INNER_LOW, wallH);
+  CUT.uDropIn.value = Math.max(0, wallH - INNER_LOW);
   let style: HomeStyle = structuredClone(opts.style ?? {});
 
   // ---------------------------------------------------------------- light
@@ -486,6 +497,11 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
     // ---- walls
     const B = new Buckets();
     const T = WALL_T / 2;
+    // Two strips (below and above the cut line) so a cut wall keeps its pattern unsquashed.
+    const wallStrips = (outer?: boolean): [number, number][] => {
+      const cutAt = Math.min(outer ? LOW_WALL : INNER_LOW, wallH);
+      return [[0, cutAt], [cutAt, wallH]];
+    };
     segs.forEach((s, si) => {
       const alongX = Math.abs(s.bz - s.az) < 1e-3;
       // The wall's own axis (u) and its normal (n), the box grown by T at each end to close corners.
@@ -505,7 +521,7 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
         const flag: [number, number, number] = [outward[0], outward[1], s.outer ? 1 : 0];
         // Two strips (below and above the ledge) so a cut wall keeps its pattern unsquashed.
         const flip = alongX ? side < 0 : side > 0; // keep the face pointing out of the wall
-        for (const [y0, y1] of [[0, Math.min(LOW_WALL, wallH)], [Math.min(LOW_WALL, wallH), wallH]]) {
+        for (const [y0, y1] of wallStrips(s.outer)) {
           const v: [number, number, number][] = [P(u0, y0, side), P(u1, y0, side), P(u1, y1, side), P(u0, y1, side)];
           const uv: [number, number][] = [[u0, y0], [u1, y0], [u1, y1], [u0, y1]];
           if (flip) {
@@ -527,7 +543,7 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
       // End faces (door jambs) and the cap on top, the "cut edge" of a Sims wall.
       for (const [u, sgn] of [[u0, -1], [u1, 1]] as const) {
         const n: [number, number, number] = alongX ? [sgn, 0, 0] : [0, 0, sgn];
-        for (const [y0, y1] of [[0, Math.min(LOW_WALL, wallH)], [Math.min(LOW_WALL, wallH), wallH]]) {
+        for (const [y0, y1] of wallStrips(s.outer)) {
           const v: [number, number, number][] = [P(u, y0, -1), P(u, y0, 1), P(u, y1, 1), P(u, y1, -1)];
           if ((alongX && sgn > 0) || (!alongX && sgn < 0)) v.reverse();
           B.quad(capMat, v, n, [[0, 0], [1, 0], [1, 1], [0, 1]], flag);
@@ -1157,7 +1173,7 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
       const out = f.outer ? n.clone().negate() : n;
       const facing = out.x * v.x + out.z * v.y;
       const cut = CUT.uNoCut.value < 0.5 && (CUT.uCutAll.value > 0.5 || (f.outer ? facing > 0.3 : Math.abs(facing) > 0.5));
-      const top = cut ? LOW_WALL : wallH;
+      const top = cut ? Math.min(f.outer ? LOW_WALL : INNER_LOW, wallH) : wallH;
       const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(n, new THREE.Vector3(f.ax, 0, f.az));
       const p = ray.intersectPlane(plane, new THREE.Vector3());
       if (!p || p.y < 0 || p.y > top) continue;
@@ -1317,6 +1333,10 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
       return it.uid;
     },
     blockedUse: () => blockedUse(),
+    footprintOf: (item) => {
+      const fp = fit.footprint(item);
+      return fp ? { ...fp, h: pieceBox(item).max.y } : null;
+    },
     pieceInfo: (uid) => {
       const it = items.find((i) => i.uid === uid);
       const fp = it && fit.footprint(it.item);
