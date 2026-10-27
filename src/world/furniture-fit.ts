@@ -8,7 +8,10 @@
 //   • it can't overlap another piece.
 // Rugs and shoe piles ("flat") only need to be inside the home: they
 // slide under things. Wall pieces (posters, a window AC) hang on the
-// outer walls and only bump into other wall pieces.
+// outer walls and only bump into other wall pieces. Ceiling pieces
+// (pendants, chandeliers) only bump into other ceiling pieces. Small
+// decor (vases, table lamps) bumps into other decor, and sits on top of
+// whatever table or shelf is under it — but not on a sofa or a bed.
 // =====================================================================
 
 import type { HomeItem, HomeLayout } from '../data/homes.ts';
@@ -16,7 +19,7 @@ import type { HomeItem, HomeLayout } from '../data/homes.ts';
 export interface Rect { x0: number; z0: number; x1: number; z1: number }
 /** A piece's footprint around its own centre, before turning (metres). */
 export interface Footprint { minX: number; maxX: number; minZ: number; maxZ: number }
-export type FitKind = 'floor' | 'flat' | 'wall';
+export type FitKind = 'floor' | 'flat' | 'wall' | 'ceiling' | 'deco';
 
 export const WALL_T = 0.2;
 /** How far into the room a doorway is kept clear, each side of the wall. */
@@ -78,6 +81,8 @@ export interface FitWorld {
   items: HomeItem[];
   footprint: (item: string) => Footprint | null;
   kind: (item: string) => FitKind;
+  /** Pieces decor can't stand on (sofas, beds, chairs). */
+  noDecoOn?: (item: string) => boolean;
 }
 
 /** Why a piece can't stand there (null = it fits). */
@@ -100,7 +105,15 @@ export function whyNot(w: FitWorld, uid: string, x: number, z: number, rot: numb
   for (const o of w.items) {
     if (o.uid === uid) continue;
     const ok = w.kind(o.item);
-    // Floor pieces bump into floor pieces; wall pieces into wall pieces.
+    // Decor can't sit on a sofa or a bed.
+    if (kind === 'deco' && ok === 'floor' && w.noDecoOn?.(o.item)) {
+      const ofp = w.footprint(o.item);
+      if (ofp) {
+        const b = rectAt(ofp, o.x, o.z, o.rot);
+        if (x > b.x0 && x < b.x1 && z > b.z0 && z < b.z1) return 'Can’t put that there';
+      }
+    }
+    // Floor pieces bump into floor pieces; wall pieces into wall pieces…
     if (ok === 'flat' || ok !== kind) continue;
     const ofp = w.footprint(o.item);
     if (ofp && overlaps(r, rectAt(ofp, o.x, o.z, o.rot))) return 'Something’s already there';

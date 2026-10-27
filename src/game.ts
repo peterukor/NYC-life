@@ -52,7 +52,10 @@ import { Crowd } from './world/crowd.ts';
 import { buildInterior, type Interior } from './world/interior.ts';
 import { buildHome, type HomeInterior } from './world/home-interior.ts';
 import { loadFurnitureKit, type FurnitureKit } from './assets/furniture-kit.ts';
-import { layoutForPlace } from './data/homes.ts';
+import { DesignMode } from './ui/design-mode.ts';
+import { initThumbs } from './render/furniture-thumbs.ts';
+import { setHomeAnisotropy, setHomeSurfaceDetail } from './render/home-surfaces.ts';
+import { layoutForPlace, type HomeLayout } from './data/homes.ts';
 import { VENUE_LAYOUT_FOR, VENUE_LAYOUTS, WORKPLACE_LAYOUTS, WORKPLACE_LAYOUT_FOR } from './data/venues.ts';
 import { FURNITURE, FURNITURE_QUALITY, qualityLine, SHOP_ITEMS } from './data/furniture.ts';
 import { buyFurniture } from './sim/shop.ts';
@@ -199,6 +202,8 @@ export class Game {
   private furnitureLoad: Promise<unknown> | null = null;
   /** The furniture piece being moved in move mode (home only). */
   private moving: { uid: string; bar: HTMLElement } | null = null;
+  /** The home design menu (ui/design-mode.ts), while it's open. */
+  private design: DesignMode | null = null;
   /** A finger dragging the held piece (move mode). */
   /** Using a piece of furniture right now: the progress bar and how you're posed. */
   private doing: { bar: ReturnType<typeof progressBar>; uid?: string; standX: number; standZ: number } | null = null;
@@ -227,6 +232,11 @@ export class Game {
     this.engine.onTap((x, y) => this.onTap(x, y));
     this.setupFurnitureDrag();
     this.setupInteriorGestures();
+    // The camera swings round the room: tell the home which walls to drop.
+    this.view.onView = (x, z, mode) => {
+      const home = this.interior as HomeInterior | null;
+      if (home && 'setView' in home) home.setView(x, z, mode);
+    };
     // Re-frame rooms when the phone rotates or the window changes size.
     window.addEventListener('resize', () => {
       if (this.engine.mode === 'interior') this.fitInteriorCamera(true);
@@ -427,6 +437,16 @@ export class Game {
       walking: () => !!this.indoor,
       indoorRoute: () => (this.indoor ? this.indoor.points.map((q) => ({ ...q })) : null),
       resetCam: () => this.fitInteriorCamera(),
+      storageSheet: () => this.openStorage(),
+      design: () => this.openDesign(),
+      designOpen: () => !!this.design,
+      homeStyle: () => (this.interior && 'setStyle' in this.interior ? structuredClone((this.interior as HomeInterior).style) : null),
+      setHomeStyle: (st: unknown) => (this.interior as HomeInterior).setStyle(st as never),
+      previewHour: (h: number | null) => (this.interior as HomeInterior).previewHour(h),
+      swing: (rad: number) => this.view.rotate(rad),
+      topView: (on: boolean) => this.view.setTop(on),
+      addPiece: (item: string, x: number, z: number) => (this.interior as HomeInterior).addPiece(item, x, z),
+      setFinish: (uid: string, f: Record<string, string>) => (this.interior as HomeInterior).setFinish(uid, f),
       phoneApp: (id: string) => this.openPhoneApp(id),
       nowPlaying: () => music.title,
       /** QA: ads inside buildings / props on roads across the whole loaded area (should be []). */
@@ -612,7 +632,13 @@ export class Game {
     // Home furniture is only needed indoors: it loads once the city is up.
     const [kits, folk] = await Promise.all([timeout(marked(loadKits(), 'models:kits'), 12000, {} as Kits), timeout(marked(loadFolk().catch(() => null), 'models:folk'), 12000, null)]);
     performance.mark('boot:models');
-    const furnitureReady = () => (this.furnitureLoad ??= timeout(marked(loadFurnitureKit(), 'models:furniture'), 12000, null).then((f) => (this.furniture = f)));
+    const furnitureReady = () => (this.furnitureLoad ??= timeout(marked(loadFurnitureKit(), 'models:furniture'), 12000, null).then((f) => {
+      this.furniture = f;
+      if (f) initThumbs(this.engine.renderer, f);
+      setHomeSurfaceDetail(this.engine.quality.tier === 'low');
+      setHomeAnisotropy(Math.min(4, this.engine.renderer.capabilities.getMaxAnisotropy()));
+      return f;
+    }));
     this.kits = kits;
     this.folk = folk;
     const loaded = loadGame();
@@ -917,6 +943,7 @@ export class Game {
       this.player.animate(this.walkIndoors(dt), dt);
       // Zoomed in: keep yourself in view while you walk somewhere.
       if (this.indoor || this.doing) this.view.follow(this.player.root.position, dt);
+      this.view.tick(dt);
       this.tickDoing();
       const ring = this.tapRing;
       if (ring?.visible) {
@@ -1084,6 +1111,7 @@ export class Game {
       if (why) toast(`${why}, so it went back`, { icon: '↩️', ms: 2000 });
       return;
     }
+    if (this.engine.mode === 'interior' && this.interior && this.design?.open && this.design.onTap(x, y)) return;
     if (this.engine.mode === 'interior' && this.interior) {
       // Tapping anything while busy with a piece: get up first.
       if (this.doing) this.stopDoing(true);
@@ -1181,7 +1209,7 @@ export class Game {
     if (this.busy) return;
     sfx.tap();
     if (which === 'places') return this.openPlacesList();
-    if (which === 'storage') return this.openStorage();
+    if (which === 'storage') return this.openDesign();
     if (which === 'leave') {
       // At home, stroll to the front door first.
       const home = this.interior as HomeInterior | null;
@@ -2255,6 +2283,7 @@ export class Game {
     home.highlight(uid);
     home.beginMove(uid);
     this.moving = { uid, bar };
+    this.design?.suspend(true);
   }
 
   /** Where a screen point lands on the floor (y = 0) through the interior camera. */
@@ -2306,6 +2335,7 @@ export class Game {
   private stopMoving(keep: boolean): void {
     if (!this.moving) return;
     this.moving.bar.remove();
+    this.design?.suspend(false);
     const home = this.interior as HomeInterior | null;
     const uid = this.moving.uid;
     this.moving = null;
@@ -2355,6 +2385,7 @@ export class Game {
   private enterInterior(place: PlaceDef, animate: boolean): void {
     if (animate) sfx.door();
     const go = () => {
+      this.design?.close();
       this.interior?.dispose();
       this.stopMoving(false);
       // A workplace has its own room; other venues share their kind's plan.
@@ -2362,7 +2393,8 @@ export class Game {
       if (place.interior === 'apartment' && this.furniture) {
         // Sims-style home: its own floor plan, real furniture, saved arrangement.
         const layout = layoutForPlace(place.id);
-        const home = buildHome(place, layout, this.state.homes[place.id] ?? layout.furniture, this.furniture);
+        this.migrateHome(place.id, layout);
+        const home = buildHome(place, layout, this.state.homes[place.id] ?? layout.furniture, this.furniture, { style: this.state.homeStyles?.[place.id], clock: () => nycTime().hourFloat, tier: this.engine.quality.tier });
         this.interior = home;
         // Roommates (the walk-up): they live there too, and wander the shared rooms.
         const mates = layout.conditions?.roommates;
@@ -2390,7 +2422,7 @@ export class Game {
         }
       } else if (venue && this.furniture) {
         // Shops, cafés, bars and offices: same Sims look, the counter sells what the place sells.
-        const shop = buildHome(place, venue, venue.furniture, this.furniture, { venue: true, placeActions: place.actions });
+        const shop = buildHome(place, venue, venue.furniture, this.furniture, { venue: true, placeActions: place.actions, tier: this.engine.quality.tier });
         this.interior = shop;
         this.myWorkSpot = null;
         // A workplace: 6 worker spots. NPC coworkers fill them; if it's your job, you take one.
@@ -2480,14 +2512,17 @@ export class Game {
     const aspect = el.clientWidth / Math.max(1, el.clientHeight);
     cam.fov = aspect < 0.8 ? 62 : 48;
     cam.aspect = aspect;
-    const roomHalfWidth = this.interior?.halfWidth ?? 7.2;
+    const layout0 = this.interior && 'layout' in this.interior ? (this.interior as HomeInterior).layout : null;
+    // A long home on a phone held upright: swing the view a quarter turn so its long side runs up the screen.
+    const swing = layout0 && aspect < 0.8 && layout0.width > layout0.depth * 1.15 ? -Math.PI / 2 : 0;
+    const roomHalfWidth = swing && layout0 ? layout0.depth / 2 + 1.1 : this.interior?.halfWidth ?? 7.2;
     const hFov = 2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(cam.fov) / 2) * aspect);
     const dist = Math.max(9, roomHalfWidth / Math.tan(hFov / 2)); // small homes fill the screen too
     cam.far = dist * 4;
     cam.updateProjectionMatrix();
     // Pinch to zoom and drag to pan, in every room, on top of the whole-room framing.
     const layout = this.interior && 'layout' in this.interior ? (this.interior as HomeInterior).layout : null;
-    this.view.frame(new THREE.Vector3(0, 0.6, -0.5), new THREE.Vector3(0, dist * 0.72, dist * 0.7), (layout?.width ?? 12) / 2, (layout?.depth ?? 10) / 2, true, keep); // every room can zoom (Peter, 2026-10-14)
+    this.view.frame(new THREE.Vector3(0, 0.6, -0.5), new THREE.Vector3(0, dist * 0.72, dist * 0.7), (layout?.width ?? 12) / 2, (layout?.depth ?? 10) / 2, true, keep, swing, layout && layout.width * layout.depth > 180 ? 1.05 : undefined); // every room can zoom (Peter, 2026-10-14)
   }
 
   /**
@@ -2620,6 +2655,7 @@ export class Game {
   private leaveInterior(): void {
     if (!this.interior) return;
     sfx.door();
+    this.design?.close();
     this.stopDoing();
     this.indoor = null;
     this.stopMoving(true);
@@ -2685,7 +2721,10 @@ export class Game {
   private saveHomeLayout(): void {
     const home = this.interior as HomeInterior | null;
     const placeId = this.state.location.placeId;
-    if (home && 'items' in home && placeId) this.state.homes[placeId] = home.items.map((i) => ({ ...i }));
+    if (home && 'items' in home && placeId) {
+      this.state.homes[placeId] = home.items.map((i) => ({ ...i }));
+      if (home.movable) (this.state.homeStyles ??= {})[placeId] = structuredClone(home.style);
+    }
     this.save();
   }
 
@@ -2715,6 +2754,123 @@ export class Game {
     this.saveHomeLayout();
     const d = FURNITURE.get(item)!;
     toast(`${d.emoji} ${d.name} is in. The ${FURNITURE.get(spot.item)!.name.toLowerCase()} went to Storage`, { icon: '✨', tone: 'good', ms: 3200 });
+  }
+
+  /**
+   * The home design menu (ui/design-mode.ts): buy and place furniture,
+   * paint walls, lay floors, lights, whole-home styles, storage.
+   */
+  private openDesign(): void {
+    const home = this.interior as HomeInterior | null;
+    if (!home || !('setStyle' in home) || !home.movable || this.design) return;
+    this.stopDoing();
+    this.indoor = null;
+    this.hud.setVisible(false);
+    // The menu covers the bottom of the screen: lift the room into the space above it.
+    const cv = this.engine.renderer.domElement;
+    this.view.setLift(Math.min(cv.clientHeight * 0.46, 360) * 0.42, cv.clientWidth, cv.clientHeight);
+    const ndc = (x: number, y: number) => {
+      const r = this.engine.renderer.domElement.getBoundingClientRect();
+      return new THREE.Vector2(((x - r.left) / r.width) * 2 - 1, -((y - r.top) / r.height) * 2 + 1);
+    };
+    this.design = new DesignMode({
+      home: () => (this.interior && 'setStyle' in this.interior ? (this.interior as HomeInterior) : null),
+      cash: () => this.state.money,
+      pay: (cents, what) => {
+        if (cents <= 0) return true;
+        if (this.state.money < cents) {
+          toast(`You need ${money(cents - this.state.money)} more for ${what}`, { icon: '💸', tone: 'bad', ms: 2600 });
+          return false;
+        }
+        this.state.money -= cents;
+        this.refreshHud(true);
+        return true;
+      },
+      save: () => this.saveHomeLayout(),
+      buyAndPlace: (item) => {
+        const def = FURNITURE.get(item);
+        const h = this.interior as HomeInterior;
+        if (!def) return;
+        if (this.state.money < def.price) return toast(`You need ${money(def.price - this.state.money)} more`, { icon: '💸', tone: 'bad', ms: 2400 });
+        // Bring it in where you're looking (the middle of the screen).
+        const r = this.engine.renderer.domElement.getBoundingClientRect();
+        const at = this.floorPoint(r.left + r.width / 2, r.top + r.height * 0.4) ?? this.player.root.position.clone();
+        const uid = h.addPiece(item, at.x, at.z);
+        if (!uid) return toast('No room for that. Move or put something away first', { icon: '📦', tone: 'bad', ms: 2600 });
+        this.state.money -= def.price;
+        sfx.cash();
+        this.refreshHud(true);
+        this.saveHomeLayout();
+        this.startMoving(uid);
+      },
+      move: (uid) => this.startMoving(uid),
+      store: (uid) => this.storeFurniture(uid),
+      placeStored: (item) => {
+        const h = this.interior as HomeInterior;
+        const stored = this.state.storage ?? [];
+        const r = this.engine.renderer.domElement.getBoundingClientRect();
+        const at = this.floorPoint(r.left + r.width / 2, r.top + r.height * 0.4) ?? this.player.root.position.clone();
+        const uid = h.addPiece(item, at.x, at.z);
+        if (!uid) return toast('No room for that right now. Put something away first', { icon: '📦', tone: 'bad' });
+        const k = stored.indexOf(item);
+        if (k >= 0) stored.splice(k, 1);
+        this.saveHomeLayout();
+        this.startMoving(uid);
+      },
+      storage: () => [...(this.state.storage ?? [])],
+      view: this.view,
+      ray: (x, y) => {
+        const rc = new THREE.Raycaster();
+        rc.setFromCamera(ndc(x, y), this.interiorCamera);
+        return rc.ray.clone();
+      },
+      pieceAt: (x, y) => {
+        const h = this.interior as HomeInterior;
+        const hit = this.engine.pick(x, y, h.objects.map((o) => o.mesh), this.interiorCamera);
+        return (hit?.object.userData.objectId as string | undefined) ?? null;
+      },
+      playerRoom: () => {
+        const h = this.interior as HomeInterior;
+        const p = this.player.root.position;
+        for (let i = h.layout.rooms.length - 1; i >= 0; i--) {
+          const [x0, z0, x1, z1] = h.layout.rooms[i].rect;
+          if (p.x >= x0 && p.x <= x1 && p.z >= z0 && p.z <= z1) return i;
+        }
+        return 0;
+      },
+      onClose: () => {
+        this.design = null;
+        this.view.setLift(0, 1, 1);
+        this.stopMoving(true);
+        this.hud.setVisible(true);
+        this.refreshHud(true);
+      },
+    });
+  }
+
+  /**
+   * A home's floor plan got bigger (data/homes.ts `version`): the old
+   * arrangement can't fit the new walls, so the new plan's furniture goes
+   * in and anything you bought on top waits in Storage.
+   */
+  private migrateHome(placeId: string, layout: HomeLayout): void {
+    const s = this.state;
+    const v = layout.version ?? 1;
+    const vers = (s.homeVersions ??= {});
+    const saved = s.homes[placeId];
+    if (saved && (vers[placeId] ?? 1) < v) {
+      const left = new Map<string, number>();
+      for (const f of layout.furniture) left.set(f.item, (left.get(f.item) ?? 0) + 1);
+      for (const it of saved) {
+        const n = left.get(it.item) ?? 0;
+        if (n > 0) left.set(it.item, n - 1);
+        else if (!FURNITURE.get(it.item)?.fixed) (s.storage ??= []).push(it.item);
+      }
+      delete s.homes[placeId];
+      if (s.homeStyles) delete s.homeStyles[placeId];
+      window.setTimeout(() => toast('Your place got bigger! Anything extra you owned is in 🎨 Design → Storage', { icon: '🏠', tone: 'good', ms: 4500 }), 900);
+    }
+    vers[placeId] = v;
   }
 
   /** Storage: everything you own that isn't out. Tap Place to bring it in. */

@@ -73,7 +73,7 @@ export class Hud {
           <button data-nav="map"><span class="dock-ico" aria-hidden="true">🗺️</span><span>Map</span></button>
           <button data-nav="places"><span class="dock-ico" aria-hidden="true">🏙️</span><span>Places</span></button>
           <button data-nav="phone"><span class="dock-ico" aria-hidden="true">📱</span><span>Phone</span></button>
-          <button data-nav="storage" hidden><span class="dock-ico" aria-hidden="true">📦</span><span>Storage</span></button>
+          <button data-nav="storage" hidden><span class="dock-ico" aria-hidden="true">🎨</span><span>Design</span></button>
           <button data-nav="leave" hidden><span class="dock-ico" aria-hidden="true">🚪</span><span>Go outside</span></button>
         </nav>
       </div>`);

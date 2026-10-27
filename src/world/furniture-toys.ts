@@ -6,7 +6,7 @@
 // with vertex colours (the same toy kit as the landmarks), so a whole
 // room is a handful of draw calls and runs on cheap phones.
 //
-// CONVENTIONS (same as the Kenney models in furniture.glb):
+// CONVENTIONS (same as the models in interior.glb):
 //   • metres; centred on its footprint; sitting on y = 0;
 //   • the FRONT faces +z (rot 0 = facing the camera); the back is −z,
 //     so a piece "against the back wall" has its back to −z.
@@ -21,6 +21,7 @@ import * as THREE from 'three';
 import { Toy } from './landmarks/toy.ts';
 import { WORK_ON_WALL, WORK_TOYS } from './furniture-work.ts';
 import { FUN_ON_WALL, FUN_TOYS } from './furniture-fun.ts';
+import { DECO_HANG, DECO_ON_WALL, DECO_TOYS } from './furniture-deco.ts';
 
 // ---- a cosy, slightly worn palette
 const WOOD = '#a8743f';
@@ -508,10 +509,10 @@ const LUX: Record<string, (t: Toy) => void> = {
     }
   },
 };
-Object.assign(TOYS, LUX, WORK_TOYS, FUN_TOYS);
+Object.assign(TOYS, LUX, WORK_TOYS, FUN_TOYS, DECO_TOYS);
 
-/** Pieces that hang on a wall: centred on their footprint but kept at their height. */
-const ON_WALL = new Set(['toyPosters', 'toyWindowAC', 'toyArtwork', ...WORK_ON_WALL, ...FUN_ON_WALL]);
+/** Pieces that hang on a wall (or from the ceiling): centred on their footprint but kept at their height. */
+const ON_WALL = new Set(['toyPosters', 'toyWindowAC', 'toyArtwork', ...WORK_ON_WALL, ...FUN_ON_WALL, ...DECO_ON_WALL, ...DECO_HANG]);
 
 /** Build one toy piece (centred on its footprint, on y = 0). */
 function buildToy(name: string): THREE.BufferGeometry {

@@ -1,0 +1,42 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>body{margin:0;background:#20242c;font:11px sans-serif;color:#fff}#wrap{position:relative}canvas{display:block}.l{position:absolute;padding:2px 4px;background:#0008}</style>
+<script type="importmap">{"imports":{"three":"/home/claude/NYC-life/node_modules/three/build/three.module.js","three/addons/":"/home/claude/NYC-life/node_modules/three/examples/jsm/"}}</script>
+</head><body><div id="wrap"></div>
+<script type="module">
+// Interior pack contact sheet: ?from=0&n=48&cols=8&cell=170&filter=regex
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+const q = new URLSearchParams(location.search);
+const cols = +(q.get('cols') ?? 8), cell = +(q.get('cell') ?? 170);
+const meta = await (await fetch('/home/claude/NYC-life/src/data/interior-models.json')).json();
+const gltf = await new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).loadAsync('/home/claude/NYC-life/public/models/interior.glb');
+let meshes = []; gltf.scene.traverse((o) => o.isMesh && meshes.push(o));
+const re = q.get('filter') ? new RegExp(q.get('filter')) : null;
+meshes = meshes.filter((m) => !re || re.test(m.name)).slice(+(q.get('from') ?? 0), +(q.get('from') ?? 0) + +(q.get('n') ?? 48));
+const rows = Math.ceil(meshes.length / cols);
+const r = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+r.setSize(cols * cell, rows * cell); r.setScissorTest(true); r.outputColorSpace = THREE.SRGBColorSpace; r.toneMapping = THREE.NeutralToneMapping;
+document.getElementById('wrap').appendChild(r.domElement);
+const tint = q.get('tint');
+for (const [i, m] of meshes.entries()) {
+  const md = meta[m.name] ?? {};
+  const g = m.geometry; const slot = g.getAttribute('_slot');
+  const col = g.getAttribute('color'); const c = new THREE.Color(); const a = new THREE.Color(tint ?? md.a ?? '#fff'), b = new THREE.Color(md.b ?? '#fff');
+  const nc = new Float32Array(col.count * 3);
+  for (let k = 0; k < col.count; k++) { const s = slot ? slot.getX(k) : 0; c.setRGB(col.getX(k), col.getY(k), col.getZ(k)); if (s === 1) c.multiply(a); if (s === 2) c.multiply(b); if (s === 3) c.setRGB(1, 0.85, 0.5); nc.set([c.r, c.g, c.b], k * 3); }
+  gltf.scene.updateMatrixWorld(true); const geo = g.clone(); geo.setAttribute("color", new THREE.BufferAttribute(nc, 3)); for (const k of ["position","normal"]) { const at = geo.getAttribute(k); const f = new Float32Array(at.count*3); for (let j=0;j<at.count;j++) f.set([at.getX(j),at.getY(j),at.getZ(j)], j*3); geo.setAttribute(k, new THREE.BufferAttribute(f,3)); } geo.applyMatrix4(m.matrixWorld);
+  const scene = new THREE.Scene(); scene.background = new THREE.Color(0x2a2f3a);
+  scene.add(new THREE.HemisphereLight(0xfff6e8, 0x5a4a40, 1.6)); const s = new THREE.DirectionalLight(0xffe9c8, 1.6); s.position.set(-3, 6, 4); scene.add(s);
+  const mesh = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ vertexColors: true })); scene.add(mesh);
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(6, 6), new THREE.MeshLambertMaterial({ color: 0x8a7a68 })); floor.rotation.x = -Math.PI / 2; floor.position.y = md.hang ? -2.6 : 0; scene.add(floor);
+  geo.computeBoundingBox(); const bb = geo.boundingBox; const ctr = bb.getCenter(new THREE.Vector3()); const size = Math.max(...bb.getSize(new THREE.Vector3()).toArray(), 0.4);
+  const cam = new THREE.PerspectiveCamera(35, 1, 0.01, 100); cam.position.set(ctr.x + size * 1.0, ctr.y + size * 1.1, ctr.z + size * 2.0); cam.lookAt(ctr);
+  const x = (i % cols) * cell, y = (rows - 1 - Math.floor(i / cols)) * cell;
+  r.setViewport(x, y, cell, cell); r.setScissor(x, y, cell, cell); r.render(scene, cam);
+  const l = document.createElement('div'); l.className = 'l'; l.style.left = (i % cols) * cell + 'px'; l.style.top = Math.floor(i / cols) * cell + 'px';
+  l.textContent = `${m.name} ${md.size?.join('×')}`; document.getElementById('wrap').appendChild(l);
+}
+window.done = true;
+</script></body></html>

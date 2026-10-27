@@ -1,25 +1,25 @@
 // =====================================================================
 // furniture.ts — every piece of furniture you can have at home.
 //
-// Each entry is made of one or more models from public/models/furniture.glb
-// (built by scripts/build-furniture-assets.mjs) and lists the actions it
+// Each entry is made of one or more models from public/models/interior.glb
+// (built by scripts/build-interior-assets.mjs) and lists the actions it
 // offers when you tap it (sleep, cook, shower, watch TV…). Pieces with
 // no actions are decoration — they still make a home feel lived in, and
 // you can still move them around.
 //
-// TO ADD A PIECE: add an entry here (model names are the .glb file
-// names from the Kenney Furniture Kit; add new ones to MODELS in the
-// build script first). Give it a price so it can be sold in shops later.
+// TO ADD A PIECE: most home pieces live in data/furniture-catalog.ts
+// (model names are the node names in interior.glb, or a builder in
+// world/furniture-toys.ts / furniture-deco.ts). Give it a price and a
+// category and it shows up in the home Design menu.
 // =====================================================================
 
 import { Registry } from '../core/registry.ts';
 import { cookActionId, MEALS } from './groceries.ts';
+import { CATALOG, OLD_PIECES } from './furniture-catalog.ts';
 
 /** A stove cooks every home meal (data/groceries.ts). */
 const COOK_ACTIONS = MEALS.map((m) => cookActionId(m.id));
 
-/** Kenney furniture is modelled small: this makes a double bed ~2 m long. */
-export const FURN_SCALE = 2;
 
 export interface FurniturePart {
   model: string;
@@ -72,6 +72,52 @@ export interface FurnitureDef {
   opens?: 'closet' | 'fridge' | 'stove';
   /** Venue counters: offers whatever the PLACE sells (its actions list) instead of `actions`. */
   placeActions?: boolean;
+  /** Where it goes in the buy menu (pieces without one aren't sold there). */
+  category?: Category;
+  /** Hangs from the ceiling (pendants, chandeliers): place it anywhere, it bumps only into other ceiling pieces. */
+  hang?: boolean;
+  /** Small decor that sits on the floor OR on top of a table, shelf or counter (vases, lamps, candles). */
+  deco?: boolean;
+  /** It gives light: lamps glow and light up the room at night (home-interior.ts). */
+  light?: LightDef;
+  /** Default colours for its main (fabric) and frame (wood) parts; players can change them. */
+  colors?: { a?: string; b?: string };
+}
+
+export type Category = 'beds' | 'seating' | 'tables' | 'storage' | 'kitchen' | 'bath' | 'lights' | 'rugs' | 'plants' | 'decor' | 'tech';
+
+/** The buy menu's tabs, in order. */
+export const CATEGORIES: { id: Category; name: string; emoji: string }[] = [
+  { id: 'seating', name: 'Sofas & seats', emoji: '🛋️' },
+  { id: 'beds', name: 'Beds', emoji: '🛏️' },
+  { id: 'tables', name: 'Tables', emoji: '🪑' },
+  { id: 'lights', name: 'Lights', emoji: '💡' },
+  { id: 'rugs', name: 'Rugs', emoji: '🧶' },
+  { id: 'decor', name: 'Decor', emoji: '🖼️' },
+  { id: 'plants', name: 'Plants', emoji: '🪴' },
+  { id: 'storage', name: 'Storage', emoji: '📚' },
+  { id: 'tech', name: 'TV & tech', emoji: '📺' },
+  { id: 'kitchen', name: 'Kitchen', emoji: '🍳' },
+  { id: 'bath', name: 'Bathroom', emoji: '🛁' },
+];
+
+/**
+ * A light: `kind` decides how it lights the room — a pool of light on the
+ * floor below it (ceiling, floor, table lamps), a wash up the wall behind
+ * it (LED strips, sconces, neon), or a flicker (fire, candles).
+ */
+export interface LightDef {
+  kind: 'ceiling' | 'floor' | 'table' | 'wall' | 'strip' | 'fire';
+  /** How far the light reaches (metres). */
+  range: number;
+  /** How strong (1 = a normal lamp). */
+  power: number;
+  /** Where the bulb is, from the piece's origin (metres; hanging pieces are negative). */
+  y: number;
+  /** Bulb colour (default warm white); players can change it for colour lights. */
+  color?: string;
+  /** Players can pick its colour (LED strips, neon, lava lamps). */
+  colorful?: boolean;
 }
 
 export type Quality = 'cheap' | 'basic' | 'nice' | 'luxury';
@@ -295,3 +341,10 @@ FURNITURE.add(
   { id: 'executiveDesk', name: 'Executive desk', emoji: '💻', price: 700_000, parts: [{ model: 'toyExecutiveDesk' }], actions: ['codePractice', 'freelance', 'sellOnline', 'postContent', 'doomscroll'], use: 'sitAt', quality: 'luxury' },
   { id: 'fiddleFig', name: 'Fiddle-leaf fig', emoji: '🪴', price: 40_000, parts: [{ model: 'toyFiddleFig' }], actions: [], kind: 'plant', quality: 'luxury' },
 );
+
+// ---- The big home catalogue (2026-10-27): data/furniture-catalog.ts.
+FURNITURE.add(...CATALOG(COOK_ACTIONS));
+for (const [id, patch] of Object.entries(OLD_PIECES)) {
+  const def = FURNITURE.get(id);
+  if (def) Object.assign(def, patch);
+}

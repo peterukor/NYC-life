@@ -296,7 +296,7 @@ How to add or change content: **`docs/ADDING-CONTENT.md`**.
 - **NPC brain:** `data/crowd-brain.ts` holds personalities, next-stop tables and density.
 - **Map pins:** `data/pins.ts` and `systems/pins.ts`. At most 4 pins show, overlapping pins merge, and only one bounces. Sources so far: home, work, daily sales, landmarks.
 - **Homes:**
-  - Furniture: `scripts/build-furniture-assets.mjs` builds `public/models/furniture.glb`; the pieces are listed in `data/furniture.ts`.
+  - Furniture: `scripts/build-interior-assets.mjs` builds `public/models/interior.glb` (Quaternius house interior + Kenney furniture kit, with colour slots); the pieces are listed in `data/furniture.ts` and `data/furniture-catalog.ts`.
   - Three floor plans in `data/homes.ts`; `world/home-interior.ts` builds them with Sims-style cutaway walls.
   - Move mode: "Move this" on any piece, then tap the floor, Turn, Done. Saved in `state.homes`.
 - **Still from before:** folk characters (`world/folk.ts`), the UI redesign, landmarks (`world/landmarks/`), wardrobe (`data/wardrobe.ts`).

@@ -1,32 +1,85 @@
 // =====================================================================
-// home-interior.ts — your home, The Sims style.
+// home-interior.ts — your home, The Sims / Lagos Life style.
 //
-//   • No roof, and the walls nearest the camera are cut down to a low
-//     ledge, so you look straight into every room.
-//   • Each home has its own floor plan (data/homes.ts): a studio, a loft
-//     and a shared apartment all feel different.
-//   • Real furniture (data/furniture.ts) that you tap to use: sleep in
-//     the bed, cook on the stove, watch TV on the sofa…
-//   • MOVE MODE: pick up any piece, drag it (or tap the floor) and turn
-//     it. A green shade on the floor means it fits there, red means it
-//     doesn't (walls, doorways, other furniture: world/furniture-fit.ts);
-//     let go on red and it slides back to where it was. The arrangement
-//     is saved per home (state.homes).
+//   • No roof. The walls between you and the camera drop down to a low
+//     ledge (a "cutaway"), and which walls drop follows the camera as it
+//     swings round, so you always see in (setView).
+//   • Every room has its own floor (planks, marble, tiles…) and every
+//     wall its own paint or wallpaper — even one accent wall
+//     (data/home-style.ts, render/home-surfaces.ts). Saved per home.
+//   • Light: the time of day sets the sky through the windows and the
+//     daylight; after dark the lamps you placed glow, throw pools of
+//     light on the floor, wash the walls (LED strips, neon) and the
+//     strongest few become real lights (more on stronger phones).
+//   • Real furniture (data/furniture.ts) that you tap to use, recolour
+//     (main + frame colour, bulb colour), and move: MOVE MODE picks a
+//     piece up, a green shade means it fits, red means it doesn't
+//     (world/furniture-fit.ts). Pendants hang from the ceiling; vases
+//     and table lamps sit on whatever table is under them.
+//
+// Phones first: walls are merged into one mesh per finish, light pools,
+// wall washes and contact shadows are one instanced mesh each, and real
+// lights / shadows only switch on for the stronger quality tiers.
 // =====================================================================
 
 import * as THREE from 'three';
-import { FURNITURE, type FurnitureDef } from '../data/furniture.ts';
+import { FURNITURE, type FurnitureDef, type LightDef } from '../data/furniture.ts';
 import type { HomeItem, HomeLayout } from '../data/homes.ts';
 import type { PlaceDef } from '../data/places.ts';
-import { adTexture, HOUSE_ADS, signTexture } from '../render/textures.ts';
+import { floorFromColor, type HomeStyle } from '../data/home-style.ts';
+import { adTexture, blobShadowTexture, HOUSE_ADS, signTexture } from '../render/textures.ts';
+import { floorMaterial, wallMaterial } from '../render/home-surfaces.ts';
 import { HAIR_COLORS, makeAvatar, OUTFIT_COLORS, SKIN_TONES } from './avatar.ts';
-import type { FurnitureKit } from '../assets/furniture-kit.ts';
+import { MODELS_INFO, type Finish, type FurnitureKit } from '../assets/furniture-kit.ts';
 import type { Interior, InteriorObject } from './interior.ts';
 import { rectAt, snapToWall, spotFree, WalkGrid, whyNot, type FitKind, type FitWorld, type Footprint } from './furniture-fit.ts';
 
-const WALL_H = 2.9;
+export const WALL_H = 2.9;
 const LOW_WALL = 0.55;
 const WALL_T = 0.2;
+
+/** Shared by every wall material: which way the camera looks, so the near walls drop (see cutWalls). */
+const CUT = {
+  uView: { value: new THREE.Vector2(0, 1) },
+  uCutAll: { value: 0 },
+  uNoCut: { value: 0 },
+  uLow: { value: LOW_WALL },
+  uDrop: { value: WALL_H - LOW_WALL },
+};
+
+/**
+ * Teach a material the cutaway: wall vertices above the ledge drop down
+ * when their wall faces the camera. Per-vertex `aWall` = (normal x,
+ * normal z, flags): flag 1 = outer wall, +2 = vanish when cut (window
+ * glass and door headers, which would otherwise end up on the floor).
+ */
+function cutaway<M extends THREE.Material>(m: M): M {
+  if (m.userData.cutaway) return m;
+  m.userData.cutaway = true;
+  const prev = m.onBeforeCompile;
+  m.onBeforeCompile = (shader, r) => {
+    prev?.call(m, shader, r);
+    Object.assign(shader.uniforms, CUT);
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', '#include <common>\nattribute vec3 aWall;\nuniform vec2 uView;\nuniform float uCutAll;\nuniform float uNoCut;\nuniform float uLow;\nuniform float uDrop;')
+      .replace(
+        '#include <begin_vertex>',
+        `#include <begin_vertex>
+        {
+          float facing = dot(aWall.xy, uView);
+          float outer = mod(aWall.z, 2.0);
+          bool cut = uNoCut < 0.5 && (uCutAll > 0.5 || (outer > 0.5 ? facing > 0.3 : abs(facing) > 0.5));
+          if (cut && position.y > uLow + 0.01) {
+            if (aWall.z > 1.5) transformed.y = -1.0;
+            else transformed.y -= uDrop;
+          }
+        }`,
+      );
+  };
+  m.customProgramCacheKey = () => `cutaway-${m.type}`;
+  m.needsUpdate = true;
+  return m;
+}
 
 export interface HomeInterior extends Interior {
   layout: HomeLayout;
@@ -38,8 +91,8 @@ export interface HomeInterior extends Interior {
   beginMove: (uid: string) => void;
   /** Slide the held piece to a spot (snapped to a 10 cm grid). Returns whether it fits there. */
   dragTo: (uid: string, x: number, z: number) => boolean;
-  /** Turn the held piece a quarter turn. Returns whether it fits. */
-  rotateItem: (uid: string) => boolean;
+  /** Turn the held piece. Returns whether it fits. */
+  rotateItem: (uid: string, step?: number) => boolean;
   /** Put it down: if it fits it stays (and that's the new "before"), otherwise it slides back. Returns the reason it didn't fit, or null. */
   drop: (uid: string) => string | null;
   /** Leave move mode: `cancel` puts it back where it was when picked up. */
@@ -53,7 +106,7 @@ export interface HomeInterior extends Interior {
   /** Take a piece out of the home (into storage). */
   removePiece: (uid: string) => void;
   /** Bring a piece in at the free spot nearest (x, z). Returns its uid, or null if there's no room. */
-  addPiece: (item: string, x: number, z: number, rot?: number) => string | null;
+  addPiece: (item: string, x: number, z: number, rot?: number, finish?: Pick<HomeItem, 'a' | 'b' | 'lc'>) => string | null;
   /** A piece's spot, turn and footprint (for posing the player on it). */
   pieceInfo: (uid: string) => { item: string; x: number; z: number; rot: number; fp: Footprint } | null;
   /** The first piece you use that can't be reached from the door (null = all fine). */
@@ -64,6 +117,30 @@ export interface HomeInterior extends Interior {
   highlight: (uid: string | null) => void;
   /** Homes: you can move furniture. Venues (shops, bars): you can't. */
   movable: boolean;
+  // ---- the Lagos Life bits
+  /** The home's floors, walls and lights as they are now (save this). */
+  style: HomeStyle;
+  /** Repaint / refloor (a whole new style, or a change to one room or wall). */
+  setStyle: (style: HomeStyle) => void;
+  /** Recolour a piece (main, frame, bulb colour). */
+  setFinish: (uid: string, finish: Pick<HomeItem, 'a' | 'b' | 'lc'>) => void;
+  /** What's under a ray: a wall face (with its key), a room's floor, or nothing. */
+  pickSurface: (ray: THREE.Ray) => { kind: 'wall'; key: string; room: number } | { kind: 'floor'; room: number } | null;
+  /** The camera's direction (from the room towards the camera) and mode: drops the near walls. */
+  setView: (dirX: number, dirZ: number, mode?: 'cutaway' | 'top' | 'walls-up') => void;
+  /** Lamps: on after dark ('auto'), always on, or off. */
+  setLights: (mode: 'auto' | 'on' | 'off') => void;
+  /** Are the lamps lit right now? */
+  lightsLit: () => boolean;
+  /** Preview a time of day (hours, 0–24), or null to follow the clock. */
+  previewHour: (hour: number | null) => void;
+  /** Which slots a piece can be recoloured in ('a' main, 'b' frame, 'lc' bulb colour). */
+  recolorable: (item: string) => ('a' | 'b' | 'lc')[];
+  /** A room's floor and wall style as shown now (saved choice, else the plan's). */
+  roomFloor: (room: number) => string;
+  roomWall: (room: number) => string;
+  /** The room a wall face looks into. */
+  faceRoom: (key: string) => number;
 }
 
 export interface BuildOptions {
@@ -71,6 +148,113 @@ export interface BuildOptions {
   placeActions?: string[];
   /** Venues get a name sign and a few locals and staff. */
   venue?: boolean;
+  /** The home's saved floors, walls and lights. */
+  style?: HomeStyle;
+  /** The hour of the day now (0–24, fractional), for daylight and lamps. */
+  clock?: () => number;
+  /** Graphics tier: how many real lights and whether the sun casts shadows. */
+  tier?: 'low' | 'medium' | 'high';
+}
+
+/** Daylight through the day: sky colour, light colours and strengths, sun height, darkness (0 day … 1 night). */
+function daylight(h: number) {
+  const keys: [number, { bg: string; sky: string; ground: string; hemi: number; sun: string; sunI: number; elev: number; dark: number }][] = [
+    [0, { bg: '#0d111c', sky: '#4a5a8c', ground: '#231d2a', hemi: 0.34, sun: '#7f96ff', sunI: 0.12, elev: 0.9, dark: 1 }],
+    [5.5, { bg: '#1a1d33', sky: '#5d6798', ground: '#2a2230', hemi: 0.42, sun: '#8fa0ff', sunI: 0.15, elev: 0.6, dark: 0.9 }],
+    [7, { bg: '#e8b9a0', sky: '#ffd9bf', ground: '#6b5348', hemi: 0.85, sun: '#ffb27a', sunI: 0.9, elev: 0.35, dark: 0.3 }],
+    [9, { bg: '#c9dde8', sky: '#fff7ec', ground: '#6b5a4c', hemi: 1.2, sun: '#fff1dc', sunI: 1.35, elev: 0.75, dark: 0 }],
+    [16, { bg: '#c9dde8', sky: '#fff7ec', ground: '#6b5a4c', hemi: 1.2, sun: '#fff1dc', sunI: 1.35, elev: 0.7, dark: 0 }],
+    [18.3, { bg: '#e7a682', sky: '#ffcf9e', ground: '#5e4636', hemi: 0.8, sun: '#ff9a55', sunI: 1.0, elev: 0.25, dark: 0.35 }],
+    [20, { bg: '#2a2443', sky: '#6a63a0', ground: '#2b2232', hemi: 0.45, sun: '#8a86d8', sunI: 0.2, elev: 0.5, dark: 0.85 }],
+    [24, { bg: '#0d111c', sky: '#4a5a8c', ground: '#231d2a', hemi: 0.34, sun: '#7f96ff', sunI: 0.12, elev: 0.9, dark: 1 }],
+  ];
+  let i = 0;
+  while (i < keys.length - 2 && h >= keys[i + 1][0]) i++;
+  const [h0, a] = keys[i], [h1, b] = keys[i + 1];
+  const t = THREE.MathUtils.clamp((h - h0) / (h1 - h0), 0, 1);
+  const c = (x: string, y: string) => new THREE.Color(x).lerp(new THREE.Color(y), t);
+  const n = (x: number, y: number) => x + (y - x) * t;
+  return { bg: c(a.bg, b.bg), sky: c(a.sky, b.sky), ground: c(a.ground, b.ground), hemi: n(a.hemi, b.hemi), sun: c(a.sun, b.sun), sunI: n(a.sunI, b.sunI), elev: n(a.elev, b.elev), dark: n(a.dark, b.dark) };
+}
+
+/** A soft round glow (for light pools and bulb halos). */
+function glowTexture(): THREE.CanvasTexture {
+  const c = document.createElement('canvas');
+  c.width = c.height = 128;
+  const g = c.getContext('2d')!;
+  const grad = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+  grad.addColorStop(0, 'rgba(255,255,255,1)');
+  grad.addColorStop(0.25, 'rgba(255,255,255,0.55)');
+  grad.addColorStop(0.6, 'rgba(255,255,255,0.15)');
+  grad.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = grad;
+  g.fillRect(0, 0, 128, 128);
+  return new THREE.CanvasTexture(c);
+}
+
+/** A wash of light up a wall: bright along the bottom edge, fading up and to the sides. */
+function washTexture(): THREE.CanvasTexture {
+  const c = document.createElement('canvas');
+  c.width = 128;
+  c.height = 128;
+  const g = c.getContext('2d')!;
+  const img = g.createImageData(128, 128);
+  for (let y = 0; y < 128; y++) for (let x = 0; x < 128; x++) {
+    const u = (x / 127) * 2 - 1, v = y / 127; // v: 0 top … 1 at the light
+    const a = Math.max(0, 1 - u * u) * Math.pow(Math.max(0, 1 - Math.abs(v - 0.5) * 2), 1.6);
+    const i = (y * 128 + x) * 4;
+    img.data[i] = img.data[i + 1] = img.data[i + 2] = 255;
+    img.data[i + 3] = Math.round(a * 255);
+  }
+  g.putImageData(img, 0, 0);
+  return new THREE.CanvasTexture(c);
+}
+
+/** Sunlight through a window, laid on the floor: four soft panes. */
+function windowLightTexture(): THREE.CanvasTexture {
+  const c = document.createElement('canvas');
+  c.width = c.height = 128;
+  const g = c.getContext('2d')!;
+  g.filter = 'blur(5px)';
+  g.fillStyle = '#ffffff';
+  // Slanted a little, as if the sun comes in from the side.
+  g.setTransform(1, 0, -0.25, 1, 18, 0);
+  for (const [x, y] of [[16, 14], [64, 14], [16, 62], [64, 62]]) g.fillRect(x, y, 44, 44);
+  return new THREE.CanvasTexture(c);
+}
+
+/** The view through the windows: day sky with far towers, or the city lit up at night. */
+function cityView(night: boolean): THREE.CanvasTexture {
+  const c = document.createElement('canvas');
+  c.width = 256;
+  c.height = 160;
+  const g = c.getContext('2d')!;
+  const sky = g.createLinearGradient(0, 0, 0, 160);
+  if (night) {
+    sky.addColorStop(0, '#0b1024');
+    sky.addColorStop(1, '#2a2350');
+  } else {
+    sky.addColorStop(0, '#8ec9f0');
+    sky.addColorStop(1, '#e3f1fb');
+  }
+  g.fillStyle = sky;
+  g.fillRect(0, 0, 256, 160);
+  for (let x = 0, i = 0; x < 256; x += 14 + (i % 3) * 5, i++) {
+    const w = 12 + (i % 4) * 4, h = 40 + ((i * 37) % 70);
+    g.fillStyle = night ? '#141a30' : '#a9bccb';
+    g.fillRect(x, 160 - h, w, h);
+    if (night) {
+      for (let wy = 160 - h + 5; wy < 156; wy += 7) for (let wx = x + 2; wx < x + w - 2; wx += 4) {
+        if (((wx * 13 + wy * 7 + i) % 5) < 2) {
+          g.fillStyle = (wx + wy) % 3 ? '#ffd88a' : '#fff1c9';
+          g.fillRect(wx, wy, 2, 3);
+        }
+      }
+    }
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
 }
 
 export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: HomeItem[], kit: FurnitureKit, opts: BuildOptions = {}): HomeInterior {
@@ -79,93 +263,250 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
   const t = <T extends { dispose(): void }>(x: T) => (disposables.push(x), x);
   const W = layout.width;
   const D = layout.depth;
-  const animated: ((dt: number) => void)[] = [];
-
-  scene.background = new THREE.Color('#1b2030');
-  scene.add(new THREE.HemisphereLight('#fff6e8', '#5a4a40', 1.25));
-  const sun = new THREE.DirectionalLight('#ffe9c8', 1.1);
-  sun.position.set(-6, 12, 8);
-  scene.add(sun);
-
-  // ---- floors (one flat plane per room, later rooms drawn on top)
-  const floors: THREE.Object3D[] = [];
-  const under = new THREE.Mesh(t(new THREE.BoxGeometry(W + WALL_T * 2, 0.3, D + WALL_T * 2)), t(new THREE.MeshLambertMaterial({ color: '#6d5a4c' })));
-  under.position.y = -0.151;
-  scene.add(under);
-  layout.rooms.forEach((r, i) => {
-    const [x0, z0, x1, z1] = r.rect;
-    const m = new THREE.Mesh(t(new THREE.PlaneGeometry(x1 - x0, z1 - z0)), t(new THREE.MeshLambertMaterial({ color: r.floor })));
-    m.rotation.x = -Math.PI / 2;
-    m.position.set((x0 + x1) / 2, 0.002 + i * 0.002, (z0 + z1) / 2);
-    m.name = `floor-${r.label}`;
-    scene.add(m);
-    floors.push(m);
-  });
-
-  // ---- walls: the outer box plus the layout's inner walls, split at door gaps.
-  // Walls between the camera (+z side) and the middle of the home are cut low.
-  const wallMat = t(new THREE.MeshLambertMaterial({ color: layout.wallColor }));
-  const capMat = t(new THREE.MeshLambertMaterial({ color: '#fdf8ef' }));
-  const wall = (ax: number, az: number, bx: number, bz: number) => {
-    const alongX = Math.abs(bz - az) < 1e-3;
-    const len = alongX ? Math.abs(bx - ax) : Math.abs(bz - az);
-    if (len < 0.05) return;
-    const cx = (ax + bx) / 2;
-    const cz = (az + bz) / 2;
-    // Every wall running across the view is cut low except the back wall,
-    // so rooms behind other rooms stay visible (railroad apartments).
-    const low = alongX && cz > -hd + 0.3;
-    const h = low ? LOW_WALL : WALL_H;
-    const m = new THREE.Mesh(t(new THREE.BoxGeometry(alongX ? len + WALL_T : WALL_T, h, alongX ? WALL_T : len + WALL_T)), wallMat);
-    m.position.set(cx, h / 2, cz);
-    scene.add(m);
-    // A light cap on top: the "cut" edge of a Sims wall.
-    const cap = new THREE.Mesh(t(new THREE.BoxGeometry(alongX ? len + WALL_T + 0.02 : WALL_T + 0.04, 0.05, alongX ? WALL_T + 0.04 : len + WALL_T + 0.02)), capMat);
-    cap.position.set(cx, h + 0.025, cz);
-    scene.add(cap);
-  };
-  const wallWithGaps = (a: [number, number], b: [number, number], gaps: [number, number][] = []) => {
-    const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
-    const dx = (b[0] - a[0]) / len;
-    const dz = (b[1] - a[1]) / len;
-    let s = 0;
-    for (const [g0, g1] of [...gaps].sort((p, q) => p[0] - q[0])) {
-      wall(a[0] + dx * s, a[1] + dz * s, a[0] + dx * g0, a[1] + dz * g0);
-      s = g1;
-    }
-    wall(a[0] + dx * s, a[1] + dz * s, b[0], b[1]);
-  };
   const hw = W / 2;
   const hd = D / 2;
-  wallWithGaps([-hw, -hd], [hw, -hd]); // back
-  wallWithGaps([-hw, -hd], [-hw, hd]); // left
-  wallWithGaps([hw, -hd], [hw, hd]); // right
-  wallWithGaps([-hw, hd], [hw, hd], [[hw - 1.2, hw + 1.2]]); // front (low), front door in the middle
-  for (const w of layout.walls) wallWithGaps(w.a, w.b, w.gaps);
+  const animated: ((dt: number) => void)[] = [];
+  const tier = opts.tier ?? 'medium';
+  let style: HomeStyle = structuredClone(opts.style ?? {});
 
-  // Windows on the back wall: bright sky panes with cream frames, or (the
-  // penthouse) floor-to-ceiling glass over Central Park.
-  const win = layout.windows ?? { xs: [-hw * 0.45, hw * 0.25], w: 2.0, h: 1.4, y: 1.75, view: 'sky' as const };
-  const view = win.view === 'park' ? t(parkView()) : null;
-  for (const x of win.xs) {
-    const frame = new THREE.Mesh(t(new THREE.PlaneGeometry(win.w, win.h)), capMat);
-    frame.position.set(x, win.y, -hd + WALL_T / 2 + 0.01);
-    const paneMat = t(new THREE.MeshBasicMaterial(view ? { map: view, toneMapped: false } : { color: '#a9d8f5' }));
-    const pane = new THREE.Mesh(t(new THREE.PlaneGeometry(win.w - 0.25, win.h - 0.25)), paneMat);
-    pane.position.set(x, win.y, -hd + WALL_T / 2 + 0.02);
-    scene.add(frame, pane);
+  // ---------------------------------------------------------------- light
+  scene.background = new THREE.Color('#1b2030');
+  const hemi = new THREE.HemisphereLight('#fff6e8', '#5a4a40', 1.2);
+  const sun = new THREE.DirectionalLight('#ffe9c8', 1.2);
+  sun.position.set(-6, 12, 8);
+  scene.add(hemi, sun, sun.target);
+  const shadows = tier === 'high';
+  if (shadows) {
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(1024, 1024);
+    const s = sun.shadow.camera;
+    s.left = -hw - 1; s.right = hw + 1; s.top = hd + 1; s.bottom = -hd - 1; s.near = 1; s.far = 40;
+    sun.shadow.bias = -0.0008;
+    sun.shadow.normalBias = 0.03;
+  }
+  // Real point lights (a fixed number, so turning lamps on never recompiles shaders).
+  const realLights: THREE.PointLight[] = [];
+  for (let i = 0; i < ({ low: 0, medium: 2, high: 4 } as const)[tier]; i++) {
+    const p = new THREE.PointLight('#ffd29a', 0, 6, 1.6);
+    scene.add(p);
+    realLights.push(p);
   }
 
-  // ---- furniture
+  // ---------------------------------------------------------------- the base (a diorama plinth)
+  const base = new THREE.Mesh(t(new THREE.BoxGeometry(W + 0.5, 0.45, D + 0.5)), t(new THREE.MeshLambertMaterial({ color: '#2e3240' })));
+  base.position.y = -0.235;
+  scene.add(base);
+
+  // ---------------------------------------------------------------- floors & walls (rebuilt by setStyle)
+  const floors: THREE.Object3D[] = [];
+  const shell = new THREE.Group();
+  shell.name = 'shell';
+  scene.add(shell);
+  const shellDisposables: { dispose(): void }[] = [];
+  const roomAt = (x: number, z: number): number => {
+    for (let i = layout.rooms.length - 1; i >= 0; i--) {
+      const [x0, z0, x1, z1] = layout.rooms[i].rect;
+      if (x >= x0 && x <= x1 && z >= z0 && z <= z1) return i;
+    }
+    return -1;
+  };
+  const roomFloor = (i: number) => style.rooms?.[i]?.floor ?? layout.rooms[i].style?.floor ?? floorFromColor(layout.rooms[i].floor);
+  const roomWall = (i: number) => style.rooms?.[i]?.wall ?? layout.rooms[i]?.style?.wall ?? `paint:${layout.wallColor}`;
+
+  /** Wall faces, for tapping one to paint it: key, room, the face's line and normal. */
+  interface Face { key: string; room: number; ax: number; az: number; bx: number; bz: number; nx: number; nz: number; outer: boolean }
+  let faces: Face[] = [];
+
+  // Every wall line (outer box + the layout's inner walls), split at door gaps.
+  interface Seg { ax: number; az: number; bx: number; bz: number; outer: boolean; on: [number, number] }
+  const segs: Seg[] = [];
+  const gapsOf: { a: [number, number]; b: [number, number]; s0: number; s1: number }[] = [];
+  const addLine = (a: [number, number], b: [number, number], outer: boolean, gaps: [number, number][] = []) => {
+    const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    const dx = (b[0] - a[0]) / len, dz = (b[1] - a[1]) / len;
+    let s = 0;
+    for (const [g0, g1] of [...gaps].sort((p, q) => p[0] - q[0])) {
+      if (g0 - s > 0.05) segs.push({ ax: a[0] + dx * s, az: a[1] + dz * s, bx: a[0] + dx * g0, bz: a[1] + dz * g0, outer, on: [s, g0] });
+      gapsOf.push({ a, b, s0: g0, s1: g1 });
+      s = g1;
+    }
+    if (len - s > 0.05) segs.push({ ax: a[0] + dx * s, az: a[1] + dz * s, bx: b[0], bz: b[1], outer, on: [s, len] });
+  };
+  addLine([-hw, -hd], [hw, -hd], true); // back
+  addLine([-hw, -hd], [-hw, hd], true); // left
+  addLine([hw, -hd], [hw, hd], true); // right
+  addLine([-hw, hd], [hw, hd], true, [[hw - 1.2, hw + 1.2]]); // front, the front door in the middle
+  for (const w of layout.walls) addLine(w.a, w.b, false, w.gaps);
+
+  const capMat = cutaway(t(new THREE.MeshLambertMaterial({ color: '#fbf6ee' })));
+  const trimMat = cutaway(t(new THREE.MeshLambertMaterial({ color: '#f7f3ec' })));
+  const outsideMat = cutaway(t(new THREE.MeshLambertMaterial({ color: '#b9ab98' })));
+  const viewDay = t(layout.windows?.view === 'park' ? parkView() : cityView(false));
+  const viewNight = t(cityView(true));
+  const glassMat = cutaway(t(new THREE.MeshBasicMaterial({ map: viewDay, toneMapped: false })));
+
+  /** Collects quads per material, then makes one mesh per material. */
+  class Buckets {
+    private map = new Map<THREE.Material, { p: number[]; n: number[]; uv: number[]; w: number[] }>();
+    quad(mat: THREE.Material, v: [number, number, number][], n: [number, number, number], uv: [number, number][], wall: [number, number, number]) {
+      let b = this.map.get(mat);
+      if (!b) this.map.set(mat, (b = { p: [], n: [], uv: [], w: [] }));
+      for (const k of [0, 1, 2, 0, 2, 3]) {
+        b.p.push(...v[k]);
+        b.n.push(...n);
+        b.uv.push(...uv[k]);
+        b.w.push(...wall);
+      }
+    }
+    /** A box (any orientation along x or z), all six sides. */
+    box(mat: THREE.Material, x0: number, y0: number, z0: number, x1: number, y1: number, z1: number, wall: [number, number, number]) {
+      const q = (v: [number, number, number][], n: [number, number, number]) => this.quad(mat, v, n, [[0, 0], [1, 0], [1, 1], [0, 1]], wall);
+      q([[x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1]], [0, 0, 1]);
+      q([[x1, y0, z0], [x0, y0, z0], [x0, y1, z0], [x1, y1, z0]], [0, 0, -1]);
+      q([[x1, y0, z1], [x1, y0, z0], [x1, y1, z0], [x1, y1, z1]], [1, 0, 0]);
+      q([[x0, y0, z0], [x0, y0, z1], [x0, y1, z1], [x0, y1, z0]], [-1, 0, 0]);
+      q([[x0, y1, z1], [x1, y1, z1], [x1, y1, z0], [x0, y1, z0]], [0, 1, 0]);
+    }
+    meshes(): THREE.Mesh[] {
+      return [...this.map].map(([mat, b]) => {
+        const g = new THREE.BufferGeometry();
+        g.setAttribute('position', new THREE.Float32BufferAttribute(b.p, 3));
+        g.setAttribute('normal', new THREE.Float32BufferAttribute(b.n, 3));
+        g.setAttribute('uv', new THREE.Float32BufferAttribute(b.uv, 2));
+        g.setAttribute('aWall', new THREE.Float32BufferAttribute(b.w, 3));
+        g.computeBoundingSphere();
+        shellDisposables.push(g);
+        const m = new THREE.Mesh(g, mat);
+        m.receiveShadow = shadows;
+        return m;
+      });
+    }
+  }
+
+  const buildShell = () => {
+    shellDisposables.forEach((d) => d.dispose());
+    shellDisposables.length = 0;
+    shell.clear();
+    floors.length = 0;
+    faces = [];
+    // ---- floors: one plane per room with UVs in metres (later rooms on top).
+    layout.rooms.forEach((r, i) => {
+      const [x0, z0, x1, z1] = r.rect;
+      const g = new THREE.PlaneGeometry(x1 - x0, z1 - z0);
+      g.rotateX(-Math.PI / 2);
+      g.translate((x0 + x1) / 2, 0.002 + i * 0.002, (z0 + z1) / 2);
+      const pos = g.getAttribute('position'), uv = g.getAttribute('uv');
+      for (let k = 0; k < pos.count; k++) uv.setXY(k, pos.getX(k), -pos.getZ(k));
+      shellDisposables.push(g);
+      const m = new THREE.Mesh(g, floorMaterial(roomFloor(i)));
+      m.name = `floor-${r.label}`;
+      m.userData.room = i;
+      m.receiveShadow = shadows;
+      shell.add(m);
+      floors.push(m);
+    });
+    // ---- walls
+    const B = new Buckets();
+    const T = WALL_T / 2;
+    segs.forEach((s, si) => {
+      const alongX = Math.abs(s.bz - s.az) < 1e-3;
+      // The wall's own axis (u) and its normal (n), the box grown by T at each end to close corners.
+      const u0 = alongX ? Math.min(s.ax, s.bx) - T : Math.min(s.az, s.bz) - T;
+      const u1 = alongX ? Math.max(s.ax, s.bx) + T : Math.max(s.az, s.bz) + T;
+      const c = alongX ? s.az : s.ax; // the wall's line (z for walls along x, x for walls along z)
+      const P = (u: number, y: number, side: number): [number, number, number] => (alongX ? [u, y, c + side * T] : [c + side * T, y, u]);
+      for (const side of [1, -1]) {
+        const n: [number, number, number] = alongX ? [0, 0, side] : [side, 0, 0];
+        const mid = (u0 + u1) / 2;
+        const probe = alongX ? roomAt(mid, c + side * (T + 0.3)) : roomAt(c + side * (T + 0.3), mid);
+        // Outer walls: the side facing out is the outside of the building.
+        const inward = !s.outer || (alongX ? Math.sign(-c) === side : Math.sign(-c) === side);
+        const key = `${si}${side > 0 ? '+' : '-'}`;
+        const mat = !inward ? outsideMat : cutaway(wallMaterial(style.faces?.[key] ?? (probe >= 0 ? roomWall(probe) : `paint:${layout.wallColor}`)));
+        const outward: [number, number] = s.outer ? [n[0], n[2]].map((v) => (inward ? -v : v)) as [number, number] : [n[0], n[2]];
+        const flag: [number, number, number] = [outward[0], outward[1], s.outer ? 1 : 0];
+        // Two strips (below and above the ledge) so a cut wall keeps its pattern unsquashed.
+        const flip = alongX ? side < 0 : side > 0; // keep the face pointing out of the wall
+        for (const [y0, y1] of [[0, LOW_WALL], [LOW_WALL, WALL_H]]) {
+          const v: [number, number, number][] = [P(u0, y0, side), P(u1, y0, side), P(u1, y1, side), P(u0, y1, side)];
+          const uv: [number, number][] = [[u0, y0], [u1, y0], [u1, y1], [u0, y1]];
+          if (flip) {
+            v.reverse();
+            uv.reverse();
+          }
+          B.quad(mat, v, n, uv, flag);
+        }
+        if (inward) {
+          faces.push({ key, room: probe, ax: alongX ? u0 : c + side * T, az: alongX ? c + side * T : u0, bx: alongX ? u1 : c + side * T, bz: alongX ? c + side * T : u1, nx: n[0], nz: n[2], outer: s.outer });
+          // Skirting board along the bottom.
+          const k = 0.014, h = 0.09;
+          if (alongX) B.box(trimMat, u0 + T, 0, side > 0 ? c + T : c - T - k, u1 - T, h, side > 0 ? c + T + k : c - T, [0, 0, 0]);
+          else B.box(trimMat, side > 0 ? c + T : c - T - k, 0, u0 + T, side > 0 ? c + T + k : c - T, h, u1 - T, [0, 0, 0]);
+        }
+      }
+      // The whole wall's cut flag: outer walls by their outward normal (inner walls cut either way).
+      const flag: [number, number, number] = alongX ? [0, Math.sign(-c) || 1, s.outer ? 1 : 0] : [Math.sign(-c) || 1, 0, s.outer ? 1 : 0];
+      if (s.outer) (flag[0] *= -1), (flag[1] *= -1);
+      // End faces (door jambs) and the cap on top, the "cut edge" of a Sims wall.
+      for (const [u, sgn] of [[u0, -1], [u1, 1]] as const) {
+        const n: [number, number, number] = alongX ? [sgn, 0, 0] : [0, 0, sgn];
+        for (const [y0, y1] of [[0, LOW_WALL], [LOW_WALL, WALL_H]]) {
+          const v: [number, number, number][] = [P(u, y0, -1), P(u, y0, 1), P(u, y1, 1), P(u, y1, -1)];
+          if ((alongX && sgn > 0) || (!alongX && sgn < 0)) v.reverse();
+          B.quad(capMat, v, n, [[0, 0], [1, 0], [1, 1], [0, 1]], flag);
+        }
+      }
+      const cap = 0.02;
+      if (alongX) B.box(capMat, u0 - cap, WALL_H, c - T - cap, u1 + cap, WALL_H + 0.05, c + T + cap, flag);
+      else B.box(capMat, c - T - cap, WALL_H, u0 - cap, c + T + cap, WALL_H + 0.05, u1 + cap, flag);
+    });
+    // Door headers over inner doorways (vanish when that wall is cut).
+    for (const g of gapsOf) {
+      const alongX = Math.abs(g.b[1] - g.a[1]) < 1e-3;
+      const outer = g === gapsOf.find((x) => x.a[1] === hd && x.b[1] === hd && x.a[0] === -hw);
+      const len = Math.hypot(g.b[0] - g.a[0], g.b[1] - g.a[1]);
+      const dx = (g.b[0] - g.a[0]) / len, dz = (g.b[1] - g.a[1]) / len;
+      const p0 = [g.a[0] + dx * g.s0, g.a[1] + dz * g.s0], p1 = [g.a[0] + dx * g.s1, g.a[1] + dz * g.s1];
+      const flag: [number, number, number] = [alongX ? 0 : 1, alongX ? 1 : 0, outer ? 3 : 2];
+      if (outer) flag[1] = 1;
+      if (alongX) B.box(capMat, Math.min(p0[0], p1[0]), 2.15, p0[1] - WALL_T / 2, Math.max(p0[0], p1[0]), WALL_H, p0[1] + WALL_T / 2, flag);
+      else B.box(capMat, p0[0] - WALL_T / 2, 2.15, Math.min(p0[1], p1[1]), p0[0] + WALL_T / 2, WALL_H, Math.max(p0[1], p1[1]), flag);
+    }
+    // Windows on the back wall: a white frame, a sill, and the view (sky by day, the city lit up at night).
+    const win = layout.windows ?? { xs: [-hw * 0.45, hw * 0.25], w: 2.0, h: 1.4, y: 1.75, view: 'sky' as const };
+    const zf = -hd + WALL_T / 2;
+    const backFlag: [number, number, number] = [0, -1, 3];
+    for (const x of win.xs) {
+      const x0 = x - win.w / 2, x1 = x + win.w / 2, y0 = win.y - win.h / 2, y1 = win.y + win.h / 2;
+      B.quad(glassMat, [[x0, y0, zf + 0.012], [x1, y0, zf + 0.012], [x1, y1, zf + 0.012], [x0, y1, zf + 0.012]], [0, 0, 1], [[0, 0], [1, 0], [1, 1], [0, 1]], backFlag);
+      const f = 0.07;
+      B.box(trimMat, x0 - f, y0 - f, zf, x1 + f, y0, zf + 0.04, backFlag); // bottom rail
+      B.box(trimMat, x0 - f - 0.04, y0 - f - 0.03, zf, x1 + f + 0.04, y0 - f, zf + 0.1, backFlag); // sill
+      B.box(trimMat, x0 - f, y1, zf, x1 + f, y1 + f, zf + 0.04, backFlag); // top rail
+      B.box(trimMat, x0 - f, y0, zf, x0, y1, zf + 0.04, backFlag); // sides
+      B.box(trimMat, x1, y0, zf, x1 + f, y1, zf + 0.04, backFlag);
+      B.box(trimMat, x - 0.025, y0, zf, x + 0.025, y1, zf + 0.03, backFlag); // mullion
+      B.box(trimMat, x0, win.y - 0.02, zf, x1, win.y + 0.02, zf + 0.03, backFlag); // transom
+    }
+    for (const m of B.meshes()) shell.add(m);
+  };
+  buildShell();
+
+  // ---------------------------------------------------------------- furniture
   const objects: InteriorObject[] = [];
   const groups = new Map<string, THREE.Group>();
   const items = arrangement.map((i) => ({ ...i }));
   let tvScreen: THREE.MeshBasicMaterial | null = null;
   let adTimer = 0;
 
-  const footprint = (def: FurnitureDef) => {
-    const box = new THREE.Box3();
-    for (const p of def.parts) {
+  const boxCache = new Map<string, THREE.Box3>();
+  /** A piece's whole size (all its parts), around its origin. */
+  const pieceBox = (item: string): THREE.Box3 => {
+    let box = boxCache.get(item);
+    if (box) return box;
+    box = new THREE.Box3();
+    const def = FURNITURE.get(item);
+    for (const p of def?.parts ?? []) {
       const g = kit.models.get(p.model);
       if (!g?.boundingBox) continue;
       const b = g.boundingBox.clone();
@@ -173,7 +514,12 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
       b.translate(new THREE.Vector3(p.x ?? 0, p.y ?? 0, p.z ?? 0));
       box.union(b);
     }
+    boxCache.set(item, box);
     return box;
+  };
+  const kindOf = (item: string): FitKind => {
+    const def = FURNITURE.get(item);
+    return def?.flat ? 'flat' : def?.wall ? 'wall' : def?.hang ? 'ceiling' : def?.deco ? 'deco' : 'floor';
   };
 
   const fpCache = new Map<string, Footprint | null>();
@@ -182,16 +528,29 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
     items,
     footprint: (item) => {
       if (!fpCache.has(item)) {
-        const def = FURNITURE.get(item);
-        const b = def ? footprint(def) : null;
-        fpCache.set(item, b && !b.isEmpty() ? { minX: b.min.x, maxX: b.max.x, minZ: b.min.z, maxZ: b.max.z } : null);
+        const b = pieceBox(item);
+        fpCache.set(item, !b.isEmpty() ? { minX: b.min.x, maxX: b.max.x, minZ: b.min.z, maxZ: b.max.z } : null);
       }
       return fpCache.get(item)!;
     },
-    kind: (item): FitKind => {
-      const def = FURNITURE.get(item);
-      return def?.flat ? 'flat' : def?.wall ? 'wall' : 'floor';
+    kind: kindOf,
+    noDecoOn: (item) => {
+      const d = FURNITURE.get(item);
+      return !!d && (d.use === 'lie' || d.use === 'sitOn' || d.use === 'stepIn' || !!d.seat);
     },
+  };
+
+  /** How high a piece of decor sits: on the top of the table (or shelf, counter) under it, else the floor. */
+  const surfaceY = (it: HomeItem): number => {
+    let y = 0;
+    for (const o of items) {
+      if (o.uid === it.uid || kindOf(o.item) !== 'floor' || fit.noDecoOn!(o.item)) continue;
+      const fp = fit.footprint(o.item);
+      if (!fp) continue;
+      const r = rectAt(fp, o.x, o.z, o.rot);
+      if (it.x > r.x0 && it.x < r.x1 && it.z > r.z0 && it.z < r.z1) y = Math.max(y, Math.min(pieceBox(o.item).max.y, 2.3));
+    }
+    return y;
   };
 
   /** Where you stand to use a piece: in front if that's clear, else beside or behind it. */
@@ -211,7 +570,6 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
     const v = new THREE.Vector3(0, 0, fb.maxZ + 0.45).applyAxisAngle(up, it.rot);
     return out.set(THREE.MathUtils.clamp(it.x + v.x, -hw + 0.4, hw - 0.4), 0, THREE.MathUtils.clamp(it.z + v.z, -hd + 0.4, hd - 0.4));
   };
-  // Where you can walk: rebuilt (lazily) whenever furniture moves.
   let grid: WalkGrid | null = null;
   /**
    * Can you still reach everything you use (bed, stove, shower…) from the
@@ -224,7 +582,7 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
     const v = new THREE.Vector3();
     for (const it of items) {
       const def = FURNITURE.get(it.item);
-      if (!def || !(def.actions.length || def.opens || def.placeActions)) continue;
+      if (!def || !(def.actions.length || def.opens || def.placeActions) || def.deco || def.hang) continue;
       standFor(it, v);
       const path = g.path(door.x, door.z, v.x, v.z);
       const end = path?.[path.length - 1];
@@ -232,23 +590,65 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
     }
     return null;
   };
+
+  // ---- light state
+  let lightMode: 'auto' | 'on' | 'off' = opts.venue ? 'on' : style.lights ?? 'auto';
+  let hourOverride: number | null = null;
+  let lit = false;
+  let dark = 0;
+  const lampOn = () => lightMode === 'on' || (lightMode === 'auto' && dark > 0.35);
+
+  /** A part's material: its colours (piece's choice, else the piece's default, else the model's), lit or not. */
+  let heldUid: string | null = null;
+  let heldOk = true;
+  const finishFor = (it: HomeItem, model: string): Finish => {
+    const def = FURNITURE.get(it.item);
+    const info = MODELS_INFO[model];
+    const f: Finish = { a: it.a ?? def?.colors?.a ?? info?.a, b: it.b ?? def?.colors?.b ?? info?.b };
+    if (def?.light && lit) {
+      f.glow = 1;
+      f.glowColor = it.lc ?? def.light.color ?? '#ffd29a';
+    } else if (def?.light) {
+      f.glow = 0.12; // an unlit shade still reads as a lamp shade
+      f.glowColor = it.lc ?? def.light.color ?? '#ffd29a';
+    }
+    if (it.uid === heldUid) f.held = heldOk ? '#1f7a3e' : '#9b1c22';
+    return f;
+  };
+  const paint = (it: HomeItem) => {
+    const g = groups.get(it.uid);
+    if (!g) return;
+    for (const m of g.children) {
+      const mesh = m as THREE.Mesh;
+      if (!mesh.isMesh || !mesh.userData.model) continue;
+      mesh.material = kit.materialFor(finishFor(it, mesh.userData.model));
+    }
+  };
+
+  const groupY = (it: HomeItem) => {
+    const k = kindOf(it.item);
+    return k === 'ceiling' ? WALL_H : k === 'deco' ? surfaceY(it) : 0;
+  };
+  const placeGroup = (it: HomeItem) => {
+    const g = groups.get(it.uid);
+    if (!g) return;
+    g.position.set(it.x, groupY(it), it.z);
+    g.rotation.y = it.rot;
+  };
   const refreshStands = () => {
     grid = null;
     for (const it of items) {
       const obj = objects.find((o) => o.id === it.uid);
       if (obj) standFor(it, obj.stand);
+      // Decor follows the table it stands on.
+      if (kindOf(it.item) === 'deco') placeGroup(it);
     }
-  };
-
-  const placeGroup = (it: HomeItem) => {
-    const g = groups.get(it.uid);
-    if (!g) return;
-    g.position.set(it.x, 0, it.z);
-    g.rotation.y = it.rot;
+    lightsDirty = true;
+    shadowsDirty = true;
   };
 
   /** Build a piece's 3D group and tap target. */
-  const addPiece = (it: HomeItem) => {
+  const buildPiece = (it: HomeItem) => {
     const def = FURNITURE.get(it.item);
     if (!def) return;
     const g = new THREE.Group();
@@ -257,8 +657,11 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
       const geo = kit.models.get(p.model);
       if (!geo) continue;
       const m = new THREE.Mesh(geo, kit.material);
+      m.userData.model = p.model;
       m.position.set(p.x ?? 0, p.y ?? 0, p.z ?? 0);
       m.rotation.y = p.rot ?? 0;
+      m.castShadow = shadows && !def.flat && !def.hang;
+      m.receiveShadow = shadows;
       g.add(m);
     }
     if (def.tv && !tvScreen) {
@@ -275,8 +678,182 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
     const label = def.placeActions ? place.name : def.name;
     objects.push({ id: it.uid, label, emoji: def.placeActions ? place.emoji : def.emoji, mesh: g, actions: def.placeActions ? opts.placeActions ?? [] : def.actions, stand: new THREE.Vector3() });
     placeGroup(it);
+    paint(it);
   };
-  for (const it of items) addPiece(it);
+  for (const it of items) buildPiece(it);
+
+  // ---------------------------------------------------------------- lamps: pools, washes, halos, real lights
+  const glowTex = t(glowTexture());
+  const MAXL = 48;
+  const poolMat = t(new THREE.MeshBasicMaterial({ map: glowTex, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, toneMapped: false }));
+  const pools = new THREE.InstancedMesh(t(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2)), poolMat, MAXL);
+  pools.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(MAXL * 3), 3);
+  pools.frustumCulled = false;
+  pools.renderOrder = 1;
+  const washMat = t(new THREE.MeshBasicMaterial({ map: t(washTexture()), blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, toneMapped: false, side: THREE.DoubleSide }));
+  const washes = new THREE.InstancedMesh(t(new THREE.PlaneGeometry(1, 1)), washMat, MAXL);
+  washes.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(MAXL * 3), 3);
+  washes.frustumCulled = false;
+  washes.renderOrder = 1;
+  const haloMat = t(new THREE.SpriteMaterial({ map: glowTex, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, toneMapped: false }));
+  const halos = new THREE.Group();
+  scene.add(pools, washes, halos);
+  // Sun patches on the floor under the windows (daytime only).
+  const sunMat = t(new THREE.MeshBasicMaterial({ map: t(windowLightTexture()), blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, toneMapped: false, color: '#000000' }));
+  const sunPatches = new THREE.Group();
+  for (const x of (layout.windows ?? { xs: [-hw * 0.45, hw * 0.25], w: 2.0 }).xs) {
+    const w = (layout.windows?.w ?? 2) * 1.1;
+    const m = new THREE.Mesh(t(new THREE.PlaneGeometry(w, w * 0.9).rotateX(-Math.PI / 2)), sunMat);
+    m.position.set(x + 0.35, 0.012, -hd + WALL_T / 2 + w * 0.5 + 0.2);
+    sunPatches.add(m);
+  }
+  scene.add(sunPatches);
+
+  interface Glow { it: HomeItem; def: FurnitureDef; light: LightDef; pos: THREE.Vector3; color: THREE.Color; halo: THREE.Sprite }
+  let glows: Glow[] = [];
+  let lightsDirty = true;
+  const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _s = new THREE.Vector3(), _p = new THREE.Vector3();
+  const rebuildLights = () => {
+    lightsDirty = false;
+    halos.clear();
+    glows = [];
+    for (const it of items) {
+      const def = FURNITURE.get(it.item);
+      const g = groups.get(it.uid);
+      if (!def?.light || !g) continue;
+      const pos = new THREE.Vector3(0, def.light.y, 0);
+      g.updateMatrixWorld(true);
+      // Wall lights sit a little out from the wall.
+      if (def.light.kind === 'wall' || def.light.kind === 'strip') pos.z += 0.12;
+      pos.applyMatrix4(g.matrixWorld);
+      const halo = new THREE.Sprite(haloMat);
+      halo.position.copy(pos);
+      halos.add(halo);
+      glows.push({ it, def, light: def.light, pos, color: new THREE.Color(it.lc ?? def.light.color ?? '#ffd29a'), halo });
+    }
+    applyLights(0);
+  };
+
+  /** Light everything for the current darkness: lamp pools, wall washes, halos and the real lights. */
+  const applyLights = (time: number) => {
+    const on = lit;
+    const k = on ? 0.35 + dark * 0.65 : 0;
+    let np = 0, nw = 0;
+    const col = new THREE.Color();
+    for (const g of glows) {
+      const flick = g.light.kind === 'fire' ? 0.82 + Math.sin(time * 11 + g.pos.x * 7) * 0.08 + Math.sin(time * 23 + g.pos.z) * 0.06 : 1;
+      const pw = g.light.power * k * flick;
+      g.halo.visible = on;
+      const hs = (g.light.kind === 'strip' ? 0.9 : g.light.kind === 'table' || g.light.kind === 'fire' ? 0.45 : 0.75) * (0.6 + g.light.power * 0.4);
+      g.halo.scale.set(hs, hs, hs);
+      g.halo.material.opacity = 1;
+      if (!on) continue;
+      // A pool of light on the floor (strips and wall lights: smaller, near the wall).
+      if (np < MAXL) {
+        const r = g.light.range * (g.light.kind === 'strip' ? 0.7 : 1);
+        _p.set(g.pos.x, 0.018 + np * 0.0002, g.pos.z);
+        if (g.light.kind === 'strip' || g.light.kind === 'wall') _p.add(new THREE.Vector3(0, 0, 0.5).applyAxisAngle(new THREE.Vector3(0, 1, 0), g.it.rot));
+        _m.compose(_p, _q.identity(), _s.set(r * 1.6, 1, r * 1.6));
+        pools.setMatrixAt(np, _m);
+        pools.setColorAt(np, col.copy(g.color).multiplyScalar(0.33 * pw));
+        np++;
+      }
+      // A wash up the wall behind wall lights and strips (and lamps standing near a wall).
+      if ((g.light.kind === 'strip' || g.light.kind === 'wall') && nw < MAXL) {
+        const w = g.light.kind === 'strip' ? Math.max(2.6, pieceBox(g.it.item).getSize(_s).x + 1.2) : 1.6;
+        const h = g.light.kind === 'strip' ? 1.8 : 1.4;
+        _q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), g.it.rot);
+        _p.set(0, 0, -0.1).applyQuaternion(_q).add(g.pos);
+        _m.compose(_p, _q, _s.set(w, h, 1));
+        washes.setMatrixAt(nw, _m);
+        washes.setColorAt(nw, col.copy(g.color).multiplyScalar(0.55 * pw));
+        nw++;
+      }
+    }
+    pools.count = np;
+    washes.count = nw;
+    pools.instanceMatrix.needsUpdate = washes.instanceMatrix.needsUpdate = true;
+    if (pools.instanceColor) pools.instanceColor.needsUpdate = true;
+    if (washes.instanceColor) washes.instanceColor.needsUpdate = true;
+    // The strongest lamps become real lights (ceiling and floor lamps first).
+    const rank = (g: Glow) => g.light.power * g.light.range * (g.light.kind === 'ceiling' ? 1.4 : g.light.kind === 'floor' ? 1.2 : 1);
+    const best = on ? [...glows].sort((a, b) => rank(b) - rank(a)).slice(0, realLights.length) : [];
+    realLights.forEach((l, i) => {
+      const g = best[i];
+      if (!g) {
+        l.intensity = 0;
+        return;
+      }
+      l.position.copy(g.pos);
+      if (g.light.kind === 'strip' || g.light.kind === 'wall') l.position.add(new THREE.Vector3(0, -0.3, 0.6).applyAxisAngle(new THREE.Vector3(0, 1, 0), g.it.rot));
+      l.color.copy(g.color);
+      l.distance = g.light.range * 1.9;
+      const flick = g.light.kind === 'fire' ? 0.85 + Math.sin(time * 11) * 0.1 : 1;
+      l.intensity = g.light.power * (1.5 + dark * 3.5) * flick;
+    });
+  };
+
+  // ---------------------------------------------------------------- contact shadows under furniture
+  const blobMat = t(new THREE.MeshBasicMaterial({ map: t(blobShadowTexture()), transparent: true, depthWrite: false, color: '#000000', opacity: 1 }));
+  blobMat.map!.colorSpace = THREE.NoColorSpace;
+  const MAXB = 160;
+  const blobs = new THREE.InstancedMesh(t(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2)), blobMat, MAXB);
+  blobs.frustumCulled = false;
+  blobs.renderOrder = 1;
+  scene.add(blobs);
+  let shadowsDirty = true;
+  const rebuildShadows = () => {
+    shadowsDirty = false;
+    let n = 0;
+    for (const it of items) {
+      const k = kindOf(it.item);
+      if (k === 'flat' || k === 'wall' || k === 'ceiling' || n >= MAXB) continue;
+      const b = pieceBox(it.item);
+      if (b.isEmpty()) continue;
+      const sx = (b.max.x - b.min.x) * 1.25 + 0.25, sz = (b.max.z - b.min.z) * 1.25 + 0.25;
+      const c = new THREE.Vector3((b.min.x + b.max.x) / 2, 0, (b.min.z + b.max.z) / 2).applyAxisAngle(new THREE.Vector3(0, 1, 0), it.rot);
+      _q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), it.rot);
+      _m.compose(_p.set(it.x + c.x, groupY(it) + 0.02 + n * 0.0001, it.z + c.z), _q, _s.set(sx, 1, sz));
+      blobs.setMatrixAt(n++, _m);
+    }
+    blobs.count = n;
+    blobs.instanceMatrix.needsUpdate = true;
+  };
+
+  // ---------------------------------------------------------------- time of day
+  let envTimer = 0;
+  const updateEnv = (force = false) => {
+    const h = hourOverride ?? (opts.venue ? 13 : opts.clock?.() ?? 13);
+    const d = daylight(h);
+    if (opts.venue) d.dark = Math.min(d.dark, 0.25); // shops and bars keep their lights on and bright
+    dark = d.dark;
+    (scene.background as THREE.Color).copy(d.bg);
+    hemi.color.copy(d.sky);
+    hemi.groundColor.copy(d.ground);
+    hemi.intensity = opts.venue ? Math.max(d.hemi, 1.0) : d.hemi;
+    // Lights on after dark: the room fills with warm lamp light (the lamps add pools and accents on top).
+    const glowK = lampOn() ? Math.min(1, d.dark * 1.2) : 0;
+    if (glowK > 0) {
+      hemi.color.lerp(new THREE.Color('#ffd7a6'), glowK * 0.75);
+      hemi.groundColor.lerp(new THREE.Color('#6b4a36'), glowK * 0.6);
+      hemi.intensity = Math.max(hemi.intensity, 0.4 + glowK * 0.55);
+    }
+    sun.color.copy(d.sun);
+    sun.intensity = opts.venue ? Math.max(d.sunI, 0.9) : d.sunI;
+    // The sun swings from the left (morning) to the right (evening), lower at the ends of the day.
+    const az = THREE.MathUtils.clamp((h - 6) / 13, 0, 1) * Math.PI - Math.PI / 2;
+    sun.position.set(Math.sin(az) * 10, 4 + d.elev * 10, 6 + Math.cos(az) * 4);
+    sunMat.color.set(d.sun).multiplyScalar(Math.max(0, 1 - d.dark * 1.6) * 0.16);
+    glassMat.map = d.dark > 0.55 ? viewNight : viewDay;
+    const want = lampOn();
+    if (want !== lit || force) {
+      lit = want;
+      for (const it of items) if (FURNITURE.get(it.item)?.light) paint(it);
+    }
+  };
+  updateEnv(true);
+  rebuildLights();
+  rebuildShadows();
   refreshStands();
 
   // TV: the ad shows only when you turn the TV on, briefly and clearly.
@@ -289,7 +866,17 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
         adTimer = 5;
       }
     : undefined;
+  let clock = 0;
   animated.push((dt) => {
+    clock += dt;
+    envTimer -= dt;
+    if (envTimer <= 0) {
+      envTimer = 2;
+      updateEnv();
+    }
+    if (lightsDirty) rebuildLights();
+    if (shadowsDirty) rebuildShadows();
+    if (lit && glows.some((g) => g.light.kind === 'fire')) applyLights(clock);
     if (!tvScreen) return;
     if (adTimer > 0) {
       adTimer -= dt;
@@ -301,9 +888,10 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
     if (adTimer <= 0 && tvScreen.color.getHex() !== 0x0b0b0b) tvScreen.color.setHSL((performance.now() / 4000) % 1, 0.5, 0.45);
   });
 
-  // ---- venues: a name sign, staff behind the counter, a few locals
+  // ---------------------------------------------------------------- venues: a name sign, staff, a few locals
   if (opts.venue) {
-    const sign = new THREE.Mesh(t(new THREE.PlaneGeometry(6, 1.1)), t(new THREE.MeshBasicMaterial({ map: t(signTexture(place.name, place.color)) })));
+    const sign = new THREE.Mesh(t(new THREE.PlaneGeometry(6, 1.1)), cutaway(t(new THREE.MeshBasicMaterial({ map: t(signTexture(place.name, place.color)) }))));
+    sign.geometry.setAttribute('aWall', new THREE.Float32BufferAttribute(new Array(sign.geometry.getAttribute('position').count).fill([0, -1, 3]).flat(), 3));
     sign.position.set(0, WALL_H - 0.55, -hd + WALL_T / 2 + 0.03);
     scene.add(sign);
     const counter = items.find((i) => FURNITURE.get(i.item)?.placeActions);
@@ -320,35 +908,31 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
     });
   }
 
-  // ---- move mode helpers
-  let lit: string | null = null;
-  const glow = new THREE.Mesh(t(new THREE.RingGeometry(0.9, 1.15, 32)), t(new THREE.MeshBasicMaterial({ color: '#ffd400', transparent: true, opacity: 0.9, depthWrite: false })));
-  glow.rotation.x = -Math.PI / 2;
-  glow.visible = false;
-  scene.add(glow);
+  // ---------------------------------------------------------------- move mode helpers
+  let litUid: string | null = null;
+  const ring = new THREE.Mesh(t(new THREE.RingGeometry(0.9, 1.15, 32)), t(new THREE.MeshBasicMaterial({ color: '#ffd400', transparent: true, opacity: 0.9, depthWrite: false })));
+  ring.rotation.x = -Math.PI / 2;
+  ring.visible = false;
+  scene.add(ring);
   animated.push(() => {
-    if (!lit) return;
-    const g = groups.get(lit);
+    if (!litUid) return;
+    const g = groups.get(litUid);
     if (!g) return;
-    glow.position.set(g.position.x, 0.03, g.position.z);
+    ring.position.set(g.position.x, 0.03, g.position.z);
     const s = 1 + Math.sin(performance.now() / 180) * 0.06;
-    glow.scale.set(s, s, s);
+    ring.scale.set(s, s, s);
   });
 
   // The floor shade under a held piece: green = fits, red = doesn't.
-  // (Wall pieces get the shade on the floor right under them.)
   const shadeMat = t(new THREE.MeshBasicMaterial({ color: '#36c46b', transparent: true, opacity: 0.55, depthWrite: false }));
-  // The held piece glows the same colour, so you see it even when it hides the shade.
-  const heldMat = t(kit.material.clone());
   const tintHeld = (uid: string | null, ok = true) => {
-    for (const [id, g] of groups) {
-      const on = id === uid;
-      g.traverse((o) => {
-        if (!(o instanceof THREE.Mesh) || o.material === tvScreen) return;
-        if (o.material === kit.material || o.material === heldMat) o.material = on ? heldMat : kit.material;
-      });
+    const before = heldUid;
+    heldUid = uid;
+    heldOk = ok;
+    for (const id of new Set([before, uid])) {
+      const it = id && items.find((i) => i.uid === id);
+      if (it) paint(it);
     }
-    heldMat.emissive.set(ok ? '#1f7a3e' : '#9b1c22');
   };
   const shade = new THREE.Mesh(t(new THREE.PlaneGeometry(1, 1)), shadeMat);
   shade.rotation.x = -Math.PI / 2;
@@ -359,7 +943,6 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
   edge.renderOrder = 3;
   edge.visible = false;
   scene.add(shade, edge);
-  // The piece in hand: where it was picked up, and the last spot it fitted.
   let hold: { uid: string; startX: number; startZ: number; startRot: number; okX: number; okZ: number; okRot: number } | null = null;
   const updateShade = (it: HomeItem): boolean => {
     const fp = fit.footprint(it.item);
@@ -371,7 +954,7 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
     for (const m of [shade, edge]) {
       m.visible = true;
       m.position.set(it.x + c.x, 0.04, it.z + c.z);
-      m.rotation.z = it.rot; // the plane lies flat: its z turn is a turn about the floor's up
+      m.rotation.z = it.rot;
       m.scale.set(w + 0.3, Math.max(d, 0.25) + 0.3, 1);
     }
     tintHeld(it.uid, ok);
@@ -385,6 +968,58 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
     placeGroup(it);
   };
 
+  // ---------------------------------------------------------------- picking walls and floors
+  const pickSurface: HomeInterior['pickSurface'] = (ray) => {
+    let best: { d: number; hit: ReturnType<HomeInterior['pickSurface']> } | null = null;
+    const v = CUT.uView.value;
+    for (const f of faces) {
+      const n = new THREE.Vector3(f.nx, 0, f.nz);
+      if (n.dot(ray.direction) >= 0) continue; // facing away
+      // Skip walls that are cut down (the same rule as the shader), above the ledge.
+      const out = f.outer ? n.clone().negate() : n;
+      const facing = out.x * v.x + out.z * v.y;
+      const cut = CUT.uNoCut.value < 0.5 && (CUT.uCutAll.value > 0.5 || (f.outer ? facing > 0.3 : Math.abs(facing) > 0.5));
+      const top = cut ? LOW_WALL : WALL_H;
+      const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(n, new THREE.Vector3(f.ax, 0, f.az));
+      const p = ray.intersectPlane(plane, new THREE.Vector3());
+      if (!p || p.y < 0 || p.y > top) continue;
+      const along = Math.abs(f.nz) > 0.5 ? p.x : p.z;
+      const lo = Math.min(Math.abs(f.nz) > 0.5 ? f.ax : f.az, Math.abs(f.nz) > 0.5 ? f.bx : f.bz);
+      const hi = Math.max(Math.abs(f.nz) > 0.5 ? f.ax : f.az, Math.abs(f.nz) > 0.5 ? f.bx : f.bz);
+      if (along < lo || along > hi) continue;
+      const d = p.distanceTo(ray.origin);
+      if (!best || d < best.d) best = { d, hit: { kind: 'wall', key: f.key, room: f.room } };
+    }
+    const fp = ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), new THREE.Vector3());
+    if (fp) {
+      const room = roomAt(fp.x, fp.z);
+      const d = fp.distanceTo(ray.origin);
+      if (room >= 0 && (!best || d < best.d)) best = { d, hit: { kind: 'floor', room } };
+    }
+    return best?.hit ?? null;
+  };
+
+  const recolorable = (item: string): ('a' | 'b' | 'lc')[] => {
+    const def = FURNITURE.get(item);
+    if (!def) return [];
+    const out: ('a' | 'b' | 'lc')[] = [];
+    let a = false, b = false;
+    for (const p of def.parts) {
+      const g = kit.models.get(p.model);
+      const s = g?.getAttribute('_slot');
+      if (!s) continue;
+      for (let i = 0; i < s.count && !(a && b); i += 3) {
+        const v = s.getX(i);
+        if (v > 0.5 && v < 1.5) a = true;
+        else if (v > 1.5 && v < 2.5) b = true;
+      }
+    }
+    if (a) out.push('a');
+    if (b) out.push('b');
+    if (def.light) out.push('lc');
+    return out;
+  };
+
   return {
     scene,
     objects,
@@ -392,6 +1027,9 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
     items,
     floors,
     movable: !opts.venue,
+    get style() {
+      return style;
+    },
     focus: new THREE.Vector3(0, 0.6, -0.4),
     spawn: new THREE.Vector3(0, 0, hd - 1),
     halfWidth: hw + 1.1, // margin: the front of the room is nearer the camera, so it looks wider
@@ -414,13 +1052,16 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
         it.z = THREE.MathUtils.clamp(Math.round(z * 10) / 10, -hd + 0.2, hd - 0.2);
       }
       placeGroup(it);
+      lightsDirty = shadowsDirty = true;
       return updateShade(it);
     },
-    rotateItem(uid) {
+    rotateItem(uid, step = Math.PI / 2) {
       const it = heldItem(uid);
       if (!it || fit.kind(it.item) === 'wall') return it ? updateShade(it) : false;
-      it.rot = (Math.round((it.rot + Math.PI / 2) / (Math.PI / 2)) * (Math.PI / 2)) % (Math.PI * 2);
+      const q = Math.PI / 4;
+      it.rot = ((Math.round((it.rot + step) / q) * q) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
       placeGroup(it);
+      lightsDirty = shadowsDirty = true;
       return updateShade(it);
     },
     drop(uid) {
@@ -434,6 +1075,7 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
       if (why) putBack(it, hold.okX, hold.okZ, hold.okRot);
       else Object.assign(hold, { okX: it.x, okZ: it.z, okRot: it.rot });
       updateShade(it);
+      lightsDirty = shadowsDirty = true;
       return why;
     },
     endMove(uid, cancel) {
@@ -464,18 +1106,18 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
       if (tvScreen && g && g.children.some((c) => (c as THREE.Mesh).material === tvScreen)) tvScreen = null;
       refreshStands();
     },
-    addPiece(item, x, z, preferRot = 0) {
+    addPiece(item, x, z, preferRot = 0, finish = {}) {
       const def = FURNITURE.get(item);
       if (!def) return null;
       let n = 1;
       while (items.some((i) => i.uid === `${item}-${n}`)) n++;
-      const it: HomeItem = { uid: `${item}-${n}`, item, x, z, rot: 0 };
+      const it: HomeItem = { uid: `${item}-${n}`, item, x, z, rot: 0, ...finish };
       items.push(it);
-      // Search outwards from (x, z) on a 20 cm grid for a spot it fits (both turns).
+      // Search outwards from (x, z) on a 20 cm grid for a spot it fits (any quarter turn).
       let found = false;
-      outer: for (let ring = 0; ring < 40; ring++) {
-        for (let dz = -ring; dz <= ring; dz++) for (let dx = -ring; dx <= ring; dx++) {
-          if (Math.max(Math.abs(dx), Math.abs(dz)) !== ring) continue;
+      outer: for (let ringN = 0; ringN < 40; ringN++) {
+        for (let dz = -ringN; dz <= ringN; dz++) for (let dx = -ringN; dx <= ringN; dx++) {
+          if (Math.max(Math.abs(dx), Math.abs(dz)) !== ringN) continue;
           for (const rot of [preferRot, preferRot + Math.PI / 2, preferRot + Math.PI, preferRot - Math.PI / 2]) {
             let px = Math.round((x + dx * 0.2) * 10) / 10, pz = Math.round((z + dz * 0.2) * 10) / 10, pr = rot;
             if (def.wall) ({ x: px, z: pz, rot: pr } = snapToWall(fit, item, px, pz));
@@ -492,7 +1134,7 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
         items.pop();
         return null;
       }
-      addPiece(it);
+      buildPiece(it);
       refreshStands();
       return it.uid;
     },
@@ -510,13 +1152,62 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
       return why ? [{ uid: i.uid, why: `${why} ${r ? [r.x0, r.z0, r.x1, r.z1].map((v) => v.toFixed(2)).join(',') : ''}` }] : [];
     }),
     highlight(uid) {
-      lit = uid;
-      glow.visible = !!uid;
+      litUid = uid;
+      ring.visible = !!uid;
     },
+    setStyle(next) {
+      style = structuredClone(next);
+      if (!opts.venue) lightMode = style.lights ?? 'auto';
+      buildShell();
+      updateEnv(true);
+    },
+    setFinish(uid, f) {
+      const it = items.find((i) => i.uid === uid);
+      if (!it) return;
+      for (const k of ['a', 'b', 'lc'] as const) {
+        if (k in f) {
+          if (f[k]) it[k] = f[k];
+          else delete it[k];
+        }
+      }
+      paint(it);
+      lightsDirty = true;
+    },
+    pickSurface,
+    setView(dx, dz, mode = 'cutaway') {
+      const l = Math.hypot(dx, dz) || 1;
+      CUT.uView.value.set(dx / l, dz / l);
+      CUT.uCutAll.value = mode === 'top' ? 1 : 0;
+      CUT.uNoCut.value = mode === 'walls-up' ? 1 : 0;
+    },
+    setLights(mode) {
+      lightMode = mode;
+      style = { ...style, lights: mode };
+      updateEnv(true);
+      applyLights(clock);
+    },
+    lightsLit: () => lit,
+    previewHour(h) {
+      hourOverride = h;
+      updateEnv(true);
+      applyLights(clock);
+    },
+    recolorable,
+    roomFloor,
+    roomWall,
+    faceRoom: (key) => faces.find((f) => f.key === key)?.room ?? -1,
     update: (dt) => animated.forEach((f) => f(dt)),
     dispose() {
-      // Furniture geometry and material are shared (kit): only drop our own things.
+      // Furniture geometry and materials are shared (kit), floors and wall finishes are cached: only drop our own things.
+      shellDisposables.forEach((d) => d.dispose());
       disposables.forEach((x) => x.dispose());
+      realLights.forEach((l) => l.dispose());
+      sun.shadow.map?.dispose();
+      pools.dispose();
+      washes.dispose();
+      blobs.dispose();
+      CUT.uView.value.set(0, 1);
+      CUT.uCutAll.value = CUT.uNoCut.value = 0;
     },
   };
 }
@@ -532,13 +1223,11 @@ function parkView(): THREE.CanvasTexture {
   sky.addColorStop(1, '#d9eefb');
   g.fillStyle = sky;
   g.fillRect(0, 0, 256, 70);
-  // Far skyline (Upper West and East Sides) along the horizon.
   g.fillStyle = '#9fb3c4';
   for (let x = 0; x < 256; x += 9) {
     const h = 6 + ((x * 37) % 17);
     g.fillRect(x, 66 - h, 7, h + 4);
   }
-  // The park, the lake, a few paths.
   g.fillStyle = '#5f9e4f';
   g.fillRect(0, 68, 256, 92);
   g.fillStyle = '#4c8a41';

@@ -14,6 +14,22 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 
 export class Toy {
   private parts: THREE.BufferGeometry[] = [];
+  /** Furniture colour slot for what's added next (see assets/furniture-kit.ts): 0 fixed, 1 main, 2 frame, 3 glow. */
+  private slotNow = 0;
+  private slots: number[] = [];
+
+  /**
+   * Add pieces in a colour slot: in slots 1 and 2 the colour you give is
+   * only the shading (use white, or grey for a darker part) and the
+   * player's chosen colour is multiplied in; slot 3 lights up at night.
+   */
+  inSlot(slot: number, fn: () => void): this {
+    const was = this.slotNow;
+    this.slotNow = slot;
+    fn();
+    this.slotNow = was;
+    return this;
+  }
 
   /** Add any geometry with a colour, already positioned. */
   add(geo: THREE.BufferGeometry, color: THREE.ColorRepresentation): this {
@@ -25,6 +41,7 @@ export class Toy {
     for (let i = 0; i < n; i++) arr.set([c.r, c.g, c.b], i * 3);
     g.setAttribute('color', new THREE.BufferAttribute(arr, 3));
     this.parts.push(g);
+    this.slots.push(this.slotNow);
     return this;
   }
 
@@ -45,6 +62,10 @@ export class Toy {
 
   /** Everything merged into one geometry (vertex colours, normals). */
   geometry(): THREE.BufferGeometry {
+    // Only pieces that use slots carry the slot attribute.
+    if (this.slots.some((s) => s)) {
+      this.parts.forEach((g, i) => g.setAttribute('_slot', new THREE.BufferAttribute(new Float32Array(g.getAttribute('position').count).fill(this.slots[i]), 1)));
+    }
     const geo = mergeGeometries(this.parts)!;
     geo.computeVertexNormals();
     return geo;

@@ -8,6 +8,11 @@
 // room, and shrinks back to nothing as you zoom out. Small homes keep the
 // fixed view.
 //
+// Lagos Life style (Peter, 2026-10-27): the view also SWINGS round the
+// room (rotate, in 45° steps, gliding) and can look straight DOWN (top
+// view, a floor plan). Whenever it moves, `onView` tells the home which
+// way the camera faces so the walls nearest it drop down.
+//
 // Only the 3D camera moves: the HUD, needs and sheets are page elements
 // and stay the same size. Gestures never count as taps (render/engine.ts
 // drops any press that moved or had a second finger).
@@ -32,20 +37,72 @@ export class InteriorView {
   /** Half the room's floor (for keeping the pan inside it). */
   private half = new THREE.Vector2(6, 5);
 
+  /** Pixels the picture is lifted up by (a menu covers the bottom of the screen), and the screen size. */
+  private liftPx = 0;
+  private screen = new THREE.Vector2(1, 1);
+  /** Swing round the room (radians, 0 = the usual front view), and where it's gliding to. */
+  azimuth = 0;
+  private azTarget = 0;
+  /** Looking straight down: 0 = normal, 1 = top view (glides between). */
+  private topK = 0;
+  private topTarget = 0;
+  /** Told after every move: the camera's direction from the room (x, z) and the view mode. */
+  onView: ((dirX: number, dirZ: number, mode: 'cutaway' | 'top') => void) | null = null;
+
   readonly camera: THREE.PerspectiveCamera;
   constructor(camera: THREE.PerspectiveCamera) {
     this.camera = camera;
   }
 
+  /** Lift the picture up by `px` (0 = centred again): a menu is covering the bottom. */
+  setLift(px: number, width: number, height: number): void {
+    this.liftPx = px;
+    this.screen.set(width, height);
+    this.apply();
+  }
+
+  /** Swing the view round by `step` radians (it glides there). */
+  rotate(step: number): void {
+    this.azTarget += step;
+  }
+
+  /** Top view on or off (glides). */
+  setTop(on: boolean): void {
+    this.topTarget = on ? 1 : 0;
+  }
+  get isTop(): boolean {
+    return this.topTarget > 0.5;
+  }
+
+  /** Glide towards the wanted swing and tilt. Returns whether the camera moved. */
+  tick(dt: number): boolean {
+    const da = this.azTarget - this.azimuth, dk = this.topTarget - this.topK;
+    if (Math.abs(da) < 1e-4 && Math.abs(dk) < 1e-4) return false;
+    const k = 1 - Math.exp(-dt * 7);
+    this.azimuth = Math.abs(da) < 1e-3 ? this.azTarget : this.azimuth + da * k;
+    this.topK = Math.abs(dk) < 1e-3 ? this.topTarget : this.topK + dk * k;
+    this.apply();
+    return true;
+  }
+
+  /** Back to the front view (a new room). */
+  resetSwing(): void {
+    this.azimuth = this.azTarget = 0;
+    this.topK = this.topTarget = 0;
+  }
+
   /** Frame a room whole. `keep` holds on to the zoom and pan (a resize). */
-  frame(target: THREE.Vector3, position: THREE.Vector3, halfW: number, halfD: number, zoomable: boolean, keep = false): void {
+  frame(target: THREE.Vector3, position: THREE.Vector3, halfW: number, halfD: number, zoomable: boolean, keep = false, swing = 0, startZoom = START_ZOOM): void {
     this.baseTarget.copy(target);
     this.baseOffset.copy(position).sub(target);
     this.half.set(halfW, halfD);
     this.enabled = zoomable;
     if (!keep || !zoomable) {
-      this.zoom = START_ZOOM;
+      this.zoom = startZoom;
       this.pan.set(0, 0);
+      this.resetSwing();
+      // Long homes on a tall phone: look along the long side so it fills the screen.
+      this.azimuth = this.azTarget = swing;
     }
     this.apply();
   }
@@ -58,9 +115,22 @@ export class InteriorView {
     this.pan.x = THREE.MathUtils.clamp(this.pan.x, -this.half.x * room, this.half.x * room);
     this.pan.y = THREE.MathUtils.clamp(this.pan.y, -this.half.y * room, this.half.y * room);
     const t = this.baseTarget.clone().add(new THREE.Vector3(this.pan.x, 0, this.pan.y));
-    this.camera.position.copy(t).addScaledVector(this.baseOffset, 1 / this.zoom);
+    // Swing round the room, then tilt towards straight down for the top view.
+    const off = this.baseOffset.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), this.azimuth);
+    if (this.topK > 0) {
+      const len = off.length();
+      const flat = new THREE.Vector3(off.x, 0, off.z).normalize();
+      const top = new THREE.Vector3(0, len, 0).addScaledVector(flat, len * 0.02);
+      off.lerp(top, this.topK).setLength(len * (1 + 0.05 * this.topK));
+    }
+    this.camera.position.copy(t).addScaledVector(off, 1 / this.zoom);
+    if (this.liftPx > 0) this.camera.setViewOffset(this.screen.x, this.screen.y, 0, this.liftPx, this.screen.x, this.screen.y);
+    else if (this.camera.view) this.camera.clearViewOffset();
+    this.camera.up.set(0, 1, 0);
+    if (this.topK > 0.98) this.camera.up.set(-off.x, 0, -off.z).normalize();
     this.camera.lookAt(t);
     this.camera.updateMatrixWorld();
+    this.onView?.(off.x, off.z, this.topK > 0.6 ? 'top' : 'cutaway');
   }
 
   /** Where a point on the canvas (normalised -1..1) lands on the floor. */
@@ -103,6 +173,7 @@ export class InteriorView {
     const p = world.clone().setY(world.y + 0.8).project(this.camera);
     if (Math.abs(p.x) < margin && Math.abs(p.y) < margin) return false;
     const want = new THREE.Vector2(world.x - this.baseTarget.x, world.z - this.baseTarget.z);
+    if (this.topK > 0.5) return false;
     const k = Math.min(1, dt * 3);
     this.pan.lerp(want, k);
     this.apply();

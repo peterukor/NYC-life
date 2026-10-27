@@ -225,7 +225,11 @@ export interface GameState {
 
   events: { lastFiredAt: number; cooldowns: Record<string, number> };
   /** Each home's furniture arrangement, by home place id (see data/homes.ts). */
-  homes: Record<string, { uid: string; item: string; x: number; z: number; rot: number }[]>;
+  homes: Record<string, { uid: string; item: string; x: number; z: number; rot: number; a?: string; b?: string; lc?: string }[]>;
+  /** Each home's floors, wall paint and lights, by home place id (data/home-style.ts). */
+  homeStyles?: Record<string, import('../data/home-style.ts').HomeStyle>;
+  /** Which version of each home's floor plan the saved arrangement is for (data/homes.ts `version`). */
+  homeVersions?: Record<string, number>;
   /** Furniture you own that isn't placed anywhere (item ids). */
   storage?: string[];
   /** A shift you've clocked in for and not been paid for yet (sim/shift.ts). */
