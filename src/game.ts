@@ -2554,7 +2554,7 @@ export class Game {
     const area = layout.width * layout.depth;
     const portrait = aspect < 0.8;
     // Homes (2026-10-27) open showing the whole floor, a touch zoomed in (like Lagos Life).
-    if (layout.shaped && !layout.mood && !layout.life) return area > 150 ? (portrait ? 1.15 : 1.0) : undefined;
+    if (layout.shaped && !layout.mood && !layout.life) return area > 800 ? (portrait ? 1.4 : 1.15) : area > 150 ? (portrait ? 1.15 : 1.0) : undefined;
     if (area > 700) return portrait ? 1.75 : 1.25;
     if (area > 400) return portrait ? 1.5 : 1.15;
     if (area > 180) return portrait ? 1.2 : 1.05;
