@@ -97,6 +97,9 @@ const OUTFITS = {
 /** Fixed-colour materials (metal, gold, jewellery) everywhere. */
 const DETAIL = /^(Gold|Metal|Metal_Dark|Earrings|Visor)$/;
 
+/** Parts whose main (recolourable) colour isn't their biggest material. */
+const MAIN_MATERIAL = { 'top-worker': 'Worker_Vest' };
+
 /** The face the built hairstyles sit on (its own hair removed). */
 const BARE_HEAD = { m: 'suit', f: 'casual' };
 
@@ -233,8 +236,8 @@ for (const [g, cfg] of Object.entries(OUTFITS)) {
       const kind = mesh && kindOf(node.getName());
       if (!kind) continue;
       const prims = mesh.listPrimitives();
-      // Biggest non-skin material = the part's main colour.
-      let biggest = null, most = -1;
+      // Biggest non-skin material = the part's main colour (unless set).
+      let biggest = MAIN_MATERIAL[`${kind}-${outfit}`] ?? null, most = biggest ? Infinity : -1;
       for (const p of prims) {
         const nm = p.getMaterial()?.getName() ?? '';
         const n = p.getAttribute('POSITION').getCount();

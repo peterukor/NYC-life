@@ -30,7 +30,7 @@ document.body.appendChild(renderer.domElement);
 const mat = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true });
 const dirs = { front: [0, 1.0, 4.2], three: [2.6, 1.6, 3.1], face: [0, 1.62, 1.3], face3: [0.95, 1.7, 0.95], faceback: [-0.7, 1.7, -1.1], faceside: [1.3, 1.62, 0.05], facetop: [0.3, 2.4, 0.6], side: [4, 1, 0], back: [0, 1.2, -4] };
 const SL = { skin: 0, hair: 2, brows: 12 };
-const tint = { 0: q.get('skin'), 2: q.get('hair'), 12: q.get('hair') };
+const tint = { 0: q.get('skin'), 2: q.get('hair'), 12: q.get('hair'), 3: q.get('top'), 4: q.get('top2'), 5: q.get('bottom'), 6: q.get('bottom2'), 7: q.get('shoes'), 8: q.get('shoes2'), 11: q.get('detail') };
 const anyTemplate = [...parts.values()][0];
 for (const [i, look] of looks.entries()) {
   const scene = new THREE.Scene();
