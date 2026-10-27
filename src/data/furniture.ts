@@ -80,6 +80,8 @@ export interface FurnitureDef {
   deco?: boolean;
   /** It gives light: lamps glow and light up the room at night (home-interior.ts). */
   light?: LightDef;
+  /** Always glowing and animated (venues): disco tiles, a breathing LED bar front, chasing marquee lights. */
+  pulse?: 'disco' | 'breathe' | 'chase' | 'steady';
   /** Default colours for its main (fabric) and frame (wood) parts; players can change them. */
   colors?: { a?: string; b?: string };
 }

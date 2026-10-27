@@ -243,6 +243,119 @@ export const DECO_TOYS: Record<string, (t: Toy) => void> = {
     t.add(new THREE.CylinderGeometry(0.06, 0.06, 0.5, 8).rotateZ(Math.PI / 2).translate(0, 0.45, 0.75), '#f6efe1');
   },
 
+  // ================================================================ venues (2026-10-27: "real and lively")
+  /** A 4 × 4 m LED dance floor: 64 glass tiles that flash (pulse: disco). */
+  decoLedFloor(t) {
+    t.block(4.1, 0.08, 4.1, 0, 0, 0, '#15121c', 0.05);
+    const cols = ['#ff3fb4', '#22d3ee', '#9b5cff', '#ffd36b', '#3ddc84', '#ff6a3d'];
+    t.inSlot(3, () => {
+      for (let i = 0; i < 8; i++) for (let j = 0; j < 8; j++) {
+        t.add(new THREE.BoxGeometry(0.44, 0.02, 0.44).translate(-1.75 + i * 0.5, 0.09, -1.75 + j * 0.5), cols[(i * 3 + j * 5 + ((i * j) % 4)) % cols.length]);
+      }
+    });
+  },
+  /** A 4.4 m bar counter: marble top, a glowing front panel, foot rail (pulse: breathe). */
+  decoLedBar(t) {
+    const W = 4.4;
+    t.block(W, 1.0, 0.7, 0, 0, 0, '#1b1820', 0.04);
+    t.inSlot(2, () => t.block(W + 0.1, 0.06, 0.82, 0, 1.0, 0.03, WHITE, 0.2));
+    t.inSlot(3, () => {
+      for (let i = 0; i < 11; i++) t.add(new THREE.PlaneGeometry(0.36, 0.8).translate(-W / 2 + 0.2 + i * 0.4, 0.5, 0.352), WHITE);
+    });
+    t.add(new THREE.CylinderGeometry(0.02, 0.02, W, 6).rotateZ(Math.PI / 2).translate(0, 0.18, 0.5), '#c9a24a');
+  },
+  /** Back-bar shelves of lit bottles (wall). */
+  decoBottleShelf(t) {
+    const W = 3.2;
+    t.block(W, 2.0, 0.3, 0, 0, 0, '#2a2026', 0.04);
+    const cols = ['#7fb069', '#c47f2c', '#e9e6e0', '#3d8bff', '#8c2f39', '#f6d58e'];
+    for (let r = 0; r < 3; r++) {
+      const y = 0.45 + r * 0.55;
+      t.inSlot(2, () => t.block(W - 0.1, 0.03, 0.26, 0, y, 0.03, WHITE, 0.1));
+      t.inSlot(3, () => t.add(new THREE.PlaneGeometry(W - 0.2, 0.02).translate(0, y + 0.5, 0.17), WHITE));
+      for (let k = 0; k < 13; k++) {
+        const x = -W / 2 + 0.2 + k * 0.23, h = 0.26 + ((k * 7 + r) % 3) * 0.05;
+        t.cyl(0.035, 0.04, h, x, y + 0.03, 0.05, cols[(k + r * 2) % cols.length], 7);
+        t.cyl(0.012, 0.012, 0.07, x, y + 0.03 + h, 0.05, '#1d1f24', 5);
+      }
+    }
+  },
+  /** A circular lighting truss with moving heads and video screens (hangs over the dance floor). */
+  decoTrussRing(t) {
+    const R = 2.0, y = -1.0;
+    for (const a of [0, Math.PI / 2, Math.PI, Math.PI * 1.5]) t.cyl(0.015, 0.015, 1.0, Math.cos(a) * R, y, Math.sin(a) * R, CORD, 4);
+    t.add(new THREE.TorusGeometry(R, 0.08, 6, 40).rotateX(Math.PI / 2).translate(0, y, 0), '#2b2d33');
+    t.add(new THREE.TorusGeometry(R, 0.03, 4, 40).rotateX(Math.PI / 2).translate(0, y - 0.12, 0), '#3a3d44');
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2;
+      t.block(0.18, 0.16, 0.18, Math.cos(a) * R, y - 0.32, Math.sin(a) * R, '#1d1e22', 0.2);
+      t.inSlot(3, () => t.add(new THREE.CircleGeometry(0.06, 10).rotateX(Math.PI / 2).translate(Math.cos(a) * R, y - 0.33, Math.sin(a) * R), ['#ff3fb4', '#22d3ee', '#9b5cff', '#ffd36b'][i % 4]));
+    }
+    for (let i = 0; i < 4; i++) {
+      const a = (i / 4) * Math.PI * 2 + Math.PI / 4;
+      const g = new THREE.BoxGeometry(0.9, 0.55, 0.05).translate(0, y - 0.45, 0).rotateY(-a + Math.PI / 2);
+      t.add(g.clone().translate(Math.cos(a) * (R - 0.15), 0, Math.sin(a) * (R - 0.15)), '#111216');
+      t.inSlot(3, () => t.add(new THREE.PlaneGeometry(0.8, 0.45).translate(0, y - 0.45, 0.03).rotateY(-a + Math.PI / 2).translate(Math.cos(a) * (R - 0.15), 0, Math.sin(a) * (R - 0.15)), ['#9b5cff', '#22d3ee', '#ff3fb4', '#3d8bff'][i]));
+    }
+  },
+  /** A raised VIP deck: glass tiles lit from below, a glowing edge (flat: sofas stand on it). */
+  decoVipRiser(t) {
+    const W = 5, D = 4;
+    t.block(W, 0.05, D, 0, 0, 0, '#16131d', 0.05);
+    t.inSlot(3, () => {
+      for (let i = 0; i < 5; i++) for (let j = 0; j < 4; j++) t.add(new THREE.PlaneGeometry(0.9, 0.9).rotateX(-Math.PI / 2).translate(-2 + i, 0.052, -1.5 + j), '#3d6bff');
+      t.block(W + 0.05, 0.02, 0.05, 0, 0.04, D / 2, '#22d3ee', 0.3);
+      t.block(0.05, 0.02, D, W / 2, 0.04, 0, '#22d3ee', 0.3);
+    });
+  },
+  /** A lounge set: a round marble table with a candle, two tub chairs. */
+  decoLoungeSet(t) {
+    t.cyl(0.05, 0.12, 0.7, 0, 0, 0, '#1d1f24', 10);
+    t.inSlot(2, () => t.cyl(0.42, 0.42, 0.05, 0, 0.7, 0, WHITE, 20));
+    t.cyl(0.04, 0.04, 0.08, 0.1, 0.75, 0.05, '#e9e6e0', 8);
+    t.inSlot(3, () => t.add(new THREE.SphereGeometry(0.02, 6, 4).scale(1, 2, 1).translate(0.1, 0.87, 0.05), '#ffb766'));
+    t.cyl(0.04, 0.05, 0.22, -0.12, 0.75, -0.08, '#3a5a3a', 8); // a bottle
+    for (const sx of [-1, 1]) {
+      t.inSlot(1, () => {
+        t.add(new THREE.CylinderGeometry(0.32, 0.28, 0.45, 16, 1, false, 0, Math.PI * 1.3).rotateY(sx > 0 ? -Math.PI * 0.15 + Math.PI / 2 : Math.PI * 0.85 + Math.PI / 2).translate(sx * 0.82, 0.25, 0), WHITE);
+        t.cyl(0.29, 0.29, 0.1, sx * 0.82, 0.25, 0, '#e0e0e0', 16);
+      });
+      t.cyl(0.02, 0.02, 0.25, sx * 0.82, 0, 0, '#c9a24a', 6);
+    }
+  },
+  /** A live stage: a platform with a glowing edge, drum kit, mic stand, two speakers. */
+  decoLiveStage(t) {
+    const W = 5, D = 3;
+    t.block(W, 0.5, D, 0, 0, 0, '#1a1820', 0.04);
+    t.inSlot(3, () => t.block(W + 0.02, 0.04, 0.04, 0, 0.47, D / 2, '#ff3fb4', 0.3));
+    t.inSlot(2, () => t.add(new THREE.PlaneGeometry(W - 0.2, D - 0.2).rotateX(-Math.PI / 2).translate(0, 0.505, 0), WHITE));
+    // Drum kit.
+    t.cyl(0.28, 0.28, 0.4, 0.6, 0.5, -0.6, '#c8553d', 16);
+    for (const [x, z, r] of [[0.15, -0.3, 0.16], [1.05, -0.3, 0.16], [1.1, -0.9, 0.2]] as const) t.cyl(r, r, 0.22, x, 0.85, z, '#e9e6e0', 12);
+    for (const [x, z] of [[-0.15, -0.9], [1.4, -0.4]]) {
+      t.cyl(0.01, 0.01, 0.9, x, 0.5, z, '#c0c4ca', 5);
+      t.cyl(0.25, 0.25, 0.01, x, 1.4, z, '#d4a84b', 16);
+    }
+    // Mic stand.
+    t.cyl(0.12, 0.12, 0.02, -0.9, 0.5, 0.6, '#1d1f24', 10);
+    t.cyl(0.01, 0.01, 1.4, -0.9, 0.5, 0.6, '#c0c4ca', 5);
+    t.sphere(0.04, -0.9, 1.95, 0.6, '#1d1f24');
+    // Speakers.
+    for (const sx of [-1, 1]) t.block(0.6, 1.3, 0.5, sx * (W / 2 - 0.35), 0.5, D / 2 - 0.4, '#1d1e22', 0.1);
+  },
+  /** A neon entrance arch (stand it just inside the door). */
+  decoNeonArch(t) {
+    const W = 2.8, H = 3.0;
+    for (const sx of [-1, 1]) t.block(0.35, H, 0.35, sx * (W / 2), 0, 0, '#1d1e22', 0.1);
+    t.block(W + 0.35, 0.5, 0.35, 0, H, 0, '#1d1e22', 0.1);
+    t.inSlot(3, () => {
+      for (const k of [0, 1]) {
+        const o = 0.08 + k * 0.1;
+        tube(t, [[-W / 2 + o, 0.05, 0.19], [-W / 2 + o, H - o, 0.19], [W / 2 - o, H - o, 0.19], [W / 2 - o, 0.05, 0.19]], 0.025, k ? '#ff8a3d' : '#ffd36b');
+      }
+    });
+  },
+
   // ================================================================ wall decor
   /** Abstract canvas: big soft shapes (main colour) on cream. */
   decoArtShapes(t) {
@@ -421,6 +534,6 @@ export const DECO_TOYS: Record<string, (t: Toy) => void> = {
 };
 
 /** Hangs on a wall: kept at its height, back against the wall. */
-export const DECO_ON_WALL = ['decoLedStrip', 'decoFairyLights', 'decoNeonHeart', 'decoNeonBolt', 'decoNeonNyc', 'decoSconce', 'decoArtShapes', 'decoArtTriptych', 'decoArtSkyline', 'decoGallery', 'decoMirrorRound', 'decoMirrorArch', 'decoWallShelf', 'decoTvWall'];
+export const DECO_ON_WALL = ['decoBottleShelf', 'decoLedStrip', 'decoFairyLights', 'decoNeonHeart', 'decoNeonBolt', 'decoNeonNyc', 'decoSconce', 'decoArtShapes', 'decoArtTriptych', 'decoArtSkyline', 'decoGallery', 'decoMirrorRound', 'decoMirrorArch', 'decoWallShelf', 'decoTvWall'];
 /** Hangs from the ceiling: the top at y = 0. */
-export const DECO_HANG = ['decoGlobePendant', 'decoBulbCluster', 'decoCrystalChandelier', 'decoSputnik', 'decoRingPendant', 'decoPaperLantern', 'decoHangingPlant'];
+export const DECO_HANG = ['decoTrussRing', 'decoGlobePendant', 'decoBulbCluster', 'decoCrystalChandelier', 'decoSputnik', 'decoRingPendant', 'decoPaperLantern', 'decoHangingPlant'];

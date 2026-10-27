@@ -103,6 +103,8 @@ export interface HomeLayout {
   door?: { x: number; z: number };
   /** Wall height (default 2.9 m; a park's hedges are lower). */
   wallHeight?: number;
+  /** Video walls (animated colour on a wall): galaxy, waves, stocks, game. */
+  screens?: { x: number; y: number; z: number; rot: number; w: number; h: number; kind?: 'galaxy' | 'waves' | 'stocks' | 'game' }[];
   /** Glowing signs on the walls (neon words, menu boards): world/home-interior.ts. */
   signs?: { text: string; color: string; x: number; y: number; z: number; rot: number; size?: number; font?: 'script' | 'block' }[];
   /** Bumped when a plan changes shape: saved arrangements for an older version are reset (bought pieces go to Storage). */

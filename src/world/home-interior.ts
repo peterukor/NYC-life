@@ -30,7 +30,7 @@ import { floorFromColor, type HomeStyle } from '../data/home-style.ts';
 import { adTexture, blobShadowTexture, HOUSE_ADS, signTexture } from '../render/textures.ts';
 import { floorMaterial, wallMaterial } from '../render/home-surfaces.ts';
 import { HAIR_COLORS, makeAvatar, OUTFIT_COLORS, SKIN_TONES } from './avatar.ts';
-import { MODELS_INFO, type Finish, type FurnitureKit } from '../assets/furniture-kit.ts';
+import { FURNITURE_TIME, MODELS_INFO, type Finish, type FurnitureKit } from '../assets/furniture-kit.ts';
 import type { Interior, InteriorObject } from './interior.ts';
 import { doorOfLayout, outline } from './footprint.ts';
 import { rectAt, snapToWall, spotFree, WalkGrid, whyNot, type FitKind, type FitWorld, type Footprint } from './furniture-fit.ts';
@@ -159,12 +159,12 @@ export interface BuildOptions {
 
 /** How venues are lit (layout.mood): background, sky and ground light, the "sun", and how dark it reads (lamps glow more). */
 const MOODS: Record<'bright' | 'cozy' | 'bar' | 'club' | 'arcade' | 'casino', { bg: string; sky: string; ground: string; hemi: number; sun: string; sunI: number; dark: number }> = {
-  bright: { bg: '#cfdbe4', sky: '#fff8ee', ground: '#7a6a5a', hemi: 1.15, sun: '#fff3e2', sunI: 0.85, dark: 0.12 },
-  cozy: { bg: '#2a201a', sky: '#ffe2bf', ground: '#5a4030', hemi: 0.85, sun: '#ffd9a8', sunI: 0.45, dark: 0.5 },
-  bar: { bg: '#120c0a', sky: '#ffc58a', ground: '#3a2418', hemi: 0.55, sun: '#ffb070', sunI: 0.22, dark: 0.85 },
-  club: { bg: '#07060c', sky: '#8a6cff', ground: '#1a0f2e', hemi: 0.3, sun: '#6a5cff', sunI: 0.1, dark: 1 },
-  arcade: { bg: '#05061a', sky: '#6c7dff', ground: '#140c33', hemi: 0.36, sun: '#5b6cff', sunI: 0.1, dark: 1 },
-  casino: { bg: '#160408', sky: '#ffd59a', ground: '#4a1020', hemi: 0.72, sun: '#ffc070', sunI: 0.3, dark: 0.65 },
+  bright: { bg: '#cfdbe4', sky: '#fff8ee', ground: '#7a6a5a', hemi: 1.2, sun: '#fff3e2', sunI: 0.9, dark: 0.15 },
+  cozy: { bg: '#2a201a', sky: '#ffe6c8', ground: '#6a4a36', hemi: 1.0, sun: '#ffd9a8', sunI: 0.55, dark: 0.55 },
+  bar: { bg: '#140c10', sky: '#ffd2ac', ground: '#6a3444', hemi: 1.05, sun: '#ffa070', sunI: 0.45, dark: 0.85 },
+  club: { bg: '#0b0716', sky: '#d39bff', ground: '#5a1f70', hemi: 1.15, sun: '#ff6fd8', sunI: 0.5, dark: 0.95 },
+  arcade: { bg: '#060a22', sky: '#9fb4ff', ground: '#3a1a80', hemi: 1.1, sun: '#22d3ee', sunI: 0.45, dark: 0.95 },
+  casino: { bg: '#1c060c', sky: '#ffe0a8', ground: '#6a1428', hemi: 1.0, sun: '#ffc070', sunI: 0.45, dark: 0.7 },
 };
 
 /** Daylight through the day: sky colour, light colours and strengths, sun height, darkness (0 day … 1 night). */
@@ -687,7 +687,11 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
     const def = FURNITURE.get(it.item);
     const info = MODELS_INFO[model];
     const f: Finish = { a: it.a ?? def?.colors?.a ?? info?.a, b: it.b ?? def?.colors?.b ?? info?.b };
-    if (def?.light && lit) {
+    if (def?.pulse) {
+      f.glow = 1;
+      f.glowColor = it.lc ?? '#ffffff';
+      f.pulse = { disco: 1, breathe: 2, chase: 3, steady: 0 }[def.pulse];
+    } else if (def?.light && lit) {
       f.glow = 1;
       f.glowColor = it.lc ?? def.light.color ?? '#ffd29a';
     } else if (def?.light) {
@@ -966,6 +970,7 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
   let clock = 0;
   animated.push((dt) => {
     clock += dt;
+    FURNITURE_TIME.value += dt;
     envTimer -= dt;
     if (envTimer <= 0) {
       envTimer = 2;
@@ -1008,12 +1013,65 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
     scene.add(glow);
   }
 
+  // ---------------------------------------------------------------- video walls (animated colour, cheap: all in the shader)
+  for (const sc of layout.screens ?? []) {
+    const geo = t(new THREE.PlaneGeometry(sc.w, sc.h));
+    const n = new THREE.Vector3(0, 0, 1).applyAxisAngle(new THREE.Vector3(0, 1, 0), sc.rot);
+    geo.setAttribute('aWall', new THREE.Float32BufferAttribute(new Array(geo.getAttribute('position').count).fill([-n.x, -n.z, 3]).flat(), 3));
+    const mat = cutaway(t(new THREE.MeshBasicMaterial({ color: '#ffffff', toneMapped: false })));
+    const prev = mat.onBeforeCompile;
+    const kindN = { galaxy: 0, waves: 1, stocks: 2, game: 3 }[sc.kind ?? 'galaxy'];
+    mat.onBeforeCompile = (sh, r) => {
+      prev.call(mat, sh, r);
+      sh.uniforms.uTime = FURNITURE_TIME;
+      sh.uniforms.uKind = { value: kindN };
+      sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec2 vScrUv;').replace('#include <uv_vertex>', '#include <uv_vertex>\nvScrUv = uv;');
+      sh.fragmentShader = sh.fragmentShader
+        .replace('#include <common>', '#include <common>\nuniform float uTime;\nuniform float uKind;\nvarying vec2 vScrUv;')
+        .replace(
+          'vec4 diffuseColor = vec4( diffuse, opacity );',
+          `vec2 p = vScrUv * vec2(3.0, 1.6);
+          float t = uTime * 0.35;
+          vec3 col;
+          if (uKind < 0.5) {
+            float v = sin(p.x * 2.1 + t) + sin(p.y * 3.3 - t * 1.3) + sin((p.x + p.y) * 1.7 + t * 0.7);
+            col = mix(vec3(0.12, 0.02, 0.3), vec3(0.95, 0.25, 0.85), 0.5 + 0.25 * v);
+            col = mix(col, vec3(0.2, 0.75, 1.0), smoothstep(0.6, 1.0, sin(p.x * 5.0 - t * 2.0) * 0.5 + 0.5) * 0.35);
+            float star = step(0.995, fract(sin(dot(floor(vScrUv * 90.0), vec2(12.9, 78.2))) * 43758.5));
+            col += star;
+          } else if (uKind < 1.5) {
+            float v = sin(p.x * 4.0 + t * 3.0 + sin(p.y * 3.0 + t) * 1.5);
+            col = mix(vec3(0.0, 0.1, 0.35), vec3(0.1, 0.9, 1.0), 0.5 + 0.5 * v);
+          } else if (uKind < 2.5) {
+            float line = 0.5 + 0.3 * sin(vScrUv.x * 12.0 + t * 2.0) + 0.1 * sin(vScrUv.x * 37.0 - t);
+            col = vec3(0.02, 0.05, 0.08) + vec3(0.1, 0.9, 0.4) * smoothstep(0.02, 0.0, abs(vScrUv.y - line));
+            col += vec3(0.05) * step(0.97, fract(vScrUv.y * 8.0));
+          } else {
+            vec2 c = floor(vScrUv * vec2(16.0, 9.0));
+            float on = step(0.6, fract(sin(dot(c, vec2(3.1, 7.7)) + floor(uTime * 3.0)) * 999.0));
+            col = mix(vec3(0.05, 0.02, 0.12), vec3(1.0, 0.3, 0.8) * (0.5 + 0.5 * sin(c.x + t * 5.0)) + vec3(0.1, 0.6, 1.0) * on, 0.8);
+          }
+          vec4 diffuseColor = vec4( col, opacity );`,
+        );
+    };
+    mat.customProgramCacheKey = () => 'video-wall';
+    const m = new THREE.Mesh(geo, mat);
+    m.position.set(sc.x, sc.y, sc.z);
+    m.rotation.y = sc.rot;
+    scene.add(m);
+    // Its light spills on the floor in front of it.
+    const spill = new THREE.Mesh(t(new THREE.PlaneGeometry(sc.w * 1.4, 2.2).rotateX(-Math.PI / 2)), t(new THREE.MeshBasicMaterial({ map: glowTex, color: new THREE.Color(sc.kind === 'stocks' ? '#1f6f4a' : '#5a2a8a'), blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, toneMapped: false })));
+    spill.position.set(sc.x + n.x * 1.1, 0.02, sc.z + n.z * 1.1);
+    spill.rotation.y = sc.rot;
+    scene.add(spill);
+  }
+
   // ---------------------------------------------------------------- venues: a name sign, staff, a few locals
   if (opts.venue) {
     const sign = new THREE.Mesh(t(new THREE.PlaneGeometry(6, 1.1)), cutaway(t(new THREE.MeshBasicMaterial({ map: t(signTexture(place.name, place.color)) }))));
     sign.geometry.setAttribute('aWall', new THREE.Float32BufferAttribute(new Array(sign.geometry.getAttribute('position').count).fill([0, -1, 3]).flat(), 3));
     sign.position.set(0, wallH - 0.55, -hd + WALL_T / 2 + 0.03);
-    if (wallH > 2) scene.add(sign);
+    if (wallH > 2 && !layout.screens?.length) scene.add(sign);
     const counter = items.find((i) => FURNITURE.get(i.item)?.placeActions);
     const people: { x: number; z: number; ry: number }[] = [];
     if (counter) people.push({ x: counter.x + 0.6, z: counter.z - 1.0, ry: 0 });

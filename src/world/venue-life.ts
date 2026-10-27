@@ -198,12 +198,13 @@ export class VenueLife {
     for (const o of this.home.objects) {
       const info = this.home.pieceInfo(o.id);
       if (!info) continue;
-      if (info.item === 'danceFloor') {
+      if (info.item === 'danceFloor' || info.item === 'ledDanceFloor') {
         // Several dancers per floor, spread over it.
         const { fp } = info;
-        for (let k = 0; k < 4; k++) {
-          const x = info.x + (fp.minX + (fp.maxX - fp.minX) * (0.2 + 0.6 * ((k % 2) + 0.5) / 2));
-          const z = info.z + (fp.minZ + (fp.maxZ - fp.minZ) * (0.2 + 0.6 * (Math.floor(k / 2) + 0.5) / 2));
+        const n = info.item === 'ledDanceFloor' ? 3 : 2;
+        for (let k = 0; k < n * n; k++) {
+          const x = info.x + (fp.minX + (fp.maxX - fp.minX) * (0.15 + 0.7 * ((k % n) + 0.5) / n));
+          const z = info.z + (fp.minZ + (fp.maxZ - fp.minZ) * (0.15 + 0.7 * (Math.floor(k / n) + 0.5) / n));
           this.targets.push({ at: { x, z }, face: { x, z: z - 1 }, pose: 'dance', key: `${o.id}:${k}` });
         }
         continue;

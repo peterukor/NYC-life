@@ -40,7 +40,12 @@ export interface Finish {
   glowColor?: string;
   /** Move mode: the held piece glows green (fits) or red (doesn't). */
   held?: string;
+  /** Animated glow: 1 disco (tiles flash), 2 breathe, 3 chase (lights run along it). */
+  pulse?: number;
 }
+
+/** Shared clock for animated glows (home-interior.ts advances it). */
+export const FURNITURE_TIME = { value: 0 };
 
 export interface FurnitureKit {
   models: Map<string, THREE.BufferGeometry>;
@@ -48,6 +53,8 @@ export interface FurnitureKit {
   material: THREE.MeshLambertMaterial;
   /** The material for a piece with these colours (cached and shared). */
   materialFor: (finish: Finish) => THREE.MeshLambertMaterial;
+  /** A material of its own (not shared), for pieces that animate their glow (dance floors). Dispose it yourself. */
+  uniqueMaterial: (finish: Finish) => THREE.MeshLambertMaterial;
 }
 
 const WHITE = '#ffffff';
@@ -64,23 +71,32 @@ function slotMaterial(f: Finish): THREE.MeshLambertMaterial {
     uGlow: { value: f.glow ?? 0 },
     uGlowColor: { value: new THREE.Color(f.glowColor ?? '#ffd29a') },
     uHeld: { value: new THREE.Color(f.held ?? '#000000') },
+    uPulse: { value: f.pulse ?? 0 },
+    uTime: FURNITURE_TIME,
   };
   m.userData.uniforms = u;
   m.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, u);
     shader.vertexShader = shader.vertexShader
-      .replace('#include <common>', '#include <common>\nattribute float _slot;\nuniform vec3 uTintA;\nuniform vec3 uTintB;\nvarying float vGlowSlot;')
+      .replace('#include <common>', '#include <common>\nattribute float _slot;\nuniform vec3 uTintA;\nuniform vec3 uTintB;\nuniform float uPulse;\nuniform float uTime;\nvarying float vGlowSlot;\nvarying float vPulse;')
       .replace(
         '#include <color_vertex>',
         `#include <color_vertex>
         vGlowSlot = 0.0;
         if (_slot > 0.5 && _slot < 1.5) vColor.rgb *= uTintA;
         else if (_slot > 1.5 && _slot < 2.5) vColor.rgb *= uTintB;
-        else if (_slot > 2.5) vGlowSlot = 1.0;`,
+        else if (_slot > 2.5) vGlowSlot = 1.0;
+        vPulse = 1.0;
+        if (uPulse > 0.5 && uPulse < 1.5) {
+          // Disco: every 0.5 m tile flashes on its own beat.
+          vec2 cell = floor(position.xz * 2.0);
+          vPulse = 0.25 + 0.75 * step(0.45, fract(sin(dot(cell, vec2(12.9898, 78.233)) + floor(uTime * 2.2)) * 43758.5453));
+        } else if (uPulse > 1.5 && uPulse < 2.5) vPulse = 0.7 + 0.3 * sin(uTime * 2.0 + position.x);
+        else if (uPulse > 2.5) vPulse = 0.35 + 0.65 * step(0.5, fract(position.x * 1.2 - uTime * 0.8));`,
       );
     shader.fragmentShader = shader.fragmentShader
-      .replace('#include <common>', '#include <common>\nuniform float uGlow;\nuniform vec3 uGlowColor;\nuniform vec3 uHeld;\nvarying float vGlowSlot;')
-      .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\ntotalEmissiveRadiance += uGlowColor * (uGlow * vGlowSlot * 1.6) + uHeld;');
+      .replace('#include <common>', '#include <common>\nuniform float uGlow;\nuniform vec3 uGlowColor;\nuniform vec3 uHeld;\nvarying float vGlowSlot;\nvarying float vPulse;')
+      .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\ntotalEmissiveRadiance += uGlowColor * vColor.rgb * (uGlow * vGlowSlot * vPulse * 1.6) + uHeld;');
   };
   m.customProgramCacheKey = () => 'furniture-slots';
   return m;
@@ -134,12 +150,13 @@ export function loadFurnitureKit(): Promise<FurnitureKit | null> {
       })();
       const cache = new Map<string, THREE.MeshLambertMaterial>();
       const plain = slotMaterial({});
-      cache.set('||0.00||', plain);
+      cache.set('||0.00|||0', plain);
       return {
         models: all,
         material: plain,
+        uniqueMaterial: (f) => slotMaterial(f),
         materialFor: (f) => {
-          const key = `${f.a ?? ''}|${f.b ?? ''}|${(f.glow ?? 0).toFixed(2)}|${f.glow ? f.glowColor ?? '' : ''}|${f.held ?? ''}`;
+          const key = `${f.a ?? ''}|${f.b ?? ''}|${(f.glow ?? 0).toFixed(2)}|${f.glow ? f.glowColor ?? '' : ''}|${f.held ?? ''}|${f.pulse ?? 0}`;
           let m = cache.get(key);
           if (!m) cache.set(key, (m = slotMaterial(f)));
           return m;
