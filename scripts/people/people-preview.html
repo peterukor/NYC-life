@@ -1,0 +1,63 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>body{margin:0;background:#20242c}canvas{display:block}</style>
+<script type="importmap">
+{"imports":{"three":"/home/claude/NYC-life/node_modules/three/build/three.module.js","three/addons/":"/home/claude/NYC-life/node_modules/three/examples/jsm/"}}
+</script>
+</head>
+<body>
+<script type="module">
+// People pack preview: each cell = one composed person.
+// ?g=m|f &looks=head.suit+top.suit+bottom.suit+feet.suit;... &clip=idle&t=0.3
+// &view=front|three|face &cols=6 &cell=220 &skin=#5c3a21 &hair=#111111
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+import { clone } from 'three/addons/utils/SkeletonUtils.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+const q = new URLSearchParams(location.search);
+const cols = +(q.get('cols') ?? 6), cell = +(q.get('cell') ?? 220), view = q.get('view') ?? 'front';
+const gltf = await new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).loadAsync(`/home/claude/NYC-life/public/models/people-${q.get('g') ?? 'm'}.glb`);
+const parts = new Map();
+gltf.scene.traverse((o) => { if (o.isSkinnedMesh) parts.set(o.name, o); });
+const looks = (q.get('looks') ?? '').split(';').filter(Boolean);
+const rows = Math.ceil(looks.length / cols);
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setSize(cols * cell, rows * cell); renderer.setScissorTest(true); renderer.setClearColor(0x20242c);
+document.body.appendChild(renderer.domElement);
+const mat = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true });
+const dirs = { front: [0, 1.0, 4.2], three: [2.6, 1.6, 3.1], face: [0, 1.62, 1.3], face3: [0.95, 1.7, 0.95], faceback: [-0.7, 1.7, -1.1], faceside: [1.3, 1.62, 0.05], facetop: [0.3, 2.4, 0.6], side: [4, 1, 0], back: [0, 1.2, -4] };
+const SL = { skin: 0, hair: 2, brows: 12 };
+const tint = { 0: q.get('skin'), 2: q.get('hair'), 12: q.get('hair') };
+const anyTemplate = [...parts.values()][0];
+for (const [i, look] of looks.entries()) {
+  const scene = new THREE.Scene();
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x445566, 2.0));
+  const sun = new THREE.DirectionalLight(0xffffff, 2.4); sun.position.set(2, 4, 3); scene.add(sun);
+  const rig = clone(gltf.scene.getObjectByName('rig'));
+  scene.add(rig);
+  const bones = anyTemplate.skeleton.bones.map((b) => rig.getObjectByName(b.name));
+  const skeleton = new THREE.Skeleton(bones, anyTemplate.skeleton.boneInverses);
+  const geos = look.split('+').map((n) => { const p = parts.get(n); if (!p) console.log('missing', n); return p?.geometry; }).filter(Boolean);
+  const geo = mergeGeometries(geos.map((g) => { const c = new THREE.BufferGeometry(); for (const k of ['position', 'color', '_slot', 'skinIndex', 'skinWeight']) c.setAttribute(k, g.getAttribute(k)); c.setIndex(g.index); return c; }));
+  // Recolour by slot.
+  const col = geo.getAttribute('color').clone(); const slot = geo.getAttribute('_slot');
+  for (let v = 0; v < col.count; v++) { const s = Math.round(slot.getX(v)); if (tint[s]) { const c = new THREE.Color(tint[s]); col.setXYZ(v, c.r, c.g, c.b); } }
+  geo.setAttribute('color', col);
+  const mesh = new THREE.SkinnedMesh(geo, mat); mesh.frustumCulled = false;
+  mesh.bind(skeleton, new THREE.Matrix4());
+  rig.add(mesh);
+  const clip = gltf.animations.find((c) => c.name === (q.get('clip') ?? 'idle'));
+  if (clip) { const m = new THREE.AnimationMixer(rig); const a = m.clipAction(clip); a.play(); a.time = clip.duration * +(q.get('t') ?? 0.3); m.update(0); }
+  const cam = new THREE.PerspectiveCamera(view.startsWith('face') ? 24 : 30, 1, 0.05, 50);
+  cam.position.set(...dirs[view]); cam.lookAt(0, view.startsWith('face') ? 1.6 : 0.95, 0);
+  const c = i % cols, r = Math.floor(i / cols), y = (rows - 1 - r) * cell;
+  renderer.setViewport(c * cell, y, cell, cell); renderer.setScissor(c * cell, y, cell, cell);
+  renderer.render(scene, cam);
+}
+window.done = true;
+</script>
+</body>
+</html>

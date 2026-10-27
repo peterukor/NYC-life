@@ -17,6 +17,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { Look } from '../sim/types.ts';
 import { Actor, loadFolk, type FolkAnim, type FolkKit, type FolkLook } from './folk.ts';
+import { itemOf, outfitDefaults, type Slot } from '../data/wardrobe.ts';
 
 /** Soft, slightly glossy material: nicer than flat shading, still cheap for one character. */
 const soft = (color: string, roughness = 0.75) => new THREE.MeshStandardMaterial({ color, roughness, metalness: 0 });
@@ -97,24 +98,47 @@ export function makeAvatar(look: Look): Avatar {
 }
 
 /**
- * Which cartoon character parts a Look uses. The hairstyle picks the
- * head and the top picks the outfit, so changing clothes in the closet
- * changes the character on screen.
+ * Which people-pack parts and colours a Look uses (data/wardrobe.ts
+ * says which part each item is on each body). Hats sit on a close crop:
+ * big hair (an afro, puffs, a bun) and the modelled hairdos would poke
+ * through, so under a hat they become a buzz cut or a fade.
  */
 export function folkLookOf(look: Look): FolkLook {
-  const f = look.body === 'f';
-  const pick = (m: string, w: string) => (f ? w : m);
-  // Real clothes (world/clothes.ts) go on top of the body, so the body
-  // model is picked by HAIR only (each model has its own hairdo); the
-  // clothes are the same on every body.
-  const hs = look.hairStyle ?? (f ? 'hair_long' : 'hair_short');
-  const character =
-    hs === 'hair_bald' && !f ? 'Casual_Bald'
-    : /buzz|bun|ponytail/.test(hs) ? pick('Casual2_Male', 'Casual2_Female')
-    : /curly|afro|braids/.test(hs) ? pick('Casual3_Male', 'Casual3_Female')
-    : pick('Casual_Male', 'Casual_Female');
-  return { character, skin: look.skin, hair: look.hair, top: look.top, bottom: look.bottom, hat: look.hat, dress: look };
+  const body: 'm' | 'f' = look.body === 'f' ? 'f' : 'm';
+  const d = outfitDefaults(body);
+  const part = <S extends Slot>(id: string | undefined, slot: S, fallback: string | null): string | null => itemOf(id, slot)?.parts[body] || fallback;
+  const hairPart = part(look.hairStyle ?? d.hairStyle, 'hair', body === 'm' ? 'head-suit' : 'head-casual')!;
+  const hatPart = part(look.hatId, 'hat', null);
+  let head = 'head-bare';
+  let hair: string | null = null;
+  let hat: string | null = null;
+  if (hatPart?.startsWith('head-')) head = hatPart;
+  else {
+    if (hairPart.startsWith('head-')) head = hairPart;
+    else hair = hairPart;
+    if (hatPart) {
+      hat = hatPart;
+      if (head !== 'head-bare') { head = 'head-bare'; hair = 'hair-fade'; }
+      else if (hair && BIG_HAIR.has(hair)) hair = 'hair-buzz';
+    }
+  }
+  const extra = part(look.extraId, 'extra', null);
+  return {
+    body,
+    head,
+    hair,
+    hat,
+    top: part(look.topId ?? d.topId, 'top', 'top-casual')!,
+    bottom: part(look.bottomId ?? d.bottomId, 'bottom', 'bottom-casual')!,
+    feet: part(look.shoesId ?? d.shoesId, 'shoes', 'feet-casual')!,
+    extra: extra?.startsWith('pack-') ? null : extra,
+    pack: extra?.startsWith('pack-') ? extra : null,
+    colors: { skin: look.skin, hair: look.hair, top: look.top, top2: look.topInner, bottom: look.bottom, shoes: look.shoes ?? d.shoes, hat: look.hat, extra: look.extra },
+  };
 }
+
+/** Hairstyles too big to wear under a hat. */
+const BIG_HAIR = new Set(['hair-afro', 'hair-puffs', 'hair-bun', 'hair-curls']);
 
 /** A capsule hanging down from its top end (handy for limbs that rotate at the joint). */
 function hangingCapsule(radius: number, length: number, mat: THREE.Material, radial = 12): THREE.Mesh {

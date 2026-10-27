@@ -18,6 +18,7 @@ These agent skills were downloaded on 10 October 2026, read before use, and copi
 | systematic-debugging, test-driven-development, verification-before-completion, writing-plans | https://github.com/obra/superpowers | MIT |
 | colyseus-multiplayer | https://github.com/pantheon-org/tekhne (`skills/specialized/colyseus-multiplayer`) | MIT |
 | codeql, semgrep, sharp-edges, supply-chain-risk-auditor, differential-review, entry-point-analyzer, property-based-testing, fp-check | https://github.com/trailofbits/skills | CC BY-SA 4.0 (Trail of Bits) |
+| 3d-blender, 3d-rigging, 3d-animation, 3d-asset-optimization, 3d-modeling | https://github.com/DavinciDreams/Agent-Team-Plugins (`teams/3d-design/skills/*`; downloaded 27 October 2026, only the `name:` line changed to add the `3d-` prefix) | MIT |
 
 Not included, and why:
 - avoid-ai-design (funboy322): overlaps with impeccable.

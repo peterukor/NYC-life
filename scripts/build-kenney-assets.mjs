@@ -18,7 +18,7 @@
 //   kit-props.glb     — lamps, trees, signs, cones, awnings…
 //   kit-cars.glb      — every vehicle (body + wheels under one node).
 //   kit-houses.glb    — suburban houses for future outer boroughs.
-// (People come from a different pack: scripts/build-folk-assets.mjs.)
+// (People come from a different pack: scripts/build-people-assets.mjs.)
 //
 // The game (assets/kit.ts) turns each root node into one geometry, so
 // each model can be drawn hundreds of times in a single draw call.

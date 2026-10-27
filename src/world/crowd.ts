@@ -28,7 +28,7 @@ import type { AreaId } from '../sim/types.ts';
 import { crowdGeometries, OUTFIT_COLORS, SKIN_TONES } from './avatar.ts';
 import { findPath, nearestWalkable, isWalkable, type NavGrid } from './nav.ts';
 import { blobShadowTexture } from '../render/textures.ts';
-import { Actor, FOLK_ROLES, type FolkKit } from './folk.ts';
+import { Actor, type FolkKit, type FolkLook } from './folk.ts';
 
 // The decision tables (where people go, when, and who loves what) live
 // in data/crowd-brain.ts so behaviour can be tuned without touching this file.
@@ -73,6 +73,10 @@ export class Crowd {
   /** Cartoon people: standing copies for far away + an animated pool nearby. */
   private standing: THREE.InstancedMesh[] = [];
   private pool: Actor[] = [];
+  /** The looks of the standing copies (pool actors copy them). */
+  private looks: FolkLook[] = [];
+  /** Which look each pool actor is wearing now. */
+  private wearing = new Map<Actor, number>();
   private poolTimer = 0;
   private serial = 0;
   /** Picks someone you already know to bump into again (set by game.ts). */
@@ -105,15 +109,11 @@ export class Crowd {
         this.standing.push(m);
         this.group.add(m);
       }
-      // Nearby animated people: mostly casual, with office workers,
-      // doctors, chefs, builders and the odd cop mixed in.
-      const cast = [...FOLK_ROLES.casual, ...FOLK_ROLES.casual, ...FOLK_ROLES.office, ...FOLK_ROLES.health, ...FOLK_ROLES.chef, ...FOLK_ROLES.construction, ...FOLK_ROLES.wealthy, FOLK_ROLES.police[0]];
-      const tones = ['#8d5524', '#f1c27d', '#c68642', '#5c3a21', '#e0ac69', '#ffdbac', '#a46b44', '#3b2414'];
-      const tops = ['#e63946', '#2a9d8f', '#f4a261', '#3a86ff', '#ffbe0b', '#8338ec', '#ff006e', '#06d6a0', '#ffffff', '#1d3557'];
+      // Nearby animated people: a pool of actors that put on the look of
+      // whoever they stand in for (the same look as their far copy).
+      this.looks = folk.standingLooks;
       for (let i = 0; i < animated; i++) {
-        const character = cast[(i * 7) % cast.length];
-        const casual = (FOLK_ROLES.casual as readonly string[]).includes(character);
-        const a = new Actor(folk, { character, skin: tones[(i * 3) % tones.length], top: casual ? tops[(i * 5) % tops.length] : undefined }, false);
+        const a = new Actor(folk, this.looks[i % this.looks.length], false);
         a.visible = false;
         this.pool.push(a);
         this.group.add(a.root);
@@ -303,7 +303,15 @@ export class Crowd {
       const near = new Set(active.slice(0, this.pool.length));
       for (const a of this.agents) if (a.actor && !near.has(a)) a.actor = null;
       const free = this.pool.filter((p) => !this.agents.some((a) => a.actor === p));
-      for (const a of near) if (!a.actor) a.actor = free.pop() ?? null;
+      for (const a of near) {
+        if (a.actor) continue;
+        a.actor = free.pop() ?? null;
+        const k = a.look % this.looks.length;
+        if (a.actor && this.wearing.get(a.actor) !== k) {
+          a.actor.setLook(this.looks[k]);
+          this.wearing.set(a.actor, k);
+        }
+      }
       for (const p of this.pool) p.visible = this.agents.some((a) => a.actor === p);
     }
     const counts = this.standing.map(() => 0);

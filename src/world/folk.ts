@@ -1,103 +1,139 @@
 // =====================================================================
-// folk.ts — the cartoon people (Quaternius "Ultimate Animated Character
-// Pack", CC0 — free for any use).
+// folk.ts — the people (Quaternius "Ultimate Modular Men / Women", CC0).
 //
 // THE MODELS
-//   19 rounded, low-poly cartoon characters: casual looks, suits,
-//   doctors, chefs, construction workers, police, and well-off retirees.
-//   They share one skeleton and 17 animations (idle, walk, run, sit,
-//   pick-up, punch, hit, victory, defeat, death…).
+//   Two bodies (men and women), each with one skeleton and a wardrobe of
+//   PARTS: heads (a face with its hair or headgear), tops, bottoms, feet,
+//   plus hairstyles, hats and accessories made in
+//   scripts/build-people-assets.mjs. A person is a pick of parts merged
+//   into ONE mesh (one draw call), so a crowd stays cheap.
 //
 // COLOURS
-//   scripts/build-folk-assets.mjs baked each model's materials into
-//   vertex colours and tagged every vertex with a SLOT (skin, eyes, hair,
-//   top, bottom, hat, detail). A person can therefore be recoloured —
-//   any skin tone, hair colour, shirt and trousers — and still be drawn
-//   in a single draw call.
+//   Every vertex carries a SLOT (skin, hair, top, top trim, bottom…), so
+//   any skin tone, hair colour and outfit colour comes from the same
+//   parts. Brows follow the hair colour.
+//
+// ANIMATIONS
+//   39 clips per body (idle, walk, sit, dance, phone calls, eating,
+//   driving…), mostly from Quaternius' Universal Animation Library and
+//   moved onto these skeletons at build time. They load from a compact
+//   .anim file (see world/people-anims.ts).
 //
 // TWO WAYS TO DRAW PEOPLE (so cheap phones keep up)
-//   • Actor: fully animated (the player + the crowd nearest the camera).
-//   • standingGeometries(): far-away crowd as instanced standing figures,
-//     one draw call per character model.
+//   • Actor: fully animated (the player + the people nearest the camera).
+//   • standingGeometries(): far-away crowd as instanced standing figures.
 //
-// TO ADD A CHARACTER: add it in scripts/build-folk-assets.mjs, re-run,
-// then list it in FOLK_ROLES below.
+// TO ADD AN OUTFIT OR ANIMATION: see scripts/build-people-assets.mjs, then
+// list wardrobe items in data/wardrobe.ts (their `parts`).
 // =====================================================================
 
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { MeshoptSimplifier } from 'meshoptimizer/simplifier';
-import type { Look } from '../sim/types.ts';
-import { buildOutfit } from './clothes.ts';
+import { loadPeopleAnims } from './people-anims.ts';
 
-/** Model units → metres (the models are 3.1 units tall). */
-export const FOLK_SCALE = 0.56;
+/** The models are in metres already. */
+export const FOLK_SCALE = 1;
 
-/** Vertex slots (must match SLOT in scripts/build-folk-assets.mjs). */
-export const SLOT = { skin: 0, eyes: 1, hair: 2, top: 3, bottom: 4, hat: 5, detail: 6 } as const;
+/** Vertex slots (must match SLOT in scripts/build-people-assets.mjs). */
+export const SLOT = { skin: 0, eyes: 1, hair: 2, top: 3, top2: 4, bottom: 5, bottom2: 6, shoes: 7, shoes2: 8, hat: 9, hat2: 10, detail: 11, brows: 12, extra: 13, extra2: 14 } as const;
+export type ColorSlot = 'skin' | 'hair' | 'top' | 'top2' | 'bottom' | 'bottom2' | 'shoes' | 'shoes2' | 'hat' | 'hat2' | 'extra' | 'extra2';
 
-/** Which characters suit which kind of person (used by jobs and the crowd). */
-export const FOLK_ROLES = {
-  casual: ['Casual_Male', 'Casual_Female', 'Casual2_Male', 'Casual2_Female', 'Casual3_Male', 'Casual3_Female', 'Casual_Bald'],
-  office: ['Suit_Male', 'Suit_Female'],
-  health: ['Doctor_Male_Young', 'Doctor_Female_Young'],
-  chef: ['Chef_Male', 'Chef_Female'],
-  construction: ['Worker_Male', 'Worker_Female'],
-  wealthy: ['OldClassy_Male', 'OldClassy_Female'],
-  police: ['BlueSoldier_Male', 'BlueSoldier_Female'],
-} as const;
+/** Every animation the people have (names as the game calls them). */
+export const FOLK_CLIPS = [
+  'idle', 'walk', 'walkFormal', 'run', 'sprint', 'carry', 'sit', 'sitIdle', 'sitTalk', 'stand', 'pickup', 'interact',
+  'punch', 'jab', 'hit', 'knockback', 'yes', 'no', 'jump', 'roll', 'die', 'dance', 'talk', 'phone', 'eat', 'drive',
+  'lay', 'foldArms', 'fix', 'push', 'crouch', 'lean', 'throw', 'water', 'open', 'swim', 'zombie', 'wave', 'kick',
+] as const;
+export type FolkAnim = (typeof FOLK_CLIPS)[number];
 
-/** Short animation names the game uses → clip names in the pack. */
-export const FOLK_ANIM = {
-  idle: 'Idle',
-  walk: 'Walk',
-  run: 'Run',
-  carry: 'Walk_Carry',
-  sit: 'SitDown',
-  stand: 'StandUp',
-  pickup: 'PickUp',
-  punch: 'Punch',
-  hit: 'RecieveHit',
-  yes: 'Victory',
-  no: 'Defeat',
-  jump: 'Jump',
-  roll: 'Roll',
-  die: 'Death',
-} as const;
-export type FolkAnim = keyof typeof FOLK_ANIM;
+/** Kept for older callers: game name → clip name (they are the same now). */
+export const FOLK_ANIM = Object.fromEntries(FOLK_CLIPS.map((c) => [c, c])) as Record<FolkAnim, FolkAnim>;
 
 /** Clips that play once and hold their last pose. */
-const ONCE: FolkAnim[] = ['sit', 'stand', 'pickup', 'die', 'yes', 'no', 'jump', 'roll', 'hit', 'punch'];
+const ONCE = new Set<FolkAnim>(['sit', 'stand', 'pickup', 'interact', 'punch', 'jab', 'hit', 'knockback', 'yes', 'jump', 'roll', 'die', 'lay', 'throw', 'open', 'kick']);
 
-/** Ground speed (m/s) each moving clip looks right at. */
-const CLIP_SPEED: Partial<Record<FolkAnim, number>> = { walk: 1.4, carry: 1.3, run: 4.5 };
+/** Ground speed (m/s) each moving clip looks right at (no foot sliding). */
+const CLIP_SPEED: Partial<Record<FolkAnim, number>> = { walk: 1.3, walkFormal: 1.25, carry: 1.15, run: 3.2, sprint: 5.6, zombie: 0.7 };
+
+export type Body = 'm' | 'f';
+
+/** How a person looks: which parts, and colours per slot. */
+export interface FolkLook {
+  body: Body;
+  /** Part names in the pack, e.g. "head-suit", "hair-afro", "top-casual". */
+  head: string;
+  hair?: string | null;
+  top: string;
+  bottom: string;
+  feet: string;
+  hat?: string | null;
+  extra?: string | null;
+  pack?: string | null;
+  colors?: Partial<Record<ColorSlot, string>>;
+}
+
+interface BodyKit {
+  /** The skeleton in its rest pose (cloned per person). */
+  rig: THREE.Object3D;
+  boneNames: string[];
+  boneInverses: THREE.Matrix4[];
+  parts: Map<string, THREE.BufferGeometry>;
+  clips: Map<string, THREE.AnimationClip>;
+}
 
 export interface FolkKit {
-  templates: Map<string, THREE.Object3D>;
-  clips: Map<string, THREE.AnimationClip>;
+  bodies: Record<Body, BodyKit>;
   material: THREE.MeshLambertMaterial;
   /** Light standing figures for the far crowd (made once at load). */
   standing: { name: string; geometry: THREE.BufferGeometry }[];
+  /** The looks those standing figures wear (same order). */
+  standingLooks: FolkLook[];
 }
 
 let loading: Promise<FolkKit> | null = null;
 
-/** Load the people pack once. */
+async function loadBody(loader: GLTFLoader, body: Body): Promise<BodyKit> {
+  const base = import.meta.env.BASE_URL;
+  const [gltf, clips] = await Promise.all([loader.loadAsync(`${base}models/people-${body}.glb`), loadPeopleAnims(`${base}models/people-${body}.anim`)]);
+  const parts = new Map<string, THREE.BufferGeometry>();
+  let template: THREE.SkinnedMesh | null = null;
+  gltf.scene.traverse((o) => {
+    const m = o as THREE.SkinnedMesh;
+    if (!m.isSkinnedMesh) return;
+    template ??= m;
+    // Keep only what a person needs: shape, skinning, colour and slot.
+    const g = new THREE.BufferGeometry();
+    for (const k of ['position', 'skinIndex', 'skinWeight', 'color', '_slot']) {
+      const a = m.geometry.getAttribute(k);
+      if (a) g.setAttribute(k, a);
+    }
+    g.setIndex(m.geometry.getIndex());
+    parts.set(m.name, g);
+  });
+  if (!template) throw new Error(`people-${body}: no parts`);
+  const t = template as THREE.SkinnedMesh;
+  const rig = gltf.scene.getObjectByName('rig');
+  if (!rig) throw new Error(`people-${body}: no rig`);
+  return { rig, boneNames: t.skeleton.bones.map((b) => b.name), boneInverses: t.skeleton.boneInverses, parts, clips };
+}
+
+/** Load the people packs once. */
 export function loadFolk(): Promise<FolkKit> {
   if (!loading) {
     loading = (async () => {
       const loader = new GLTFLoader();
       loader.setMeshoptDecoder(MeshoptDecoder);
-      const gltf = await loader.loadAsync(`${import.meta.env.BASE_URL}models/folk.glb`);
-      const templates = new Map<string, THREE.Object3D>();
-      for (const node of gltf.scene.children) templates.set(node.name, node);
+      const [m, f] = await Promise.all([loadBody(loader, 'm'), loadBody(loader, 'f')]);
       // Flat shading = the crisp low-poly look, computed on the GPU.
       const material = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true });
-      const kit: FolkKit = { templates, clips: new Map(gltf.animations.map((c) => [c.name.split('|').pop()!, c])), material, standing: [] };
+      const kit: FolkKit = { bodies: { m, f }, material, standing: [], standingLooks: [] };
       await MeshoptSimplifier.ready.catch(() => undefined);
-      kit.standing = standingGeometries(kit);
+      kit.standingLooks = CROWD_LOOKS.slice(0, 16);
+      kit.standing = standingGeometries(kit, kit.standingLooks);
       return kit;
     })();
     loading.catch(() => (loading = null));
@@ -105,40 +141,38 @@ export function loadFolk(): Promise<FolkKit> {
   return loading;
 }
 
-/** How a person looks: which character model, and colours per slot. */
-export interface FolkLook {
-  character: string;
-  skin?: string;
-  hair?: string;
-  top?: string;
-  bottom?: string;
-  hat?: string;
-  /**
-   * The full outfit (the player): real 3D clothes are built on the body
-   * (world/clothes.ts) instead of painting the model's own clothes.
-   */
-  dress?: Look;
+// ---------------------------------------------------------------------
+// Putting a person together
+// ---------------------------------------------------------------------
+
+const partsOf = (look: FolkLook): string[] => [look.head, look.hair, look.top, look.bottom, look.feet, look.hat, look.extra, look.pack].filter((p): p is string => !!p);
+
+/** Merged shapes, shared by everyone wearing the same parts. */
+const merged = new Map<string, THREE.BufferGeometry>();
+
+function mergedGeometry(kit: FolkKit, look: FolkLook): THREE.BufferGeometry {
+  const body = kit.bodies[look.body];
+  const names = partsOf(look).filter((p) => body.parts.has(p));
+  const key = `${look.body}|${names.join('+')}`;
+  let g = merged.get(key);
+  if (!g) {
+    const geos = names.map((n) => body.parts.get(n)!);
+    g = geos.length === 1 ? geos[0] : mergeGeometries(geos)!;
+    merged.set(key, g);
+  }
+  return g;
 }
 
-function findSkinned(root: THREE.Object3D): THREE.SkinnedMesh {
-  let m: THREE.SkinnedMesh | null = null;
-  root.traverse((o) => {
-    if (!m && (o as THREE.SkinnedMesh).isSkinnedMesh) m = o as THREE.SkinnedMesh;
-  });
-  if (!m) throw new Error('folk: character has no skinned mesh');
-  return m;
-}
+/** Default colours a slot keeps when the look doesn't say. */
+const SLOT_OF: Record<ColorSlot, number> = { skin: SLOT.skin, hair: SLOT.hair, top: SLOT.top, top2: SLOT.top2, bottom: SLOT.bottom, bottom2: SLOT.bottom2, shoes: SLOT.shoes, shoes2: SLOT.shoes2, hat: SLOT.hat, hat2: SLOT.hat2, extra: SLOT.extra, extra2: SLOT.extra2 };
 
-/** Write the colours for a look into a colour attribute (by slot). */
+/** Write a look's colours into a colour attribute (by slot). */
 function paint(src: THREE.BufferGeometry, look: FolkLook, out: THREE.BufferAttribute): void {
   const base = src.getAttribute('color');
-  const slots = src.getAttribute('_slot') ?? src.getAttribute('_SLOT');
+  const slots = src.getAttribute('_slot');
   const over: (THREE.Color | null)[] = [];
-  over[SLOT.skin] = look.skin ? new THREE.Color(look.skin) : null;
-  over[SLOT.hair] = look.hair ? new THREE.Color(look.hair) : null;
-  over[SLOT.top] = look.top ? new THREE.Color(look.top) : null;
-  over[SLOT.bottom] = look.bottom ? new THREE.Color(look.bottom) : null;
-  over[SLOT.hat] = look.hat ? new THREE.Color(look.hat) : null;
+  for (const [k, hex] of Object.entries(look.colors ?? {})) if (hex) over[SLOT_OF[k as ColorSlot]] = new THREE.Color(hex);
+  over[SLOT.brows] = over[SLOT.hair] ?? null;
   for (let i = 0; i < out.count; i++) {
     const c = slots ? over[Math.round(slots.getX(i))] : null;
     if (c) out.setXYZ(i, c.r, c.g, c.b);
@@ -154,14 +188,13 @@ function paint(src: THREE.BufferGeometry, look: FolkLook, out: THREE.BufferAttri
 export class Actor {
   /** Place/rotate this. Faces +Z. */
   readonly root = new THREE.Group();
-  private model!: THREE.Object3D;
-  private mesh!: THREE.SkinnedMesh;
-  private mixer!: THREE.AnimationMixer;
+  private rig: THREE.Object3D | null = null;
+  private mesh: THREE.SkinnedMesh | null = null;
+  private mixer: THREE.AnimationMixer | null = null;
   private actions = new Map<FolkAnim, THREE.AnimationAction>();
   private current: FolkAnim | null = null;
-  private character = '';
-  private clothes: THREE.SkinnedMesh | null = null;
-  private dressKey = '';
+  private body: Body | null = null;
+  private shapeKey = '';
 
   constructor(
     private kit: FolkKit,
@@ -171,132 +204,70 @@ export class Actor {
     this.setLook(look);
   }
 
-  /** Change model and/or colours. Swapping the model keeps the current animation. */
+  /** Change parts and/or colours. Keeps the current animation. */
   setLook(look: FolkLook): void {
-    const name = this.kit.templates.has(look.character) ? look.character : FOLK_ROLES.casual[0];
-    if (name !== this.character) {
+    const kit = this.kit.bodies[look.body] ? look : { ...look, body: 'm' as Body };
+    const bodyKit = this.kit.bodies[kit.body];
+    if (kit.body !== this.body) {
       const playing = this.current;
-      this.undress();
-      this.model?.removeFromParent();
+      this.rig?.removeFromParent();
       this.mixer?.stopAllAction();
       this.actions.clear();
       this.current = null;
-      this.character = name;
-      this.model = cloneSkinned(this.kit.templates.get(name)!);
-      // The pack's characters share one rig, but glTF names every copy's
-      // bones uniquely (Hips, Hips_1, Hips_2…). The clips target the plain
-      // names, so without this every character but the first stood frozen
-      // mid-stride: give each clone's bones their plain names back.
-      this.model.traverse((o) => {
-        if ((o as THREE.Bone).isBone) o.name = o.name.replace(/_\d+$/, '');
-      });
-      this.model.scale.setScalar(FOLK_SCALE);
-      this.model.position.set(0, 0, 0);
-      this.root.add(this.model);
-      this.mesh = findSkinned(this.model);
-      // Own colour list (shared positions), so each person can be recoloured.
-      const src = this.mesh.geometry;
-      const g = new THREE.BufferGeometry();
-      for (const k of Object.keys(src.attributes)) g.setAttribute(k, src.getAttribute(k));
-      g.setIndex(src.getIndex());
-      g.setAttribute('color', new THREE.BufferAttribute(new Float32Array(src.getAttribute('position').count * 3), 3));
-      g.userData.src = src;
-      this.mesh.geometry = g;
-      this.mesh.material = this.kit.material;
-      this.mesh.castShadow = this.shadows;
-      this.mesh.frustumCulled = false;
-      this.mixer = new THREE.AnimationMixer(this.model);
+      this.body = kit.body;
+      this.rig = cloneSkinned(bodyKit.rig);
+      this.root.add(this.rig);
+      this.mixer = new THREE.AnimationMixer(this.rig);
+      this.shapeKey = '';
+      this.mesh?.geometry.dispose();
+      this.mesh = null;
       this.play(playing ?? 'idle', 0);
     }
-    const colors = this.mesh.geometry.getAttribute('color') as THREE.BufferAttribute;
-    paint(this.mesh.geometry.userData.src, look, colors);
-    if (look.dress) this.dress(look.dress, colors);
-    else this.undress();
-  }
-
-  /** Put real clothes on (rebuilt only when the outfit changes). */
-  private dress(d: Look, colors: THREE.BufferAttribute): void {
-    const src = this.mesh.geometry.userData.src as THREE.BufferGeometry;
-    const key = `${this.character}|${d.topId}|${d.top}|${d.topInner}|${d.bottomId}|${d.bottom}|${d.shoesId}|${d.shoes}|${d.hatId}|${d.hat}|${d.extraId}|${d.extra}|${d.skin}`;
-    const out = buildOutfit(this.mesh, src, d);
-    // Under the clothes: the cloth's colour (so nothing pokes through at
-    // the joints). Uncovered top/bottom areas are bare skin.
-    const slots = src.getAttribute('_slot') ?? src.getAttribute('_SLOT');
-    const skin = new THREE.Color(d.skin);
-    const c = new THREE.Color();
-    for (let i = 0; i < colors.count; i++) {
-      const sl = slots ? Math.round(slots.getX(i)) : 0;
-      const u = out.under[i];
-      if (u) colors.setXYZ(i, ...(c.set(u).toArray() as [number, number, number]));
-      else if (sl === SLOT.top || sl === SLOT.bottom || sl === SLOT.detail || sl === SLOT.hat) colors.setXYZ(i, skin.r, skin.g, skin.b);
-    }
-    colors.needsUpdate = true;
-    this.tuckHair(src, out.hatLine);
-    if (key === this.dressKey && this.clothes) return;
-    this.undress();
-    this.dressKey = key;
-    if (!out.geometry) return;
-    const m = new THREE.SkinnedMesh(out.geometry, this.kit.material);
-    m.name = 'clothes';
-    m.bind(this.mesh.skeleton, this.mesh.bindMatrix);
-    m.position.copy(this.mesh.position);
-    m.quaternion.copy(this.mesh.quaternion);
-    m.scale.copy(this.mesh.scale);
-    m.castShadow = this.shadows;
-    m.frustumCulled = false;
-    this.mesh.parent!.add(m);
-    this.clothes = m;
-  }
-
-  /** Under a hat, hair above the brim goes inside the hat (hair below it still hangs out). */
-  private tuckHair(src: THREE.BufferGeometry, line: { y: number; x: number; z: number; r: number } | null): void {
-    const g = this.mesh.geometry;
-    const shared = src.getAttribute('position');
-    if (!line) {
-      if (g.getAttribute('position') !== shared) g.setAttribute('position', shared);
-      return;
-    }
-    const slots = src.getAttribute('_slot') ?? src.getAttribute('_SLOT');
-    const n = shared.count;
-    const pos = new Float32Array(n * 3);
-    const v = new THREE.Vector3();
-    for (let i = 0; i < n; i++) {
-      v.fromBufferAttribute(shared, i);
-      if (slots && Math.round(slots.getX(i)) === SLOT.hair && v.y > line.y) {
-        const dx = v.x - line.x, dy = v.y - line.y, dz = v.z - line.z;
-        const d = Math.hypot(dx, dy * 1.75, dz);
-        if (d > line.r) {
-          const k = line.r / d;
-          v.set(line.x + dx * k, line.y + dy * k, line.z + dz * k);
-        }
+    const shape = mergedGeometry(this.kit, kit);
+    const key = `${kit.body}|${partsOf(kit).join('+')}`;
+    if (key !== this.shapeKey || !this.mesh) {
+      this.shapeKey = key;
+      // Own colour list (shared shape), so each person can be recoloured.
+      const g = new THREE.BufferGeometry();
+      for (const k of Object.keys(shape.attributes)) if (k !== 'color') g.setAttribute(k, shape.getAttribute(k));
+      g.setIndex(shape.getIndex());
+      g.setAttribute('color', new THREE.BufferAttribute(new Float32Array(shape.getAttribute('position').count * 3), 3));
+      g.userData.src = shape;
+      if (this.mesh) {
+        this.mesh.geometry.dispose();
+        this.mesh.geometry = g;
+      } else {
+        const bones = bodyKit.boneNames.map((n) => this.rig!.getObjectByName(n) as THREE.Bone);
+        const skeleton = new THREE.Skeleton(bones, bodyKit.boneInverses);
+        this.mesh = new THREE.SkinnedMesh(g, this.kit.material);
+        this.mesh.name = 'person';
+        this.mesh.bind(skeleton, new THREE.Matrix4());
+        this.mesh.castShadow = this.shadows;
+        this.mesh.frustumCulled = false;
+        this.rig!.add(this.mesh);
       }
-      pos.set([v.x, v.y, v.z], i * 3);
     }
-    g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-  }
-
-  private undress(): void {
-    if (!this.clothes) return;
-    this.clothes.removeFromParent();
-    this.clothes.geometry.dispose();
-    this.clothes = null;
-    this.dressKey = '';
+    paint(this.mesh.geometry.userData.src, kit, this.mesh.geometry.getAttribute('color') as THREE.BufferAttribute);
   }
 
   play(name: FolkAnim, fade = 0.2, speed = 1): void {
+    if (!this.mixer || !this.body) return;
     let action = this.actions.get(name);
     if (!action) {
-      const clip = this.kit.clips.get(FOLK_ANIM[name]);
+      const clip = this.kit.bodies[this.body].clips.get(name);
       if (!clip) return;
       action = this.mixer.clipAction(clip);
-      if (ONCE.includes(name)) {
+      if (ONCE.has(name)) {
         action.setLoop(THREE.LoopOnce, 1);
         action.clampWhenFinished = true;
       }
       this.actions.set(name, action);
     }
     action.timeScale = speed;
-    if (this.current === name) return;
+    if (this.current === name) {
+      action.paused = false;
+      return;
+    }
     const prev = this.current ? this.actions.get(this.current) : null;
     action.reset().setEffectiveWeight(1).play();
     if (prev && fade > 0) prev.crossFadeTo(action, fade, false);
@@ -307,12 +278,12 @@ export class Actor {
   /** Walk or run to match a ground speed in m/s (0 = stand). */
   move(speed: number): void {
     if (speed < 0.15) return this.play('idle');
-    const name: FolkAnim = speed > 3 ? 'run' : 'walk';
-    this.play(name, 0.15, THREE.MathUtils.clamp(speed / (CLIP_SPEED[name] ?? 1.4), 0.6, 1.8));
+    const name: FolkAnim = speed > 4.4 ? 'sprint' : speed > 2.2 ? 'run' : 'walk';
+    this.play(name, 0.15, THREE.MathUtils.clamp(speed / (CLIP_SPEED[name] ?? 1.3), 0.6, 1.8));
   }
 
   update(dt: number): void {
-    this.mixer.update(dt);
+    this.mixer?.update(dt);
   }
 
   /** What's playing (for QA). */
@@ -320,8 +291,12 @@ export class Actor {
     return { current: this.current, actions: [...this.actions].map(([n, a]) => [n, +a.getEffectiveWeight().toFixed(2), +a.time.toFixed(2), a.paused, a.isRunning()]) };
   }
 
-  /** Freeze a clip at a fraction of its length (0–1): a held pose (sitting, lying). */
+  /**
+   * Hold a pose. Sitting all the way down (sit at 1) plays the seated
+   * idle loop instead, so seated people breathe and shift.
+   */
   hold(name: FolkAnim, at: number): void {
+    if (name === 'sit' && at >= 0.99) return this.play('sitIdle', 0.3);
     this.play(name, 0.2);
     const action = this.actions.get(name);
     if (!action) return;
@@ -334,61 +309,116 @@ export class Actor {
   }
 
   dispose(): void {
-    this.mixer.stopAllAction();
-    this.undress();
+    this.mixer?.stopAllAction();
     this.root.removeFromParent();
-    this.mesh.geometry.dispose();
+    this.mesh?.geometry.dispose();
   }
 }
+
+// ---------------------------------------------------------------------
+// The crowd's wardrobe
+// ---------------------------------------------------------------------
+
+const SKINS = ['#8d5524', '#c68642', '#5c3a21', '#e0ac69', '#3b2414', '#f1c27d', '#a46b44', '#6b4226', '#ffdbac', '#4a2c17'];
+const HAIRS = ['#161210', '#2b1b10', '#161210', '#4a2f1d', '#161210', '#8a6a3a', '#2b1b10', '#b5b5b5'];
+const TOPS = ['#e63946', '#2a9d8f', '#f4a261', '#3a86ff', '#ffbe0b', '#8338ec', '#ff006e', '#06d6a0', '#ffffff', '#1d3557', '#222222', '#9b2226'];
+const BOTTOMS = ['#2f4a6d', '#111111', '#3d5a80', '#5c4033', '#6b705c', '#1b263b', '#c2b280'];
+
+/**
+ * Everyday New Yorkers for the street crowd: casual most of all, then
+ * office, workers, the odd suit and a few with hats and shades.
+ */
+function crowdLooks(): FolkLook[] {
+  const out: FolkLook[] = [];
+  const m: [string, string | null, string, string, string, string | null][] = [
+    ['head-suit', null, 'top-casual', 'bottom-casual', 'feet-casual', null],
+    ['head-bare', 'hair-fade', 'top-hoodie', 'bottom-adventurer', 'feet-hoodie', null],
+    ['head-bare', 'hair-afro', 'top-casual', 'bottom-casual', 'feet-casual', null],
+    ['head-suit', null, 'top-suit', 'bottom-suit', 'feet-suit', null],
+    ['head-bare', 'hair-locs', 'top-beach', 'bottom-punk', 'feet-punk', null],
+    ['head-bare', 'hair-buzz', 'top-worker', 'bottom-worker', 'feet-worker', 'hat-cap'],
+    ['head-hoodie', null, 'top-punk', 'bottom-casual', 'feet-hoodie', null],
+    ['head-bare', 'hair-cornrows', 'top-hoodie', 'bottom-hoodie', 'feet-casual', null],
+    ['head-adventurer', null, 'top-adventurer', 'bottom-adventurer', 'feet-adventurer', null],
+    ['head-bare', 'hair-buzz', 'top-casual', 'bottom-worker', 'feet-worker', 'hat-beanie'],
+  ];
+  const f: [string, string | null, string, string, string, string | null][] = [
+    ['head-bare', 'hair-braids', 'top-casual', 'bottom-casual', 'feet-casual', null],
+    ['head-casual', null, 'top-suit', 'bottom-suit', 'feet-suit', null],
+    ['head-bare', 'hair-puffs', 'top-punk', 'bottom-punk', 'feet-punk', null],
+    ['head-formal', null, 'top-formal', 'bottom-formal', 'feet-formal', null],
+    ['head-bare', 'hair-afro', 'top-adventurer', 'bottom-casual', 'feet-casual', null],
+    ['head-soldier', null, 'top-soldier', 'bottom-soldier', 'feet-casual', null],
+    ['head-bare', 'hair-bun', 'top-casual', 'bottom-adventurer', 'feet-adventurer', null],
+    ['head-bare', 'hair-curls', 'top-scifi', 'bottom-suit', 'feet-suit', null],
+    ['head-adventurer', null, 'top-casual', 'bottom-worker', 'feet-worker', 'hat-bucket'],
+    ['head-bare', 'hair-ponytail', 'top-soldier', 'bottom-casual', 'feet-casual', null],
+  ];
+  for (let i = 0; i < 20; i++) {
+    const body: Body = i % 2 ? 'f' : 'm';
+    const [head, hair, top, bottom, feet, hat] = (body === 'm' ? m : f)[(i >> 1) % 10];
+    out.push({
+      body, head, hair, top, bottom, feet, hat,
+      extra: i % 7 === 3 ? 'extra-shades' : null,
+      colors: {
+        skin: SKINS[(i * 3) % SKINS.length],
+        hair: HAIRS[(i * 5) % HAIRS.length],
+        top: TOPS[(i * 7) % TOPS.length],
+        bottom: BOTTOMS[(i * 3) % BOTTOMS.length],
+        hat: TOPS[(i * 5 + 3) % TOPS.length],
+      },
+    });
+  }
+  return out;
+}
+export const CROWD_LOOKS: FolkLook[] = crowdLooks();
 
 // ---------------------------------------------------------------------
 // Standing figures for the far-away crowd
 // ---------------------------------------------------------------------
 
 /**
- * One static "standing" geometry per character, in metres, with its
- * own colours — for drawing the far crowd with instancing.
+ * One static "standing" geometry per look, in metres, with its own
+ * colours — for drawing the far crowd with instancing.
  */
-export function standingGeometries(kit: FolkKit): { name: string; geometry: THREE.BufferGeometry }[] {
+export function standingGeometries(kit: FolkKit, looks: FolkLook[]): { name: string; geometry: THREE.BufferGeometry }[] {
   const out: { name: string; geometry: THREE.BufferGeometry }[] = [];
   const v = new THREE.Vector3();
-  for (const [name, template] of kit.templates) {
-    const copy = cloneSkinned(template);
-    copy.scale.setScalar(FOLK_SCALE);
-    // Pose it with the first frame of the idle animation (the raw model
-    // stands in a T-pose with arms straight out).
-    const idle = kit.clips.get(FOLK_ANIM.idle);
-    if (idle) {
-      const mixer = new THREE.AnimationMixer(copy);
-      mixer.clipAction(idle).play();
-      mixer.update(0.3);
-    }
-    copy.updateMatrixWorld(true);
-    const sm = findSkinned(copy);
-    sm.skeleton.update();
-    const src = sm.geometry;
+  for (const [i, look] of looks.entries()) {
+    const actor = new Actor(kit, look, false);
+    // Pose with a moment of the idle loop (the raw rig is a T-pose).
+    actor.play('idle', 0);
+    actor.update(0.3);
+    actor.root.updateMatrixWorld(true);
+    let sm: THREE.SkinnedMesh | null = null;
+    actor.root.traverse((o) => {
+      if ((o as THREE.SkinnedMesh).isSkinnedMesh) sm = o as THREE.SkinnedMesh;
+    });
+    if (!sm) continue;
+    const mesh = sm as THREE.SkinnedMesh;
+    mesh.skeleton.update();
+    const src = mesh.geometry;
     const n = src.getAttribute('position').count;
     const pos = new Float32Array(n * 3);
-    for (let i = 0; i < n; i++) {
-      sm.getVertexPosition(i, v);
-      v.applyMatrix4(sm.matrixWorld);
-      pos.set([v.x, v.y, v.z], i * 3);
+    for (let k = 0; k < n; k++) {
+      mesh.getVertexPosition(k, v);
+      v.applyMatrix4(mesh.matrixWorld);
+      pos.set([v.x, v.y, v.z], k * 3);
     }
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-    const color = new THREE.BufferAttribute(new Float32Array(n * 3), 3);
-    paint(src, { character: name }, color);
-    g.setAttribute('color', color);
+    g.setAttribute('color', (src.getAttribute('color') as THREE.BufferAttribute).clone());
     // Far-away people are a few pixels tall: keep about a quarter of the
     // triangles (colour seams are kept, so outfits stay recognisable).
     const index = src.getIndex();
     if (index && MeshoptSimplifier.supported) {
       const idx = new Uint32Array(index.array);
-      const [lod] = MeshoptSimplifier.simplify(idx, pos, 3, Math.floor(idx.length * 0.22 / 3) * 3, 0.02, ['Sparse']);
+      const [lod] = MeshoptSimplifier.simplify(idx, pos, 3, Math.floor((idx.length * 0.25) / 3) * 3, 0.02, ['Sparse']);
       g.setIndex(new THREE.BufferAttribute(lod, 1));
     } else g.setIndex(index);
     g.computeBoundingSphere();
-    out.push({ name, geometry: g });
+    out.push({ name: `look${i}`, geometry: g });
+    actor.dispose();
   }
   return out;
 }
