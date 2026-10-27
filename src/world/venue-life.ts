@@ -184,13 +184,21 @@ export class VenueLife {
         for (let k = 0; k < 4; k++) {
           const x = info.x + (fp.minX + (fp.maxX - fp.minX) * (0.2 + 0.6 * ((k % 2) + 0.5) / 2));
           const z = info.z + (fp.minZ + (fp.maxZ - fp.minZ) * (0.2 + 0.6 * (Math.floor(k / 2) + 0.5) / 2));
-          this.targets.push({ at: { x, z }, face: { x, z: z - 1 }, pose: k % 2 ? 'yes' : 'jump', key: `${o.id}:${k}` });
+          this.targets.push({ at: { x, z }, face: { x, z: z - 1 }, pose: 'dance', key: `${o.id}:${k}` });
         }
         continue;
       }
       if (!o.actions.length) continue;
       const tags = o.actions.flatMap((a) => ACTIONS[a]?.tags ?? []);
-      const pose: FolkAnim | null = tags.includes('eat') || tags.includes('drink') || tags.includes('nightlife') ? 'pickup' : info.item === 'punchingBag' ? 'punch' : tags.includes('fitness') ? 'jump' : null;
+      // What a visitor does there: eat or drink at counters and tables,
+      // talk at the bar, punch the bag, train, browse, play.
+      const pose: FolkAnim | null =
+        info.item === 'punchingBag' ? 'jab'
+        : tags.includes('eat') || tags.includes('drink') ? 'eat'
+        : tags.includes('nightlife') ? (this.rand() < 0.5 ? 'dance' : 'talk')
+        : tags.includes('fitness') ? (this.rand() < 0.5 ? 'push' : 'crouch')
+        : tags.includes('shop') ? 'interact'
+        : null;
       const c = o.mesh.getWorldPosition(new THREE.Vector3());
       this.targets.push({ at: { x: o.stand.x, z: o.stand.z }, face: { x: c.x, z: c.z }, pose, key: o.id });
     }
@@ -198,7 +206,7 @@ export class VenueLife {
     for (let k = 0; k < 6; k++) {
       const x = (this.rand() - 0.5) * (this.layout.width - 3);
       const z = (this.rand() - 0.2) * (this.layout.depth - 4) * 0.6;
-      if (this.home.spotFree(x, z)) this.targets.push({ at: { x, z }, face: { x: x + this.rand() - 0.5, z: z + 1 }, pose: null, key: `chat:${k}` });
+      if (this.home.spotFree(x, z)) this.targets.push({ at: { x, z }, face: { x: x + this.rand() - 0.5, z: z + 1 }, pose: (['talk', 'talk', 'phone', 'foldArms', null] as const)[k % 5], key: `chat:${k}` });
     }
   }
 

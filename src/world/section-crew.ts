@@ -87,7 +87,7 @@ export class SectionCrew {
       }
       // Arrived: face the middle of the section and dance.
       f.avatar.root.rotation.y = Math.atan2(this.centre.x - p.x, this.centre.z + 0.6 - p.z);
-      f.avatar.setAction(Math.floor(this.time / 2 + i) % 2 ? 'yes' : 'jump');
+      f.avatar.setAction(Math.floor(this.time / 6 + i) % 3 ? 'dance' : 'talk');
       f.avatar.animate(0, dt);
       if ((f.pop -= dt) <= 0) {
         f.pop = 2 + Math.random() * 4;

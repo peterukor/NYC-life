@@ -48,7 +48,8 @@ export interface Avatar {
  * soon as it's ready. If the download fails (offline, blocked), the
  * simple figure just stays — the game still works.
  */
-export function makeAvatar(look: Look): Avatar {
+export function makeAvatar(given: Look): Avatar {
+  const look = dressed(given);
   const root = new THREE.Group();
   const simple = makeSimpleAvatar(look);
   root.add(simple.root);
@@ -74,7 +75,8 @@ export function makeAvatar(look: Look): Avatar {
       else actor.play(action, 0.25);
       actor.update(dt);
     },
-    setLook(l) {
+    setLook(given) {
+      const l = dressed(given);
       current = l;
       simple.setLook(l);
       actor?.setLook(folkLookOf(l));
@@ -136,6 +138,50 @@ export function folkLookOf(look: Look): FolkLook {
     colors: { skin: look.skin, hair: look.hair, top: look.top, top2: look.topInner, bottom: look.bottom, shoes: look.shoes ?? d.shoes, hat: look.hat, extra: look.extra },
   };
 }
+
+/**
+ * NPCs are often made with just colours (body, skin, top, bottom, hair).
+ * Give them a real outfit and hairdo, picked from everyday clothes by a
+ * hash of those colours: varied across a crowd, the same every time for
+ * the same person.
+ */
+export function dressed(look: Look): Look {
+  if (look.hairStyle || look.topId) return look;
+  const f = look.body === 'f';
+  let h = 2166136261;
+  for (const ch of `${look.body}${look.skin}${look.top}${look.bottom}${look.hair}`) h = Math.imul(h ^ ch.charCodeAt(0), 16777619);
+  const pick = <T,>(a: readonly T[]) => {
+    h = Math.imul(h ^ (h >>> 13), 0x5bd1e995) >>> 0;
+    return a[h % a.length];
+  };
+  const smart = pick([false, false, false, true]);
+  const topId = smart ? pick(f ? ['blazer', 'slipDress', 'sundress'] : ['blazer', 'polo', 'turtleneck']) : pick(f ? NPC.fTops : NPC.mTops);
+  const dress = topId === 'sundress' || topId === 'slipDress';
+  return {
+    ...look,
+    hairStyle: pick(f ? NPC.fHair : NPC.mHair),
+    topId,
+    bottomId: smart && topId === 'blazer' ? 'suitPants' : dress ? pick(['miniSkirt', 'midiSkirt']) : pick(f ? NPC.fBottoms : NPC.mBottoms),
+    shoesId: smart ? pick(['loafers', 'canvas', 'sneakers']) : pick(NPC.shoes),
+    shoes: pick(['#f2f2f2', '#111111', '#e63946', '#3b2a1a', '#1d3557']),
+    hatId: pick([undefined, undefined, undefined, undefined, undefined, 'cap', 'beanie', 'bucketHat', 'durag']),
+    hat: pick(['#111111', '#e63946', '#1d3557', '#e9c46a', '#ffffff']),
+    extraId: pick([undefined, undefined, undefined, undefined, undefined, undefined, 'shades', 'headphones', 'chain', 'glasses']),
+    extra: undefined,
+    topInner: '#f4f4f4',
+  };
+}
+
+/** Everyday wardrobe for NPCs (no costumes). */
+const NPC = {
+  mHair: ['hair_short', 'hair_fade', 'hair_buzz', 'hair_afro', 'hair_locs', 'hair_cornrows', 'hair_spiky', 'hair_bald', 'hair_curly', 'hair_long', 'hair_fade'],
+  fHair: ['hair_braids', 'hair_bob', 'hair_puffs', 'hair_afro', 'hair_bun', 'hair_ponytail', 'hair_long', 'hair_curly', 'hair_updo', 'hair_locs', 'hair_short', 'hair_braids'],
+  mTops: ['tee', 'hoodie', 'tank', 'polo', 'flannel', 'crewneck', 'longsleeve', 'leatherJacket', 'jersey', 'tee', 'hoodie'],
+  fTops: ['tee', 'hoodie', 'tank', 'cardigan', 'crewneck', 'longsleeve', 'tee', 'leatherJacket'],
+  mBottoms: ['jeans', 'joggers', 'shorts', 'chinos', 'cargoPants', 'rippedJeans', 'jeans'],
+  fBottoms: ['jeans', 'capris', 'rippedJeans', 'joggers', 'jeans', 'shorts'],
+  shoes: ['sneakers', 'kicks', 'canvas', 'boots', 'sneakers', 'combatBoots', 'slides'],
+} as const;
 
 /** Hairstyles too big to wear under a hat. */
 const BIG_HAIR = new Set(['hair-afro', 'hair-puffs', 'hair-bun', 'hair-curls']);
