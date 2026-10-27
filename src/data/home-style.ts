@@ -27,6 +27,8 @@ export interface SurfaceStyle {
   tint?: boolean;
   /** Default colour for tinted styles. */
   color?: string;
+  /** Only for venues (grass, asphalt, hedges): not offered in the home Design menu. */
+  venueOnly?: boolean;
 }
 
 export const FLOORS: SurfaceStyle[] = [
@@ -45,6 +47,12 @@ export const FLOORS: SurfaceStyle[] = [
   { id: 'concrete', name: 'Polished concrete', emoji: '🩶', price: 5_000 },
   { id: 'carpet', name: 'Carpet', emoji: '🧶', price: 3_000, tint: true, color: '#8d7b6a' },
   { id: 'vinyl', name: 'Old linoleum', emoji: '🟨', price: 1_500 },
+  { id: 'cosmic', name: 'Arcade carpet', emoji: '🪐', price: 6_000 },
+  { id: 'casinoCarpet', name: 'Casino carpet', emoji: '🎰', price: 9_000, tint: true, color: '#7a1430' },
+  { id: 'glossBlack', name: 'Gloss black', emoji: '🖤', price: 9_000 },
+  { id: 'rubber', name: 'Gym rubber', emoji: '🏋️', price: 4_000 },
+  { id: 'grass', name: 'Grass', emoji: '🌱', price: 2_000, venueOnly: true },
+  { id: 'asphalt', name: 'Asphalt', emoji: '🛣️', price: 1_000, venueOnly: true },
 ];
 
 export const WALLS: SurfaceStyle[] = [
@@ -59,6 +67,11 @@ export const WALLS: SurfaceStyle[] = [
   { id: 'subway', name: 'Subway tiles', emoji: '⬜', price: 18_000, tint: true, color: '#f4f4f2' },
   { id: 'marbleWall', name: 'Marble slab', emoji: '🤍', price: 60_000 },
   { id: 'concreteWall', name: 'Raw concrete', emoji: '🩶', price: 12_000 },
+  { id: 'woodPanel', name: 'Dark wood panelling', emoji: '🪵', price: 45_000 },
+  { id: 'velvet', name: 'Tufted velvet', emoji: '🛋️', price: 70_000, tint: true, color: '#5b2a86' },
+  { id: 'darkBrick', name: 'Black brick', emoji: '🧱', price: 38_000 },
+  { id: 'acoustic', name: 'Acoustic foam', emoji: '🎙️', price: 20_000, tint: true, color: '#2b2d42' },
+  { id: 'hedge', name: 'Hedge', emoji: '🌳', price: 10_000, venueOnly: true },
 ];
 
 /** Paint and fabric colours: soft neutrals, rich darks, and a few loud ones. */

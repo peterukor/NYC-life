@@ -36,7 +36,10 @@ Peter's plan: redo the people, NPCs and every location with the Quaternius/Kenne
 - Perf (penthouse at night): 110 draw calls / 85k triangles on low and medium, 171 on high (shadow pass).
 - Not done yet: over-the-shoulder / first-person cameras, two-floor homes with stairs, a townhouse, free 45° turning in move mode.
 
-**Next: stage 3**, the 47 existing rooms (bars, clubs, bodegas, arcade, casino, gym, offices…) rebuilt bigger and livelier with the new kit; venues still use the old Kenney pieces in their default (salmon) fabric for now.
+**Stage 3, the existing rooms (first pass done).** `data/venue-looks.ts` dresses every venue plan from `data/venues.ts` (23 plans, used by all the bars, clubs, bodegas, cafés, pizza places, offices and workplaces): rooms grow 10–25% (pieces against a wall stay against it), each gets a lighting `mood` (bright, cozy, bar, club, arcade, casino, outdoor), floors and walls (new finishes: arcade cosmic carpet, casino carpet, gloss black, gym rubber, grass, asphalt, dark wood panelling, tufted velvet, black brick, acoustic foam, hedges), colours for the old pieces, extra lights / LED strips / plants / art, and neon words on the walls (`layout.signs`, drawn in home-interior.ts). Clubs get sweeping light beams (venue-life.ts). `node scripts/qa-venues.mjs` screenshots every venue into test-results/venues-sheet.png and lists clashes (none) and draw calls (53–117).
+- Still to do in stage 3: swap the chunky code-built work pieces (counters, slot machines, cabinets…) for higher-detail ones where it helps, more variety between venues of the same kind.
+
+**Stage 4** (the 59 new rooms) and **stage 5** (social) not started.
 
 ## Batch 7: the north and better mini games (2026-10-16)
 

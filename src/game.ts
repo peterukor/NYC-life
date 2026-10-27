@@ -2422,7 +2422,7 @@ export class Game {
         }
       } else if (venue && this.furniture) {
         // Shops, cafés, bars and offices: same Sims look, the counter sells what the place sells.
-        const shop = buildHome(place, venue, venue.furniture, this.furniture, { venue: true, placeActions: place.actions, tier: this.engine.quality.tier });
+        const shop = buildHome(place, venue, venue.furniture, this.furniture, { venue: true, placeActions: place.actions, tier: this.engine.quality.tier, clock: () => nycTime().hourFloat });
         this.interior = shop;
         this.myWorkSpot = null;
         // A workplace: 6 worker spots. NPC coworkers fill them; if it's your job, you take one.

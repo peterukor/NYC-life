@@ -231,7 +231,7 @@ export class DesignMode {
     const price = this.wallPrice(id);
     return `
       <p class="design-target">${this.targetLine(home, 'walls')}</p>
-      <div class="dz-swatches">${WALLS.map((w) => `<button class="dz-swatch${w.id === id ? ' on' : ''}" data-wall="${w.id}" aria-label="${esc(w.name)}"><img src="${swatchURL('wall', styleKey(w.id, w.tint ? (w.id === id ? color : undefined) ?? w.color : undefined))}" alt=""><span>${esc(w.name)}</span></button>`).join('')}</div>
+      <div class="dz-swatches">${WALLS.filter((w) => !w.venueOnly).map((w) => `<button class="dz-swatch${w.id === id ? ' on' : ''}" data-wall="${w.id}" aria-label="${esc(w.name)}"><img src="${swatchURL('wall', styleKey(w.id, w.tint ? (w.id === id ? color : undefined) ?? w.color : undefined))}" alt=""><span>${esc(w.name)}</span></button>`).join('')}</div>
       ${def?.tint ? `<div class="palette" aria-label="Colour">${PALETTE.map((c) => `<button class="dot${c === color ? ' on' : ''}" data-wallcol="${c}" style="--c:${c}" aria-label="Colour ${c}"></button>`).join('')}</div>` : ''}
       <p class="design-note">${money(price)} ${this.wallKey ? 'for this wall' : 'for the room'} · changing it again costs the same</p>`;
   }
@@ -243,7 +243,7 @@ export class DesignMode {
     const r = home.layout.rooms[this.room];
     return `
       <p class="design-target">${this.targetLine(home, 'floors')}</p>
-      <div class="dz-swatches">${FLOORS.map((f) => `<button class="dz-swatch${f.id === id ? ' on' : ''}" data-floor="${f.id}" aria-label="${esc(f.name)}"><img src="${swatchURL('floor', styleKey(f.id, f.tint ? (f.id === id ? color : undefined) ?? f.color : undefined))}" alt=""><span>${esc(f.name)}<small>${money(Math.round((f.price * (r ? area(r.rect) : 10)) / 100) * 100)}</small></span></button>`).join('')}</div>
+      <div class="dz-swatches">${FLOORS.filter((f) => !f.venueOnly).map((f) => `<button class="dz-swatch${f.id === id ? ' on' : ''}" data-floor="${f.id}" aria-label="${esc(f.name)}"><img src="${swatchURL('floor', styleKey(f.id, f.tint ? (f.id === id ? color : undefined) ?? f.color : undefined))}" alt=""><span>${esc(f.name)}<small>${money(Math.round((f.price * (r ? area(r.rect) : 10)) / 100) * 100)}</small></span></button>`).join('')}</div>
       ${def?.tint ? `<div class="palette" aria-label="Colour">${PALETTE.map((c) => `<button class="dot${c === color ? ' on' : ''}" data-floorcol="${c}" style="--c:${c}" aria-label="Colour ${c}"></button>`).join('')}</div>` : ''}`;
   }
 

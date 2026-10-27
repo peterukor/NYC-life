@@ -61,6 +61,24 @@ function emojiTexture(e: string): THREE.CanvasTexture {
   return t;
 }
 
+/** A light beam's fade: bright at the lamp, gone by the floor. */
+let beamTex: THREE.CanvasTexture | null = null;
+function beamTexture(): THREE.CanvasTexture {
+  if (beamTex) return beamTex;
+  const c = document.createElement('canvas');
+  c.width = 4;
+  c.height = 64;
+  const g = c.getContext('2d')!;
+  const grad = g.createLinearGradient(0, 0, 0, 64);
+  grad.addColorStop(0, 'rgba(255,255,255,0.9)');
+  grad.addColorStop(0.5, 'rgba(255,255,255,0.25)');
+  grad.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = grad;
+  g.fillRect(0, 0, 4, 64);
+  beamTex = new THREE.CanvasTexture(c);
+  return beamTex;
+}
+
 /** A floating sprite (an emoji pop, a steam puff, a music note). */
 interface Float {
   sprite: THREE.Sprite;
@@ -81,6 +99,8 @@ export class VenueLife {
   /** 🦆 Ducks circling the pond: sprite, pond centre, radius, phase, speed. */
   private readonly ducks: { sprite: THREE.Sprite; c: THREE.Vector3; r: number; a: number; w: number }[] = [];
   private discoBall: THREE.Object3D | null = null;
+  /** 🌈 Club light beams: cones that sweep the room. */
+  private readonly beams: { beam: THREE.Mesh; phase: number }[] = [];
   private emitters: { at: THREE.Vector3; kind: 'steam' | 'notes' | 'drops'; every: number; t: number }[] = [];
   private popT = 0;
   private time = 0;
@@ -257,6 +277,22 @@ export class VenueLife {
       this.home.scene.add(ball, cord);
       this.extras.push(ball, cord);
       this.discoBall = ball;
+      // Light beams sweeping the room from up high (soft additive cones: cheap "haze").
+      const tex = beamTexture();
+      const cols = ['#ff4fb8', '#22d3ee', '#9b5cff', '#ffd36b', '#3ddc84', '#ff4fb8'];
+      const n = 6;
+      for (let i = 0; i < n; i++) {
+        const len = 5.5;
+        const geo = new THREE.ConeGeometry(0.9, len, 18, 1, true).translate(0, -len / 2, 0);
+        const mat = new THREE.MeshBasicMaterial({ map: tex, color: cols[i], transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, toneMapped: false });
+        const beam = new THREE.Mesh(geo, mat);
+        const x = ((i + 0.5) / n - 0.5) * this.layout.width * 0.7;
+        beam.position.set(x, 3.3, -this.layout.depth / 2 + 1.2);
+        beam.renderOrder = 4;
+        this.home.scene.add(beam);
+        this.extras.push(beam);
+        this.beams.push({ beam, phase: i * 1.3 });
+      }
     }
     if (fx.includes('flicker')) {
       for (const o of pieces(['streetLamp'])) {
@@ -311,6 +347,11 @@ export class VenueLife {
 
   update(dt: number): void {
     this.time += dt;
+    for (const b of this.beams) {
+      const t = this.time * 0.7 + b.phase;
+      // Aim down into the room and sweep side to side and back and forth.
+      b.beam.rotation.set(-0.55 - Math.sin(t * 0.8) * 0.35, 0, Math.sin(t) * 0.6);
+    }
     // Visitors.
     for (const v of this.visitors) {
       const p = v.avatar.root.position;

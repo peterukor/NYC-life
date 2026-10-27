@@ -89,6 +89,15 @@ export interface HomeLayout {
   workers?: { x: number; z: number; rot: number }[];
   /** Big homes: pinch to zoom and drag to pan (small homes keep a fixed view). */
   zoomable?: boolean;
+  /**
+   * Venues: how the room is lit, whatever the time (homes follow the clock).
+   * 'outdoor' follows the clock too (the park, the alley).
+   */
+  mood?: 'bright' | 'cozy' | 'bar' | 'club' | 'arcade' | 'casino' | 'outdoor';
+  /** Wall height (default 2.9 m; a park's hedges are lower). */
+  wallHeight?: number;
+  /** Glowing signs on the walls (neon words, menu boards): world/home-interior.ts. */
+  signs?: { text: string; color: string; x: number; y: number; z: number; rot: number; size?: number; font?: 'script' | 'block' }[];
   /** Bumped when a plan changes shape: saved arrangements for an older version are reset (bought pieces go to Storage). */
   version?: number;
   /** Windows on the back wall (default: two ordinary ones). `view: 'park'` shows Central Park. */

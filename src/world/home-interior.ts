@@ -156,6 +156,16 @@ export interface BuildOptions {
   tier?: 'low' | 'medium' | 'high';
 }
 
+/** How venues are lit (layout.mood): background, sky and ground light, the "sun", and how dark it reads (lamps glow more). */
+const MOODS: Record<'bright' | 'cozy' | 'bar' | 'club' | 'arcade' | 'casino', { bg: string; sky: string; ground: string; hemi: number; sun: string; sunI: number; dark: number }> = {
+  bright: { bg: '#cfdbe4', sky: '#fff8ee', ground: '#7a6a5a', hemi: 1.15, sun: '#fff3e2', sunI: 0.85, dark: 0.12 },
+  cozy: { bg: '#2a201a', sky: '#ffe2bf', ground: '#5a4030', hemi: 0.85, sun: '#ffd9a8', sunI: 0.45, dark: 0.5 },
+  bar: { bg: '#120c0a', sky: '#ffc58a', ground: '#3a2418', hemi: 0.55, sun: '#ffb070', sunI: 0.22, dark: 0.85 },
+  club: { bg: '#07060c', sky: '#8a6cff', ground: '#1a0f2e', hemi: 0.3, sun: '#6a5cff', sunI: 0.1, dark: 1 },
+  arcade: { bg: '#05061a', sky: '#6c7dff', ground: '#140c33', hemi: 0.36, sun: '#5b6cff', sunI: 0.1, dark: 1 },
+  casino: { bg: '#160408', sky: '#ffd59a', ground: '#4a1020', hemi: 0.72, sun: '#ffc070', sunI: 0.3, dark: 0.65 },
+};
+
 /** Daylight through the day: sky colour, light colours and strengths, sun height, darkness (0 day … 1 night). */
 function daylight(h: number) {
   const keys: [number, { bg: string; sky: string; ground: string; hemi: number; sun: string; sunI: number; elev: number; dark: number }][] = [
@@ -208,6 +218,36 @@ function washTexture(): THREE.CanvasTexture {
   }
   g.putImageData(img, 0, 0);
   return new THREE.CanvasTexture(c);
+}
+
+/** A neon word: bright tube strokes with a glow, on a transparent canvas. */
+function neonTexture(text: string, color: string, font: 'script' | 'block' = 'block'): THREE.CanvasTexture {
+  const c = document.createElement('canvas');
+  const g = c.getContext('2d')!;
+  const px = 96;
+  const face = font === 'script' ? `italic 700 ${px}px "Brush Script MT", "Segoe Script", cursive` : `700 ${px}px "Arial Rounded MT Bold", "Trebuchet MS", sans-serif`;
+  g.font = face;
+  const w = Math.ceil(g.measureText(text).width) + px;
+  c.width = w;
+  c.height = Math.round(px * 1.6);
+  g.font = face;
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  g.lineJoin = 'round';
+  // Glow, then the coloured tube, then its white-hot core.
+  g.shadowColor = color;
+  g.shadowBlur = px * 0.35;
+  g.strokeStyle = color;
+  g.lineWidth = px * 0.12;
+  for (let i = 0; i < 2; i++) g.strokeText(text, w / 2, c.height / 2);
+  g.shadowBlur = 0;
+  g.strokeStyle = '#ffffff';
+  g.lineWidth = px * 0.035;
+  g.globalAlpha = 0.85;
+  g.strokeText(text, w / 2, c.height / 2);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
 }
 
 /** Sunlight through a window, laid on the floor: four soft panes. */
@@ -267,6 +307,8 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
   const hd = D / 2;
   const animated: ((dt: number) => void)[] = [];
   const tier = opts.tier ?? 'medium';
+  const wallH = layout.wallHeight ?? WALL_H;
+  CUT.uDrop.value = Math.max(0, wallH - LOW_WALL);
   let style: HomeStyle = structuredClone(opts.style ?? {});
 
   // ---------------------------------------------------------------- light
@@ -427,7 +469,7 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
         const flag: [number, number, number] = [outward[0], outward[1], s.outer ? 1 : 0];
         // Two strips (below and above the ledge) so a cut wall keeps its pattern unsquashed.
         const flip = alongX ? side < 0 : side > 0; // keep the face pointing out of the wall
-        for (const [y0, y1] of [[0, LOW_WALL], [LOW_WALL, WALL_H]]) {
+        for (const [y0, y1] of [[0, Math.min(LOW_WALL, wallH)], [Math.min(LOW_WALL, wallH), wallH]]) {
           const v: [number, number, number][] = [P(u0, y0, side), P(u1, y0, side), P(u1, y1, side), P(u0, y1, side)];
           const uv: [number, number][] = [[u0, y0], [u1, y0], [u1, y1], [u0, y1]];
           if (flip) {
@@ -450,18 +492,18 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
       // End faces (door jambs) and the cap on top, the "cut edge" of a Sims wall.
       for (const [u, sgn] of [[u0, -1], [u1, 1]] as const) {
         const n: [number, number, number] = alongX ? [sgn, 0, 0] : [0, 0, sgn];
-        for (const [y0, y1] of [[0, LOW_WALL], [LOW_WALL, WALL_H]]) {
+        for (const [y0, y1] of [[0, Math.min(LOW_WALL, wallH)], [Math.min(LOW_WALL, wallH), wallH]]) {
           const v: [number, number, number][] = [P(u, y0, -1), P(u, y0, 1), P(u, y1, 1), P(u, y1, -1)];
           if ((alongX && sgn > 0) || (!alongX && sgn < 0)) v.reverse();
           B.quad(capMat, v, n, [[0, 0], [1, 0], [1, 1], [0, 1]], flag);
         }
       }
       const cap = 0.02;
-      if (alongX) B.box(capMat, u0 - cap, WALL_H, c - T - cap, u1 + cap, WALL_H + 0.05, c + T + cap, flag);
-      else B.box(capMat, c - T - cap, WALL_H, u0 - cap, c + T + cap, WALL_H + 0.05, u1 + cap, flag);
+      if (alongX) B.box(capMat, u0 - cap, wallH, c - T - cap, u1 + cap, wallH + 0.05, c + T + cap, flag);
+      else B.box(capMat, c - T - cap, wallH, u0 - cap, c + T + cap, wallH + 0.05, u1 + cap, flag);
     });
     // Door headers over inner doorways (vanish when that wall is cut).
-    for (const g of gapsOf) {
+    for (const g of wallH > 2.3 ? gapsOf : []) {
       const alongX = Math.abs(g.b[1] - g.a[1]) < 1e-3;
       const outer = g === gapsOf.find((x) => x.a[1] === hd && x.b[1] === hd && x.a[0] === -hw);
       const len = Math.hypot(g.b[0] - g.a[0], g.b[1] - g.a[1]);
@@ -469,8 +511,8 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
       const p0 = [g.a[0] + dx * g.s0, g.a[1] + dz * g.s0], p1 = [g.a[0] + dx * g.s1, g.a[1] + dz * g.s1];
       const flag: [number, number, number] = [alongX ? 0 : 1, alongX ? 1 : 0, outer ? 3 : 2];
       if (outer) flag[1] = 1;
-      if (alongX) B.box(capMat, Math.min(p0[0], p1[0]), 2.15, p0[1] - WALL_T / 2, Math.max(p0[0], p1[0]), WALL_H, p0[1] + WALL_T / 2, flag);
-      else B.box(capMat, p0[0] - WALL_T / 2, 2.15, Math.min(p0[1], p1[1]), p0[0] + WALL_T / 2, WALL_H, Math.max(p0[1], p1[1]), flag);
+      if (alongX) B.box(capMat, Math.min(p0[0], p1[0]), 2.15, p0[1] - WALL_T / 2, Math.max(p0[0], p1[0]), wallH, p0[1] + WALL_T / 2, flag);
+      else B.box(capMat, p0[0] - WALL_T / 2, 2.15, Math.min(p0[1], p1[1]), p0[0] + WALL_T / 2, wallH, Math.max(p0[1], p1[1]), flag);
     }
     // Windows on the back wall: a white frame, a sill, and the view (sky by day, the city lit up at night).
     const win = layout.windows ?? { xs: [-hw * 0.45, hw * 0.25], w: 2.0, h: 1.4, y: 1.75, view: 'sky' as const };
@@ -592,7 +634,7 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
   };
 
   // ---- light state
-  let lightMode: 'auto' | 'on' | 'off' = opts.venue ? 'on' : style.lights ?? 'auto';
+  let lightMode: 'auto' | 'on' | 'off' = opts.venue ? (layout.mood === 'outdoor' ? 'auto' : 'on') : style.lights ?? 'auto';
   let hourOverride: number | null = null;
   let lit = false;
   let dark = 0;
@@ -823,24 +865,35 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
   // ---------------------------------------------------------------- time of day
   let envTimer = 0;
   const updateEnv = (force = false) => {
-    const h = hourOverride ?? (opts.venue ? 13 : opts.clock?.() ?? 13);
+    const h = hourOverride ?? opts.clock?.() ?? 13;
     const d = daylight(h);
     const outsideDark = d.dark;
-    if (opts.venue) d.dark = Math.min(d.dark, 0.25); // shops and bars keep their lights on and bright
+    const mood = opts.venue ? layout.mood ?? 'bright' : null;
+    if (mood && mood !== 'outdoor') {
+      // Venues are lit for what they are, whatever the time outside.
+      const m = MOODS[mood];
+      d.bg.set(m.bg);
+      d.sky.set(m.sky);
+      d.ground.set(m.ground);
+      d.hemi = m.hemi;
+      d.sun.set(m.sun);
+      d.sunI = m.sunI;
+      d.dark = m.dark;
+    }
     dark = d.dark;
     (scene.background as THREE.Color).copy(d.bg);
     hemi.color.copy(d.sky);
     hemi.groundColor.copy(d.ground);
-    hemi.intensity = opts.venue ? Math.max(d.hemi, 1.0) : d.hemi;
+    hemi.intensity = d.hemi;
     // Lights on after dark: the room fills with warm lamp light (the lamps add pools and accents on top).
-    const glowK = lampOn() ? Math.min(1, d.dark * 1.2) : 0;
+    const glowK = lampOn() && (!mood || mood === 'outdoor') ? Math.min(1, d.dark * 1.2) : 0;
     if (glowK > 0) {
       hemi.color.lerp(new THREE.Color('#ffd7a6'), glowK * 0.75);
       hemi.groundColor.lerp(new THREE.Color('#6b4a36'), glowK * 0.6);
       hemi.intensity = Math.max(hemi.intensity, 0.4 + glowK * 0.55);
     }
     sun.color.copy(d.sun);
-    sun.intensity = opts.venue ? Math.max(d.sunI, 0.9) : d.sunI;
+    sun.intensity = d.sunI;
     // The sun swings from the left (morning) to the right (evening), lower at the ends of the day.
     const az = THREE.MathUtils.clamp((h - 6) / 13, 0, 1) * Math.PI - Math.PI / 2;
     sun.position.set(Math.sin(az) * 10, 4 + d.elev * 10, 6 + Math.cos(az) * 4);
@@ -889,12 +942,35 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
     if (adTimer <= 0 && tvScreen.color.getHex() !== 0x0b0b0b) tvScreen.color.setHSL((performance.now() / 4000) % 1, 0.5, 0.45);
   });
 
+  // ---------------------------------------------------------------- glowing signs on the walls (neon words)
+  for (const sg of layout.signs ?? []) {
+    const tex = t(neonTexture(sg.text, sg.color, sg.font));
+    const h = sg.size ?? 0.5;
+    const w = h * (tex.image.width / tex.image.height);
+    const geo = t(new THREE.PlaneGeometry(w, h));
+    // Which wall it's on (so it drops away with that wall when the camera swings round).
+    const n = new THREE.Vector3(0, 0, 1).applyAxisAngle(new THREE.Vector3(0, 1, 0), sg.rot);
+    geo.setAttribute('aWall', new THREE.Float32BufferAttribute(new Array(geo.getAttribute('position').count).fill([-n.x, -n.z, 3]).flat(), 3));
+    const mat = cutaway(t(new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false })));
+    const m = new THREE.Mesh(geo, mat);
+    m.position.set(sg.x, sg.y, sg.z);
+    m.rotation.y = sg.rot;
+    m.renderOrder = 2;
+    scene.add(m);
+    // A soft wash of its colour on the wall around it.
+    const glow = new THREE.Mesh(geo, cutaway(t(new THREE.MeshBasicMaterial({ map: glowTex, color: new THREE.Color(sg.color).multiplyScalar(0.35), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false }))));
+    glow.position.copy(m.position).addScaledVector(n, -0.005);
+    glow.rotation.y = sg.rot;
+    glow.scale.set(1.5, 2.6, 1);
+    scene.add(glow);
+  }
+
   // ---------------------------------------------------------------- venues: a name sign, staff, a few locals
   if (opts.venue) {
     const sign = new THREE.Mesh(t(new THREE.PlaneGeometry(6, 1.1)), cutaway(t(new THREE.MeshBasicMaterial({ map: t(signTexture(place.name, place.color)) }))));
     sign.geometry.setAttribute('aWall', new THREE.Float32BufferAttribute(new Array(sign.geometry.getAttribute('position').count).fill([0, -1, 3]).flat(), 3));
-    sign.position.set(0, WALL_H - 0.55, -hd + WALL_T / 2 + 0.03);
-    scene.add(sign);
+    sign.position.set(0, wallH - 0.55, -hd + WALL_T / 2 + 0.03);
+    if (wallH > 2) scene.add(sign);
     const counter = items.find((i) => FURNITURE.get(i.item)?.placeActions);
     const people: { x: number; z: number; ry: number }[] = [];
     if (counter) people.push({ x: counter.x + 0.6, z: counter.z - 1.0, ry: 0 });
@@ -980,7 +1056,7 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
       const out = f.outer ? n.clone().negate() : n;
       const facing = out.x * v.x + out.z * v.y;
       const cut = CUT.uNoCut.value < 0.5 && (CUT.uCutAll.value > 0.5 || (f.outer ? facing > 0.3 : Math.abs(facing) > 0.5));
-      const top = cut ? LOW_WALL : WALL_H;
+      const top = cut ? LOW_WALL : wallH;
       const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(n, new THREE.Vector3(f.ax, 0, f.az));
       const p = ray.intersectPlane(plane, new THREE.Vector3());
       if (!p || p.y < 0 || p.y > top) continue;

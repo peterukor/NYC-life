@@ -310,6 +310,145 @@ function linoleum(): Drawn {
   return t;
 }
 
+
+/** The classic 90s arcade/bowling-alley carpet: neon squiggles and stars on black. */
+function cosmicCarpet(): Drawn {
+  const N = RES;
+  const c = document.createElement('canvas');
+  c.width = c.height = N;
+  const g = c.getContext('2d')!;
+  g.fillStyle = '#0d0b1e';
+  g.fillRect(0, 0, N, N);
+  const cols = ['#ff2bd6', '#22d3ee', '#facc15', '#a3e635', '#8b5cf6', '#fb7185'];
+  const k = N / 512;
+  g.lineCap = 'round';
+  for (let i = 0; i < 70; i++) {
+    const x = hash(i, 1) * N, y = hash(i, 2) * N, kind = Math.floor(hash(i, 3) * 4);
+    const col = cols[Math.floor(hash(i, 4) * cols.length)];
+    g.save();
+    for (const [dx, dy] of [[0, 0], [N, 0], [-N, 0], [0, N], [0, -N]]) {
+      g.setTransform(1, 0, 0, 1, x + dx, y + dy);
+      g.rotate(hash(i, 5) * 6.28);
+      g.strokeStyle = g.fillStyle = col;
+      g.lineWidth = 4 * k;
+      g.beginPath();
+      if (kind === 0) { // squiggle
+        g.moveTo(-18 * k, 0);
+        g.bezierCurveTo(-8 * k, -14 * k, 0, 14 * k, 10 * k, 0);
+        g.bezierCurveTo(14 * k, -6 * k, 18 * k, -6 * k, 22 * k, 0);
+        g.stroke();
+      } else if (kind === 1) { // ring
+        g.arc(0, 0, 9 * k, 0, Math.PI * 2);
+        g.stroke();
+      } else if (kind === 2) { // star
+        for (let p = 0; p < 10; p++) {
+          const r = (p % 2 ? 4 : 11) * k, a = (p / 10) * Math.PI * 2;
+          if (p) g.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+          else g.moveTo(Math.cos(a) * r, Math.sin(a) * r);
+        }
+        g.fill();
+      } else { // zigzag bolt
+        g.moveTo(-12 * k, -8 * k);
+        g.lineTo(0, -2 * k);
+        g.lineTo(-4 * k, 4 * k);
+        g.lineTo(12 * k, 10 * k);
+        g.stroke();
+      }
+    }
+    g.restore();
+  }
+  return { size: [1.6, 1.6], canvas: c };
+}
+
+/** Casino carpet: a busy repeat of medallions and scrolls on a rich ground. */
+function casinoCarpet(col: string): Drawn {
+  const N = RES;
+  const c = document.createElement('canvas');
+  c.width = c.height = N;
+  const g = c.getContext('2d')!;
+  g.fillStyle = col;
+  g.fillRect(0, 0, N, N);
+  const gold = '#d4a84b', dark = '#' + rgb(col).map((v) => Math.round(v * 0.55).toString(16).padStart(2, '0')).join('');
+  const cell = N / 4;
+  for (let y = 0; y < 4; y++) for (let x = 0; x < 4; x++) {
+    const cx = (x + 0.5) * cell, cy = (y + 0.5) * cell;
+    g.fillStyle = dark;
+    g.beginPath();
+    g.moveTo(cx, cy - cell * 0.45);
+    g.lineTo(cx + cell * 0.45, cy);
+    g.lineTo(cx, cy + cell * 0.45);
+    g.lineTo(cx - cell * 0.45, cy);
+    g.fill();
+    g.strokeStyle = gold;
+    g.lineWidth = Math.max(1.5, N / 240);
+    g.beginPath();
+    g.arc(cx, cy, cell * 0.2, 0, Math.PI * 2);
+    g.stroke();
+    for (let p = 0; p < 8; p++) {
+      const a = (p / 8) * Math.PI * 2;
+      g.beginPath();
+      g.arc(cx + Math.cos(a) * cell * 0.3, cy + Math.sin(a) * cell * 0.3, cell * 0.05, 0, Math.PI * 2);
+      g.fillStyle = (x + y + p) % 2 ? gold : '#1f3b4d';
+      g.fill();
+    }
+  }
+  return { size: [1.2, 1.2], canvas: c };
+}
+
+function glossBlack(): Drawn {
+  const N = RES;
+  return {
+    size: [1.2, 1.2],
+    canvas: pixels(N, N, (u, v) => {
+      const sheen = Math.pow(Math.max(0, 1 - Math.abs(u - v) * 2.2), 6) * 0.25;
+      const c: RGB = [22 + sheen * 120, 22 + sheen * 120, 28 + sheen * 130];
+      return mix(scale(c, 0.6), c, inTile(u * 2 % 1, v * 2 % 1, 0.004));
+    }),
+  };
+}
+
+function rubber(): Drawn {
+  const N = Math.min(RES, 256);
+  return {
+    size: [1, 1],
+    canvas: pixels(N, N, (u, v, x, y) => {
+      const fleck = hash(x, y, 9) > 0.93 ? (hash(x, y, 10) > 0.5 ? 60 : 30) : 0;
+      const b = 38 + fleck + (noise(u * 30, v * 30, 30, 2) - 0.5) * 10;
+      const c: RGB = [b, b, b + 4];
+      return mix(scale(c, 0.55), c, inTile(u, v, 0.006));
+    }),
+  };
+}
+
+function grass(): Drawn {
+  const N = RES;
+  return {
+    size: [2, 2],
+    canvas: pixels(N, N, (u, v, x, y) => {
+      const n = fbm(u * 6, v * 6, 6, 4, 3);
+      let c = mix(rgb('#4f9447'), rgb('#7cba5c'), n);
+      c = scale(c, 0.88 + hash(x, y, 2) * 0.2);
+      // Mowing stripes.
+      return scale(c, Math.floor(u * 4) % 2 ? 1.05 : 0.95);
+    }),
+  };
+}
+
+function asphalt(): Drawn {
+  const N = RES;
+  return {
+    size: [2, 2],
+    canvas: pixels(N, N, (u, v, x, y) => {
+      const b = 62 + (hash(x, y, 4) - 0.5) * 30 + (fbm(u * 5, v * 5, 5, 3, 1) - 0.5) * 30;
+      let c: RGB = [b, b, b + 3];
+      // A tar crack or two.
+      const crack = Math.abs(Math.sin(u * 9 + fbm(u * 4, v * 4, 4, 3, 8) * 5) - v * 0.3);
+      if (crack < 0.012) c = scale(c, 0.55);
+      return c;
+    }),
+  };
+}
+
 function drawFloor(id: string, color?: string): Drawn {
   switch (id) {
     case 'oak': case 'ash': case 'walnut': return planks(...WOODS[id]);
@@ -325,6 +464,12 @@ function drawFloor(id: string, color?: string): Drawn {
     case 'concrete': return concrete(true);
     case 'carpet': return carpet(color ?? '#8d7b6a');
     case 'vinyl': return linoleum();
+    case 'cosmic': return cosmicCarpet();
+    case 'casinoCarpet': return casinoCarpet(color ?? '#7a1430');
+    case 'glossBlack': return glossBlack();
+    case 'rubber': return rubber();
+    case 'grass': return grass();
+    case 'asphalt': return asphalt();
     default: return planks(...WOODS.oak);
   }
 }
@@ -332,11 +477,11 @@ function drawFloor(id: string, color?: string): Drawn {
 // ---- walls ----------------------------------------------------------
 
 /** Brick, running bond, 21 × 6.5 cm, a little rough. */
-function brick(white: boolean): Drawn {
+function brick(white: boolean, black = false): Drawn {
   const N = RES;
   const rows = 15, per = 5; // bricks in a 1 m tile
-  const reds: RGB[] = white ? [rgb('#ecebe6'), rgb('#e2e0d9'), rgb('#f3f2ee')] : [rgb('#9b4a33'), rgb('#86402d'), rgb('#a85a3c'), rgb('#7a3b2a')];
-  const mortar = rgb(white ? '#d6d3cb' : '#b9ad9c');
+  const reds: RGB[] = black ? [rgb('#26262b'), rgb('#1e1e22'), rgb('#2e2d33')] : white ? [rgb('#ecebe6'), rgb('#e2e0d9'), rgb('#f3f2ee')] : [rgb('#9b4a33'), rgb('#86402d'), rgb('#a85a3c'), rgb('#7a3b2a')];
+  const mortar = rgb(black ? '#121214' : white ? '#d6d3cb' : '#b9ad9c');
   return {
     size: [1, 1],
     canvas: pixels(N, N, (u, v) => {
@@ -486,6 +631,70 @@ function paint(col: string): Drawn {
   return { size: [1, 1], canvas: pixels(N, N, (u, v) => scale(a, 0.975 + fbm(u * 8, v * 8, 8, 3, 5) * 0.05)) };
 }
 
+
+/** Dark wood panelling: tall raised panels with a moulding. */
+function woodPanel(): Drawn {
+  const W = Math.min(RES, 256), H = Math.round(W * (2.9 / 1.2));
+  const a = rgb('#4a2f1f'), b = rgb('#2f1d13');
+  return {
+    size: [1.2, 2.9],
+    canvas: pixels(W, H, (u, v) => {
+      const grain = fbm(u * 8, v * 30, 1e9, 3, 4);
+      let c = mix(a, b, 0.3 + grain * 0.4);
+      const top = v < 0.08, rail = Math.abs(v - 0.62) < 0.015;
+      if (top || rail) return scale(c, 1.25);
+      const fy = v < 0.62 ? (v - 0.08) / 0.54 : (v - 0.64) / 0.33;
+      const o = inTile(u, fy, 0.08), i = inTile(u, fy, 0.11);
+      c = scale(c, o < 1 ? 0.8 : i < 1 ? 1.2 : 1);
+      return c;
+    }),
+  };
+}
+
+/** Tufted velvet: buttoned diamonds. */
+function velvet(col: string): Drawn {
+  const N = Math.min(RES, 256);
+  const a = rgb(col);
+  return {
+    size: [0.5, 0.5],
+    canvas: pixels(N, N, (u, v) => {
+      const x = u + v, y = u - v + 1;
+      const fx = (x * 1) % 1, fy = (y * 1) % 1;
+      const d = Math.hypot(fx - 0.5, fy - 0.5);
+      let c = scale(a, 0.75 + (1 - d) * 0.45);
+      if (Math.min(fx, 1 - fx, fy, 1 - fy) < 0.02) c = scale(a, 0.55);
+      if (Math.hypot(u - 0.5, v) < 0.04 || Math.hypot(u, v - 0.5) < 0.04 || Math.hypot(u - 1, v - 0.5) < 0.04 || Math.hypot(u - 0.5, v - 1) < 0.04) c = scale(a, 0.4);
+      return c;
+    }),
+  };
+}
+
+function acoustic(col: string): Drawn {
+  const N = Math.min(RES, 256);
+  const a = rgb(col);
+  return {
+    size: [0.6, 0.6],
+    canvas: pixels(N, N, (u, v) => {
+      const cx = Math.floor(u * 2), cy = Math.floor(v * 2);
+      const f = (cx + cy) % 2 ? (u * 2) % 1 : (v * 2) % 1;
+      const wedge = Math.abs(((f * 4) % 1) - 0.5) * 2;
+      return scale(a, 0.65 + wedge * 0.5);
+    }),
+  };
+}
+
+function hedge(): Drawn {
+  const N = RES;
+  return {
+    size: [1.2, 1.2],
+    canvas: pixels(N, N, (u, v, x, y) => {
+      const n = fbm(u * 10, v * 10, 10, 4, 6);
+      const leaf = hash(x >> 2, y >> 2, 3);
+      return scale(mix(rgb('#2f5e2e'), rgb('#5c9a45'), n), 0.8 + leaf * 0.35);
+    }),
+  };
+}
+
 function drawWall(id: string, color?: string): Drawn {
   switch (id) {
     case 'brick': return brick(false);
@@ -498,6 +707,11 @@ function drawWall(id: string, color?: string): Drawn {
     case 'subway': return subway(color ?? '#f4f4f2');
     case 'marbleWall': return marble('#efebe4', '#a39f97', '#d6d1c8', 1);
     case 'concreteWall': return concrete(true, true);
+    case 'woodPanel': return woodPanel();
+    case 'velvet': return velvet(color ?? '#5b2a86');
+    case 'darkBrick': return brick(false, true);
+    case 'acoustic': return acoustic(color ?? '#2b2d42');
+    case 'hedge': return hedge();
     default: return paint(color ?? '#efe6da');
   }
 }

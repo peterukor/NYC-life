@@ -13,6 +13,7 @@
 
 import type { HomeLayout } from './homes.ts';
 import type { InteriorKind } from './places.ts';
+import { dressVenue } from './venue-looks.ts';
 
 const PI = Math.PI;
 const H = PI / 2;
@@ -601,3 +602,6 @@ export const WORKPLACE_LAYOUT_FOR: Record<string, string> = {
 };
 
 export const VENUE_LAYOUT_FOR: Partial<Record<InteriorKind, string>> = { furniture: 'furniture', cafe: 'cafe', bodega: 'bodega', pizza: 'pizza', bar: 'bar', office: 'office', comedy: 'comedy' };
+
+// Bigger, livelier, lit for what they are (data/venue-looks.ts, 2026-10-27).
+for (const l of [...Object.values(VENUE_LAYOUTS), ...Object.values(WORKPLACE_LAYOUTS)]) dressVenue(l);
