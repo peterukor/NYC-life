@@ -825,6 +825,7 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
   const updateEnv = (force = false) => {
     const h = hourOverride ?? (opts.venue ? 13 : opts.clock?.() ?? 13);
     const d = daylight(h);
+    const outsideDark = d.dark;
     if (opts.venue) d.dark = Math.min(d.dark, 0.25); // shops and bars keep their lights on and bright
     dark = d.dark;
     (scene.background as THREE.Color).copy(d.bg);
@@ -843,8 +844,8 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
     // The sun swings from the left (morning) to the right (evening), lower at the ends of the day.
     const az = THREE.MathUtils.clamp((h - 6) / 13, 0, 1) * Math.PI - Math.PI / 2;
     sun.position.set(Math.sin(az) * 10, 4 + d.elev * 10, 6 + Math.cos(az) * 4);
-    sunMat.color.set(d.sun).multiplyScalar(Math.max(0, 1 - d.dark * 1.6) * 0.16);
-    glassMat.map = d.dark > 0.55 ? viewNight : viewDay;
+    sunMat.color.set(d.sun).multiplyScalar(Math.max(0, 1 - outsideDark * 1.6) * 0.075);
+    glassMat.map = outsideDark > 0.55 ? viewNight : viewDay;
     const want = lampOn();
     if (want !== lit || force) {
       lit = want;

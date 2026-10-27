@@ -122,11 +122,11 @@ HOME_LAYOUTS.add(
       sharedBathroom: true,
     },
     rooms: [
-      { label: 'Your room', rect: [-3.8, -5.5, 3.8, -1.6], floor: '#a9784e' },
-      { label: 'Living', rect: [-3.8, -1.6, 3.8, 2.6], floor: '#c09068' },
-      { label: 'Kitchen', rect: [-3.8, -1.6, -2.75, 2.6], floor: '#e7e0cf' },
-      { label: 'Hall', rect: [-3.8, 2.6, 1.2, 5.5], floor: '#b98a5f' },
-      { label: 'Bathroom', rect: [1.2, 2.6, 3.8, 5.5], floor: '#bfe0e6' },
+      { label: 'Your room', rect: [-3.8, -5.5, 3.8, -1.6], floor: '#a9784e', style: { floor: 'oak', wall: 'paint:#e8dcc4' } },
+      { label: 'Living', rect: [-3.8, -1.6, 3.8, 2.6], floor: '#c09068', style: { floor: 'vinyl', wall: 'paint:#e3d6bb' } },
+      { label: 'Kitchen', rect: [-3.8, -1.6, -2.75, 2.6], floor: '#e7e0cf', style: { floor: 'checker', wall: 'paint:#e3d6bb' } },
+      { label: 'Hall', rect: [-3.8, 2.6, 1.2, 5.5], floor: '#b98a5f', style: { floor: 'oak', wall: 'paint:#e3d6bb' } },
+      { label: 'Bathroom', rect: [1.2, 2.6, 3.8, 5.5], floor: '#bfe0e6', style: { floor: 'hex:#dfe7e6', wall: 'subway:#e9efe9' } },
     ],
     walls: [
       { a: [-3.8, -1.6], b: [3.8, -1.6], gaps: [[2.2, 3.2]] },
@@ -175,9 +175,9 @@ HOME_LAYOUTS.add(
     // The middle start: your own place, small but private. Ninth Avenue never sleeps.
     conditions: { noise: { chance: 0.1, label: 'Sirens on Ninth Avenue woke you up' } },
     rooms: [
-      { label: 'Living', rect: [-6, -4.5, 6, 4.5], floor: '#c8935f' },
-      { label: 'Kitchen', rect: [-6, -4.5, -1.6, -2.4], floor: '#e9e4d8' },
-      { label: 'Bathroom', rect: [3, -4.5, 6, -1], floor: '#bfe3e8' },
+      { label: 'Living', rect: [-6, -4.5, 6, 4.5], floor: '#c8935f', style: { floor: 'oak', wall: 'paint:#f3e3cc' } },
+      { label: 'Kitchen', rect: [-6, -4.5, -1.6, -2.4], floor: '#e9e4d8', style: { floor: 'tile:#e9e4d8', wall: 'subway:#f4f4f2' } },
+      { label: 'Bathroom', rect: [3, -4.5, 6, -1], floor: '#bfe3e8', style: { floor: 'hex:#dfe7e6', wall: 'subway:#ffffff' } },
     ],
     walls: [
       { a: [3, -4.5], b: [3, -1], gaps: [[2.2, 3.3]] },
@@ -293,10 +293,10 @@ HOME_LAYOUTS.add(
     depth: 9,
     wallColor: '#e3e9d8',
     rooms: [
-      { label: 'Your room', rect: [-6, -4.5, -0.5, 4.5], floor: '#b07d55' },
-      { label: 'Kitchen', rect: [-0.5, -4.5, 6, 0], floor: '#e4dccd' },
-      { label: 'Bathroom', rect: [2.5, 0, 6, 4.5], floor: '#c4e2e6' },
-      { label: 'Hall', rect: [-0.5, 0, 2.5, 4.5], floor: '#c9a27c' },
+      { label: 'Your room', rect: [-6, -4.5, -0.5, 4.5], floor: '#b07d55', style: { floor: 'oak', wall: 'paint:#e3e9d8' } },
+      { label: 'Kitchen', rect: [-0.5, -4.5, 6, 0], floor: '#e4dccd', style: { floor: 'checker', wall: 'paint:#f2ead6' } },
+      { label: 'Bathroom', rect: [2.5, 0, 6, 4.5], floor: '#c4e2e6', style: { floor: 'hex:#dfe7e6', wall: 'subway:#ffffff' } },
+      { label: 'Hall', rect: [-0.5, 0, 2.5, 4.5], floor: '#c9a27c', style: { floor: 'ash', wall: 'paint:#e3e9d8' } },
     ],
     walls: [
       { a: [-0.5, -4.5], b: [-0.5, 4.5], gaps: [[5.2, 6.4]] },
@@ -333,9 +333,9 @@ HOME_LAYOUTS.add(
     depth: 9,
     wallColor: '#dfe6ee',
     rooms: [
-      { label: 'Dorm', rect: [-6, -4.5, 2.5, 4.5], floor: '#b9c4cf' },
-      { label: 'Washroom', rect: [2.5, -4.5, 6, 0], floor: '#c4e2e6' },
-      { label: 'Common', rect: [2.5, 0, 6, 4.5], floor: '#cfc6b8' },
+      { label: 'Dorm', rect: [-6, -4.5, 2.5, 4.5], floor: '#b9c4cf', style: { floor: 'vinyl', wall: 'paint:#dfe6ee' } },
+      { label: 'Washroom', rect: [2.5, -4.5, 6, 0], floor: '#c4e2e6', style: { floor: 'tile:#d6dde3', wall: 'subway:#e9eef2' } },
+      { label: 'Common', rect: [2.5, 0, 6, 4.5], floor: '#cfc6b8', style: { floor: 'vinyl', wall: 'paint:#dfe6ee' } },
     ],
     walls: [
       { a: [2.5, -4.5], b: [2.5, 0], gaps: [[2.8, 3.9]] },

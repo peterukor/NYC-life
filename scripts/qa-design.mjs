@@ -1,6 +1,6 @@
 // QA: home design mode (Lagos Life-style customisation). Boots a class's
 // home, then runs STEPS (a list of page functions) taking a screenshot after each.
-// Usage: CLASS=rich node scripts/qa-design.mjs   (shots: test-results/design-*.png)
+// Usage: CLASS=rich STEPS='home|design|tab:walls' node scripts/qa-design.mjs   (shots: test-results/design-*.png)
 import puppeteer from 'puppeteer-core';
 const cls = process.env.CLASS ?? 'rich';
 const W = +(process.env.W ?? 375), H = +(process.env.H ?? 812);
@@ -28,7 +28,7 @@ const shot = async (name) => {
   await page.screenshot({ path: `test-results/design-${name}.png` });
   console.log('shot', name);
 };
-const steps = (process.env.STEPS ?? 'home').split(',');
+const steps = (process.env.STEPS ?? 'home').split('|');
 for (const s of steps) {
   if (s === 'home') await shot(`${cls}-home`);
   else if (s === 'design') { await page.evaluate(() => window.__nyc.design()); await wait(1500); await shot(`${cls}-buy`); }

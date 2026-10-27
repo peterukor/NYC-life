@@ -1,6 +1,6 @@
 # NYC Life — handoff notes (read this first)
 
-Branch: **`feat/starter-homes`** (latest work). Older notes below mention `feat/nyc-generator`.
+Branch: **`feat/visual-upgrade`** (latest work, not merged to main yet: Peter merges when he's happy). Older notes below mention earlier branches.
 
 Build and test:
 - `npm run build && npx vite preview --port 4173 &`
@@ -13,7 +13,30 @@ Build and test:
 - `Q=low node scripts/qa-perf.mjs`: triangles and draw calls.
 - `npm test`
 
+- `CLASS=rich STEPS='home|design|tab:walls|night|swing|top' node scripts/qa-design.mjs`: homes and the design menu (shots in test-results/design-*.png).
+- `node scripts/qa-design-flow.mjs`: the design menu by taps (paint, floor, buy a light, recolour, a style).
+- `node scripts/qa-street-people.mjs`: the new people on the street.
+
 How to add or change content: **`docs/ADDING-CONTENT.md`**.
+
+## Visual upgrade (2026-10-27, branch feat/visual-upgrade)
+
+Peter's plan: redo the people, NPCs and every location with the Quaternius/Kenney packs from his computer (`/Users/peterukor/Documents/NYC-life Assets`), keep the city map and navigation exactly as they are. Five stages: 1 people → 2 homes and customisation → 3 the 47 existing rooms → 4 the 59 new rooms → 5 social (home visits; needs the server hosted). Old saves auto-match; costumes became party/Halloween items.
+
+**Stage 1, people (done).** `scripts/build-people-assets.mjs` builds `public/models/people-{m,f}.glb` (Quaternius modular outfits merged per look, colour slots) and `people-{m,f}.anim` (39 clips from the Universal Animation Library, retargeted in `scripts/people/retarget.mjs`, packed by `scripts/people/anim-pack.mjs`, read by `src/world/people-anims.ts`). Hair and accessories are built from the bare head (`scripts/people/hair.mjs`, `accessories.mjs`). `world/folk.ts` makes the people; `world/avatar.ts` maps a saved Look onto parts; NPCs get varied everyday outfits and real activity poses (venue-life, section-crew).
+
+**Stage 2, homes (done, first pass).**
+- Furniture: `scripts/build-interior-assets.mjs <Quaternius OBJ> <Kenney GLTF>` → `public/models/interior.glb` (228 models) + `src/data/interior-models.json` (sizes, default colours). Every vertex has a colour slot (`_slot`: 0 fixed, 1 main, 2 frame, 3 glow); `assets/furniture-kit.ts` gives each piece a material for its colours (`materialFor`). `scripts/interior/interior-preview.html` + `shot.mjs` make contact sheets of the pack.
+- Catalogue: `data/furniture-catalog.ts` (~190 pieces in 11 buy categories) on top of `data/furniture.ts`. Code-built decor (LED strips, neon, fairy lights, chandeliers, pendants, lamps, art, mirrors, rugs, plants, wall TV, fire) in `world/furniture-deco.ts`. Pieces can hang from the ceiling (`hang`), sit on tables (`deco`), hang on walls (`wall`), and give light (`light`).
+- Looks: `data/home-style.ts` (15 floors, 11 wall finishes, a palette, bulb colours, 8 one-tap presets) drawn in code by `render/home-surfaces.ts`. Saved per home in `state.homeStyles`; piece colours on each `HomeItem` (`a`, `b`, `lc`).
+- `world/home-interior.ts` rebuilt: per-room floors and walls (merged by finish), accent walls, skirting, window frames with a day/night city view, cutaway walls that follow the camera (a shader on the wall materials), time-of-day light, warm lamp light after dark with light pools, wall washes and halos, 0/2/4 real point lights by tier, contact shadows, sun shadows on high.
+- Camera (`world/interior-view.ts`): swing round (45° steps), top view, and long homes on a phone held upright open swung a quarter turn so they fill the screen. The design menu lifts the room above itself.
+- Design menu (`ui/design-mode.ts`, dock button 🎨 Design at home): Buy (3D thumbnails, `render/furniture-thumbs.ts`), Walls (whole room or tap one wall), Floors, Lights (after dark / on / off, see it at night), Styles, Storage; tap a piece to move, recolour or put it away.
+- Bigger plans: the loft (18×12), the UES two-bed (18×13) and the penthouse (26×16, six rooms). `HomeLayout.version` bumps reset old saved arrangements (bought pieces go to Storage, game.ts `migrateHome`).
+- Perf (penthouse at night): 110 draw calls / 85k triangles on low and medium, 171 on high (shadow pass).
+- Not done yet: over-the-shoulder / first-person cameras, two-floor homes with stairs, a townhouse, free 45° turning in move mode.
+
+**Next: stage 3**, the 47 existing rooms (bars, clubs, bodegas, arcade, casino, gym, offices…) rebuilt bigger and livelier with the new kit; venues still use the old Kenney pieces in their default (salmon) fabric for now.
 
 ## Batch 7: the north and better mini games (2026-10-16)
 

@@ -432,7 +432,7 @@ export class DesignMode {
       const slots = home.recolorable(it.item);
       const patch: { a?: string; b?: string; lc?: string } = {};
       if (slots.includes('a') && (d.kind === 'couch' || d.kind === 'chair' || d.kind === 'bed' || d.kind === 'rug')) patch.a = p.fabric;
-      if (slots.includes('b')) patch.b = p.frame;
+      if (slots.includes('b') && (d.kind === 'couch' || d.kind === 'chair' || d.kind === 'bed')) patch.b = p.frame;
       if (slots.includes('lc')) patch.lc = LIGHT_COLORS.find((l) => l.id === p.light)?.color;
       if (Object.keys(patch).length) home.setFinish(it.uid, patch);
     }
