@@ -50,6 +50,8 @@ export const FLOORS: SurfaceStyle[] = [
   { id: 'cosmic', name: 'Arcade carpet', emoji: '🪐', price: 6_000 },
   { id: 'casinoCarpet', name: 'Casino carpet', emoji: '🎰', price: 9_000, tint: true, color: '#7a1430' },
   { id: 'glossBlack', name: 'Gloss black', emoji: '🖤', price: 9_000 },
+  { id: 'bigTile', name: 'Big gloss tiles', emoji: '🔲', price: 8_000, tint: true, color: '#1e1e24' },
+  { id: 'paving', name: 'Garden paving', emoji: '🪨', price: 3_000, venueOnly: true },
   { id: 'rubber', name: 'Gym rubber', emoji: '🏋️', price: 4_000 },
   { id: 'grass', name: 'Grass', emoji: '🌱', price: 2_000, venueOnly: true },
   { id: 'asphalt', name: 'Asphalt', emoji: '🛣️', price: 1_000, venueOnly: true },

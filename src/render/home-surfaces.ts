@@ -407,6 +407,45 @@ function glossBlack(): Drawn {
   };
 }
 
+/**
+ * Big glossy floor tiles, 1 m square, with clear grout lines (the Lagos
+ * Life look: black or cream tiles you can count). Any colour. A soft
+ * diagonal sheen on each tile fakes a polished finish.
+ */
+function bigTile(col: string): Drawn {
+  const N = RES;
+  const a = rgb(col);
+  const lum = (a[0] * 0.3 + a[1] * 0.59 + a[2] * 0.11) / 255;
+  const gr = lum < 0.35 ? scale(a, 1.0).map((v) => Math.min(255, v + 70)) as RGB : scale(a, 0.72);
+  return {
+    size: [2, 2],
+    canvas: pixels(N, N, (u, v) => {
+      const cx = Math.floor(u * 2), cy = Math.floor(v * 2);
+      const fx = u * 2 - cx, fy = v * 2 - cy;
+      let c = scale(a, 0.97 + hash(cx, cy, 41) * 0.06 + (fbm(u * 5, v * 5, 5, 3, 7) - 0.5) * 0.05);
+      const sheen = Math.pow(Math.max(0, 1 - Math.abs(fx - fy - 0.1) * 3.2), 4) * (lum < 0.35 ? 0.35 : 0.12);
+      c = c.map((v0) => Math.min(255, v0 + sheen * 120)) as RGB;
+      return mix(gr, c, inTile(fx, fy, 0.012));
+    }),
+  };
+}
+
+/** Garden paving: grey-beige stones in a running bond (the path round the house). */
+function paving(): Drawn {
+  const N = RES;
+  const cols: RGB[] = [rgb('#b8b0a2'), rgb('#a99f90'), rgb('#c4bcae'), rgb('#9d9486')];
+  return {
+    size: [1.6, 1.6],
+    canvas: pixels(N, N, (u, v) => {
+      const rows = 4, row = Math.floor(v * rows), fy = v * rows - row;
+      const x = u * 3 + (row % 2) * 0.5, col = Math.floor(x), fx = x - col;
+      let c = cols[Math.floor(hash(((col % 3) + 3) % 3, row, 5) * cols.length)];
+      c = scale(c, 0.9 + fbm(u * 12, v * 12, 12, 3, row) * 0.2);
+      return mix(rgb('#6f685d'), c, inTile(fx, fy, 0.05));
+    }),
+  };
+}
+
 function rubber(): Drawn {
   const N = Math.min(RES, 256);
   return {
@@ -467,6 +506,8 @@ function drawFloor(id: string, color?: string): Drawn {
     case 'cosmic': return cosmicCarpet();
     case 'casinoCarpet': return casinoCarpet(color ?? '#7a1430');
     case 'glossBlack': return glossBlack();
+    case 'bigTile': return bigTile(color ?? '#1e1e24');
+    case 'paving': return paving();
     case 'rubber': return rubber();
     case 'grass': return grass();
     case 'asphalt': return asphalt();

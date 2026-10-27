@@ -323,6 +323,112 @@ export const DECO_TOYS: Record<string, (t: Toy) => void> = {
       t.cyl(0.02, 0.02, 0.25, sx * 0.82, 0, 0, '#c9a24a', 6);
     }
   },
+  // ================================================================ Lagos Life staples (Peter, 2026-10-27)
+  /** A split air conditioner high on the wall: the most Lagos thing in any room. */
+  decoSplitAC(t) {
+    t.inSlot(2, () => t.block(0.95, 0.3, 0.24, 0, 0, 0.12, WHITE, 0.08));
+    t.block(0.8, 0.025, 0.02, 0, 0.05, 0.245, '#9aa3ad', 0.01); // the vent
+    t.inSlot(3, () => t.sphere(0.012, 0.36, 0.2, 0.245, WHITE));
+  },
+  /** A ring light on a tripod: content creators only. */
+  decoRingLight(t) {
+    for (let i = 0; i < 3; i++) {
+      const a = (i / 3) * Math.PI * 2;
+      tube(t, [[Math.cos(a) * 0.28, 0, Math.sin(a) * 0.28], [0, 0.75, 0]], 0.012, BLACK);
+    }
+    t.cyl(0.012, 0.012, 0.85, 0, 0.75, 0, BLACK, 6);
+    t.inSlot(3, () => t.add(new THREE.TorusGeometry(0.22, 0.025, 8, 28).translate(0, 1.78, 0.02), WHITE));
+    t.block(0.07, 0.14, 0.01, 0, 1.71, 0.02, '#26282e', 0.01); // the phone
+  },
+  /** A standing fan. */
+  decoStandFan(t) {
+    t.cyl(0.2, 0.22, 0.04, 0, 0, 0, BLACK, 16);
+    t.cyl(0.018, 0.018, 1.0, 0, 0.04, 0, '#c0c4ca', 6);
+    t.inSlot(1, () => t.cyl(0.07, 0.07, 0.14, 0, 1.0, -0.02, WHITE, 10));
+    t.add(new THREE.TorusGeometry(0.26, 0.008, 4, 28).translate(0, 1.13, 0.1), '#c0c4ca');
+    for (let i = 0; i < 3; i++) {
+      t.inSlot(1, () => t.add(new THREE.CircleGeometry(0.12, 10, 0, 1.2).rotateZ((i / 3) * Math.PI * 2).translate(0, 1.13, 0.1), WHITE));
+    }
+  },
+  /** A water dispenser with a big blue bottle. */
+  decoWaterDispenser(t) {
+    t.block(0.36, 0.95, 0.36, 0, 0, 0, '#f2f2ef', 0.04);
+    t.block(0.2, 0.06, 0.02, 0, 0.62, 0.18, '#c0392b', 0.01);
+    t.inSlot(1, () => t.cyl(0.15, 0.15, 0.42, 0, 0.95, 0, WHITE, 16));
+    t.inSlot(1, () => t.cyl(0.05, 0.15, 0.06, 0, 1.37, 0, WHITE, 16));
+  },
+  /** A throne: red velvet, gold frame, crown on top. For the main character. */
+  decoThrone(t) {
+    t.inSlot(2, () => {
+      t.block(0.9, 0.42, 0.8, 0, 0, 0, WHITE, 0.03);
+      t.block(0.14, 0.75, 0.8, -0.38, 0, 0, WHITE, 0.03);
+      t.block(0.14, 0.75, 0.8, 0.38, 0, 0, WHITE, 0.03);
+      t.block(0.9, 1.55, 0.14, 0, 0, -0.33, WHITE, 0.03);
+      for (const x of [-0.3, 0, 0.3]) t.cyl(0.0, 0.06, 0.18, x, 1.55, -0.33, WHITE, 4);
+    });
+    t.inSlot(1, () => {
+      t.block(0.62, 0.12, 0.62, 0, 0.42, 0.04, WHITE, 0.05);
+      t.block(0.62, 1.0, 0.08, 0, 0.5, -0.24, WHITE, 0.05);
+    });
+  },
+  /** A four-poster canopy bed. */
+  decoCanopyBed(t) {
+    const W = 2.0, D = 2.3, H = 2.15;
+    t.inSlot(2, () => {
+      t.block(W, 0.32, D, 0, 0, 0, WHITE, 0.04);
+      t.block(W, 1.0, 0.1, 0, 0, -D / 2 + 0.05, WHITE, 0.04); // headboard
+      for (const [x, z] of [[-W / 2 + 0.05, -D / 2 + 0.05], [W / 2 - 0.05, -D / 2 + 0.05], [-W / 2 + 0.05, D / 2 - 0.05], [W / 2 - 0.05, D / 2 - 0.05]]) t.block(0.07, H, 0.07, x, 0, z, WHITE, 0.01);
+      t.block(W, 0.06, 0.06, 0, H - 0.06, -D / 2 + 0.05, WHITE, 0.01);
+      t.block(W, 0.06, 0.06, 0, H - 0.06, D / 2 - 0.05, WHITE, 0.01);
+      t.block(0.06, 0.06, D, -W / 2 + 0.05, H - 0.06, 0, WHITE, 0.01);
+      t.block(0.06, 0.06, D, W / 2 - 0.05, H - 0.06, 0, WHITE, 0.01);
+    });
+    t.block(W - 0.12, 0.2, D - 0.2, 0, 0.32, 0.05, '#f4f1ea', 0.06); // mattress
+    t.inSlot(1, () => t.block(W - 0.08, 0.06, D * 0.62, 0, 0.5, D * 0.18, WHITE, 0.04)); // duvet
+    for (const x of [-0.45, 0.45]) t.block(0.62, 0.14, 0.34, x, 0.52, -D / 2 + 0.35, '#ffffff', 0.06);
+  },
+  /** A black-framed glass partition (the see-through wall round a shower or a study). */
+  decoGlassPanel(t) {
+    const W = 1.4, H = 2.0;
+    t.inSlot(2, () => {
+      t.block(W, 0.05, 0.05, 0, 0, 0, WHITE, 0.005);
+      t.block(W, 0.05, 0.05, 0, H - 0.05, 0, WHITE, 0.005);
+      t.block(0.05, H, 0.05, -W / 2 + 0.025, 0, 0, WHITE, 0.005);
+      t.block(0.05, H, 0.05, W / 2 - 0.025, 0, 0, WHITE, 0.005);
+      t.block(0.03, H, 0.03, 0, 0, 0, WHITE, 0.005);
+    });
+  },
+  /** A big rug with a border (red with gold, or any two colours). */
+  decoBorderRug(t) {
+    const W = 3.0, D = 2.0;
+    t.inSlot(2, () => t.add(new THREE.PlaneGeometry(W, D).rotateX(-Math.PI / 2).translate(0, 0.008, 0), WHITE));
+    t.inSlot(1, () => t.add(new THREE.PlaneGeometry(W - 0.3, D - 0.3).rotateX(-Math.PI / 2).translate(0, 0.01, 0), WHITE));
+    t.inSlot(2, () => {
+      for (const [w, d] of [[W - 0.5, D - 0.5]] as const) {
+        t.add(new THREE.PlaneGeometry(w, 0.05).rotateX(-Math.PI / 2).translate(0, 0.012, d / 2), WHITE);
+        t.add(new THREE.PlaneGeometry(w, 0.05).rotateX(-Math.PI / 2).translate(0, 0.012, -d / 2), WHITE);
+        t.add(new THREE.PlaneGeometry(0.05, d).rotateX(-Math.PI / 2).translate(w / 2, 0.012, 0), WHITE);
+        t.add(new THREE.PlaneGeometry(0.05, d).rotateX(-Math.PI / 2).translate(-w / 2, 0.012, 0), WHITE);
+      }
+      t.add(new THREE.CircleGeometry(0.3, 4).rotateX(-Math.PI / 2).translate(0, 0.012, 0), WHITE);
+    });
+  },
+  /** A bold framed poster (yellow frame, a big graphic face). */
+  decoPopArt(t) {
+    t.inSlot(2, () => t.block(0.62, 0.8, 0.04, 0, 0, 0, WHITE, 0.01));
+    t.inSlot(1, () => t.add(new THREE.PlaneGeometry(0.5, 0.68).translate(0, 0.4, 0.022), WHITE));
+    t.add(new THREE.CircleGeometry(0.16, 24).translate(0, 0.46, 0.024), '#1d1e22');
+    t.add(new THREE.PlaneGeometry(0.16, 0.05).translate(0, 0.24, 0.024), '#c0392b');
+    t.add(new THREE.CircleGeometry(0.035, 12).translate(-0.06, 0.5, 0.026), '#ffffff');
+    t.add(new THREE.CircleGeometry(0.035, 12).translate(0.06, 0.5, 0.026), '#ffffff');
+  },
+  /** A wall clock. */
+  decoClock(t) {
+    t.inSlot(2, () => t.add(new THREE.CylinderGeometry(0.2, 0.2, 0.04, 28).rotateX(Math.PI / 2).translate(0, 0.2, 0.02), WHITE));
+    t.add(new THREE.CircleGeometry(0.175, 28).translate(0, 0.2, 0.042), '#f8f6f0');
+    t.add(new THREE.PlaneGeometry(0.012, 0.12).translate(0, 0.25, 0.044), '#1d1e22');
+    t.add(new THREE.PlaneGeometry(0.09, 0.012).rotateZ(0.5).translate(0.035, 0.22, 0.044), '#1d1e22');
+  },
   /** A live stage: a platform with a glowing edge, drum kit, mic stand, two speakers. */
   decoLiveStage(t) {
     const W = 5, D = 3;
@@ -534,6 +640,6 @@ export const DECO_TOYS: Record<string, (t: Toy) => void> = {
 };
 
 /** Hangs on a wall: kept at its height, back against the wall. */
-export const DECO_ON_WALL = ['decoBottleShelf', 'decoLedStrip', 'decoFairyLights', 'decoNeonHeart', 'decoNeonBolt', 'decoNeonNyc', 'decoSconce', 'decoArtShapes', 'decoArtTriptych', 'decoArtSkyline', 'decoGallery', 'decoMirrorRound', 'decoMirrorArch', 'decoWallShelf', 'decoTvWall'];
+export const DECO_ON_WALL = ['decoSplitAC', 'decoPopArt', 'decoClock', 'decoBottleShelf', 'decoLedStrip', 'decoFairyLights', 'decoNeonHeart', 'decoNeonBolt', 'decoNeonNyc', 'decoSconce', 'decoArtShapes', 'decoArtTriptych', 'decoArtSkyline', 'decoGallery', 'decoMirrorRound', 'decoMirrorArch', 'decoWallShelf', 'decoTvWall'];
 /** Hangs from the ceiling: the top at y = 0. */
 export const DECO_HANG = ['decoTrussRing', 'decoGlobePendant', 'decoBulbCluster', 'decoCrystalChandelier', 'decoSputnik', 'decoRingPendant', 'decoPaperLantern', 'decoHangingPlant'];

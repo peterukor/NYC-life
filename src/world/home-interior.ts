@@ -32,6 +32,7 @@ import { floorMaterial, wallMaterial } from '../render/home-surfaces.ts';
 import { HAIR_COLORS, makeAvatar, OUTFIT_COLORS, SKIN_TONES } from './avatar.ts';
 import { FURNITURE_TIME, MODELS_INFO, type Finish, type FurnitureKit } from '../assets/furniture-kit.ts';
 import type { Interior, InteriorObject } from './interior.ts';
+import { buildYard, type YardOptions } from './home-yard.ts';
 import { doorOfLayout, outline } from './footprint.ts';
 import { rectAt, snapToWall, spotFree, WalkGrid, whyNot, type FitKind, type FitWorld, type Footprint } from './furniture-fit.ts';
 
@@ -164,6 +165,8 @@ export interface BuildOptions {
   clock?: () => number;
   /** Graphics tier: how many real lights and whether the sun casts shadows. */
   tier?: 'low' | 'medium' | 'high';
+  /** Homes: the garden round the house (lawn, paths, lamps, your car). */
+  yard?: YardOptions;
 }
 
 /** How venues are lit (layout.mood): background, sky and ground light, the "sun", and how dark it reads (lamps glow more). */
@@ -354,6 +357,9 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
     scene.add(base);
   }
   const door = doorOfLayout(layout);
+  // Homes sit in a garden (Lagos Life style), venues in their own light.
+  const yard = !opts.venue && opts.yard ? t(buildYard(layout, { ...opts.yard, shadows })) : null;
+  if (yard) scene.add(yard.group);
 
   // ---------------------------------------------------------------- floors & walls (rebuilt by setStyle)
   const floors: THREE.Object3D[] = [];
@@ -684,7 +690,7 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
       standFor(it, v);
       const path = g.path(doorIn.x, doorIn.z, v.x, v.z);
       const end = path?.[path.length - 1];
-      if (!end || Math.hypot(end.x - v.x, end.z - v.z) > 0.35) return def.name;
+      if (!end || Math.hypot(end.x - v.x, end.z - v.z) > 0.35) return `${def.name} (${it.uid})`;
     }
     return null;
   };
@@ -953,13 +959,14 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
     if (glowK > 0) {
       hemi.color.lerp(new THREE.Color('#ffd7a6'), glowK * 0.75);
       hemi.groundColor.lerp(new THREE.Color('#6b4a36'), glowK * 0.6);
-      hemi.intensity = Math.max(hemi.intensity, 0.4 + glowK * 0.55);
+      hemi.intensity = Math.max(hemi.intensity, 0.5 + glowK * 0.7);
     }
     sun.color.copy(d.sun);
     sun.intensity = d.sunI;
     // The sun swings from the left (morning) to the right (evening), lower at the ends of the day.
     const az = THREE.MathUtils.clamp((h - 6) / 13, 0, 1) * Math.PI - Math.PI / 2;
     sun.position.set(Math.sin(az) * 10, 4 + d.elev * 10, 6 + Math.cos(az) * 4);
+    yard?.setDark(outsideDark);
     sunMat.color.set(d.sun).multiplyScalar(Math.max(0, 1 - outsideDark * 1.6) * 0.075);
     glassMat.map = outsideDark > 0.55 ? viewNight : viewDay;
     const want = lampOn();

@@ -2410,7 +2410,13 @@ export class Game {
         // Sims-style home: its own floor plan, real furniture, saved arrangement.
         const layout = layoutForPlace(place.id);
         this.migrateHome(place.id, layout);
-        const home = buildHome(place, layout, this.state.homes[place.id] ?? layout.furniture, this.furniture, { style: this.state.homeStyles?.[place.id], clock: () => nycTime().hourFloat, tier: this.engine.quality.tier });
+        const myCar = this.state.garage.cars[0];
+        const home = buildHome(place, layout, this.state.homes[place.id] ?? layout.furniture, this.furniture, {
+          style: this.state.homeStyles?.[place.id],
+          clock: () => nycTime().hourFloat,
+          tier: this.engine.quality.tier,
+          yard: { car: myCar ? { model: myCar.model, paint: myCar.paint } : layout.yardCar ?? null },
+        });
         this.interior = home;
         // Roommates (the walk-up): they live there too, and wander the shared rooms.
         const mates = layout.conditions?.roommates;
@@ -2547,8 +2553,8 @@ export class Game {
     if (!layout) return undefined;
     const area = layout.width * layout.depth;
     const portrait = aspect < 0.8;
-    // Square homes (2026-10-27) open showing the whole floor, a touch zoomed in (like Lagos Life).
-    if (layout.width === layout.depth && layout.shaped && !layout.mood) return area > 300 ? (portrait ? 1.2 : 1.05) : undefined;
+    // Homes (2026-10-27) open showing the whole floor, a touch zoomed in (like Lagos Life).
+    if (layout.shaped && !layout.mood && !layout.life) return area > 150 ? (portrait ? 1.15 : 1.0) : undefined;
     if (area > 700) return portrait ? 1.75 : 1.25;
     if (area > 400) return portrait ? 1.5 : 1.15;
     if (area > 180) return portrait ? 1.2 : 1.05;
