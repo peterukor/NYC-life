@@ -919,6 +919,7 @@ HOME_LAYOUTS.add(
       { uid: 'bstool1', item: 'barStool', x: 3.35, z: -0.4, rot: H },
       { uid: 'bstool2', item: 'barStool', x: 3.35, z: 0.4, rot: H },
       { uid: 'bstool3', item: 'barStool', x: 3.35, z: 1.2, rot: H },
+      { uid: 'fridge', item: 'retroFridge', x: 5.5, z: -4.45, rot: 0 },
       { uid: 'lounger0', item: 'lounger', x: 9.0, z: -3.4, rot: 0, a: '#f4efe6' },
       { uid: 'lounger1', item: 'lounger', x: 10.8, z: -3.4, rot: 0, a: '#f4efe6' },
       { uid: 'lounger2', item: 'lounger', x: 12.6, z: -3.4, rot: 0, a: '#f4efe6' },
