@@ -138,6 +138,7 @@ import { moveTo, moveBlocker, moveCost, listingName } from './sim/moving.ts';
 import { closeSheet, fade, html, isSheetOpen, onAct, openModal, openSheet, progressBar, root, toast, wait } from './ui/dom.ts';
 import { Hud, type NavKey } from './ui/hud.ts';
 import { openBlackjack, openRocket, openRoulette, openSlots, casinoNetLine, rain, type CasinoHost } from './ui/casino.ts';
+import { openPool } from './ui/pool.ts';
 import { openPrizeCounter, playArcade } from './ui/arcade.ts';
 import { openSportsbook, settleAndTell } from './ui/sportsbook.ts';
 import { openWorkout } from './ui/workout.ts';
@@ -1500,6 +1501,13 @@ export class Game {
       case 'playRocket':
         openRocket(this.funHost());
         return true;
+      case 'playPool': {
+        // At a casino card room it's for money; at a bar it's a friendly rack.
+        const here = s.location.placeId ? PLACE_BY_ID[s.location.placeId] : null;
+        const casino = !!here && ['empireCasino', 'astoriaRoyale', 'navyYardClub', 'luckyStar'].includes(here.id);
+        openPool(this.funHost(), { stake: casino, opponent: casino ? { name: 'Hustler Vinnie', skill: 0.75 } : { name: 'Sal', skill: 0.5 } });
+        return true;
+      }
       case 'casinoCashier':
         toast(`${casinoNetLine(s)} at the casino. Cash only at the tables; the house always has an edge.`, { icon: '💵', ms: 4500 });
         return true;
