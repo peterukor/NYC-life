@@ -1451,6 +1451,8 @@ export class Game {
         this.openBottleMenu();
         return true;
       case 'chess':
+        openChessHouse(this.funHost(), 'Chess in the park');
+        return true;
       case 'playBowling':
         openBowling(this.funHost());
         return true;

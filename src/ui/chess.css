@@ -1,0 +1,202 @@
+/* =====================================================================
+   chess.css — ♟️ the Chess House and the park tables (ui/chess.ts).
+   Walnut and brass around a maple-and-walnut board; ivory and ebony
+   pieces drawn in SVG. Phone first (375 px wide), touch first.
+   ===================================================================== */
+
+.modal-wrap.chx-wrap { padding: 6px; }
+.modal.chx-modal {
+  width: min(100%, 460px);
+  max-width: 460px;
+  max-height: calc(100dvh - 12px);
+  padding: 8px 8px 10px;
+  border-color: #1a0f07;
+  background: radial-gradient(120% 60% at 50% 0%, #4a2e19, #22140b 70%);
+  box-shadow: 0 6px 0 #0d0805, 0 0 0 2px #c99a4a inset;
+  color: #f6e9d0;
+  text-align: left;
+  overscroll-behavior: contain;
+  overflow-x: hidden;
+}
+.chx { --brass: #d9aa55; --brass-hi: #ffd88a; --cream: #f6e9d0; --muted: rgba(246, 233, 208, 0.68); display: grid; gap: 8px; min-width: 0; }
+.chx-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
+.chx .btn { color: var(--ink); }
+
+/* --- head ------------------------------------------------------------ */
+.chx-head { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.chx-head-ico { font-size: 24px; }
+.chx-head h2 { flex: 1; min-width: 0; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--brass-hi); font-family: var(--display); font-weight: 400; font-size: 21px; text-shadow: 0 2px 0 rgba(0, 0, 0, 0.5); }
+.chx-cash { flex: none; padding: 3px 9px; border-radius: 999px; background: rgba(0, 0, 0, 0.35); box-shadow: inset 0 0 0 1.5px rgba(217, 170, 85, 0.5); color: var(--brass-hi); font-size: 13px; font-weight: 900; font-variant-numeric: tabular-nums; }
+.chx-x { flex: none; min-width: 36px; height: 36px; padding: 0 8px; border: 2px solid var(--brass); border-radius: 999px; background: rgba(0, 0, 0, 0.35); color: var(--brass-hi); font: inherit; font-size: 15px; font-weight: 900; }
+.chx-body { display: grid; gap: 8px; min-width: 0; }
+
+/* --- the room -------------------------------------------------------- */
+.chx-room { display: grid; gap: 8px; }
+.chx-me { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 14px; background: rgba(0, 0, 0, 0.3); box-shadow: inset 0 0 0 1.5px rgba(217, 170, 85, 0.25); }
+.chx-rating { display: grid; line-height: 1; }
+.chx-rating small { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+.chx-rating b { font-family: var(--display); font-weight: 400; font-size: 26px; color: var(--brass-hi); }
+.chx-tally { flex: 1; min-width: 0; font-size: 12px; font-weight: 700; color: var(--muted); }
+.chx-group { margin: 6px 2px 0; font-size: 12px; font-weight: 900; letter-spacing: 0.05em; text-transform: uppercase; color: var(--brass); }
+.chx-opps { display: grid; gap: 6px; }
+.chx-opp {
+  display: flex; align-items: center; gap: 10px; width: 100%; min-height: 64px; padding: 8px 10px;
+  border: 0; border-radius: 16px; background: linear-gradient(180deg, rgba(255, 240, 210, 0.1), rgba(255, 240, 210, 0.04));
+  box-shadow: inset 0 0 0 1.5px rgba(217, 170, 85, 0.28), 0 3px 0 rgba(0, 0, 0, 0.35);
+  color: var(--cream); font: inherit; text-align: left;
+  transition: transform 0.12s var(--spring), box-shadow 0.15s;
+}
+.chx-opp:active { transform: scale(0.98); }
+.chx-opp:focus-visible { outline: 3px solid var(--brass-hi); outline-offset: 2px; }
+.chx-ava { flex: none; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff6e2, #e2c79a); box-shadow: 0 0 0 2px #2a180c, 0 0 0 4px var(--brass), 0 3px 0 4px rgba(0, 0, 0, 0.35); font-size: 25px; line-height: 1; }
+.chx-ava.lg { width: 58px; height: 58px; font-size: 34px; }
+.chx-ava.you { background: radial-gradient(circle at 35% 30%, #fff6c8, #f2c94c); }
+.chx-ava.thinking { animation: chx-think 0.9s ease-in-out infinite alternate; box-shadow: 0 0 0 2px #2a180c, 0 0 0 4px var(--brass-hi), 0 0 16px 4px rgba(255, 216, 138, 0.6); }
+@keyframes chx-think { to { transform: scale(1.08) rotate(-4deg); } }
+.chx-opp-main { flex: 1; min-width: 0; display: grid; gap: 1px; }
+.chx-opp-main b { font-size: 15px; font-weight: 900; }
+.chx-opp-main small { font-size: 11.5px; font-weight: 800; color: var(--brass-hi); }
+.chx-opp-main em { font-style: normal; font-size: 11.5px; font-weight: 600; line-height: 1.3; color: var(--muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.chx-opp-rec { flex: none; display: grid; justify-items: end; gap: 2px; font-size: 11px; font-weight: 900; }
+.chx-opp-rec i { font-style: normal; }
+.chx-opp-rec .w { color: #8fe3a2; }
+.chx-opp-rec .l { color: #ffaaa0; }
+.chx-opp-rec .new { padding: 1px 6px; border-radius: 999px; background: rgba(217, 170, 85, 0.22); color: var(--brass-hi); }
+.chx-go { font-size: 22px; line-height: 1; color: var(--brass); }
+
+/* --- the table (setup) ------------------------------------------------ */
+.chx-table { display: grid; gap: 8px; }
+.chx-back { justify-self: start; min-height: 32px; padding: 0 10px; border: 0; border-radius: 999px; background: rgba(0, 0, 0, 0.3); color: var(--brass-hi); font: inherit; font-size: 13px; font-weight: 900; }
+.chx-hero { display: flex; align-items: center; gap: 12px; }
+.chx-hero b { display: block; font-family: var(--display); font-weight: 400; font-size: 22px; color: var(--cream); }
+.chx-hero small { font-size: 12px; font-weight: 800; color: var(--brass-hi); }
+.chx .chx-quote { margin: 0; padding: 8px 12px; border-radius: 14px 14px 14px 4px; background: #fff7e6; color: #3a2614; font-size: 14px; font-weight: 700; font-style: italic; }
+.chx-lbl { margin: 4px 2px -4px; font-size: 11px; font-weight: 900; letter-spacing: 0.06em; text-transform: uppercase; color: var(--brass); }
+.chx-seg { display: flex; gap: 4px; padding: 3px; border-radius: 14px; background: rgba(0, 0, 0, 0.35); }
+.chx-seg button { flex: 1; min-width: 0; min-height: 42px; padding: 0 4px; border: 0; border-radius: 11px; background: transparent; color: var(--muted); font: inherit; font-size: 12.5px; font-weight: 900; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chx-seg button.on { background: linear-gradient(#ffe4a8, #e6b65d); color: #2a180c; box-shadow: 0 2px 0 rgba(0, 0, 0, 0.45); }
+.chx-stakes { display: flex; flex-wrap: wrap; gap: 6px; }
+.chx-stake { min-height: 42px; padding: 0 14px; border: 2px solid rgba(217, 170, 85, 0.45); border-radius: 999px; background: rgba(0, 0, 0, 0.3); color: var(--cream); font: inherit; font-size: 14px; font-weight: 900; }
+.chx-stake.on { border-color: var(--brass-hi); background: linear-gradient(#ffe4a8, #e6b65d); color: #2a180c; }
+.chx-stake:disabled { opacity: 0.4; }
+.chx .chx-help { margin: 0; font-size: 12.5px; font-weight: 700; line-height: 1.4; color: var(--muted); }
+.chx-play { min-height: 52px; margin-top: 4px; }
+
+/* --- the game -------------------------------------------------------- */
+.chx-game { display: grid; gap: 6px; min-width: 0; }
+.chx-player { display: flex; align-items: center; gap: 8px; min-width: 0; min-height: 44px; padding: 3px 4px; border-radius: 12px; transition: background 0.2s; }
+.chx-player .chx-ava { width: 34px; height: 34px; font-size: 19px; box-shadow: 0 0 0 2px #2a180c, 0 0 0 3px var(--brass); }
+.chx-player.turn { background: rgba(255, 216, 138, 0.1); }
+.chx-pname { flex: 1; min-width: 0; display: grid; gap: 1px; }
+.chx-pname b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; font-weight: 900; }
+.chx-tray { display: flex; align-items: center; min-height: 15px; overflow: hidden; }
+.chx-tray .chx-art.mini { width: 15px; height: 15px; margin-right: -4px; filter: none; }
+.chx-tray em { margin-left: 8px; font-style: normal; font-size: 11px; font-weight: 900; color: var(--muted); }
+.chx-clock {
+  flex: none; min-width: 74px; padding: 5px 10px; border-radius: 10px; background: rgba(0, 0, 0, 0.45);
+  color: rgba(246, 233, 208, 0.55); font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 19px; font-weight: 800; text-align: right; font-variant-numeric: tabular-nums;
+  transition: background 0.2s, color 0.2s;
+}
+.chx-clock.off { min-width: 0; font-family: inherit; font-size: 15px; }
+.chx-clock.run { background: #f6e9d0; color: #22140b; box-shadow: 0 0 0 2px var(--brass-hi); }
+.chx-clock.run.low { background: #ffb4a8; color: #5c0e0e; animation: chx-low 1s steps(2) infinite; }
+@keyframes chx-low { 50% { box-shadow: 0 0 0 2px #ff5a4a; } }
+.chx-say { min-height: 30px; display: flex; align-items: center; }
+.chx-say span { position: relative; max-width: 100%; padding: 5px 11px; border-radius: 4px 14px 14px 14px; background: #fff7e6; color: #3a2614; font-size: 13px; font-weight: 700; font-style: italic; line-height: 1.3; }
+.chx-say.pop span { animation: chx-say 0.32s var(--spring); }
+@keyframes chx-say { from { transform: scale(0.85) translateY(-4px); opacity: 0; } }
+
+/* The board: a walnut frame with a brass line around maple and walnut squares. */
+.chx-board-wrap { position: relative; padding: 7px; border-radius: 12px; background: linear-gradient(145deg, #5b371c, #2c1a0d); box-shadow: inset 0 0 0 1.5px #8a5a2c, 0 0 0 1.5px #120a04, 0 8px 18px rgba(0, 0, 0, 0.5); }
+.chx-board {
+  position: relative; width: 100%; aspect-ratio: 1; border-radius: 3px; overflow: hidden;
+  box-shadow: 0 0 0 1.5px var(--brass);
+  touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent;
+}
+.chx-squares { position: absolute; inset: 0; display: grid; grid-template-columns: repeat(8, 1fr); grid-template-rows: repeat(8, 1fr); }
+.chx-squares::after { /* wood grain over everything */
+  content: ''; position: absolute; inset: 0; pointer-events: none; mix-blend-mode: multiply; opacity: 0.55;
+  background:
+    repeating-linear-gradient(97deg, rgba(120, 70, 30, 0.07) 0 2px, transparent 2px 7px),
+    repeating-linear-gradient(83deg, rgba(90, 50, 20, 0.05) 0 1px, transparent 1px 11px);
+}
+.chx-sq { position: relative; }
+.chx-sq.l { background: linear-gradient(135deg, #f0d9b0, #e4c590); }
+.chx-sq.d { background: linear-gradient(135deg, #b47a46, #9a6236); }
+.chx-sq.last::before { content: ''; position: absolute; inset: 0; background: rgba(255, 214, 64, 0.42); }
+.chx-sq.sel::before { content: ''; position: absolute; inset: 0; background: rgba(120, 200, 90, 0.55); }
+.chx-sq.check::before { content: ''; position: absolute; inset: 0; background: radial-gradient(circle, rgba(255, 40, 30, 0.95) 0, rgba(230, 30, 30, 0.55) 40%, transparent 72%); animation: chx-check 1.1s ease-in-out infinite alternate; }
+@keyframes chx-check { to { opacity: 0.6; } }
+.chx-sq.mv::after { content: ''; position: absolute; left: 50%; top: 50%; width: 30%; height: 30%; border-radius: 50%; transform: translate(-50%, -50%); background: rgba(40, 24, 10, 0.32); }
+.chx-sq.cap::after { content: ''; position: absolute; inset: 3%; border-radius: 50%; box-shadow: inset 0 0 0 4px rgba(40, 24, 10, 0.34); }
+.chx-sq.hover::after { content: ''; position: absolute; inset: 0; width: auto; height: auto; transform: none; border-radius: 0; background: rgba(255, 255, 255, 0.28); box-shadow: inset 0 0 0 3px rgba(255, 255, 255, 0.75); }
+.chx-rank, .chx-file { position: absolute; z-index: 1; font-style: normal; font-size: 9px; font-weight: 900; line-height: 1; pointer-events: none; }
+.chx-rank { left: 2px; top: 2px; }
+.chx-file { right: 2px; bottom: 1px; }
+.chx-sq.l .chx-rank, .chx-sq.l .chx-file { color: #9a6236; }
+.chx-sq.d .chx-rank, .chx-sq.d .chx-file { color: #f0d9b0; }
+
+.chx-pieces { position: absolute; inset: 0; pointer-events: none; }
+.chx-pc { position: absolute; left: 0; top: 0; width: 12.5%; height: 12.5%; will-change: transform; }
+.chx-pc.slide { transition: transform 0.2s cubic-bezier(0.25, 0.9, 0.35, 1.06); }
+.chx-pc.top { z-index: 2; }
+.chx-pc.drag { z-index: 3; transition: none; }
+.chx-pc.drag .chx-art { filter: drop-shadow(0 8px 6px rgba(0, 0, 0, 0.45)); }
+.chx-pc.gone { animation: chx-gone 0.25s ease-in forwards; }
+@keyframes chx-gone { to { opacity: 0; transform: var(--t, none) scale(0.4); } }
+.chx-art { display: block; width: 100%; height: 100%; filter: drop-shadow(0 2px 1.4px rgba(0, 0, 0, 0.45)); }
+.chx-art.pop { animation: chx-pop 0.35s var(--spring); }
+@keyframes chx-pop { from { transform: scale(0.5); } }
+.chx-art.w { --pf: url(#chx-gw); --ps: #2a1d12; --pd: #2a1d12; --pdo: 1; --pe: #2a1d12; }
+.chx-art.b { --pf: url(#chx-gb); --ps: #0d0906; --pd: #cdb894; --pdo: 0.8; --pe: #e8d7b5; }
+/* The art lives in <symbol>s: rules match there, colours inherit through <use>. */
+.chx-defs .f { fill: var(--pf); stroke: var(--ps); stroke-width: 1.4; stroke-linejoin: round; }
+.chx-defs .d { fill: none; stroke: var(--pd); stroke-width: 1.2; stroke-linecap: round; opacity: var(--pdo); }
+.chx-defs .e { fill: var(--pe); }
+
+/* Overlays on the board: the promotion picker and the end card. */
+.chx-overlay { position: absolute; inset: 7px; z-index: 5; border-radius: 3px; }
+.chx-overlay[hidden] { display: none; }
+.chx-overlay.promo { background: rgba(20, 12, 6, 0.45); animation: fadeIn 0.15s; }
+.chx-promo { position: absolute; top: 0; left: calc(var(--col) * 12.5%); width: 12.5%; display: grid; gap: 2px; padding: 2px 0; border-radius: 0 0 10px 10px; background: #fff7e6; box-shadow: 0 0 0 2px var(--brass), 0 10px 22px rgba(0, 0, 0, 0.5); animation: chx-drop 0.22s var(--spring); }
+.chx-promo button { display: block; width: 100%; aspect-ratio: 1; padding: 6%; border: 0; border-radius: 50%; background: radial-gradient(circle, #f3e1bd, #d7b98a); }
+.chx-promo button:active { transform: scale(0.92); }
+.chx-promo .chx-promo-x { aspect-ratio: auto; min-height: 30px; border-radius: 8px; background: transparent; color: #6b4a2c; font: inherit; font-size: 15px; font-weight: 900; }
+@keyframes chx-drop { from { transform: translateY(-20px); opacity: 0; } }
+.chx-overlay.end { display: grid; place-items: center; padding: 12px; background: rgba(20, 12, 6, 0.55); animation: fadeIn 0.3s; }
+.chx-end { display: grid; gap: 4px; justify-items: center; width: min(100%, 300px); padding: 16px 14px 14px; border-radius: 18px; background: #fff7e6; color: #2a180c; text-align: center; box-shadow: 0 0 0 3px var(--brass), 0 12px 30px rgba(0, 0, 0, 0.55); animation: pop 0.42s var(--spring); }
+.chx-end > b { font-family: var(--display); font-weight: 400; font-size: 23px; line-height: 1.1; }
+.chx-overlay.win .chx-end > b { color: #a8740a; }
+.chx-end small { font-size: 12.5px; font-weight: 800; color: #7b5a3a; }
+.chx .chx-end p { margin: 6px 0 4px; color: #3a2614; font-size: 13.5px; font-weight: 700; line-height: 1.4; }
+.chx-delta { display: inline-block; padding: 0 6px; border-radius: 999px; font-size: 12px; font-weight: 900; white-space: nowrap; }
+.chx-delta.up { background: #c9f2d2; color: #14662d; }
+.chx-delta.down { background: #ffd9d3; color: #8a1d12; }
+.chx-end-btns { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin-top: 4px; }
+.chx-end-btns .btn { min-height: 42px; padding: 0 12px; font-size: 14px; }
+
+.chx-status { min-height: 20px; padding: 0 4px; font-size: 13.5px; font-weight: 800; color: var(--cream); }
+.chx-status.good b { color: #8fe3a2; }
+.chx-status.bad b { color: #ffaaa0; }
+.chx-dots::after { content: '…'; display: inline-block; width: 1.2em; animation: chx-dots 1.2s steps(4) infinite; overflow: hidden; vertical-align: bottom; white-space: nowrap; }
+@keyframes chx-dots { from { width: 0; } to { width: 1.2em; } }
+.chx-moves { display: flex; gap: 10px; margin: 0; padding: 6px 8px; min-height: 32px; list-style: none; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; border-radius: 10px; background: rgba(0, 0, 0, 0.32); font-size: 13px; font-weight: 800; white-space: nowrap; }
+.chx-moves::-webkit-scrollbar { display: none; }
+.chx-moves li { display: flex; gap: 5px; }
+.chx-moves .n { color: var(--muted); font-weight: 700; }
+.chx-moves .cur { padding: 0 4px; border-radius: 5px; background: var(--brass); color: #22140b; }
+.chx-moves .empty { color: var(--muted); font-weight: 700; }
+.chx-actions { display: flex; gap: 6px; }
+.chx-act { flex: 1; min-width: 0; min-height: 44px; padding: 0 6px; font-size: 14px; white-space: nowrap; }
+.chx-act:disabled { opacity: 0.45; }
+.chx-act.armed { background: #c1272d; color: #fff; }
+
+@media (max-height: 700px) {
+  .chx-say { min-height: 24px; }
+  .chx-say span { padding: 3px 9px; font-size: 12px; }
+  .chx-player { min-height: 38px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .chx-pc.slide { transition: none; }
+  .chx-ava.thinking, .chx-sq.check::before { animation: none; }
+}

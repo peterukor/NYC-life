@@ -10,6 +10,8 @@
 //
 // In person only (Peter, 2026-10-15: perks for going outside): there's
 // no chess on the phone; the house is where the money is.
+// The record is saved as-is (s.chess): new opponents just add keys to
+// wins / losses, so older saves load unchanged.
 // =====================================================================
 
 import { changeMoney } from './economy.ts';
@@ -74,7 +76,7 @@ export function settleChess(s: GameState, opp: Opponent, stake: number, outcome:
     rec.bestWin = Math.max(rec.bestWin, stake);
   }
   const upset = opp.rating - rec.rating + delta;
-  const rep = opp.id === 'gloria' ? 25 : opp.id === 'eddie' ? 8 : upset > 0 ? 3 : 0;
+  const rep = opp.id === 'gloria' ? 25 : opp.id === 'tanya' ? 12 : opp.id === 'eddie' ? 8 : upset > 0 ? 3 : 0;
   if (rep) changeRep(s, 'street', rep);
   addMoodlet(s, { id: 'chessWin', label: `Beat ${opp.name} at chess`, emoji: '♟️', value: opp.id === 'gloria' ? 25 : 10, minutes: 60 * 6 });
   if (opp.id === 'gloria') postNews(s, { scope: 'city', emoji: '♟️', headline: `${s.profile.name} beat Grandmaster Gloria at the Chess House`, personal: true });
