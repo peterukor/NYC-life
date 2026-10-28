@@ -142,7 +142,7 @@ import { openPool } from './ui/pool.ts';
 import { openBaccarat, openBigSix, openCraps, openKeno, openPlinko, openPoker, openScratch, openVideoPoker } from './ui/casino-games.ts';
 import { openPrizeCounter, playArcade } from './ui/arcade.ts';
 import { openSportsbook, settleAndTell } from './ui/sportsbook.ts';
-import { openWorkout } from './ui/workout.ts';
+import { openGymGame } from './ui/gym-games.ts';
 import { activeSection, buySection, endSectionIfOver, extendSection, friendSlots, inviteFriend, inviteList, nextSeatIn, SECTION } from './sim/section.ts';
 import { SectionCrew } from './world/section-crew.ts';
 import { Buddy } from './world/buddy.ts';
@@ -1556,8 +1556,18 @@ export class Game {
       case 'sportsbook':
         openSportsbook(this.funHost());
         return true;
+      case 'playBench':
+      case 'playTreadmill':
+      case 'playBag':
+      case 'playRope':
+      case 'playSpin':
+      case 'playRow':
+      case 'playYoga':
+        openGymGame(this.funHost(), id.slice(4).toLowerCase());
+        return true;
       case 'trainHard':
-        openWorkout(s, 'Train hard', () => this.funHost().saved());
+        // Old saves' "Train hard" is the bench press now (ui/gym-games.ts).
+        openGymGame(this.funHost(), 'bench');
         return true;
       case 'dateHere':
         this.openPhoneApp('contacts');

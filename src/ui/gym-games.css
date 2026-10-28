@@ -1,0 +1,61 @@
+/* =====================================================================
+   gym-games.css — the gym mini-games frame (ui/gym-games.ts).
+   Dark gym screen in a paper modal; each game sets --gg (its colour).
+   ===================================================================== */
+
+.modal.gg-modal { position: relative; overflow-x: hidden; overflow-y: auto; max-height: calc(100dvh - 24px); padding: 12px 10px 10px; max-width: 420px; overscroll-behavior: contain; }
+.gg { --gg: #ffb703; display: grid; gap: 8px; min-width: 0; }
+
+.gg-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; min-width: 0; padding: 8px 12px; border: var(--line-thin); border-radius: 14px; background: var(--gg); color: #fff; box-shadow: inset 0 -4px 0 #0003, var(--drop-sm); }
+.gg-top b { font-family: var(--display); font-weight: 400; font-size: 19px; letter-spacing: 0.01em; white-space: nowrap; text-shadow: 0 2px 0 #0005; }
+.gg-hud { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 900; font-variant-numeric: tabular-nums; padding: 3px 9px; border-radius: 999px; background: #0004; }
+.gg-hud:empty { display: none; }
+
+.gg-screen { position: relative; border: 4px solid var(--ink); border-radius: 18px; overflow: hidden; background: #141a33; box-shadow: 0 0 0 3px var(--gg) inset, var(--drop); touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+.gg-screen canvas { display: block; width: 100%; height: auto; aspect-ratio: 3 / 4; max-height: 60dvh; margin: 0 auto; object-fit: contain; }
+
+/* Intro and end cards over the canvas. */
+.gg-over { position: absolute; inset: 0; display: grid; place-items: center; padding: 12px; background: linear-gradient(180deg, #0b0e1ccc, #0b0e1cee); overflow-y: auto; }
+.gg-over[hidden] { display: none; }
+.gg-card { width: 100%; max-width: 300px; display: grid; justify-items: center; gap: 8px; color: #fff; text-align: center; animation: gg-in 0.38s var(--spring) both; }
+.gg-card h3 { margin: 0; font-family: var(--display); font-weight: 400; font-size: 26px; line-height: 1.05; color: #fff; text-shadow: 0 3px 0 #0008; }
+.gg-card p { margin: 0; font-size: 14px; font-weight: 700; line-height: 1.4; color: #dfe4f2; }
+.gg-emoji { width: 74px; height: 74px; display: grid; place-items: center; border: 3px solid var(--ink); border-radius: 50%; background: var(--gg); box-shadow: 0 4px 0 var(--ink), 0 0 30px var(--gg); font-size: 40px; line-height: 1; }
+.gg-chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+.gg-chips span { padding: 3px 10px; border-radius: 999px; background: #ffffff1c; border: 1px solid #ffffff33; font-size: 12px; font-weight: 800; white-space: nowrap; }
+.gg-warn { padding: 6px 10px; border-radius: 12px; background: #ffb70322; border: 1px solid #ffb70366; color: #ffe2a0 !important; font-size: 12px !important; }
+.gg-card .btn.primary { background: var(--gg); color: #fff; text-shadow: 0 2px 0 #0006; }
+.gg-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; width: 100%; margin-top: 4px; }
+.gg-btns .btn { padding: 0 10px; }
+.gg-card .btn.ghost { color: var(--ink); }
+
+.gg-score { font-family: var(--display); font-size: 54px !important; line-height: 1 !important; color: #ffd23f !important; text-shadow: 0 4px 0 #0009; font-variant-numeric: tabular-nums; }
+.gg-stars { display: flex; gap: 6px; font-size: 30px; }
+.gg-stars i { font-style: normal; filter: grayscale(1) brightness(0.45); opacity: 0.6; }
+.gg-stars i.on { filter: none; opacity: 1; animation: gg-star 0.5s calc(0.25s + var(--i) * 0.18s) var(--spring) both; }
+.gg-gains { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+.gg-gain, .gg-pump { padding: 4px 12px; border-radius: 999px; font-size: 14px; font-weight: 900; border: 2px solid var(--ink); box-shadow: 0 2px 0 var(--ink); }
+.gg-gain { background: #43d17a; color: var(--ink); }
+.gg-pump { background: #ff4fa3; color: #fff; }
+
+/* 3-2-1 count-in. */
+.gg-count { position: absolute; inset: 0; display: grid; place-items: center; background: #0b0e1c66; pointer-events: none; }
+.gg-count[hidden] { display: none; }
+.gg-count span { font-family: var(--display); font-size: 96px; color: #fff; -webkit-text-stroke: 4px var(--ink); paint-order: stroke fill; text-shadow: 0 6px 0 var(--ink); animation: gg-count 0.5s var(--spring) both; }
+.gg-count span.go { color: var(--gg); font-size: 80px; }
+
+/* Coach. */
+.gg-coach { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 6px 12px; border: var(--line-thin); border-radius: 14px; background: var(--paper-2); text-align: left; }
+.gg-coach span { font-size: 24px; line-height: 1; }
+.gg-coach em { font-style: normal; font-size: 14px; font-weight: 800; color: var(--ink); line-height: 1.3; }
+.gg-coach.talk span { animation: gg-nod 0.4s ease-out; }
+
+@keyframes gg-in { from { opacity: 0; transform: translateY(12px) scale(0.94); } to { opacity: 1; transform: none; } }
+@keyframes gg-star { from { transform: scale(0) rotate(-40deg); } to { transform: none; } }
+@keyframes gg-count { from { transform: scale(2.2); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@keyframes gg-nod { 30% { transform: rotate(-12deg) translateY(-2px); } 70% { transform: rotate(8deg); } }
+
+@media (max-height: 700px) { .gg-screen canvas { max-height: 54dvh; } .gg-card p { font-size: 13px; } }
+@media (prefers-reduced-motion: reduce) {
+  .gg-card, .gg-stars i.on, .gg-count span, .gg-coach.talk span { animation: none !important; }
+}
