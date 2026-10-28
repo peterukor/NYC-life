@@ -38,6 +38,20 @@ function tube(t: Toy, pts: [number, number, number][], r: number, color: string,
   t.add(new THREE.TubeGeometry(curve, Math.max(8, pts.length * 6), r, 6, closed), color);
 }
 
+/** An 8 × 8 LED dance floor in a palette and a pattern. */
+function ledFloor(t: Toy, cols: string[], pattern: 'mix' | 'checker' | 'stripes' | 'rings'): void {
+  t.block(4.1, 0.08, 4.1, 0, 0, 0, '#15121c', 0.05);
+  t.inSlot(3, () => {
+    for (let i = 0; i < 8; i++) for (let j = 0; j < 8; j++) {
+      const k = pattern === 'checker' ? (i + j) % 2 + ((i >> 1) + (j >> 1)) % 2 * 2
+        : pattern === 'stripes' ? (i + j) % cols.length
+        : pattern === 'rings' ? Math.max(Math.abs(i - 3.5), Math.abs(j - 3.5)) | 0
+        : i * 3 + j * 5 + ((i * j) % 4);
+      t.add(new THREE.BoxGeometry(0.44, 0.02, 0.44).translate(-1.75 + i * 0.5, 0.09, -1.75 + j * 0.5), cols[k % cols.length]);
+    }
+  });
+}
+
 export const DECO_TOYS: Record<string, (t: Toy) => void> = {
   // ================================================================ lights
   /** A 2 m LED strip in a slim channel: lights the wall behind it. */
@@ -246,14 +260,14 @@ export const DECO_TOYS: Record<string, (t: Toy) => void> = {
   // ================================================================ venues (2026-10-27: "real and lively")
   /** A 4 × 4 m LED dance floor: 64 glass tiles that flash (pulse: disco). */
   decoLedFloor(t) {
-    t.block(4.1, 0.08, 4.1, 0, 0, 0, '#15121c', 0.05);
-    const cols = ['#ff3fb4', '#22d3ee', '#9b5cff', '#ffd36b', '#3ddc84', '#ff6a3d'];
-    t.inSlot(3, () => {
-      for (let i = 0; i < 8; i++) for (let j = 0; j < 8; j++) {
-        t.add(new THREE.BoxGeometry(0.44, 0.02, 0.44).translate(-1.75 + i * 0.5, 0.09, -1.75 + j * 0.5), cols[(i * 3 + j * 5 + ((i * j) % 4)) % cols.length]);
-      }
-    });
+    ledFloor(t, ['#ff3fb4', '#22d3ee', '#9b5cff', '#ffd36b', '#3ddc84', '#ff6a3d'], 'mix');
   },
+  // Each club's own floor (Peter, 2026-10-27: "they should all look different").
+  decoLedFloorGold(t) { ledFloor(t, ['#ffd36b', '#fff4d6', '#ffb347', '#ffe08a'], 'checker'); },
+  decoLedFloorNeon(t) { ledFloor(t, ['#3dff6e', '#22d3ee', '#b6ff3d', '#00ffc8'], 'stripes'); },
+  decoLedFloorVelvet(t) { ledFloor(t, ['#ff3fb4', '#9b5cff', '#c77dff', '#ff8fd8'], 'rings'); },
+  decoLedFloorRedBlue(t) { ledFloor(t, ['#ff2a5c', '#3d8bff', '#ff2a5c', '#ffffff'], 'checker'); },
+  decoLedFloorSunset(t) { ledFloor(t, ['#ff8fab', '#ffd36b', '#ff6a3d', '#ffb3c6'], 'rings'); },
   /** A 4.4 m bar counter: marble top, a glowing front panel, foot rail (pulse: breathe). */
   decoLedBar(t) {
     const W = 4.4;
@@ -463,6 +477,73 @@ export const DECO_TOYS: Record<string, (t: Toy) => void> = {
       }
       t.block(W + 0.09, 0.05, 0.05, 0, 0.95, -L / 2, WHITE, 0.01);
     });
+  },
+  // ================================================================ club staging (Peter, 2026-10-27: "add poles… make this fire")
+  /** A round pole podium: mirrored top, a glowing rim, a chrome pole up to the ceiling. Dancers only. */
+  decoPolePodium(t) {
+    const R = 0.95, H = 0.42;
+    t.cyl(R, R + 0.05, H, 0, 0, 0, '#141218', 40);
+    t.inSlot(3, () => {
+      t.add(new THREE.TorusGeometry(R + 0.01, 0.03, 6, 48).rotateX(Math.PI / 2).translate(0, H - 0.02, 0), WHITE);
+      t.add(new THREE.TorusGeometry(R + 0.06, 0.025, 6, 48).rotateX(Math.PI / 2).translate(0, 0.06, 0), WHITE);
+    });
+    t.inSlot(2, () => t.add(new THREE.CircleGeometry(R - 0.02, 40).rotateX(-Math.PI / 2).translate(0, H + 0.005, 0), WHITE));
+    t.cyl(0.045, 0.045, 3.2, 0, H, 0, '#e8ecf2', 12);
+    t.cyl(0.09, 0.09, 0.05, 0, H, 0, '#c0c4ca', 16);
+  },
+  /** A cage pole: a square podium inside a black steel cage, LED strips on the corners. */
+  decoCagePole(t) {
+    const W = 1.7, H = 0.45, C = 2.6;
+    t.block(W, H, W, 0, 0, 0, '#141218', 0.03);
+    t.inSlot(3, () => {
+      t.block(W + 0.02, 0.03, 0.03, 0, H - 0.03, W / 2, WHITE, 0.01);
+      t.block(W + 0.02, 0.03, 0.03, 0, H - 0.03, -W / 2, WHITE, 0.01);
+      t.block(0.03, 0.03, W, W / 2, H - 0.03, 0, WHITE, 0.01);
+      t.block(0.03, 0.03, W, -W / 2, H - 0.03, 0, WHITE, 0.01);
+      for (const [x, z] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) t.block(0.04, C, 0.04, (x * W) / 2, H, (z * W) / 2, WHITE, 0.01);
+    });
+    t.inSlot(2, () => {
+      for (let i = 1; i < 6; i++) {
+        const f = -W / 2 + (i * W) / 6;
+        t.cyl(0.012, 0.012, C, f, H, -W / 2, WHITE, 4);
+        t.cyl(0.012, 0.012, C, -W / 2, H, f, WHITE, 4);
+        t.cyl(0.012, 0.012, C, W / 2, H, f, WHITE, 4);
+      }
+      t.block(W, 0.06, 0.06, 0, H + C, W / 2, WHITE, 0.01); t.block(W, 0.06, 0.06, 0, H + C, -W / 2, WHITE, 0.01);
+      t.block(0.06, 0.06, W, W / 2, H + C, 0, WHITE, 0.01); t.block(0.06, 0.06, W, -W / 2, H + C, 0, WHITE, 0.01);
+    });
+    t.cyl(0.045, 0.045, C, 0, H, 0, '#e8ecf2', 12);
+  },
+  /** A tall speaker stack (two cabinets and a horn on top). */
+  decoSpeakerStack(t) {
+    for (const [y, h] of [[0, 0.9], [0.92, 0.9]] as const) {
+      t.block(0.9, h, 0.7, 0, y, 0, '#18191d', 0.03);
+      for (const dy of [0.25, 0.62]) {
+        t.add(new THREE.CircleGeometry(0.2, 20).translate(0, y + dy, 0.352), '#2b2d33');
+        t.add(new THREE.CircleGeometry(0.08, 14).translate(0, y + dy, 0.354), '#0d0e10');
+      }
+    }
+    t.block(0.7, 0.3, 0.6, 0, 1.84, 0, '#18191d', 0.03);
+    t.inSlot(3, () => t.block(0.9, 0.02, 0.02, 0, 0.02, 0.36, WHITE, 0.01));
+  },
+  /** A champagne tower on a round table: stacked coupes glowing gold, sparklers on top. */
+  decoChampagneTower(t) {
+    t.cyl(0.05, 0.25, 0.85, 0, 0, 0, '#1d1e22', 12);
+    t.inSlot(2, () => t.cyl(0.55, 0.55, 0.04, 0, 0.85, 0, WHITE, 28));
+    const levels = [[5, 0.34], [4, 0.24], [3, 0.14], [1, 0]] as const;
+    let y = 0.89;
+    for (const [n, r] of levels) {
+      const k = n === 1 ? 1 : n * 2;
+      for (let i = 0; i < k; i++) {
+        const a = (i / k) * Math.PI * 2;
+        t.inSlot(3, () => t.cyl(0.05, 0.02, 0.08, Math.cos(a) * r, y, Math.sin(a) * r, WHITE, 8));
+      }
+      y += 0.09;
+    }
+    for (const sx of [-0.08, 0.08]) {
+      t.cyl(0.005, 0.005, 0.25, sx, y, 0, '#c0c4ca', 4);
+      t.inSlot(3, () => t.sphere(0.035, sx, y + 0.27, 0, WHITE));
+    }
   },
   /** A live stage: a platform with a glowing edge, drum kit, mic stand, two speakers. */
   decoLiveStage(t) {

@@ -15,8 +15,12 @@ import { WORKPLACE_LAYOUT_FOR, WORKPLACE_LAYOUTS as VENUE_LAYOUTS } from '../src
 
 const life = () => newLife({ name: 'Jack', birthYear: 1995, origin: 'hustler', spawnClass: 'middle', look: {} as never, traits: [] } as never);
 
-test('four clubs, one per tier, each a real place with its own room', () => {
-  assert.deepEqual(CLUBS.map((c) => c.tier), [1, 2, 3, 4]);
+test('five clubs: a three-step ladder and two 24/7 clubs, each a real place with its own room', () => {
+  assert.deepEqual(CLUBS.filter((c) => !c.allDay).map((c) => c.tier), [1, 2, 4]);
+  assert.equal(CLUBS.filter((c) => c.allDay).length, 2);
+  // Spread over the boroughs, every club its own room.
+  assert.ok(new Set(CLUBS.map((c) => PLACE_BY_ID[c.placeId].area)).size >= 4);
+  assert.equal(new Set(CLUBS.map((c) => WORKPLACE_LAYOUT_FOR[c.placeId])).size, CLUBS.length);
   for (const c of CLUBS) {
     const p = PLACE_BY_ID[c.placeId];
     assert.ok(p && p.interior === 'club' && p.actions.includes('mingle'), c.placeId);
@@ -24,8 +28,9 @@ test('four clubs, one per tier, each a real place with its own room', () => {
     assert.ok(layout, `${c.placeId} has a room`);
   }
   // Bigger clubs: bigger rooms, more people, bigger shows, more rep, more drops.
-  for (let i = 1; i < CLUBS.length; i++) {
-    const a = CLUBS[i - 1], b = CLUBS[i];
+  const ladder = CLUBS.filter((c) => !c.allDay);
+  for (let i = 1; i < ladder.length; i++) {
+    const a = ladder[i - 1], b = ladder[i];
     const la = VENUE_LAYOUTS[WORKPLACE_LAYOUT_FOR[a.placeId]], lb = VENUE_LAYOUTS[WORKPLACE_LAYOUT_FOR[b.placeId]];
     assert.ok(lb.width * lb.depth > la.width * la.depth && (lb.life?.visitors ?? 0) > (la.life?.visitors ?? 0), `${b.placeId} bigger`);
     assert.ok(b.show > a.show && b.rep > a.rep && b.dropEvery < a.dropEvery && b.connectChance > a.connectChance && b.cover > a.cover);
@@ -40,10 +45,14 @@ test('the door: rep or cool gets you in; the basement lets everyone in', () => {
   assert.ok(!v.ok && v.bribe && /Seen Around/.test(v.why));
   s.rep = { street: 60, corporate: 0 }; // Seen Around
   assert.equal(doorCheck(s, CLUB_BY_PLACE.velvetRoom).ok, true);
-  assert.equal(doorCheck(s, CLUB_BY_PLACE.skyeRooftop).ok, false);
+  // The 24/7 clubs let everyone in.
+  assert.equal(doorCheck(life(), CLUB_BY_PLACE.skyeRooftop).ok, true);
+  assert.equal(doorCheck(life(), CLUB_BY_PLACE.warehouseRave).ok, true);
   // The promoter gets you one level past your rep, but not into members-only.
+  const fresh = life();
+  fresh.connections = ['promoter'];
+  assert.deepEqual(doorCheck(fresh, CLUB_BY_PLACE.velvetRoom), { ok: true, how: 'promoter' });
   s.connections = ['promoter'];
-  assert.deepEqual(doorCheck(s, CLUB_BY_PLACE.skyeRooftop), { ok: true, how: 'promoter' });
   const a = doorCheck(s, CLUB_BY_PLACE.aurumClub);
   assert.ok(!a.ok && a.bribe === null, 'no bribing members-only');
   s.rep.street = 1_000; // Club Royalty

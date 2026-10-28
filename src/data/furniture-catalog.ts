@@ -155,6 +155,11 @@ export function CATALOG(cook: string[]): FurnitureDef[] {
     piece('neonNyc', 'Neon NYC sign', '🗽', 38_000, 'lights', one('decoNeonNyc', { y: 1.55 }), { wall: true, ...lamp('strip', 1.8, 2.8, 1.2, { color: '#22d3c5', colorful: true }) }),
     // Venues (2026-10-27): the party pieces. Some also sell at home (an LED floor in your living room, why not).
     piece('ledDanceFloor', 'LED dance floor', '🪩', 450_000, 'decor', 'decoLedFloor', { flat: true, pulse: 'disco', actions: ['dancefloor'], light: L('floor', 0.3, 5.5, 1.6, { color: '#ff4fd8', colorful: true }), pitch: 'Every tile lights up on the beat.' }),
+    piece('ledFloorGold', 'Gold LED floor', '🪩', 450_000, 'decor', 'decoLedFloorGold', { flat: true, pulse: 'disco', actions: ['dancefloor'], light: L('floor', 0.3, 5.5, 1.6, { color: '#ffd36b', colorful: true }) }),
+    piece('ledFloorNeon', 'Neon LED floor', '🪩', 450_000, 'decor', 'decoLedFloorNeon', { flat: true, pulse: 'disco', actions: ['dancefloor'], light: L('floor', 0.3, 5.5, 1.6, { color: '#3dff6e', colorful: true }) }),
+    piece('ledFloorVelvet', 'Velvet LED floor', '🪩', 450_000, 'decor', 'decoLedFloorVelvet', { flat: true, pulse: 'disco', actions: ['dancefloor'], light: L('floor', 0.3, 5.5, 1.6, { color: '#ff3fb4', colorful: true }) }),
+    piece('ledFloorRedBlue', 'Red & blue LED floor', '🪩', 450_000, 'decor', 'decoLedFloorRedBlue', { flat: true, pulse: 'disco', actions: ['dancefloor'], light: L('floor', 0.3, 5.5, 1.6, { color: '#ff2a5c', colorful: true }) }),
+    piece('ledFloorSunset', 'Sunset LED floor', '🪩', 450_000, 'decor', 'decoLedFloorSunset', { flat: true, pulse: 'disco', actions: ['dancefloor'], light: L('floor', 0.3, 5.5, 1.6, { color: '#ff8fab', colorful: true }) }),
     piece('ledBar', 'Bar', '🍸', 0, 'decor', [{ model: 'decoLedBar' }, { model: 'stoolBar', x: -1.6, z: 0.75 }, { model: 'stoolBar', x: -0.5, z: 0.75 }, { model: 'stoolBar', x: 0.6, z: 0.75 }, { model: 'stoolBar', x: 1.7, z: 0.75 }], { pulse: 'breathe', placeActions: true, fixed: true, colors: { a: '#1d1f24', b: '#efe9dd' } }),
     piece('ledBarPlain', 'Bar', '🍸', 0, 'decor', [{ model: 'decoLedBar' }, { model: 'stoolBar', x: -1.6, z: 0.75 }, { model: 'stoolBar', x: -0.5, z: 0.75 }, { model: 'stoolBar', x: 0.6, z: 0.75 }, { model: 'stoolBar', x: 1.7, z: 0.75 }], { pulse: 'breathe', actions: ['happyHour', 'dateHere'], fixed: true, colors: { a: '#1d1f24', b: '#efe9dd' } }),
     piece('bottleShelf', 'Back bar', '🍾', 0, 'decor', one('decoBottleShelf', { y: 0.9 }), { wall: true, fixed: true, pulse: 'steady', colors: { b: '#c9a24a' } }),
@@ -163,6 +168,11 @@ export function CATALOG(cook: string[]): FurnitureDef[] {
     piece('loungeSet', 'Lounge table', '🥂', 0, 'decor', 'decoLoungeSet', { fixed: true, actions: ['happyHour', 'dateHere'], colors: { a: '#8c2f39', b: '#efe9dd' }, light: L('fire', 0.9, 1.2, 0.35, { color: '#ffb766' }) }),
     piece('liveStage', 'The stage', '🎤', 0, 'decor', 'decoLiveStage', { fixed: true, placeActions: true, colors: { b: '#2b2d33' } }),
     piece('neonArch', 'Entrance', '✨', 0, 'decor', 'decoNeonArch', { fixed: true, flat: true, pulse: 'breathe' }),
+    // Club staging (Peter, 2026-10-27). Pole podiums are for the club's dancers: no actions, players can't get on.
+    piece('polePodium', 'Pole stage', '💃', 0, 'decor', 'decoPolePodium', { fixed: true, pulse: 'chase', colors: { b: '#d8dde6' }, light: L('floor', 0.5, 3.5, 1.2, { color: '#ff3fb4', colorful: true }) }),
+    piece('cagePole', 'Cage stage', '💃', 0, 'decor', 'decoCagePole', { fixed: true, pulse: 'chase', colors: { b: '#1d1e22' }, light: L('floor', 0.5, 3.5, 1.2, { color: '#22d3ee', colorful: true }) }),
+    piece('speakerStack', 'Speaker stack', '🔊', 0, 'decor', 'decoSpeakerStack', { fixed: true, pulse: 'disco' }),
+    piece('champagneTower', 'Champagne tower', '🍾', 0, 'decor', 'decoChampagneTower', { fixed: true, actions: ['bottleService'], pulse: 'breathe', colors: { b: '#c9a24a' }, light: L('table', 1.2, 2.5, 0.8, { color: '#ffd36b' }) }),
     // Two-floor homes (Peter, 2026-10-27): tap the stairs to go up or down.
     piece('stairsUp', 'Grand staircase', '🪜', 0, 'decor', 'decoStairsUp', { fixed: true, opens: 'stairs', colors: { a: '#e9dcc4', b: '#1d1e22' } }),
     piece('stairsDown', 'Stairs down', '🪜', 0, 'decor', 'decoStairsDown', { fixed: true, opens: 'stairs', colors: { a: '#e9dcc4', b: '#1d1e22' } }),

@@ -74,6 +74,7 @@ export const WALLS: SurfaceStyle[] = [
   { id: 'darkBrick', name: 'Black brick', emoji: '🧱', price: 38_000 },
   { id: 'acoustic', name: 'Acoustic foam', emoji: '🎙️', price: 20_000, tint: true, color: '#2b2d42' },
   { id: 'hedge', name: 'Hedge', emoji: '🌳', price: 10_000, venueOnly: true },
+  { id: 'glassRail', name: 'Glass railing', emoji: '🪟', price: 30_000, venueOnly: true },
 ];
 
 /** Paint and fabric colours: soft neutrals, rich darks, and a few loud ones. */

@@ -736,6 +736,21 @@ function hedge(): Drawn {
   };
 }
 
+/** A rooftop's glass railing: pale glass panels between steel posts, a steel cap on top. */
+function glassRail(): Drawn {
+  const N = Math.min(RES, 256);
+  const glass = rgb('#cfe3ee'), post = rgb('#8a939e');
+  return {
+    size: [1.2, 1.2],
+    canvas: pixels(N, N, (u, v) => {
+      if (u < 0.04) return post;
+      if (v < 0.06) return scale(post, 1.1);
+      const sheen = Math.pow(Math.max(0, 1 - Math.abs(u - v * 0.6 - 0.3) * 4), 3) * 0.25;
+      return scale(glass, 0.92 + sheen);
+    }),
+  };
+}
+
 function drawWall(id: string, color?: string): Drawn {
   switch (id) {
     case 'brick': return brick(false);
@@ -748,6 +763,7 @@ function drawWall(id: string, color?: string): Drawn {
     case 'subway': return subway(color ?? '#f4f4f2');
     case 'marbleWall': return marble('#efebe4', '#a39f97', '#d6d1c8', 1);
     case 'concreteWall': return concrete(true, true);
+    case 'glassRail': return glassRail();
     case 'woodPanel': return woodPanel();
     case 'velvet': return velvet(color ?? '#5b2a86');
     case 'darkBrick': return brick(false, true);

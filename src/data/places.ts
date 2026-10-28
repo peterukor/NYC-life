@@ -356,15 +356,17 @@ const RAW: RawPlace[] = [
   },
   // More clubs, one per level (data/clubs.ts has the door policy and what makes each bigger).
   {
-    id: 'basement212', area: 'manhattan', name: 'Basement 212', emoji: '🎧', type: 'nightlife',
-    blurb: 'Down a staircase on Ludlow. Sticky floor, loud speakers, nobody checks your shoes. Everyone starts here.',
-    at: [40.7203, -73.9885], hours: [21, 4], interior: 'club', color: '#36c5f0',
+    // Moved to the Bronx (Peter, 2026-10-27: clubs across the boroughs). The easy door: everyone starts here.
+    id: 'basement212', area: 'bronx', name: 'Basement 718', emoji: '🎧', type: 'nightlife',
+    blurb: 'Down a staircase off the Grand Concourse. Graffiti, speaker stacks, cage dancers, nobody checks your shoes. Everyone starts here.',
+    at: [40.8205, -73.9235], hours: [21, 4], interior: 'club', color: '#e63946',
     actions: ['bottleService', 'dancefloor', 'happyHour', 'mingle'],
   },
   {
-    id: 'skyeRooftop', area: 'manhattan', name: 'Skye Rooftop', emoji: '🌆', type: 'nightlife',
-    blurb: 'Twenty floors up over the Meatpacking District. City lights, a long bar, and a door that judges your shoes.',
-    at: [40.7397, -74.0065], hours: [20, 4], interior: 'club', color: '#ff8fab',
+    // Moved to Long Island City and open 24/7 (Peter, 2026-10-27): day party, night party.
+    id: 'skyeRooftop', area: 'queens', name: 'Skye Rooftop LIC', emoji: '🌆', type: 'nightlife',
+    blurb: 'A rooftop in Long Island City staring straight at the Manhattan skyline. Day party, night party, it never closes.',
+    at: [40.7468, -73.9520], interior: 'club', color: '#ff8fab',
     actions: ['getSection', 'bottleService', 'dancefloor', 'happyHour', 'mingle'],
   },
   {
@@ -402,10 +404,11 @@ const RAW: RawPlace[] = [
     actions: ['happyHour', 'karaoke'],
   },
   {
-    id: 'warehouseRave', area: 'brooklyn', name: 'Warehouse 9 (club)', emoji: '🪩', type: 'nightlife',
-    blurb: 'Unmarked door, techno till sunrise. Don’t ask for the setlist.',
-    at: [40.6985, -73.976], hours: [22, 6], interior: 'club', color: '#7b2cbf',
-    actions: ['getSection', 'bottleService', 'dancefloor', 'happyHour'],
+    // Open 24/7 (Peter, 2026-10-27): techno round the clock.
+    id: 'warehouseRave', area: 'brooklyn', name: 'Warehouse 9', emoji: '🪩', type: 'nightlife',
+    blurb: 'An unmarked door in an old warehouse. Lasers, cage dancers, techno round the clock. It never closes.',
+    at: [40.6985, -73.976], interior: 'club', color: '#3dff6e',
+    actions: ['getSection', 'bottleService', 'dancefloor', 'happyHour', 'mingle'],
   },
   {
     id: 'bodegaBk', area: 'brooklyn', name: 'Fulton Mini Market', emoji: '🏪', type: 'food',

@@ -104,6 +104,19 @@ export class VenueLife {
   private emitters: { at: THREE.Vector3; kind: 'steam' | 'notes' | 'drops'; every: number; t: number }[] = [];
   private popT = 0;
   private time = 0;
+  /** 💃 Club dancers on the pole stages (NPC only: players can't get up there). */
+  private readonly poleDancers: { avatar: Avatar; c: THREE.Vector3; top: number; a: number; t: number; cycle: number; mode: string }[] = [];
+  /** 🟩 Laser fans from the DJ end of the room. */
+  private readonly lasers: { mesh: THREE.Mesh; phase: number; mat: THREE.MeshBasicMaterial }[] = [];
+  /** 🌫️ Haze drifting low over the floor. */
+  private readonly haze: { sprite: THREE.Sprite; v: THREE.Vector3; base: number }[] = [];
+  /** 💨 CO2 blasts and 🎊 confetti on the drop. */
+  private readonly bits: { sprite: THREE.Sprite; v: THREE.Vector3; age: number; life: number; spin: number; grow: number }[] = [];
+  private nextDrop = 18;
+  private dropT = -1;
+  private strobe: THREE.PointLight | null = null;
+  private djAt = new THREE.Vector3(0, 0, -4);
+  private readonly tmp = new THREE.Vector3();
   /** The room is cheering (someone popped a bottle) until this time. */
   private cheerUntil = 0;
   /** 🤵 The bar's waiter: picks up at the bar, carries a drink to a table, comes back. */
@@ -118,6 +131,7 @@ export class VenueLife {
   ) {
     this.findTargets();
     for (let i = 0; i < visitorCount; i++) this.addVisitor(i);
+    this.addPoleDancers();
     this.addEffects();
     this.addRunner();
   }
@@ -198,10 +212,10 @@ export class VenueLife {
     for (const o of this.home.objects) {
       const info = this.home.pieceInfo(o.id);
       if (!info) continue;
-      if (info.item === 'danceFloor' || info.item === 'ledDanceFloor') {
+      if (info.item === 'danceFloor' || info.item === 'ledDanceFloor' || info.item.startsWith('ledFloor')) {
         // Several dancers per floor, spread over it.
         const { fp } = info;
-        const n = info.item === 'ledDanceFloor' ? 3 : 2;
+        const n = info.item === 'danceFloor' ? 2 : 3;
         for (let k = 0; k < n * n; k++) {
           const x = info.x + (fp.minX + (fp.maxX - fp.minX) * (0.15 + 0.7 * ((k % n) + 0.5) / n));
           const z = info.z + (fp.minZ + (fp.maxZ - fp.minZ) * (0.15 + 0.7 * (Math.floor(k / n) + 0.5) / n));
@@ -224,10 +238,14 @@ export class VenueLife {
       this.targets.push({ at: { x: o.stand.x, z: o.stand.z }, face: { x: c.x, z: c.z }, pose, key: o.id });
     }
     // A few spots to just stand and chat.
-    for (let k = 0; k < 6; k++) {
+    // Clubs are packed: lots more people standing round with drinks, dancing where they stand.
+    const club = this.layout.life?.fx.includes('lasers');
+    const spots = club ? 26 : 6;
+    for (let k = 0; k < spots; k++) {
       const x = (this.rand() - 0.5) * (this.layout.width - 3);
-      const z = (this.rand() - 0.2) * (this.layout.depth - 4) * 0.6;
-      if (this.home.spotFree(x, z)) this.targets.push({ at: { x, z }, face: { x: x + this.rand() - 0.5, z: z + 1 }, pose: (['talk', 'talk', 'phone', 'foldArms', null] as const)[k % 5], key: `chat:${k}` });
+      const z = club ? (this.rand() - 0.5) * (this.layout.depth - 3) : (this.rand() - 0.2) * (this.layout.depth - 4) * 0.6;
+      const poses = club ? (['dance', 'dance', 'talk', 'dance', 'phone', 'eat'] as const) : (['talk', 'talk', 'phone', 'foldArms', null] as const);
+      if (this.home.spotFree(x, z)) this.targets.push({ at: { x, z }, face: { x: x + this.rand() - 0.5, z: z + 1 }, pose: poses[k % poses.length], key: `chat:${k}` });
     }
   }
 
@@ -258,9 +276,140 @@ export class VenueLife {
     return t;
   }
 
+
+  /** 💃 A dancer on every pole stage: they circle the pole, spin up it and slide down, on a loop. */
+  private addPoleDancers(): void {
+    const OUTFITS = ['#ff3fb4', '#9b5cff', '#22d3ee', '#ffd36b', '#ffffff', '#e63946', '#1d1e22', '#c9a24a'];
+    for (const o of this.home.objects) {
+      const info = this.home.pieceInfo(o.id);
+      if (!info || (info.item !== 'polePodium' && info.item !== 'cagePole')) continue;
+      const body = this.rand() < 0.75 ? ('f' as const) : ('m' as const);
+      const top = OUTFITS[Math.floor(this.rand() * OUTFITS.length)];
+      const avatar = makeAvatar({ body, skin: SKINS[Math.floor(this.rand() * SKINS.length)], top, bottom: this.rand() < 0.5 ? '#111111' : top, hair: HAIR[Math.floor(this.rand() * HAIR.length)] });
+      const c = new THREE.Vector3(info.x, 0, info.z);
+      const top0 = info.item === 'cagePole' ? 0.45 : 0.42;
+      avatar.root.position.set(c.x, top0, c.z + 0.4);
+      avatar.setAction('dance');
+      this.home.scene.add(avatar.root);
+      this.poleDancers.push({ avatar, c, top: top0, a: this.rand() * Math.PI * 2, t: this.rand() * 10, cycle: 11 + this.rand() * 3, mode: 'dance' });
+    }
+  }
+
+  private updatePoleDancers(dt: number): void {
+    for (const d of this.poleDancers) {
+      d.t = (d.t + dt) % d.cycle;
+      const u = d.t / d.cycle;
+      // 0–55%: dance round the pole · 55–75%: spin up it · 75–90%: slide down · 90–100%: hit a pose.
+      const mode = u < 0.55 ? 'dance' : u < 0.75 ? 'spin' : u < 0.9 ? 'slide' : 'pose';
+      if (mode !== d.mode) {
+        d.mode = mode;
+        if (mode === 'dance') { d.avatar.setHold(null); d.avatar.setAction('dance'); }
+        else if (mode === 'spin') { d.avatar.setAction('jump'); d.avatar.setHold(0.42); }
+        else if (mode === 'slide') { d.avatar.setAction('jump'); d.avatar.setHold(0.3); }
+        else { d.avatar.setHold(null); d.avatar.setAction('wave'); }
+      }
+      const r = mode === 'dance' ? 0.42 : 0.3;
+      d.a += dt * (mode === 'spin' ? 4.2 : mode === 'slide' ? 2.4 : 0.55);
+      const lift = mode === 'spin' ? Math.min(1, (u - 0.55) / 0.08) * 0.85 : mode === 'slide' ? (1 - (u - 0.75) / 0.15) * 0.85 : 0;
+      const p = d.avatar.root.position;
+      p.set(d.c.x + Math.cos(d.a) * r, d.top + lift, d.c.z + Math.sin(d.a) * r);
+      // Side-on to the pole, one hand on it.
+      d.avatar.root.rotation.y = Math.atan2(d.c.x - p.x, d.c.z - p.z) + (mode === 'dance' ? Math.PI / 2 : Math.PI / 2.4);
+      d.avatar.root.rotation.z = mode === 'spin' ? 0.25 : 0;
+      d.avatar.animate(0, dt);
+      // Now and then the crowd makes it rain.
+      if (this.rand() < dt * 0.35) this.float(this.rand() < 0.7 ? '💸' : '🔥', p.clone().setY(2.6), { life: 1.6, vy: -0.6, size: 0.42, drift: (this.rand() - 0.5) * 0.8 });
+    }
+  }
+
+  /** A soft round glow (haze puffs, CO2, sparks). */
+  private static glowTex: THREE.CanvasTexture | null = null;
+  private glowTexture(): THREE.CanvasTexture {
+    if (VenueLife.glowTex) return VenueLife.glowTex;
+    const c = document.createElement('canvas');
+    c.width = c.height = 64;
+    const g = c.getContext('2d')!;
+    const grd = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+    grd.addColorStop(0, 'rgba(255,255,255,1)');
+    grd.addColorStop(0.4, 'rgba(255,255,255,0.5)');
+    grd.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = grd;
+    g.fillRect(0, 0, 64, 64);
+    VenueLife.glowTex = new THREE.CanvasTexture(c);
+    return VenueLife.glowTex;
+  }
+
+  private spawnBit(at: THREE.Vector3, v: THREE.Vector3, color: string, size: number, life: number, opts: { additive?: boolean; grow?: number; spin?: number; square?: boolean } = {}): void {
+    if (this.bits.length > 220) return;
+    const mat = new THREE.SpriteMaterial({ map: opts.square ? null : this.glowTexture(), color, transparent: true, depthWrite: false, blending: opts.additive ? THREE.AdditiveBlending : THREE.NormalBlending });
+    const sprite = new THREE.Sprite(mat);
+    sprite.scale.set(size, size, size);
+    sprite.position.copy(at);
+    sprite.renderOrder = 6;
+    this.home.scene.add(sprite);
+    this.bits.push({ sprite, v, age: 0, life, spin: opts.spin ?? 0, grow: opts.grow ?? 0 });
+  }
+
+  /** 💥 The drop: CO2 jets by the DJ, confetti over the floor, the strobe goes. */
+  private drop(): void {
+    this.dropT = 0;
+    this.cheer(4);
+    const fx = this.layout.life?.fx ?? [];
+    if (fx.includes('co2')) {
+      for (const sx of [-2.4, 2.4]) {
+        for (let i = 0; i < 26; i++) {
+          const at = this.djAt.clone().add(new THREE.Vector3(sx, 0.4, 0.6));
+          this.spawnBit(at, new THREE.Vector3((this.rand() - 0.5) * 0.8, 3.5 + this.rand() * 2.5, (this.rand() - 0.5) * 0.8), '#e8f4ff', 0.5, 1.4 + this.rand() * 0.5, { grow: 1.6 });
+        }
+      }
+    }
+    if (fx.includes('confetti')) {
+      const cols = ['#ff3fb4', '#22d3ee', '#ffd36b', '#9b5cff', '#3ddc84', '#ffffff'];
+      for (let i = 0; i < 90; i++) {
+        const at = new THREE.Vector3((this.rand() - 0.5) * this.layout.width * 0.6, 3.6 + this.rand(), (this.rand() - 0.5) * this.layout.depth * 0.5);
+        this.spawnBit(at, new THREE.Vector3((this.rand() - 0.5) * 0.6, -0.9 - this.rand() * 0.6, (this.rand() - 0.5) * 0.6), cols[i % cols.length], 0.09, 4 + this.rand() * 2, { square: true, spin: (this.rand() - 0.5) * 8 });
+      }
+    }
+  }
+
   private addEffects(): void {
     const fx = this.layout.life?.fx ?? [];
     const pieces = (ids: string[]) => this.home.objects.filter((o) => ids.includes(this.home.pieceInfo(o.id)?.item ?? ''));
+    const dj = pieces(['djBooth'])[0];
+    if (dj) this.djAt = dj.mesh.getWorldPosition(new THREE.Vector3()).setY(0);
+    if (fx.includes('lasers')) {
+      // A fan of laser beams from above the DJ, sweeping the room.
+      const cols = this.layout.life?.laserColors ?? ['#3dff6e', '#3dff6e', '#ff2a5c', '#22d3ee'];
+      for (let i = 0; i < 10; i++) {
+        // A unit-long beam, stretched each frame so it ends where it hits the floor.
+        const geo = new THREE.CylinderGeometry(0.02, 0.02, 1, 4, 1, true).translate(0, -0.5, 0);
+        const mat = new THREE.MeshBasicMaterial({ color: cols[i % cols.length], transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false });
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.position.set(this.djAt.x, 3.1, this.djAt.z + 0.2);
+        mesh.renderOrder = 4;
+        this.home.scene.add(mesh);
+        this.extras.push(mesh);
+        this.lasers.push({ mesh, phase: i * 0.62, mat });
+      }
+    }
+    if (fx.includes('haze')) {
+      for (let i = 0; i < 14; i++) {
+        const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.glowTexture(), color: i % 3 ? '#b9a6ff' : '#ff9fd8', transparent: true, opacity: 0.09, depthWrite: false, blending: THREE.AdditiveBlending }));
+        const s0 = 3 + this.rand() * 2.5;
+        sprite.scale.set(s0, s0 * 0.55, s0);
+        sprite.position.set((this.rand() - 0.5) * this.layout.width * 0.8, 0.6 + this.rand() * 1.2, (this.rand() - 0.5) * this.layout.depth * 0.7);
+        sprite.renderOrder = 3;
+        this.home.scene.add(sprite);
+        this.extras.push(sprite);
+        this.haze.push({ sprite, v: new THREE.Vector3((this.rand() - 0.5) * 0.4, 0, (this.rand() - 0.5) * 0.3), base: sprite.position.y });
+      }
+    }
+    if (fx.includes('co2') || fx.includes('confetti')) {
+      this.strobe = new THREE.PointLight('#ffffff', 0, 30, 1.2);
+      this.strobe.position.set(0, 4, 0);
+      this.home.scene.add(this.strobe);
+      this.extras.push(this.strobe);
+    }
     if (fx.includes('club')) {
       // Coloured lights circling the dance floor, and a disco ball.
       for (const [i, color] of ['#ff4fa3', '#36c5f0', '#9b5de5'].entries()) {
@@ -439,6 +588,49 @@ export class VenueLife {
       }
     }
     if (this.discoBall) this.discoBall.rotation.y += dt * 0.8;
+    this.updatePoleDancers(dt);
+    for (const l of this.lasers) {
+      const t = this.time * 0.9 + l.phase;
+      l.mesh.rotation.set(-0.75 - Math.sin(t * 0.7) * 0.35, 0, Math.sin(t) * 0.8);
+      // Where the beam points (local −y), and how far until it reaches the floor.
+      this.tmp.set(0, -1, 0).applyEuler(l.mesh.rotation);
+      l.mesh.scale.y = Math.min(l.mesh.position.y / Math.max(0.2, -this.tmp.y), Math.max(this.layout.width, this.layout.depth) * 0.6);
+      l.mat.opacity = 0.55 + 0.45 * beat;
+    }
+    for (const h of this.haze) {
+      h.sprite.position.addScaledVector(h.v, dt);
+      h.sprite.position.y = h.base + Math.sin(this.time * 0.4 + h.base * 3) * 0.15;
+      if (Math.abs(h.sprite.position.x) > this.layout.width * 0.45) h.v.x *= -1;
+      if (Math.abs(h.sprite.position.z) > this.layout.depth * 0.4) h.v.z *= -1;
+    }
+    // The drop every half a minute or so.
+    if ((this.layout.life?.fx ?? []).some((f) => f === 'co2' || f === 'confetti')) {
+      this.nextDrop -= dt;
+      if (this.nextDrop <= 0) {
+        this.nextDrop = 26 + this.rand() * 14;
+        this.drop();
+      }
+    }
+    if (this.dropT >= 0) {
+      this.dropT += dt;
+      if (this.strobe) this.strobe.intensity = this.dropT < 2.2 && Math.floor(this.dropT * 12) % 2 === 0 ? 22 : 0;
+      if (this.dropT > 2.4) this.dropT = -1;
+    }
+    for (let i = this.bits.length - 1; i >= 0; i--) {
+      const b = this.bits[i];
+      b.age += dt;
+      b.v.y -= b.grow > 0 ? 2.5 * dt : 0;
+      b.sprite.position.addScaledVector(b.v, dt);
+      if (b.grow) { const k = b.sprite.scale.x * (1 + b.grow * dt); b.sprite.scale.set(k, k, k); }
+      if (b.spin) (b.sprite.material as THREE.SpriteMaterial).rotation += b.spin * dt;
+      if (b.sprite.position.y < 0.05) b.v.set(0, 0, 0);
+      (b.sprite.material as THREE.SpriteMaterial).opacity = Math.max(0, 1 - b.age / b.life) * (b.grow ? 0.6 : 1);
+      if (b.age >= b.life) {
+        b.sprite.removeFromParent();
+        (b.sprite.material as THREE.SpriteMaterial).dispose();
+        this.bits.splice(i, 1);
+      }
+    }
     // Ducks paddle round the pond, bobbing a little.
     for (const d of this.ducks) {
       d.a += d.w * dt;
@@ -464,10 +656,16 @@ export class VenueLife {
       this.runner.avatar.dispose();
       this.runner = null;
     }
-    for (const v of this.visitors) {
+    for (const v of [...this.visitors, ...this.poleDancers]) {
       v.avatar.root.removeFromParent();
       v.avatar.dispose();
     }
+    for (const b of this.bits) {
+      b.sprite.removeFromParent();
+      (b.sprite.material as THREE.SpriteMaterial).dispose();
+    }
+    this.bits.length = 0;
+    this.poleDancers.length = 0;
     for (const f of this.floats) {
       f.sprite.removeFromParent();
       (f.sprite.material as THREE.SpriteMaterial).dispose();

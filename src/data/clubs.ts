@@ -20,6 +20,8 @@
 
 export interface ClubDef {
   placeId: string;
+  /** Open round the clock (the after-hours clubs): anyone gets in, no ladder. */
+  allDay?: boolean;
   tier: 1 | 2 | 3 | 4;
   /** What kind of night it is, in a few words. */
   label: string;
@@ -44,26 +46,20 @@ export interface ClubDef {
 }
 
 export const CLUBS: ClubDef[] = [
+  // ---- The ladder (Peter, 2026-10-27: 3 night clubs, easy door → VIP), across the boroughs.
   {
-    placeId: 'basement212', tier: 1, label: 'Basement club · no list, no dress code',
+    placeId: 'basement212', tier: 1, label: 'Bronx basement · no list, no dress code',
     door: { rank: 0, cool: 0 }, cover: 1_500, show: 1, rep: 1, dropEvery: 150,
-    djs: ['DJ Leftover Pizza', 'DJ Two Train', 'DJ Bodega Cat'],
-    connectChance: 0.1, screen: '#36c5f0',
+    djs: ['DJ Boogie Down', 'DJ Grand Concourse', 'DJ Bodega Cat'],
+    connectChance: 0.1, screen: '#e63946',
     regulars: ['Marco from the deli', 'Tiff', 'Big Steve', 'Jaz'], regularSpend: [5_000, 40_000],
   },
   {
     placeId: 'velvetRoom', tier: 2, label: 'Midtown club · bottle service',
-    door: { rank: 1, cool: 15 }, cover: 2_500, show: 1.2, rep: 1.25, dropEvery: 110,
+    door: { rank: 1, cool: 15 }, cover: 2_500, show: 1.4, rep: 1.4, dropEvery: 110,
     djs: ['DJ Velvet', 'DJ Purple Rain', 'DJ Midnight Express'],
-    connectChance: 0.25, screen: '#9b5de5',
+    connectChance: 0.3, screen: '#9b5de5',
     regulars: ['Rico V.', 'Natalia', 'The Twins', 'Coach K', 'Lola'], regularSpend: [70_000, 500_000],
-  },
-  {
-    placeId: 'skyeRooftop', tier: 3, label: 'Rooftop club · dress to impress',
-    door: { rank: 2, cool: 35 }, cover: 5_000, show: 1.5, rep: 1.6, dropEvery: 80,
-    djs: ['DJ Skyline', 'DJ Golden Hour', 'DJ Westside'],
-    connectChance: 0.4, screen: '#ff8fab',
-    regulars: ['Preston W.', 'Sasha M.', 'A Knicks player', 'Valentina', 'Mr. Hudson'], regularSpend: [500_000, 2_500_000],
   },
   {
     placeId: 'aurumClub', tier: 4, label: 'Members only · you’re either on the list or you’re not',
@@ -71,6 +67,21 @@ export const CLUBS: ClubDef[] = [
     djs: ['DJ Aurum', 'A Grammy winner (no phones)', 'DJ Billionaire’s Row'],
     connectChance: 0.6, screen: '#ffd700',
     regulars: ['Sloane V.', 'The Prince', 'A Tech Founder', 'Mrs. Astor-Kline', 'Mr. 57th St'], regularSpend: [2_500_000, 10_000_000],
+  },
+  // ---- Open 24/7: after-hours, everyone's welcome.
+  {
+    placeId: 'skyeRooftop', tier: 1, allDay: true, label: 'Rooftop · never closes · day party, night party',
+    door: { rank: 0, cool: 0 }, cover: 3_000, show: 1.5, rep: 1.3, dropEvery: 90,
+    djs: ['DJ Skyline', 'DJ Golden Hour', 'DJ Seven Train'],
+    connectChance: 0.3, screen: '#ff8fab',
+    regulars: ['Preston W.', 'Sasha M.', 'A Knicks player', 'Valentina', 'Mr. Hudson'], regularSpend: [200_000, 1_500_000],
+  },
+  {
+    placeId: 'warehouseRave', tier: 1, allDay: true, label: 'Warehouse · techno round the clock',
+    door: { rank: 0, cool: 0 }, cover: 2_000, show: 1.3, rep: 1.2, dropEvery: 75,
+    djs: ['DJ Gowanus', 'DJ No Setlist', 'DJ Sunrise Again'],
+    connectChance: 0.2, screen: '#3dff6e',
+    regulars: ['Kai', 'Ruby from Bushwick', 'The Raver Twins', 'Mo'], regularSpend: [20_000, 200_000],
   },
 ];
 export const CLUB_BY_PLACE: Record<string, ClubDef> = Object.fromEntries(CLUBS.map((c) => [c.placeId, c]));

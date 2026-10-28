@@ -419,6 +419,18 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
   const viewDay = t(layout.windows?.view === 'park' ? parkView() : cityView(false));
   const viewNight = t(cityView(true));
   const glassMat = cutaway(t(new THREE.MeshBasicMaterial({ map: viewDay, toneMapped: false })));
+  // The rooftop: the skyline across the river, behind the back and right sides (day or lit up at night).
+  const skyMat = t(new THREE.MeshBasicMaterial({ map: viewDay, toneMapped: false, fog: false }));
+  if (layout.backdrop === 'skyline') {
+    const span = Math.max(layout.width, layout.depth) * 2.4;
+    for (const [x, z, ry] of [[0, -hd - 9, 0], [hw + 9, 0, -Math.PI / 2]] as const) {
+      const g = t(new THREE.PlaneGeometry(span, span * 0.32));
+      const m = new THREE.Mesh(g, skyMat);
+      m.position.set(x, span * 0.16 - 3.5, z);
+      m.rotation.y = ry;
+      scene.add(m);
+    }
+  }
 
   /** Collects quads per material, then makes one mesh per material. */
   class Buckets {
@@ -969,6 +981,7 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
     yard?.setDark(outsideDark);
     sunMat.color.set(d.sun).multiplyScalar(Math.max(0, 1 - outsideDark * 1.6) * 0.075);
     glassMat.map = outsideDark > 0.55 ? viewNight : viewDay;
+    skyMat.map = glassMat.map;
     const want = lampOn();
     if (want !== lit || force) {
       lit = want;

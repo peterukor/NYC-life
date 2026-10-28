@@ -81,7 +81,9 @@ export interface HomeLayout {
   life?: {
     visitors: number;
     pops: string[];
-    fx: ('club' | 'steam' | 'notes' | 'flicker' | 'neon' | 'ducks' | 'splash')[];
+    fx: ('club' | 'steam' | 'notes' | 'flicker' | 'neon' | 'ducks' | 'splash' | 'lasers' | 'haze' | 'co2' | 'confetti')[];
+    /** Club lasers' colours (default green, red and cyan). */
+    laserColors?: string[];
     /** A waiter who carries drinks from `from` (a piece uid) to the `to` tables (world/venue-life.ts). */
     runner?: { from: string; to: string[]; carry: string[] };
   };
@@ -101,6 +103,8 @@ export interface HomeLayout {
    */
   shaped?: boolean;
   door?: { x: number; z: number };
+  /** What you see past the walls: 'skyline' puts the Manhattan skyline behind the back and right walls (the rooftop). */
+  backdrop?: 'skyline';
   /** Wall height (default 2.9 m; a park's hedges are lower). */
   wallHeight?: number;
   /** Video walls (animated colour on a wall): galaxy, waves, stocks, game. */

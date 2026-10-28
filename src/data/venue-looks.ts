@@ -162,16 +162,6 @@ export const VENUE_LOOKS: Record<string, Look> = {
     add: [hang('flushLight', -8.8, -5), hang('flushLight', -5.3, -5), hang('flushLight', -1.7, -5), hang('flushLight', -8.8, -1.6), hang('flushLight', -5.3, -1.6), hang('tulipChandelier', 7.9, -5.8), hang('geoPendant', 6.2, 1.7), hang('geoPendant', 9.8, 1.7), at('palmPot', 11.3, -0.4), at('fiddleFig', 2.4, 7.6)],
     signs: [neonLeft('BUY', GREEN, -1.0, 2.25, 12, 0.45), neonLeft('SELL', RED, 1.2, 2.25, 12, 0.45)],
   },
-  // 🌙 The Velvet Room (24.6 × 17.9): LED dance floor under a lighting rig, a glowing bar, a video wall,
-  // a lit VIP deck, lounge tables with candles, neon at the door. Not a rectangle.
-  club: {
-    scale: 1.12, mood: 'club', remove: ['neon', 'neon2', 'floor1', 'floor2', 'floor3', 'floor4', 'floor5'], notch: [[-12.32, 4.6, -9.2, 8.96]],
-    rooms: [{ floor: 'marbleBlack', wall: 'velvet:#4a2470' }, { floor: 'casinoCarpet:#3d1b5d', wall: 'velvet:#6b2a96' }],
-    swap: { stage: ['liveStage', 0, -6.9, 0], bar: ['ledBar', -11.2, -0.9, H], ht1: ['loungeSet', -7.6, 4.5, 0], ht2: ['loungeSet', -4.5, 6.6, 0], ht3: ['loungeSet', 4.7, 6.6, 0] },
-    add: [at('ledDanceFloor', -2.05, 1.0), at('ledDanceFloor', 2.05, 1.0), hang('trussRing', 0, 1.0), at('vipRiser', 9.8, -4.5, H), at('loungeSet', -1.6, 6.8, 0), at('loungeSet', 1.4, 6.8, 0), left('bottleShelf', -0.9, 12.26), at('neonArch', 0, 8.3), back('ledStrip', -9.5, 8.96, { lc: PINK }), back('ledStrip', 9.5, 8.96, { lc: CYAN }), left('ledStrip', -5.0, 12.32, { lc: PURPLE }), left('ledStrip', 3.0, 12.32, { lc: CYAN }), right('ledStrip', 6.6, 12.32, { lc: PINK }), back('ledStripLow', -6.0, 8.96, { lc: CYAN }), back('ledStripLow', 6.0, 8.96, { lc: PINK }), hang('crystalChandelier', 9.6, -4.5), hang('sputnik', 9.6, 1.6)],
-    screens: [{ x: 0, y: 1.75, z: -8.84, rot: 0, w: 7, h: 1.9, kind: 'galaxy' }, { x: 12.2, y: 1.7, z: -4.5, rot: -H, w: 4, h: 1.8, kind: 'waves' }],
-    signs: [neonLeft('Velvet', PINK, 1.0, 2.35, 12.32, 0.7, 'script'), neonBack('DANCE', CYAN, -6.0, 2.4, 8.96, 0.45), neonBack('VIP', GOLD, 9.5, 2.45, 8.96, 0.4)],
-  },
   // ♟️ The Chess House (17.5 × 12.5): parquet, wood panels, a lamp over every board.
   chessHouse: {
     notch: [[5.8, 4.0, 8.75, 6.25]],
@@ -187,32 +177,6 @@ export const VENUE_LOOKS: Record<string, Look> = {
     rooms: [{ floor: 'concrete', wall: 'whiteBrick' }],
     add: [at('oliveTree', -8.0, -5.4), hang('paperLantern', -5.3, 0.8), hang('paperLantern', 5.3, 0.8), at('flowerVase', 0, 1.5), back('artShapes', -5.6, 6.25), back('artTriptych', 5.4, 6.25), left('galleryWall', 3.6, 8.75), right('artSkyline', -3.8, 8.75), hang('spotLight', -5.6, -4.6), hang('spotLight', 5.4, -4.6), hang('paperLantern', 0, 1.5), at('pampas', 8.1, 5.6)],
     signs: [neonBack('make art', PINK, 0, 2.35, 6.25, 0.5, 'script')],
-  },
-  // 🎧 Basement 212 (19.2 × 14.4): bare concrete and black brick, an LED floor, red and blue everywhere.
-  club1: {
-    scale: 1.2, mood: 'club', remove: ['neon', 'floor1', 'floor2'], notch: [[-9.6, -7.2, -7.2, -4.4]],
-    rooms: [{ floor: 'concrete', wall: 'darkBrick' }],
-    swap: { stage: ['liveStage', 0, -5.6, 0], bar: ['ledBar', -8.5, 1.4, H], ht1: ['loungeSet', 6.0, 4.6, 0] },
-    add: [at('ledDanceFloor', 0, 1.9), hang('trussRing', 0, 1.9), at('vipRiser', 6.7, -4.6, 0), at('loungeSet', 6.0, 1.2, 0), at('loungeSet', -5.4, 5.6, 0), at('loungeSet', -3.0, 5.4, 0), left('bottleShelf', 1.4, 9.54), at('neonArch', 0, 6.6), back('ledStrip', -4.6, 7.2, { lc: RED }), back('ledStrip', 6.0, 7.2, { lc: BLUE }), left('ledStrip', -2.4, 9.6, { lc: RED }), left('ledStrip', 4.6, 9.6, { lc: BLUE }), right('ledStrip', 1.0, 9.6, { lc: RED })],
-    screens: [{ x: 3.6, y: 1.8, z: -7.08, rot: 0, w: 3.4, h: 1.6, kind: 'waves' }],
-    signs: [neonBack('212', RED, -3.6, 2.35, 7.2, 0.6), neonRight('basement', BLUE, -3.5, 2.2, 9.6, 0.45, 'script')],
-  },
-  // 🌆 Skye Rooftop (28.6 × 19.8): a deck under the night sky, a low parapet, an LED floor under a rig, lounges.
-  club3: {
-    scale: 1.1, mood: 'club', wallHeight: 1.3, remove: ['neon', 'neon2', 'floor1', 'floor2', 'floor3', 'floor4', 'floor5', 'floor6'], notch: [[9.6, 6.6, 14.3, 9.9]],
-    rooms: [{ floor: 'walnut', wall: 'concreteWall' }, { floor: 'casinoCarpet:#3a2440', wall: 'concreteWall' }],
-    swap: { stage: ['liveStage', 0, -7.7, 0], bar: ['ledBar', -13.2, 0, H], ht1: ['loungeSet', -8.4, 5.7, 0], ht2: ['loungeSet', -4.8, 7.7, 0], ht3: ['loungeSet', 5.1, 7.7, 0] },
-    add: [at('ledDanceFloor', -2.05, 0.6), at('ledDanceFloor', 2.05, 0.6), hang('trussRing', 0, 0.6), at('vipRiser', 11.7, -3.5, H), at('loungeSet', -1.6, 7.7, 0), at('loungeSet', 1.7, 7.7, 0), at('neonArch', 0, 9.2), back('ledStripLow', -9, 9.9, { lc: PINK }), back('ledStripLow', -5, 9.9, { lc: CYAN }), back('ledStripLow', 5, 9.9, { lc: PURPLE }), back('ledStripLow', 9, 9.9, { lc: PINK }), left('ledStripLow', -4, 14.3, { lc: CYAN }), left('ledStripLow', 4, 14.3, { lc: PURPLE }), hang('paperLantern', -7, -3), hang('paperLantern', 7, -3), hang('paperLantern', -8, 3.4), at('oliveTree', 8.6, 8.8), at('palmPot', -13.4, -3.4)],
-    signs: [neonBack('SKYE', CYAN, 0, 1.05, 9.9, 0.5)],
-  },
-  // 💎 Aurum (33 × 22): black marble and gold, three LED floors under two rigs, crystal over the VIP decks. A T-shape.
-  club4: {
-    scale: 1.1, mood: 'casino', remove: ['neon', 'neon2', 'floor1', 'floor2', 'floor3', 'floor4', 'floor5', 'floor6', 'floor7'], notch: [[-16.5, 7.0, -11.5, 11], [11.5, 7.0, 16.5, 11]],
-    rooms: [{ floor: 'marbleBlack', wall: 'geo:#1d1f24' }, { floor: 'casinoCarpet:#3d2e12', wall: 'velvet:#3d2e12' }],
-    swap: { stage: ['liveStage', 0, -8.6, 0], bar: ['ledBar', -15.4, 1.1, H], ht1: ['loungeSet', -9.9, 6.6, 0], ht2: ['loungeSet', -6.2, 9.0, 0], ht3: ['loungeSet', 6.2, 9.0, 0] },
-    add: [at('ledDanceFloor', -4.1, -0.5), at('ledDanceFloor', 0, -0.5), at('ledDanceFloor', 4.1, -0.5), hang('trussRing', -4.1, -0.5), hang('trussRing', 4.1, -0.5), at('vipRiser', 13.9, -6.6, H), at('vipRiser', 13.9, -1.7, H), at('loungeSet', -2.6, 9.2, 0), at('loungeSet', 2.4, 9.2, 0), at('loungeSet', 9.4, 6.4, 0), left('bottleShelf', 1.1, 16.44), at('neonArch', 0, 10.3), hang('crystalChandelier', -10, 3.5), hang('crystalChandelier', 10, 3.5), hang('crystalChandelier', 14, -4.2), back('ledStrip', -12, 11, { lc: GOLD }), back('ledStrip', 12, 11, { lc: GOLD }), left('ledStripLow', -5, 16.5, { lc: GOLD }), at('columnTall', -9.5, 9.6), at('columnTall', 9.5, 9.6)],
-    screens: [{ x: 0, y: 1.75, z: -10.88, rot: 0, w: 8, h: 1.9, kind: 'galaxy' }],
-    signs: [neonLeft('AURUM', GOLD, -5.0, 2.4, 16.5, 0.6), neonBack('members only', GOLD, -10, 2.35, 11, 0.38, 'script')],
   },
   // 💊 Orchard Street alley (19.2 × 16.8): asphalt, brick, a string of bulbs.
   alley: {
