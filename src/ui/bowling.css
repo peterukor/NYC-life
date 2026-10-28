@@ -63,6 +63,7 @@
 .bw-card p { margin: 0; font-size: 14px; font-weight: 700; line-height: 1.4; color: #e2dcf5; }
 .bw-emoji { width: 70px; height: 70px; display: grid; place-items: center; border: 3px solid var(--ink); border-radius: 50%; background: var(--bw-2); box-shadow: 0 4px 0 var(--ink), 0 0 30px var(--bw-2); font-size: 38px; line-height: 1; }
 .bw-chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+.bw-x-mark { color: #ff5a6e; } .bw-sp-mark { color: #7fb2ff; }
 .bw-chips span { padding: 3px 10px; border-radius: 999px; background: #ffffff1c; border: 1px solid #ffffff33; font-size: 12px; font-weight: 800; white-space: nowrap; }
 .bw-card .btn { width: 100%; color: var(--ink); }
 .bw-card .btn.primary { background: var(--bw-2); color: #fff; text-shadow: 0 2px 0 #0006; }

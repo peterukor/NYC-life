@@ -46,10 +46,12 @@ const REGULAR = { name: 'Big Steve', skill: 0.5 };
 let lastMode: 'solo' | 'vs' | null = null;
 
 // ---- camera ------------------------------------------------------------
-// Behind and above the bowler. camZ dollies down the lane with the ball.
-const F = 1205, HC = 71, D0 = 200, HY = 40, CX = W / 2;
+// Behind and above the bowler, a long lens (so the far pins aren't specks).
+// camZ dollies down the lane with the ball, and the camera drops lower
+// as it nears the pins for the crash.
+const F = 2410, HC = 71, HC_LOW = 44, D0 = 400, HY = 40, CX = W / 2;
 const AIM_Z = -14;
-const CAM_MAX = 470;
+const CAM_MAX = 560;
 
 interface P2 { x: number; y: number; s: number }
 
@@ -188,12 +190,14 @@ export function openBowling(host: CasinoHost, opts: BowlingOpts = {}): void {
   };
 
   // ---------------------------------------------------------- projection
+  let hc = HC;
   const proj = (x: number, z: number, h: number): P2 => {
     const depth = Math.max(20, z - camZ + D0);
     const k = F / depth;
-    return { x: CX + x * k, y: HY + (HC - h) * k, s: k };
+    return { x: CX + x * k, y: HY + (hc - h) * k, s: k };
   };
-  const zNear = () => camZ - 44;
+  /** The nearest lane distance still on screen (nothing nearer is drawn). */
+  const zNear = () => camZ - D0 + (hc * F) / (H + 60 - HY);
   const quad = (x0: number, z0: number, x1: number, z1: number, h = 0) => {
     const a = proj(x0, z0, h), b = proj(x1, z0, h), c = proj(x1, z1, h), d = proj(x0, z1, h);
     g.beginPath();
@@ -395,7 +399,7 @@ export function openBowling(host: CasinoHost, opts: BowlingOpts = {}): void {
   const drawMasking = (now: number) => {
     // The masking unit hangs in front of the pinsetters, across all three lanes.
     const z = 698;
-    const a = proj(-200, z, 26), b = proj(200, z, 68);
+    const a = proj(-200, z, 26), b = proj(200, z, 58);
     const gr = g.createLinearGradient(0, b.y, 0, a.y);
     gr.addColorStop(0, '#2a1f5c');
     gr.addColorStop(1, '#130d2e');
@@ -403,27 +407,24 @@ export function openBowling(host: CasinoHost, opts: BowlingOpts = {}): void {
     g.fillRect(a.x, b.y, b.x - a.x, a.y - b.y);
     g.fillStyle = '#ff4fa3';
     g.fillRect(a.x, a.y - Math.max(1, a.s * 0.8), b.x - a.x, Math.max(1, a.s * 0.8));
-    const mid = proj(0, z, 47);
+    const mid = proj(0, z, 43);
     const pulse = 0.85 + 0.15 * Math.sin(now / 500);
     g.save();
     g.shadowColor = '#ff4fa3';
     g.shadowBlur = REDUCED ? 0 : 10 * pulse;
-    g.font = `400 ${Math.round(11 * mid.s)}px ${DISPLAY}`;
+    g.font = `400 ${Math.round(Math.min(26, 11 * mid.s))}px ${DISPLAY}`;
     g.textAlign = 'center';
     g.textBaseline = 'middle';
     g.fillStyle = '#ffd6ee';
     g.fillText('NYC LANES', mid.x, mid.y);
     g.restore();
     // Lane numbers.
-    g.font = `900 ${Math.round(7 * mid.s)}px ${DISPLAY}`;
+    g.font = `900 ${Math.round(Math.min(18, 7 * mid.s))}px ${DISPLAY}`;
     g.fillStyle = '#36c5f0';
     for (const [cx, n] of [[-64, '6'], [64, '8']] as const) {
-      const p = proj(cx, z, 47);
+      const p = proj(cx, z, 43);
       g.fillText(n, p.x, p.y);
     }
-    const p7 = proj(-27, z, 47);
-    g.fillStyle = '#ffd23f';
-    g.fillText('7', p7.x, p7.y);
   };
 
   // ---------------------------------------------------------- drawing: pins and ball
@@ -556,6 +557,7 @@ export function openBowling(host: CasinoHost, opts: BowlingOpts = {}): void {
   const draw = (now: number) => {
     const k = cv.width / W;
     g.setTransform(k, 0, 0, k, 0, 0);
+    hc = HC + (HC_LOW - HC) * ease(camZ / CAM_MAX);
     const dt = fx.begin(g);
     drawRoom(now);
     for (const cx of [-64, 64]) drawLaneBed(cx, false);
@@ -608,13 +610,16 @@ export function openBowling(host: CasinoHost, opts: BowlingOpts = {}): void {
     const p = cur();
     if (phase === 'aim' && p?.you) {
       // Guide dots straight ahead to the arrows.
-      g.fillStyle = 'rgba(255,255,255,.55)';
-      for (let z = 10; z <= 190; z += 18) {
+      g.fillStyle = '#ffffff';
+      g.strokeStyle = 'rgba(28,35,64,.6)';
+      g.lineWidth = 1;
+      for (let z = 24; z <= 200; z += 22) {
         const c = proj(ballShownX, z, 0.3);
-        g.globalAlpha = 0.55 * (1 - z / 220);
+        g.globalAlpha = 0.9 * (1 - z / 260);
         g.beginPath();
-        g.arc(c.x, c.y, Math.max(1, 0.5 * c.s), 0, TAU);
+        g.ellipse(c.x, c.y, Math.max(1.2, 0.75 * c.s), Math.max(0.8, 0.4 * c.s), 0, 0, TAU);
         g.fill();
+        g.stroke();
       }
       g.globalAlpha = 1;
       // The swipe trail.
@@ -636,8 +641,9 @@ export function openBowling(host: CasinoHost, opts: BowlingOpts = {}): void {
         g.globalAlpha = 0.85;
         g.fillText('👆', c.x + 2, c.y + 46 + bob);
         g.globalAlpha = 1;
-        label(g, throwsByYou < 2 ? '↔ line up · swipe ↑ to bowl' : 'swipe ↑', W / 2, H - 22, 15, '#fff');
-        if (throwsByYou >= 1 && throwsByYou < 4) label(g, 'curve the end of your swipe to hook', W / 2, H - 44, 12, '#ffd23f');
+        const ty = c.y - c.s * BALL_R - 40;
+        label(g, throwsByYou < 2 ? '↔ line up · swipe ↑ to bowl' : 'swipe ↑', W / 2, ty, 15, '#fff');
+        if (throwsByYou >= 1 && throwsByYou < 4) label(g, 'curve the end of your swipe to hook', W / 2, ty - 22, 12, '#ffd23f');
       }
     }
     if (phase === 'npc' || (phase === 'roll' && p && !p.you)) {
@@ -1132,7 +1138,7 @@ export function openBowling(host: CasinoHost, opts: BowlingOpts = {}): void {
       <h3>${head}</h3>
       <p class="bw-score">${score}</p>
       ${vs ? `<p class="bw-vs"><span>You <b>${score}</b></span><span>${esc(vs.name)} <b>${theirs}</b></span></p>` : ''}
-      <div class="bw-chips"><span>❌ ${t.strikes} strike${t.strikes === 1 ? '' : 's'}</span><span>➗ ${t.spares} spare${t.spares === 1 ? '' : 's'}</span><span>🏆 Best ${bowlingBest(s)}</span></div>
+      <div class="bw-chips"><span><b class="bw-x-mark">X</b> ${t.strikes} strike${t.strikes === 1 ? '' : 's'}</span><span><b class="bw-sp-mark">/</b> ${t.spares} spare${t.spares === 1 ? '' : 's'}</span><span>🏆 Best ${bowlingBest(s)}</span></div>
       <div class="bw-gains"><span class="bw-gain">+${r.fun} 🎉 fun</span>${r.social ? `<span class="bw-gain soc">+${r.social} 🤝 social</span>` : ''}${r.twoHundred ? '<span class="bw-gain hot">🎳 200 club</span>' : ''}</div>
       <div class="bw-btns"><button class="btn primary" data-again>🔁 Again · ${money(BOWLING_COST)}</button><button class="btn ghost" data-close>Done</button></div>
       <button class="btn ghost block bw-lb" data-board>🏆 Leaderboard</button>

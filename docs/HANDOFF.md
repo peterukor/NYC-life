@@ -532,3 +532,9 @@ Peter: one more club, arcade, casino and gym in Manhattan, renamed after real pl
 - `navyYardClub` → Bowery Card Club (the Bowery)
 - `pulseLic` → Pulse Tribeca (Hudson St)
 Only Manhattan is open (`OPEN_AREAS` in sim/types.ts); the other 8 rebuilt venues wait in Brooklyn/Queens/Bronx.
+
+### Food, cafés, shops, workplaces, nights out (2026-10-28)
+- Food cut to 5: El Barrio Deli & Grill (kept: it's the deli job, near the starter walk-up; Kings Deli cut and its cat/lotto/owner moved here), Slice of Ninth, Miss Dee's, new Mulberry Street Trattoria (mid), new The Gramercy Room (fine dining). Cafés: Bean Machine, Panadería Doña Rosa.
+- Rooms in data/town-rooms.ts (deli2, slice, soulKitchen, trattoria, gramercy, beanCafe, panaderia, chessHouse2, thrift, storage, lab, homeStore, office2, startup2, alley2, precinct2, lanes, cinema, golf); pieces in world/furniture-town.ts. Generators: /tmp/claude-0/plans/{food,shops,work,fun2,decor}.py (not in repo).
+- New places: hkLanes 🎳, unionSqCinema 🎬 (ui/cinema.ts + data/movies.ts: YouTube embeds, paste-a-link), seaportGolf ⛳. Axe lanes 🪓 in Pixel Palace and Canal Street Arcade (ui/arcade/axe.ts).
+- Thrift is a walk-in store now (`browseClothes` on racks opens the clothes store). Other menu-only shops left as they were.

@@ -59,26 +59,26 @@ interface Player { name: string; you: boolean; skill: number; color: string; str
 export function openMinigolf(host: CasinoHost, opts: MinigolfOpts = {}): void {
   const s = host.state;
   const foe = opts.opponent ? { name: opts.opponent.name || 'Your friend', skill: clamp(Number(opts.opponent.skill) || 0.5, 0, 1) } : null;
-  const m = openModal(`<div class="mg">
-    <div class="mg-top"><b><span aria-hidden="true">⛳</span> Mini golf</b><span class="mg-hud" aria-live="off"></span><button class="mg-x" data-close aria-label="Leave the course">✕</button></div>
-    <div class="mg-players" ${foe ? '' : 'hidden'}></div>
-    <div class="mg-stage"><canvas class="mg-cv" role="img" aria-label="Mini golf hole. Drag back from anywhere to aim, let go to putt."></canvas>
-      <div class="mg-banner" aria-live="polite"></div>
-      <div class="mg-over"></div>
+  const m = openModal(`<div class="putt">
+    <div class="putt-top"><b><span aria-hidden="true">⛳</span> Mini golf</b><span class="putt-hud" aria-live="off"></span><button class="putt-x" data-close aria-label="Leave the course">✕</button></div>
+    <div class="putt-players" ${foe ? '' : 'hidden'}></div>
+    <div class="putt-stage"><canvas class="putt-cv" role="img" aria-label="Mini golf hole. Drag back from anywhere to aim, let go to putt."></canvas>
+      <div class="putt-banner" aria-live="polite"></div>
+      <div class="putt-over"></div>
     </div>
-    <div class="mg-sc-wrap"></div>
+    <div class="putt-sc-wrap"></div>
   </div>`);
-  m.el.classList.add('mg-modal');
-  m.el.parentElement?.classList.add('mg-wrap');
+  m.el.classList.add('putt-modal');
+  m.el.parentElement?.classList.add('putt-wrap');
   const q = <T extends HTMLElement = HTMLElement>(sel: string) => m.el.querySelector<T>(sel)!;
-  const cv = q<HTMLCanvasElement>('.mg-cv');
+  const cv = q<HTMLCanvasElement>('.putt-cv');
   const g = cv.getContext('2d')!;
-  const stage = q('.mg-stage');
-  const over = q('.mg-over');
-  const banner = q('.mg-banner');
-  const hudEl = q('.mg-hud');
-  const playersEl = q('.mg-players');
-  const scWrap = q('.mg-sc-wrap');
+  const stage = q('.putt-stage');
+  const over = q('.putt-over');
+  const banner = q('.putt-banner');
+  const hudEl = q('.putt-hud');
+  const playersEl = q('.putt-players');
+  const scWrap = q('.putt-sc-wrap');
 
   // ------------------------------------------------------------ state
   type Phase = 'intro' | 'aim' | 'roll' | 'npc' | 'between' | 'end';
@@ -159,13 +159,13 @@ export function openMinigolf(host: CasinoHost, opts: MinigolfOpts = {}): void {
   const hud = () => {
     const p = me().p;
     const stroke = p ? Math.min(MAX_STROKES, p.strokes + (p.done ? 0 : 1)) : 1;
-    hudEl.textContent = phase === 'intro' || phase === 'end' ? `Par ${PAR_TOTAL}` : `Hole ${hole.n}/9 · Par ${hole.par}${p && !p.done ? ` · Stroke ${stroke}` : ''}`;
+    hudEl.textContent = phase === 'intro' || phase === 'end' ? `Par ${PAR_TOTAL}` : `Hole ${hole.n} · Par ${hole.par}${p && !p.done ? ` · Stroke ${stroke}` : ''}`;
     if (foe) {
       playersEl.innerHTML = players.map((pl, i) => {
         const tp = parSoFar(pl) ? toPar(totalOf(pl), parSoFar(pl)) : 'E';
         const on = (phase === 'aim' || phase === 'npc' || phase === 'roll') && turn === i;
-        return `<span class="mg-pl${on ? ' on' : ''}"><i style="--c:${pl.color}"></i>${esc(pl.name)} <b>${tp}</b></span>`;
-      }).join('<span class="mg-vs">vs</span>');
+        return `<span class="putt-pl${on ? ' on' : ''}"><i style="--c:${pl.color}"></i>${esc(pl.name)} <b>${tp}</b></span>`;
+      }).join('<span class="putt-vs">vs</span>');
     }
   };
   const scorecard = () => {
@@ -177,20 +177,20 @@ export function openMinigolf(host: CasinoHost, opts: MinigolfOpts = {}): void {
       const st = stampFor(n, h.par, pl.picked[i]);
       return `<td class="st-${STAMP_CLASS[st]}" title="${STAMP_WORD[st]}">${n}</td>`;
     }).join('')}<td><b>${pl.strokes.some((x) => x != null) ? totalOf(pl) : ''}</b></td></tr>`).join('');
-    scWrap.innerHTML = `<table class="mg-sc" aria-label="Scorecard">${head}${par}${rows}</table>`;
+    scWrap.innerHTML = `<table class="putt-sc" aria-label="Scorecard">${head}${par}${rows}</table>`;
   };
 
   // ------------------------------------------------------------ cards
   const intro = () => {
     phase = 'intro';
     const rec = minigolfOf(s);
-    over.className = 'mg-over';
-    over.innerHTML = `<div class="mg-card">
-      <div class="mg-emoji" aria-hidden="true">⛳</div>
+    over.className = 'putt-over';
+    over.innerHTML = `<div class="putt-card">
+      <div class="putt-emoji" aria-hidden="true">⛳</div>
       <h3>Rooftop Mini Golf</h3>
       <p>Nine holes up on the roof. Drag back from anywhere, let go to putt. Tap to cancel.</p>
-      <div class="mg-chips"><span>💵 ${money(MINIGOLF_COST).replace('.00', '')} a round</span><span>⛳ Par ${PAR_TOTAL}</span>${rec?.best ? `<span>🏆 Best ${rec.best}</span>` : ''}</div>
-      ${foe ? `<p class="mg-vsline">You vs <b>${esc(foe.name)}</b> <span class="mg-skill">${skillWord(foe.skill)}</span></p>` : ''}
+      <div class="putt-chips"><span>💵 ${money(MINIGOLF_COST).replace('.00', '')} a round</span><span>⛳ Par ${PAR_TOTAL}</span>${rec?.best ? `<span>🏆 Best ${rec.best}</span>` : ''}</div>
+      ${foe ? `<p class="putt-vsline">You vs <b>${esc(foe.name)}</b> <span class="putt-skill">${skillWord(foe.skill)}</span></p>` : ''}
       <button class="btn primary block" data-go>⛳ Tee off · ${money(MINIGOLF_COST).replace('.00', '')}</button>
     </div>`;
     over.hidden = false;
@@ -226,7 +226,7 @@ export function openMinigolf(host: CasinoHost, opts: MinigolfOpts = {}): void {
     bumperHit.clear();
     for (const pl of players) pl.p = newPutter(hole);
     camera();
-    banner.innerHTML = `<div class="mg-hole"><small>Hole ${hole.n} · Par ${hole.par}</small><b>${hole.emoji} ${esc(hole.name)}</b><span>${esc(hole.tip)}</span></div>`;
+    banner.innerHTML = `<div class="putt-hole"><small>Hole ${hole.n} · Par ${hole.par}</small><b>${hole.emoji} ${esc(hole.name)}</b><span>${esc(hole.tip)}</span></div>`;
     banner.classList.remove('show');
     void banner.offsetWidth;
     banner.classList.add('show');
@@ -324,17 +324,17 @@ export function openMinigolf(host: CasinoHost, opts: MinigolfOpts = {}): void {
       const theirs = totalOf(players[1]);
       title = total < theirs ? 'You win!' : total > theirs ? `${esc(foe.name)} wins` : 'All square';
       big = total < theirs ? '🏆' : total > theirs ? '😤' : '🤝';
-      vsLine = `<p class="mg-vsres"><span>You <b>${total}</b></span><span>${esc(foe.name)} <b>${theirs}</b></span></p>`;
+      vsLine = `<p class="putt-vsres"><span>You <b>${total}</b></span><span>${esc(foe.name)} <b>${theirs}</b></span></p>`;
     }
-    over.className = 'mg-over end';
-    over.innerHTML = `<div class="mg-card">
-      <div class="mg-emoji" aria-hidden="true">${big}</div>
+    over.className = 'putt-over end';
+    over.innerHTML = `<div class="putt-card">
+      <div class="putt-emoji" aria-hidden="true">${big}</div>
       <h3>${title}</h3>
-      <p class="mg-total">${total} <small>strokes</small> <em class="${total < PAR_TOTAL ? 'under' : total > PAR_TOTAL ? 'overpar' : ''}">${tp}</em></p>
+      <p class="putt-total">${total} <small>strokes</small> <em class="${total < PAR_TOTAL ? 'under' : total > PAR_TOTAL ? 'overpar' : ''}">${tp}</em></p>
       ${vsLine}
-      <div class="mg-chips"><span>🏆 Score ${r.score}</span><span>${r.best ? '✨ New best' : `Best ${minigolfOf(s)?.best ?? total}`}</span>${aces ? `<span>⛳ ${aces} hole${aces > 1 ? 's' : ''} in one</span>` : ''}</div>
-      ${r.underPar ? '<p class="mg-mood">⛳ Under par on the roof. You’re in a good mood.</p>' : ''}
-      <div class="mg-btns"><button class="btn primary" data-go>🔁 Again · ${money(MINIGOLF_COST).replace('.00', '')}</button><button class="btn ghost" data-board>🏆 Board</button></div>
+      <div class="putt-chips"><span>🏆 Score ${r.score}</span><span>${r.best ? '✨ New best' : `Best ${minigolfOf(s)?.best ?? total}`}</span>${aces ? `<span>⛳ ${aces} hole${aces > 1 ? 's' : ''} in one</span>` : ''}</div>
+      ${r.underPar ? '<p class="putt-mood">⛳ Under par on the roof. You’re in a good mood.</p>' : ''}
+      <div class="putt-btns"><button class="btn primary" data-go>🔁 Again · ${money(MINIGOLF_COST).replace('.00', '')}</button><button class="btn ghost" data-board>🏆 Board</button></div>
       <button class="btn ghost block" data-close>Done</button>
     </div>`;
     over.hidden = false;
@@ -620,9 +620,9 @@ export function openMinigolf(host: CasinoHost, opts: MinigolfOpts = {}): void {
       void fetchBoard(s, GAME).then((b) => {
         if (dead) return;
         const box = document.createElement('div');
-        box.className = 'mg-board';
+        box.className = 'putt-board';
         box.innerHTML = boardHtml(GAME, b).replace(/<h3>.*?<\/h3>/, '<h3>🏆 ⛳ Mini golf</h3>');
-        over.querySelector('.mg-card')?.appendChild(box);
+        over.querySelector('.putt-card')?.appendChild(box);
         box.scrollIntoView({ block: 'nearest' });
       });
     }

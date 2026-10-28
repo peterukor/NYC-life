@@ -683,7 +683,7 @@ function gauss(rand: Rand): number {
 
 /** How good a shot's finish is (lower is better). */
 function value(h: Hole, r: ReturnType<typeof simulate>, from: { x: number; y: number }): number {
-  if (r.sunk) return -100 + r.time * 0.5;
+  if (r.sunk) return -100 + r.time * 4;
   if (r.water) return cupDistance(h, from.x, from.y) + 45;
   return cupDistance(h, r.x, r.y);
 }
