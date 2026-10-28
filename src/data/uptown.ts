@@ -154,7 +154,7 @@ export const UPTOWN_PLACES: RawPlace[] = [
   {
     id: 'eternalRest', area: 'manhattan', name: 'Eternal Rest Showroom', emoji: '⚰️', type: 'fun',
     blurb: 'Caskets, urns and “pre-need planning”. Free coffee. They really, really want you to lie down in something.',
-    at: [40.7479, -73.9790], hours: [10, 19], interior: 'none', color: '#4a4e69',
+    at: [40.7479, -73.9790], hours: [10, 19], interior: 'office', color: '#4a4e69',
     actions: ['coffinNap', 'planFuneral'],
   },
   {
@@ -206,12 +206,6 @@ export const UPTOWN_PLACES: RawPlace[] = [
     at: [40.7870, -73.9770], hours: [19, 3], interior: 'none', color: '#6c757d',
     actions: ['ratTour'],
   },
-  {
-    id: 'uwsBagels', area: 'manhattan', name: 'Broadway Bagel Bros', emoji: '🥯', type: 'cafe',
-    blurb: 'Hand-rolled, hot out the kettle at 6 AM. The line is part of the experience. So is the attitude.',
-    at: [40.7905, -73.9745], hours: [6, 16], interior: 'cafe', color: '#e9c46a',
-    actions: ['bagelSchmear', 'latte', 'laptopCafe'],
-  },
   // ---------- Harlem / East Harlem ----------
   {
     id: 'clinicalTrial', area: 'manhattan', name: 'Uptown Paid Research Center', emoji: '🧪', type: 'work',
@@ -243,12 +237,6 @@ export const UPTOWN_PLACES: RawPlace[] = [
     blurb: 'Abandoned units, sold blind, cash only. Most are junk. One had a parking spot in it. People still talk about it.',
     at: [40.8490, -73.9365], hours: [10, 19], interior: 'none', color: '#f4a261',
     actions: ['storageAuction'],
-  },
-  {
-    id: 'chimiTruck', area: 'manhattan', name: 'El Chimi King Truck', emoji: '🍔', type: 'food',
-    blurb: 'The Dominican burger, late and loud, with the bachata up. Open till the sky goes light.',
-    at: [40.8440, -73.9390], hours: [18, 6], interior: 'bodega', color: '#e63946',
-    actions: ['chimiBurger', 'chimiBatida'],
   },
   {
     id: 'tortureMuseum', area: 'manhattan', name: 'Medieval Mistakes Museum', emoji: '🪵', type: 'fun',

@@ -10,6 +10,7 @@
 import { changeMoney } from './economy.ts';
 import { addMoodlet } from './needs.ts';
 import type { GameState } from './types.ts';
+import { axeTickets } from './axe.ts';
 
 export const PLAY_COST = 200;
 
@@ -33,7 +34,7 @@ export const ARCADE_GAMES: ArcadeGame[] = [
   { id: 'dash', name: 'Delivery Dash', emoji: '🛵', color: '#2a9d8f', howTo: 'Tap or swipe to switch lanes. Sweep up 💵 for a streak bonus, grab 🧲 magnet, 🪖 helmet and ⚡ turbo, and dodge doors, potholes and people. Close calls score. Three hits and you’re out.', tickets: (s) => Math.floor(s / 7) },
   { id: 'claw', name: 'Claw Machine', emoji: '🧸', color: '#9b5de5', howTo: 'Drag on the glass (or hold ◀ ▶) to steer, then DROP. Centre it and let the swing settle for a strong grip. ✨ Shiny prizes are worth double. 15 seconds.', tickets: (s) => s },
 ];
-/** Five more (2026-10-27): Pinball, Skee-Ball, Breakout, Rooftop Jump, Air Hockey (ui/arcade-games-2.ts). */
+/** Five more (2026-10-27): Pinball, Skee-Ball, Breakout, Rooftop Jump, Air Hockey; + Axe Throwing (2026-10-28) (ui/arcade-games-2.ts). */
 const ARCADE_GAMES_2: ArcadeGame[] = [
   {
     id: 'pinball',
@@ -74,6 +75,14 @@ const ARCADE_GAMES_2: ArcadeGame[] = [
     color: '#00d1ff',
     howTo: 'Drag your mallet in your half and smack the puck into the house’s goal. Swing fast for a slapshot. First to 7, or whoever leads at 90 seconds. The house speeds up as you score.',
     tickets: (s) => Math.floor(s / 30),
+  },
+  {
+    id: 'axe',
+    name: 'Axe Throwing',
+    emoji: '🪓',
+    color: '#b5562c',
+    howTo: 'Swipe up to throw: the swipe aims, its speed sets the spin. One clean turn and it sticks; too slow or too fast and it bounces off. Rings 1–5, bullseye 6, bulls in a row earn a bonus. Tap 🎯 to call a kill shot (top dots): 8, or 0 if you miss. Ten axes.',
+    tickets: axeTickets,
   },
 ];
 ARCADE_GAMES.push(...ARCADE_GAMES_2);

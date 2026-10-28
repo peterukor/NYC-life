@@ -13,6 +13,8 @@
 // 🏙️ Rooftop Jump      Doodle-Jump up water towers, AC units and fire
 //                     escapes: springs, 🐦 pigeon stomps, 🪙, 🎈.
 // 🏒 Air Hockey        drag your mallet vs a house AI that ramps up.
+// 🪓 Axe Throwing      swipe to throw: speed sets the spin (one turn
+//                     sticks), rings 1–6, called 🎯 kill shots 8.
 //
 // Each game lives in ui/arcade/<id>.ts; shared helpers in ui/arcade/kit.ts.
 // Their names, how-tos and tickets: sim/arcade.ts (ARCADE_GAMES).
@@ -20,11 +22,12 @@
 
 import type { Run } from './arcade-games.ts';
 import { airhockey } from './arcade/airhockey.ts';
+import { axe } from './arcade/axe.ts';
 import { breakout } from './arcade/breakout.ts';
 import { pinball } from './arcade/pinball.ts';
 import { rooftop } from './arcade/rooftop.ts';
 import { skeeball } from './arcade/skeeball.ts';
 
-export const RUNS2: Record<string, Run> = { pinball, skeeball, breakout, rooftop, airhockey };
+export const RUNS2: Record<string, Run> = { pinball, skeeball, breakout, rooftop, airhockey, axe };
 
 

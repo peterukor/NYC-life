@@ -17,6 +17,7 @@ import { dressVenue } from './venue-looks.ts';
 import { CLUB_ROOMS } from './club-rooms.ts';
 import { FUN_ROOMS } from './fun-rooms.ts';
 import { ACTIVE_ROOMS } from './active-rooms.ts';
+import { TOWN_ROOMS } from './town-rooms.ts';
 
 const PI = Math.PI;
 const H = PI / 2;
@@ -320,25 +321,25 @@ export const WORKPLACE_LAYOUTS: Record<string, HomeLayout> = {
 };
 
 // The five clubs (data/club-rooms.ts).
-Object.assign(WORKPLACE_LAYOUTS, CLUB_ROOMS, FUN_ROOMS, ACTIVE_ROOMS);
+Object.assign(WORKPLACE_LAYOUTS, CLUB_ROOMS, FUN_ROOMS, ACTIVE_ROOMS, TOWN_ROOMS);
 
 /** Each workplace's own room, by place id (wins over the shared venue plans). */
 export const WORKPLACE_LAYOUT_FOR: Record<string, string> = {
-  barrioDeli: 'deliGrill',
+  barrioDeli: 'deli2',
   theStoop: 'stoopBar',
   ironGym: 'gym',
   flexFulton: 'gym2',
   pulseLic: 'gym3',
-  dumboWorks: 'startup',
-  midtownTower: 'tradingFloor',
+  dumboWorks: 'startup2',
+  midtownTower: 'office2',
   velvetRoom: 'club',
   basement212: 'club1',
-  chessHouse: 'chessHouse',
+  chessHouse: 'chessHouse2',
   artParlor: 'artParlor',
   skyeRooftop: 'club3',
   aurumClub: 'club4',
-  theAlley: 'alley',
-  precinct: 'precinct',
+  theAlley: 'alley2',
+  precinct: 'precinct2',
   // Entertainment (no jobs here yet; NPC staff fill the spots).
   warehouseRave: 'club5',
   pixelPalace: 'arcade',
@@ -352,6 +353,20 @@ export const WORKPLACE_LAYOUT_FOR: Record<string, string> = {
   beerGarden: 'bar2',
   lenoxLounge: 'bar3',
   centralPark: 'park',
+  // Rebuilt 2026-10-28 (data/town-rooms.ts).
+  sliceJoint: 'slice',
+  harlemSoul: 'soulKitchen',
+  mulberryTrattoria: 'trattoria',
+  gramercyRoom: 'gramercy',
+  beanMachine: 'beanCafe',
+  panaderia: 'panaderia',
+  thriftHk: 'thrift',
+  storageAuction: 'storage',
+  clinicalTrial: 'lab',
+  homeGoods: 'homeStore',
+  hkLanes: 'lanes',
+  unionSqCinema: 'cinema',
+  seaportGolf: 'golf',
 };
 
 export const VENUE_LAYOUT_FOR: Partial<Record<InteriorKind, string>> = { furniture: 'furniture', cafe: 'cafe', bodega: 'bodega', pizza: 'pizza', bar: 'bar', office: 'office', comedy: 'comedy' };

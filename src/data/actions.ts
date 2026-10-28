@@ -130,6 +130,7 @@ const LIST: ActionDef[] = [
   { id: 'playBreakout', label: 'Play Brooklyn Breakout', emoji: '🧱', seconds: 2, tags: ['service'] },
   { id: 'playRooftop', label: 'Play Rooftop Jump', emoji: '🏙️', seconds: 2, tags: ['service'] },
   { id: 'playAirhockey', label: 'Play air hockey', emoji: '🏒', seconds: 2, tags: ['service'] },
+  { id: 'playAxe', label: 'Axe throwing', emoji: '🪓', seconds: 2, tags: ['service'] },
   { id: 'playPoker', label: 'Sit down at poker', emoji: '♠️', seconds: 2, tags: ['service'] },
   { id: 'playCraps', label: 'Roll at the craps table', emoji: '🎲', seconds: 2, tags: ['service'] },
   { id: 'playBaccarat', label: 'Play baccarat', emoji: '🂡', seconds: 2, tags: ['service'] },
@@ -180,6 +181,18 @@ const LIST: ActionDef[] = [
   // ---------- Gym ----------
   { id: 'gymSession', label: 'Lift weights', emoji: '🏋️', seconds: 14, cost: 1_500, needs: { energy: -16, hygiene: -20, fun: 8 }, skill: { key: 'fitness', gain: 1.1 }, tags: ['fitness'] },
   { id: 'spinClass', label: 'Spin class', emoji: '🚴', seconds: 14, cost: 3_200, needs: { energy: -20, hygiene: -20, fun: 14, social: 10 }, skill: { key: 'fitness', gain: 1.3 }, tags: ['fitness', 'social'] },
+  // 🍝 Eating out, 🎳 bowling, 🎬 the movies, ⛳ mini golf (2026-10-28).
+  { id: 'pastaDinner', label: 'Pasta dinner', emoji: '🍝', seconds: 12, cost: 2_800, needs: { hunger: 65, fun: 12, social: 10 }, tags: ['eat', 'social'] },
+  { id: 'chickenParm', label: 'Chicken parm hero', emoji: '🍗', seconds: 8, cost: 1_900, needs: { hunger: 55, fun: 6 }, tags: ['eat'] },
+  { id: 'cannoli', label: 'Cannoli and an espresso', emoji: '🥮', seconds: 5, cost: 900, needs: { hunger: 15, fun: 8, energy: 6 }, tags: ['eat'] },
+  { id: 'tastingMenu', label: 'Twelve-course tasting menu', emoji: '🍽️', seconds: 16, cost: 24_000, needs: { hunger: 70, fun: 30, social: 15 }, moodlet: { id: 'fineDining', label: 'Ate like a critic', emoji: '🍽️', value: 12, minutes: 300 }, tags: ['eat', 'social'] },
+  { id: 'wineFlight', label: 'Wine flight', emoji: '🍷', seconds: 8, cost: 6_500, needs: { fun: 18, social: 10 }, tags: ['social'] },
+  { id: 'chefsTable', label: 'Chef’s table', emoji: '👨‍🍳', seconds: 18, cost: 50_000, needs: { hunger: 80, fun: 40, social: 25 }, moodlet: { id: 'chefsTable', label: 'The chef knows my name', emoji: '👨‍🍳', value: 18, minutes: 480 }, tags: ['eat', 'social'] },
+  { id: 'playBowling', label: 'Bowl a game (mini-game)', emoji: '🎳', seconds: 2, tags: ['service'] },
+  { id: 'playMinigolf', label: 'Play 9 holes (mini-game)', emoji: '⛳', seconds: 2, tags: ['service'] },
+  { id: 'watchMovie', label: 'Watch a movie', emoji: '🎬', seconds: 2, tags: ['service'] },
+  { id: 'browseClothes', label: 'Browse the racks', emoji: '🛍️', seconds: 2, tags: ['service'] },
+  { id: 'popcorn', label: 'Popcorn and a soda', emoji: '🍿', seconds: 4, cost: 1_100, needs: { hunger: 18, fun: 6 }, tags: ['eat'] },
   // 🏋️ Gym mini-games (ui/gym-games.ts) and the new park things (2026-10-28).
   { id: 'playBench', label: 'Bench press (mini-game)', emoji: '🏋️', seconds: 2, tags: ['service'] },
   { id: 'playTreadmill', label: 'Treadmill sprint (mini-game)', emoji: '🏃', seconds: 2, tags: ['service'] },

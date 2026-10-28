@@ -22,7 +22,7 @@ import { project } from '../world/geo-proj.ts';
 import { UPTOWN_PLACES } from './uptown.ts';
 import { NORTH_PLACES } from './north.ts';
 
-export type InteriorKind = 'apartment' | 'bodega' | 'pizza' | 'cafe' | 'bar' | 'club' | 'office' | 'gym' | 'comedy' | 'furniture' | 'alley' | 'precinct' | 'arcade' | 'casino' | 'park' | 'none';
+export type InteriorKind = 'apartment' | 'restaurant' | 'bowling' | 'cinema' | 'golf' | 'shop' | 'bodega' | 'pizza' | 'cafe' | 'bar' | 'club' | 'office' | 'gym' | 'comedy' | 'furniture' | 'alley' | 'precinct' | 'arcade' | 'casino' | 'park' | 'none';
 
 export type PlaceType = 'home' | 'food' | 'cafe' | 'nightlife' | 'work' | 'fitness' | 'park' | 'plaza' | 'landmark' | 'station' | 'shop' | 'fun';
 
@@ -81,12 +81,6 @@ const RAW: RawPlace[] = [
     id: 'shelter', area: 'manhattan', name: 'Hope House Shelter', emoji: '🛏️', type: 'home',
     blurb: 'Free bunk, hot meals, strict curfew. Everyone here is on their way back up.',
     at: [40.766, -73.9925], interior: 'apartment', actions: [], color: '#5b7c99', rent: 0,
-  },
-  {
-    id: 'bodegaHk', area: 'manhattan', name: 'Kings Deli & Grocery', emoji: '🏪', type: 'food',
-    blurb: 'Open 24/7. The cat runs the place. Best chopped cheese on Ninth.',
-    at: [40.76, -73.9915], interior: 'bodega', color: '#e8b923',
-    actions: ['baconEggCheese', 'choppedCheese', 'bodegaCoffee', 'petBodegaCat', 'lottoTicket', 'gistWithOwner'],
   },
   {
     id: 'sliceJoint', area: 'manhattan', name: 'Slice of Ninth', emoji: '🍕', type: 'food',
@@ -173,7 +167,7 @@ const RAW: RawPlace[] = [
   {
     id: 'thriftHk', area: 'manhattan', name: 'Hell’s Kitchen Thrift', emoji: '👕', type: 'shop',
     blurb: 'Racks of basics, vintage tees and the occasional mystery jacket.',
-    at: [40.757, -73.994], hours: [9, 21], interior: 'none', color: '#2a9d8f',
+    at: [40.757, -73.994], hours: [9, 21], interior: 'shop', color: '#2a9d8f',
     actions: ['windowShop'], sells: ['plain'],
   },
   {
@@ -339,7 +333,39 @@ const RAW: RawPlace[] = [
     id: 'barrioDeli', area: 'manhattan', name: 'El Barrio Deli & Grill', emoji: '🏪', type: 'food',
     blurb: 'Chopped cheese, café con leche and the whole block’s gossip. Always hiring for the counter.',
     at: [40.7968, -73.9402], hours: [6, 23], interior: 'bodega', color: '#d9480f',
-    actions: ['choppedCheese', 'bodegaCoffee', 'baconEggCheese'],
+    actions: ['choppedCheese', 'bodegaCoffee', 'baconEggCheese', 'petBodegaCat', 'lottoTicket', 'gistWithOwner'],
+  },
+  // Eating out (Peter, 2026-10-28: "3 local restaurants, 1 mid tier and 1 high tier").
+  {
+    id: 'mulberryTrattoria', area: 'manhattan', name: 'Mulberry Street Trattoria', emoji: '🍝', type: 'food',
+    blurb: 'Little Italy, red-checked tablecloths, a waiter who calls everyone “boss”. Sunday sauce every day of the week.',
+    at: [40.7196, -73.9972], hours: [11, 24], interior: 'restaurant', color: '#c1121f',
+    actions: ['pastaDinner', 'chickenParm', 'cannoli'],
+  },
+  {
+    id: 'gramercyRoom', area: 'manhattan', name: 'The Gramercy Room', emoji: '🥂', type: 'food',
+    blurb: 'Fine dining off Gramercy Park: twelve courses, tweezers in the kitchen, a sommelier with opinions. Dress nice.',
+    at: [40.7378, -73.9862], hours: [17, 24], interior: 'restaurant', color: '#1d3557',
+    actions: ['tastingMenu', 'wineFlight', 'chefsTable'],
+  },
+  // Nights out (2026-10-28): bowling, the movies, rooftop mini golf.
+  {
+    id: 'hkLanes', area: 'manhattan', name: 'Hell’s Kitchen Lanes', emoji: '🎳', type: 'fun',
+    blurb: 'Twelve glow-in-the-dark lanes off Tenth Avenue, rental shoes of questionable history, a bar and a jukebox.',
+    at: [40.7615, -73.9940], hours: [12, 2], interior: 'bowling', color: '#7209b7',
+    actions: ['playBowling', 'happyHour'],
+  },
+  {
+    id: 'unionSqCinema', area: 'manhattan', name: 'Union Square Pictures', emoji: '🎬', type: 'fun',
+    blurb: 'A big old movie house on Union Square: red seats, a massive screen, butter on everything.',
+    at: [40.7352, -73.9905], hours: [10, 2], interior: 'cinema', color: '#9d0208',
+    actions: ['watchMovie', 'popcorn'],
+  },
+  {
+    id: 'seaportGolf', area: 'manhattan', name: 'Seaport Rooftop Golf', emoji: '⛳', type: 'fun',
+    blurb: 'Nine holes of mini golf on a rooftop at the South Street Seaport, with the Brooklyn Bridge in the background.',
+    at: [40.7060, -74.0032], hours: [11, 24], interior: 'golf', color: '#2a9d8f',
+    actions: ['playMinigolf', 'happyHour'],
   },
   {
     // Night Dancer's club (Peter, 2026-10-13). Kept PG-13: shows, tips and the odd rowdy customer.

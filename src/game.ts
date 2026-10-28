@@ -1448,6 +1448,18 @@ export class Game {
         this.openBottleMenu();
         return true;
       case 'chess':
+      case 'browseClothes': {
+        // The thrift's racks, bins and mannequins open the clothes store (ui/store).
+        const shopHere = s.location.placeId ? PLACE_BY_ID[s.location.placeId] : null;
+        if (!shopHere?.sells) return true;
+        const wearing = JSON.stringify(s.profile.look);
+        openStore(s, shopHere, (look) => this.player.setLook(look), () => {
+          if (JSON.stringify(s.profile.look) !== wearing) changedClothes(s);
+          this.save();
+          this.refreshHud(true);
+        });
+        return true;
+      }
       case 'playChess':
         openChessHouse(this.funHost(), s.location.placeId === 'chessHouse' ? 'The Chess House' : 'Chess in the park');
         return true;
@@ -1548,6 +1560,7 @@ export class Game {
       case 'playBreakout':
       case 'playRooftop':
       case 'playAirhockey':
+      case 'playAxe':
         playArcade(this.funHost(), id.slice(4).toLowerCase());
         return true;
       case 'prizeCounter':

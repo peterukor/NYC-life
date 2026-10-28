@@ -109,12 +109,6 @@ export const NORTH_PLACES: RawPlace[] = [
     actions: ['amateurNight'],
   },
   {
-    id: 'sugarSyrup', area: 'manhattan', name: 'Sugar & Syrup', emoji: '🧇', type: 'food',
-    blurb: 'Chicken and waffles since your parents were dating. The syrup is hot sauce. The hot sauce is also syrup. Don’t ask.',
-    at: [40.8148, -73.9435], hours: [8, 23], interior: 'pizza', color: '#bc6c25',
-    actions: ['chickenWaffles', 'peachCobbler'],
-  },
-  {
     id: 'lenoxLounge', area: 'manhattan', name: 'Lenox Lounge Revival', emoji: '🎷', type: 'nightlife',
     blurb: 'Red booths, low light, a house band that has played every night since forever. Ask nicely and they might let you sit in.',
     at: [40.8083, -73.9440], hours: [18, 4], interior: 'bar', color: '#9d0208',
@@ -172,12 +166,6 @@ export const NORTH_PLACES: RawPlace[] = [
     actions: ['pastelito', 'tresLeches', 'latte'],
   },
   {
-    id: 'heightsBodega', area: 'manhattan', name: 'Broadway Deli & Grocery (181st)', emoji: '🏪', type: 'food',
-    blurb: 'Open 24/7, run by three brothers who never all sleep at once. The cat is named Presidente.',
-    at: [40.8505, -73.9370], interior: 'bodega', color: '#2a9d8f',
-    actions: ['baconEggCheese', 'choppedCheese', 'bodegaCoffee', 'petBodegaCat', 'lottoTicket', 'gistWithOwner'],
-  },
-  {
     id: 'blowoutSalon', area: 'manhattan', name: 'Blowout Bar Dominicana', emoji: '💇', type: 'fun',
     blurb: 'The best blowouts in the city and the best information network in the hemisphere. Book ahead. Then wait anyway.',
     at: [40.8478, -73.9352], hours: [8, 20], interior: 'none', color: '#ff4fa3',
@@ -216,11 +204,5 @@ export const NORTH_PLACES: RawPlace[] = [
     blurb: 'The oldest canoe club in the city, at the top of the island where two rivers fight. Free paddles for the brave.',
     at: [40.8700, -73.9195], hours: [8, 19], interior: 'none', color: '#219ebc',
     actions: ['kayakRiver'],
-  },
-  {
-    id: 'mofongoSpot', area: 'manhattan', name: 'Mofongo King', emoji: '🍤', type: 'food',
-    blurb: 'Garlic you can smell from the 1 train. Mofongo the size of your head. Merengue loud enough to dance through the wait.',
-    at: [40.8680, -73.9215], hours: [11, 2], interior: 'pizza', color: '#e63946',
-    actions: ['mofongo', 'chimiBatida'],
   },
 ];

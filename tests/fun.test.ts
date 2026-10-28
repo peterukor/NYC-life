@@ -155,7 +155,7 @@ test('live scores never go past the final', () => {
 // ---------------------------------------------------------------- 🕹️ arcade
 test('arcade: $2 a play, tickets for scores, prizes cost tickets', () => {
   const s = life();
-  assert.equal(ARCADE_GAMES.length, 12); // + Stack, Dash (2026-10-15); + Pinball, Skee-Ball, Breakout, Rooftop, Air Hockey (2026-10-27)
+  assert.equal(ARCADE_GAMES.length, 13); // + Stack, Dash (2026-10-15); + Pinball, Skee-Ball, Breakout, Rooftop, Air Hockey (2026-10-27); + Axe (2026-10-28)
   const m = s.money;
   assert.equal(payToPlay(s), null);
   assert.equal(s.money, m - 200);
