@@ -16,7 +16,7 @@ import { sfx } from '../audio.ts';
 import { Fx } from '../juice.ts';
 import { H, secs, W, type Run } from '../arcade-games.ts';
 import { bar, clamp, finisher, keys, label, prerender } from './kit.ts';
-import { blit, emojiSprite, glowSprite, hudOnce, qaExpose, REDUCED, rng, swipes } from './classic1-kit.ts';
+import { blit, emojiSprite, glowSprite, hudOnce, numText, qaExpose, REDUCED, rng, swipes } from './classic1-kit.ts';
 import {
   createDash, dashHop, dashMult, dashSteer, dashUpdate, DASH_BLOCK, DASH_INFO, DASH_MAGNET_S, DASH_SECONDS, DASH_TURBO_S,
   type DashEvent, type DashKind, type DashObj,
@@ -28,6 +28,8 @@ const LANE = 96, ROAD = 150, CURB = 190, WALL = 240;
 const ZFAR = 3300;
 const INTER = 230; // length of an intersection (cross street + crosswalks)
 const FIRST_ST = 14;
+const SIDES = [-1, 1] as const;
+const DASHES = [-LANE / 2, LANE / 2] as const;
 
 interface Bldg {
   side: number;
@@ -293,6 +295,8 @@ export const dash: Run = (cv, g, done, hud) => {
   const s = createDash(secs(DASH_SECONDS));
   qaExpose('dash', s);
   const events: DashEvent[] = [];
+  const scoreText = numText((n) => `${n}`);
+  const multText = numText((n) => `💵 ×${n}`);
   let hudKey = -1, raf = 0, over = false, ready = 1.0, camX = 0, lean = 0, land = 0, exhaust = 0, hitFlash = 0, lastMult = 1, lastSec = -1, timeText = '1:30';
 
   // ------------------------------------------------------------ art
@@ -378,7 +382,7 @@ export const dash: Run = (cv, g, done, hud) => {
     let list = blocks.get(b);
     if (list) return list;
     list = [];
-    for (const side of [-1, 1]) {
+    for (const side of SIDES) {
       let z = b * DASH_BLOCK + INTER;
       let i = 0;
       while (z < (b + 1) * DASH_BLOCK - 20) {
@@ -728,7 +732,8 @@ export const dash: Run = (cv, g, done, hud) => {
       // Crosswalks (zebra) on both sides of it.
       g.fillStyle = 'rgba(240,240,245,.8)';
       g.beginPath();
-      for (const cz of [zi + 6, zi + INTER - 34]) {
+      for (let c = 0; c < 2; c++) {
+        const cz = c ? zi + INTER - 34 : zi + 6;
         if (cz < -120) continue;
         for (let xx = -ROAD + 6; xx < ROAD; xx += 24) ground(xx, xx + 13, cz, cz + 28);
       }
@@ -741,7 +746,7 @@ export const dash: Run = (cv, g, done, hud) => {
     for (let z = -off - 20; z < ZFAR; z += 140) {
       const inBlock = (((z + s.dist) % DASH_BLOCK) + DASH_BLOCK) % DASH_BLOCK;
       if (inBlock < INTER) continue;
-      for (const lx of [-LANE / 2, LANE / 2]) ground(lx - 3, lx + 3, z, z + 64);
+      for (const lx of DASHES) ground(lx - 3, lx + 3, z, z + 64);
     }
     g.fill();
     g.fillStyle = '#ffd166';
@@ -769,7 +774,7 @@ export const dash: Run = (cv, g, done, hud) => {
       const k = sc(z);
       g.lineWidth = Math.max(1, 4 * k);
       g.beginPath();
-      for (const side of [-1, 1]) {
+      for (const side of SIDES) {
         const x = X(side * (CURB + 10), z);
         g.moveTo(x, Y(0, z));
         g.lineTo(x, Y(140, z));
@@ -777,7 +782,7 @@ export const dash: Run = (cv, g, done, hud) => {
       }
       g.stroke();
       g.globalCompositeOperation = 'lighter';
-      for (const side of [-1, 1]) {
+      for (const side of SIDES) {
         const x = X(side * (CURB - 20), z);
         g.drawImage(lampGlow, x - 40 * k, Y(146, z) - 40 * k, 80 * k, 80 * k);
       }
@@ -835,7 +840,7 @@ export const dash: Run = (cv, g, done, hud) => {
       g.ellipse(px, GROUND - lift - 58, 42, 64, 0, 0, Math.PI * 2);
       g.stroke();
     }
-    if (s.magnet > 0) blit(g, SPR.magnet, px + 32, GROUND - lift - 110, 20);
+    if (s.magnet > 0 && !s.dead) blit(g, SPR.magnet, px + 32, GROUND - lift - 110, 20);
     if (hitFlash > 0) {
       g.fillStyle = 'rgba(255,40,60,.18)';
       g.globalAlpha = hitFlash;
@@ -848,9 +853,9 @@ export const dash: Run = (cv, g, done, hud) => {
     label(g, timeText, 12, 30, 16, left < 10 ? '#ff5a5a' : '#fff', 'left');
     for (let i = 0; i < s.lives; i++) blit(g, SPR.heart, W - 18 - i * 20, 30, 16);
     if (s.helmet) blit(g, SPR.helm, W - 18 - s.lives * 20, 30, 16);
-    label(g, `${s.score}`, W / 2, 34, 24, '#fff');
+    label(g, scoreText(s.score), W / 2, 34, 24, '#fff');
     const m = dashMult(s.streak, s.turbo > 0);
-    if (m > 1) label(g, `💵 ×${m}`, W / 2, 58, 16, s.turbo > 0 ? '#ffd166' : '#7bd88f');
+    if (m > 1) label(g, multText(m), W / 2, 58, 16, s.turbo > 0 ? '#ffd166' : '#7bd88f');
     if (s.turbo > 0) bar(g, W / 2 - 50, 70, 100, s.turbo / DASH_TURBO_S, '#ffd166');
     else if (s.magnet > 0) bar(g, W / 2 - 50, 70, 100, s.magnet / DASH_MAGNET_S, '#5ec8ff');
     if (ready > 0) {

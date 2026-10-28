@@ -484,7 +484,8 @@ export class ClawGame {
     }
     this.held = t;
     this.heldP = hp;
-    this.hold = { x: Math.max(-10, Math.min(10, hp.x - h.x)), y: Math.max(18, Math.min(36, hp.y - h.y)) };
+    // Held where it was gripped (no snap: a snap would bulldoze the neighbours).
+    this.hold = { x: Math.max(-18, Math.min(18, hp.x - h.x)), y: Math.max(8, Math.min(50, hp.y - h.y)) };
     this.events.push({ kind: 'grab', grip: this.grip, body: t });
   }
 
@@ -533,7 +534,10 @@ export class ClawGame {
             p.y = ty;
             continue;
           }
-          const vx = (p.x - p.px) * 0.996, vy = (p.y - p.py) * 0.996;
+          let vx = (p.x - p.px) * 0.996, vy = (p.y - p.py) * 0.996;
+          // A speed cap: nothing in a claw machine moves faster than a dropped plush.
+          const sp = Math.hypot(vx, vy), cap = MAX_SPEED * h;
+          if (sp > cap) (vx *= cap / sp), (vy *= cap / sp);
           p.px = p.x;
           p.py = p.y;
           p.x += vx;
@@ -576,6 +580,9 @@ export class ClawGame {
                 p.y -= dy * k * wp;
                 q.x += dx * k * wq;
                 q.y += dy * k * wq;
+                // Shoved by the prize in the claw (it can't give): a shove, not a launch.
+                if (!wp) (q.px += dx * k * wq * CLAW_SOAK), (q.py += dy * k * wq * CLAW_SOAK);
+                if (!wq) (p.px -= dx * k * wp * CLAW_SOAK), (p.py -= dy * k * wp * CLAW_SOAK);
                 if (last) this.contacts.push({ a: p, b: q, nx: dx / d, ny: dy / d });
               }
             }
@@ -588,19 +595,35 @@ export class ClawGame {
             const hy = hub.y + 4;
             {
               const dx = p.x - hub.x, dy = p.y - hy, d = Math.hypot(dx, dy), rr = p.r + CLAW.HUB_R;
-              if (d < rr && d > 1e-6) {
-                p.x += (dx / d) * (rr - d);
-                p.y += (dy / d) * (rr - d);
+              // The palm rests on what's below it (the drop stops there); it never shoves the pile down.
+              if (d < rr && d > 1e-6 && dy < 0) {
+                const cx = (dx / d) * (rr - d), cy = (dy / d) * (rr - d);
+                p.x += cx;
+                p.y += cy;
+                // A shove, not a launch: most of the correction doesn't turn into speed.
+                p.px += cx * CLAW_SOAK;
+                p.py += cy * CLAW_SOAK;
                 if (last) this.contacts.push({ a: p, b: null, nx: -dx / d, ny: -dy / d });
               }
             }
-            for (const g of segs) {
-              const sd = segDist(p.x, p.y, g);
+            // The fingers squeeze only the prize they're closing on (the rest of the pile is soft).
+            if (b !== this.target) continue;
+            for (let si = 0; si < segs.length; si++) {
+              const sd = segDist(p.x, p.y, segs[si]);
               const rr = p.r + 3;
-              if (sd.d < rr) {
+              // One-sided: a finger closes on what's between the fingers. Plush it sank into on the
+              // way down, on its outer side, it slides past (rather than scooping it out and up).
+              const side = si < 2 ? -1 : 1;
+              if (sd.d < rr && (p.x - sd.x) * side <= 0) {
                 const nx = sd.d > 1e-6 ? (p.x - sd.x) / sd.d : 0, ny = sd.d > 1e-6 ? (p.y - sd.y) / sd.d : -1;
-                p.x = sd.x + nx * rr;
-                p.y = sd.y + ny * rr;
+                const ox = p.x, oy = p.y;
+                // Sideways or up, never down: a claw can't press plush into the bed (that squeeze
+                // would pressurise the pile and pop prizes out of it). And gently: fingers that sank
+                // in on the way down ease the prize to the middle instead of snapping it there.
+                p.x = ox + clampAbs(sd.x + nx * rr - ox, MAX_PUSH);
+                p.y = Math.min(oy, oy + clampAbs(sd.y + ny * rr - oy, MAX_PUSH));
+                p.px += (p.x - ox) * CLAW_SOAK;
+                p.py += (p.y - oy) * CLAW_SOAK;
                 if (last) this.contacts.push({ a: p, b: null, nx: -nx, ny: -ny });
               }
             }
@@ -639,6 +662,19 @@ export class ClawGame {
         const mu = 0.35;
         const wa = a === this.heldP ? 0 : a.w, wb = c.b ? (c.b === this.heldP ? 0 : c.b.w) : 0;
         const sum = wa + wb || 1;
+        // Plush doesn't bounce: soak up most of a separating speed (what the solver's pushes
+        // create), so a squeeze in the pile can't launch a prize across the box.
+        if (vn < 0) {
+          const dv = vn * 0.75;
+          if (wa) {
+            a.px += dv * c.nx * (c.b ? wa / sum : 1);
+            a.py += dv * c.ny * (c.b ? wa / sum : 1);
+          }
+          if (c.b && wb) {
+            c.b.px -= dv * c.nx * (wb / sum);
+            c.b.py -= dv * c.ny * (wb / sum);
+          }
+        }
         a.px += tx * mu * (c.b ? wa / sum : 1) * (wa ? 1 : 0);
         a.py += ty * mu * (c.b ? wa / sum : 1) * (wa ? 1 : 0);
         if (c.b && wb) {
@@ -661,6 +697,12 @@ export class ClawGame {
   }
 }
 
+/** How much of a shove from the claw is soaked up (not turned into speed), and a speed cap (px/s). */
+const CLAW_SOAK = 0.8;
+/** Most a finger moves a prize per solver pass (px). */
+const MAX_PUSH = 0.6;
+const clampAbs = (v: number, m: number) => (v > m ? m : v < -m ? -m : v);
+const MAX_SPEED = 900;
 const WALL: Seg = { x0: CAB.WALL_X, y0: CAB.WALL_TOP, x1: CAB.WALL_X, y1: CAB.FLOOR + 30 };
 
 /** Distance from a point to a segment, and the nearest point. */

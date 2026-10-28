@@ -153,3 +153,15 @@ export function qaExpose(name: string, state: unknown): void {
   const w = window as unknown as { __arcadeQa?: Record<string, unknown> };
   (w.__arcadeQa ??= {})[name] = state;
 }
+
+/** Text for a number that only rebuilds its string when the number changes (no per-frame allocation). */
+export function numText(fmt: (n: number) => string): (n: number) => string {
+  let last = NaN, text = '';
+  return (n) => {
+    if (n !== last) {
+      last = n;
+      text = fmt(n);
+    }
+    return text;
+  };
+}

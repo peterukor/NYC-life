@@ -16,7 +16,7 @@ import { sfx } from '../audio.ts';
 import { Fx } from '../juice.ts';
 import { H, secs, W, type Run } from '../arcade-games.ts';
 import { bar, finisher, keys, label, prerender } from './kit.ts';
-import { blit, emojiSprite, glowSprite, hudOnce, qaExpose, REDUCED, rng, swipes } from './classic1-kit.ts';
+import { blit, emojiSprite, glowSprite, hudOnce, numText, qaExpose, REDUCED, rng, swipes } from './classic1-kit.ts';
 import {
   createSnake, snakeDeadly, snakeFinish, snakeMult, snakeStepMs, snakeTick, snakeTurn, SNAKE_COLS, SNAKE_GOLD_STEPS, SNAKE_PER_STOP, SNAKE_ROWS,
   SNAKE_SECONDS, SNAKE_SLOW_STEPS, SNAKE_STOPS, type SnakeEvent,
@@ -53,7 +53,8 @@ export const snake: Run = (cv, g, done, hud) => {
   const bulges: number[] = [];
   const debris: Debris[] = [];
   let goldCars = 0, acc = 0, elapsed = 0, ready = READY, raf = 0, over = false, squash = 0, lastMult = 1, lastSec = -1, flicker = 0;
-  let stopName = SNAKE_STOPS[1], timeText = '1:30';
+  let stopName = SNAKE_STOPS[1], timeText = '1:30', hudKey = -1;
+  const multText = numText((m) => `×${m}`);
 
   // ------------------------------------------------------------ input
   const turn = (dx: number, dy: number) => {
@@ -383,8 +384,10 @@ export const snake: Run = (cv, g, done, hud) => {
     } else {
       const n = s.body.length;
       // Couplers first, then cars tail → head.
-      g.strokeStyle = '#15181c';
-      g.lineWidth = 6;
+      // Couplers: a dark-red spine so a coiled train still reads as one line.
+      g.strokeStyle = '#6b1714';
+      g.lineWidth = 8;
+      g.lineJoin = 'round';
       g.beginPath();
       for (let i = 0; i < n; i++) {
         const b = s.body[i], p = s.prev[i];
@@ -440,7 +443,7 @@ export const snake: Run = (cv, g, done, hud) => {
     const m = snakeMult(s.combo);
     const parF = s.par / s.parMax;
     if (parF > 0 && ready <= 0) bar(g, 209, 26, 52, parF, m > 1 ? '#7bd88f' : '#ffd166');
-    if (m > 1) label(g, `×${m}`, 280, 21, 16, '#7bd88f');
+    if (m > 1) label(g, multText(m), 280, 21, 16, '#7bd88f');
     label(g, timeText, W - 10, 21, 18, END - elapsed < 10 ? '#ff5a5a' : '#fff', 'right');
     if (slow) bar(g, W - 70, 33, 60, s.slow / SNAKE_SLOW_STEPS, '#5ec8ff');
     if (ready > 0) label(g, 'STAND CLEAR…', W / 2, TOP + 150, 24, '#fff');
@@ -500,8 +503,12 @@ export const snake: Run = (cv, g, done, hud) => {
     const alpha = fin.ended || ready > 0 ? 1 : Math.min(1, acc / snakeStepMs(s.eaten, s.slow > 0));
     draw(now, alpha);
     fx.end(g);
-    const m = snakeMult(s.combo);
-    say(`🍕 ${s.score} · ⏱ ${timeText}${m > 1 && s.par >= 0 ? ` · 🔥×${m}` : ''}`);
+    const m = snakeMult(s.combo) * (s.par >= 0 ? 1 : 0);
+    const hk = s.score * 1000 + lastSec * 8 + m;
+    if (hk !== hudKey) {
+      hudKey = hk;
+      say(`🍕 ${s.score} · ⏱ ${timeText}${m > 1 ? ` · 🔥×${m}` : ''}`);
+    }
     raf = requestAnimationFrame(loop);
   };
   raf = requestAnimationFrame(loop);

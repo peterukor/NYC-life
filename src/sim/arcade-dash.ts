@@ -272,7 +272,7 @@ export function createDash(end = DASH_SECONDS): DashState {
 
 export function dashSteer(s: DashState, d: number): void {
   if (s.over) return;
-  const n = Math.max(0, Math.min(2, s.lane + d));
+  const n = Math.max(0, Math.min(2, s.lane + Math.sign(d)));
   if (n !== s.lane) {
     s.lane = n;
     s.lastSteer = s.t;

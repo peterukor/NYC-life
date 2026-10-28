@@ -16,7 +16,7 @@ import { sfx } from '../audio.ts';
 import { Fx } from '../juice.ts';
 import { H, W, type Run } from '../arcade-games.ts';
 import { clamp, finisher, keys, label, prerender } from './kit.ts';
-import { blit, emojiSprite, hudOnce, qaExpose, REDUCED, rng } from './classic1-kit.ts';
+import { blit, emojiSprite, hudOnce, numText, qaExpose, REDUCED, rng } from './classic1-kit.ts';
 import {
   createStack, stackIsOrder, stackPlace, stackSlide, STACK_BASE_W, STACK_FILLINGS, STACK_ORDER_EVERY, type StackEvent,
 } from '../../sim/arcade-stack.ts';
@@ -209,7 +209,9 @@ export const stack: Run = (cv, g, done, hud) => {
   const chunks: Chunk[] = [];
   for (let i = 0; i < 12; i++) chunks.push({ x: 0, y: 0, w: 0, kind: 0, gold: false, vx: 0, vy: 0, rot: 0, spin: 0, on: false });
   let raf = 0, over = false, camY = 0, land = 0, sway = 0, swayT = 0, lastDrop = 0, ripple = 0, rippleX = 0, rippleW = 0, rippleY = 0;
-  let catHop = 0, catLook = 0, roofDone = false, endAt = 0, started = false;
+  let catHop = 0, catLook = 0, roofDone = false, endAt = 0, started = false, hudKey = -1;
+  const layersText = numText((n) => `${n}`);
+  const streakText = numText((n) => `🔥 ${n} perfect`);
 
   // ------------------------------------------------------------ art
   const TEX = STACK_FILLINGS.map((f, i) => prerender(TEX_W, TEX_H, (c) => PAINT[f](c, rng(31 + i * 7))));
@@ -604,14 +606,14 @@ export const stack: Run = (cv, g, done, hud) => {
     const layers = n - 1;
     const orderNext = stackIsOrder(n) && !s.dead;
     g.drawImage(panel, W / 2 - 65, 4, 130, s.streak >= 2 || orderNext ? 80 : 60);
-    label(g, `${layers}`, W / 2, 30, 30, '#fff');
+    label(g, layersText(layers), W / 2, 30, 30, '#fff');
     const got = layers % STACK_ORDER_EVERY;
     for (let i = 0; i < STACK_ORDER_EVERY; i++) {
       g.fillStyle = i < got ? '#ffd43b' : 'rgba(0,0,0,.35)';
       g.fillRect(W / 2 - 49 + i * 10, 52, 8, 4);
     }
     if (orderNext) label(g, '✨ top bread next', W / 2, 72, 14, '#ffd43b');
-    else if (s.streak >= 2) label(g, `🔥 ${s.streak} perfect`, W / 2, 72, 15, '#ffe08a');
+    else if (s.streak >= 2) label(g, streakText(s.streak), W / 2, 72, 15, '#ffe08a');
     if (!started) label(g, 'TAP TO DROP', W / 2, layerY(n) - 30, 22, '#fff');
   };
 
@@ -652,7 +654,11 @@ export const stack: Run = (cv, g, done, hud) => {
     }
     draw(now);
     fx.end(g);
-    say(`🥪 ${s.score} · ${s.layers.length - 1} layers${s.streak >= 2 ? ` · 🔥${s.streak}` : ''}`);
+    const hk = s.score * 4096 + s.layers.length * 16 + Math.min(15, s.streak);
+    if (hk !== hudKey) {
+      hudKey = hk;
+      say(`🥪 ${s.score} · ${s.layers.length - 1} layers${s.streak >= 2 ? ` · 🔥${s.streak}` : ''}`);
+    }
     if (endAt && now >= endAt && !fin.ended) {
       fx.pop(W / 2, H / 2, `${s.layers.length - 1} layers`, '#fff', 22);
       fin.end(s.score, 200);

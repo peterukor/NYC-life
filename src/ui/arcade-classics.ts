@@ -7,6 +7,9 @@
 
 import type { Run } from './arcade-games.ts';
 import { beats } from './arcade/beats.ts';
+import { dash } from './arcade/dash.ts';
 import { pigeons } from './arcade/pigeons.ts';
+import { snake } from './arcade/snake.ts';
+import { stack } from './arcade/stack.ts';
 
-export const RUNS3: Record<string, Run> = { pigeons, beats };
+export const RUNS3: Record<string, Run> = { snake, stack, dash, pigeons, beats };

@@ -558,7 +558,8 @@ export const hoops: Run = (cv, g, done, hud) => {
     g.fill();
   };
 
-  const draw = (now: number, dt: number) => {
+  const draw = (now: number) => {
+    g.lineJoin = 'round'; // no miter spikes on the outlined labels
     g.drawImage(bg, 0, 0);
     // The crowd above, through the nets.
     for (const h of crowd) {
@@ -668,7 +669,6 @@ export const hoops: Run = (cv, g, done, hud) => {
       label(g, hint, 180, 424, 13, '#ffd23f');
       g.globalAlpha = 1;
     }
-    void dt;
   };
 
   // -------------------------------------------------------------- loop
@@ -754,7 +754,7 @@ export const hoops: Run = (cv, g, done, hud) => {
     if (over) return;
     const dt = fx.begin(g);
     if (!fx.frozen) step(dt);
-    draw(now, dt);
+    draw(now);
     fx.end(g);
     hud(`🏀 ${score} · ⏱ ${Math.ceil(left())}s${fire ? ' · 🔥 on fire' : streak >= 2 ? ` · ${streak} in a row` : ''}`);
     raf = requestAnimationFrame(loop);
