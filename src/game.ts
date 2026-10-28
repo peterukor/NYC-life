@@ -406,6 +406,8 @@ export class Game {
         if (p) this.enterInterior(p, false);
         return !!p;
       },
+      /** Clubs: drop the beat now (QA screenshots). */
+      clubDrop: () => this.venueLife?.drop(),
       /** Two-floor homes: take the stairs (QA). */
       takeStairs: () => this.changeFloor(),
       /** Where the player stands (for screenshots). */

@@ -28,6 +28,8 @@ for (const id of ids) {
   if (!ok) { console.log(id, 'no such place'); continue; }
   await wait(4500);
   if (process.env.UP) { await page.evaluate(() => window.__nyc.takeStairs()); await wait(3000); }
+  if (process.env.WAIT) await wait(+process.env.WAIT);
+  if (process.env.DROP) { await page.evaluate(() => window.__nyc.clubDrop()); await wait(+process.env.DROP); }
   if (process.env.ZOOM) await page.evaluate((z) => window.__nyc.zoomAt(+z, 0, 0), process.env.ZOOM);
   await wait(600);
   const clashes = await page.evaluate(() => window.__nyc.furnitureClashes());

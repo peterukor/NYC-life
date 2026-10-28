@@ -112,7 +112,7 @@ export class VenueLife {
   private readonly haze: { sprite: THREE.Sprite; v: THREE.Vector3; base: number }[] = [];
   /** 💨 CO2 blasts and 🎊 confetti on the drop. */
   private readonly bits: { sprite: THREE.Sprite; v: THREE.Vector3; age: number; life: number; spin: number; grow: number }[] = [];
-  private nextDrop = 18;
+  private nextDrop = 6;
   private dropT = -1;
   private strobe: THREE.PointLight | null = null;
   private djAt = new THREE.Vector3(0, 0, -4);
@@ -351,7 +351,7 @@ export class VenueLife {
   }
 
   /** 💥 The drop: CO2 jets by the DJ, confetti over the floor, the strobe goes. */
-  private drop(): void {
+  drop(): void {
     this.dropT = 0;
     this.cheer(4);
     const fx = this.layout.life?.fx ?? [];
@@ -359,15 +359,15 @@ export class VenueLife {
       for (const sx of [-2.4, 2.4]) {
         for (let i = 0; i < 26; i++) {
           const at = this.djAt.clone().add(new THREE.Vector3(sx, 0.4, 0.6));
-          this.spawnBit(at, new THREE.Vector3((this.rand() - 0.5) * 0.8, 3.5 + this.rand() * 2.5, (this.rand() - 0.5) * 0.8), '#e8f4ff', 0.5, 1.4 + this.rand() * 0.5, { grow: 1.6 });
+          this.spawnBit(at, new THREE.Vector3((this.rand() - 0.5) * 0.8, 3.5 + this.rand() * 2.5, (this.rand() - 0.5) * 0.8), '#e8f4ff', 0.8, 2.0 + this.rand() * 0.6, { grow: 1.4 });
         }
       }
     }
     if (fx.includes('confetti')) {
       const cols = ['#ff3fb4', '#22d3ee', '#ffd36b', '#9b5cff', '#3ddc84', '#ffffff'];
-      for (let i = 0; i < 90; i++) {
+      for (let i = 0; i < 140; i++) {
         const at = new THREE.Vector3((this.rand() - 0.5) * this.layout.width * 0.6, 3.6 + this.rand(), (this.rand() - 0.5) * this.layout.depth * 0.5);
-        this.spawnBit(at, new THREE.Vector3((this.rand() - 0.5) * 0.6, -0.9 - this.rand() * 0.6, (this.rand() - 0.5) * 0.6), cols[i % cols.length], 0.09, 4 + this.rand() * 2, { square: true, spin: (this.rand() - 0.5) * 8 });
+        this.spawnBit(at, new THREE.Vector3((this.rand() - 0.5) * 0.6, -0.9 - this.rand() * 0.6, (this.rand() - 0.5) * 0.6), cols[i % cols.length], 0.16, 5 + this.rand() * 2, { square: true, spin: (this.rand() - 0.5) * 8 });
       }
     }
   }
