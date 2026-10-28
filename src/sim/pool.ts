@@ -125,6 +125,8 @@ export interface ShotResult {
   /** Object balls potted this shot, in order. */
   potted: number[];
   firstHit: number | null;
+  /** The balls that were legal to hit first. */
+  legal: number[];
   keepTurn: boolean;
   /** 8-ball: the group the shooter just got. */
   assigned: Group | null;
@@ -476,7 +478,7 @@ export function endShot(g: PoolGame): ShotResult {
   else if (rec.firstHit === null) foul = 'miss';
   else if (!rec.legal.includes(rec.firstHit)) foul = 'wrong-first';
   else if (!brk && !potted.length && !rec.railAfter) foul = 'no-rail';
-  const res: ShotResult = { shooter: me, foul, potted, firstHit: rec.firstHit, keepTurn: false, assigned: null, win: null, why: null, spotted: null, brk };
+  const res: ShotResult = { shooter: me, foul, potted, firstHit: rec.firstHit, legal: rec.legal, keepTurn: false, assigned: null, win: null, why: null, spotted: null, brk };
   const win = (who: Seat, why: WinWhy) => {
     res.win = who;
     res.why = why;

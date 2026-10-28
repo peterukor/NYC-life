@@ -125,7 +125,7 @@ const LIST: ActionDef[] = [
   { id: 'playDash', label: 'Play Delivery Dash', emoji: '🛵', seconds: 2, tags: ['service'] },
   { id: 'playClaw', label: 'Try the claw machine', emoji: '🧸', seconds: 2, tags: ['service'] },
   // More cabinets and tables (2026-10-27).
-  { id: 'playPinball', label: 'Play Liberty Pinball', emoji: '📍', seconds: 2, tags: ['service'] },
+  { id: 'playPinball', label: 'Play Liberty Pinball', emoji: '🗽', seconds: 2, tags: ['service'] },
   { id: 'playSkeeball', label: 'Play Coney Skee-Ball', emoji: '🎳', seconds: 2, tags: ['service'] },
   { id: 'playBreakout', label: 'Play Brooklyn Breakout', emoji: '🧱', seconds: 2, tags: ['service'] },
   { id: 'playRooftop', label: 'Play Rooftop Jump', emoji: '🏙️', seconds: 2, tags: ['service'] },

@@ -33,6 +33,50 @@ export const ARCADE_GAMES: ArcadeGame[] = [
   { id: 'dash', name: 'Delivery Dash', emoji: '🛵', color: '#2a9d8f', howTo: 'Tap or swipe to switch lanes. Sweep up 💵 for a streak bonus, grab 🧲 magnet, 🪖 helmet and ⚡ turbo, and dodge doors, potholes and people. Close calls score. Three hits and you’re out.', tickets: (s) => Math.floor(s / 7) },
   { id: 'claw', name: 'Claw Machine', emoji: '🧸', color: '#9b5de5', howTo: 'Drag on the glass (or hold ◀ ▶) to steer, then DROP. Centre it and let the swing settle for a strong grip. ✨ Shiny prizes are worth double. 15 seconds.', tickets: (s) => s },
 ];
+/** Five more (2026-10-27): Pinball, Skee-Ball, Breakout, Rooftop Jump, Air Hockey (ui/arcade-games-2.ts). */
+const ARCADE_GAMES_2: ArcadeGame[] = [
+  {
+    id: 'pinball',
+    name: 'Liberty Pinball',
+    emoji: '🗽',
+    color: '#1fa2ff',
+    howTo: 'Hold anywhere and let go to launch. Tap the left or right side for the flippers. Light 🚕 T-A-X-I for a bigger multiplier, ride the 🚇 ramp, and drop all three 🎯 targets for multiball. 3 balls.',
+    tickets: (s) => Math.floor(s / 800),
+  },
+  {
+    id: 'skeeball',
+    name: 'Coney Skee-Ball',
+    emoji: '🎳',
+    color: '#ff6f59',
+    howTo: 'Touch the ball, then flick up: a faster flick rolls harder and the angle aims. Land in the rings for 10–50 or a corner 💯. Nine balls, and the last one counts double.',
+    tickets: (s) => Math.floor(s / 8),
+  },
+  {
+    id: 'breakout',
+    name: 'Brooklyn Breakout',
+    emoji: '🧱',
+    color: '#c0623a',
+    howTo: 'Drag to slide the 🚕 paddle and lift your finger to launch. Bricks broken in a row build a chain (×5). Catch 🎱 multi-ball, ↔️ wide cab, 🔥 fireball and ❤️. 90 seconds.',
+    tickets: (s) => Math.floor(s / 25),
+  },
+  {
+    id: 'rooftop',
+    name: 'Rooftop Jump',
+    emoji: '🏙️',
+    color: '#5b8def',
+    howTo: 'You bounce on your own: hold the left or right side to steer. Springs launch you, 🍕 boxes fold after one bounce, stomp 🐦 pigeons from above and grab 🪙. Don’t fall!',
+    tickets: (s) => Math.floor(s / 25),
+  },
+  {
+    id: 'airhockey',
+    name: 'Air Hockey',
+    emoji: '🏒',
+    color: '#00d1ff',
+    howTo: 'Drag your mallet in your half and smack the puck into the house’s goal. Swing fast for a slapshot. First to 7, or whoever leads at 90 seconds. The house speeds up as you score.',
+    tickets: (s) => Math.floor(s / 30),
+  },
+];
+ARCADE_GAMES.push(...ARCADE_GAMES_2);
 export const ARCADE_BY_ID = Object.fromEntries(ARCADE_GAMES.map((g) => [g.id, g]));
 
 function funOf(s: GameState) {

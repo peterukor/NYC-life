@@ -1510,6 +1510,11 @@ export class Game {
       case 'playStack':
       case 'playDash':
       case 'playClaw':
+      case 'playPinball':
+      case 'playSkeeball':
+      case 'playBreakout':
+      case 'playRooftop':
+      case 'playAirhockey':
         playArcade(this.funHost(), id.slice(4).toLowerCase());
         return true;
       case 'prizeCounter':

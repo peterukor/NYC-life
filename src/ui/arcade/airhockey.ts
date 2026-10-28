@@ -46,7 +46,7 @@ export const airhockey: Run = (cv, g, done, hud) => {
     },
   );
 
-  const level = (el: number) => Math.min(6, 1 + mine * 0.5 + el / 45);
+  const level = (el: number) => Math.min(6, 1 + mine * 0.55 + el / 60);
 
   /** Move a mallet toward its target at up to `max` px/s, inside its half. */
   const drive = (m: typeof me, max: number, dt: number, top: boolean) => {
@@ -124,7 +124,7 @@ export const airhockey: Run = (cv, g, done, hud) => {
     }
   };
 
-  const goal = (forMe: boolean, now: number) => {
+  const goal = (forMe: boolean) => {
     const sp = Math.hypot(puck.vx, puck.vy);
     goalFlash = 1;
     goalSide = forMe ? -1 : 1;
@@ -161,10 +161,9 @@ export const airhockey: Run = (cv, g, done, hud) => {
     ai.y = ai.ty = 64;
     trail.fill(0);
     pause = 1.1;
-    if (mine >= TO_WIN || theirs >= TO_WIN) finish(now);
+    if (mine >= TO_WIN || theirs >= TO_WIN) finish();
   };
-  const finish = (now: number) => {
-    void now;
+  const finish = () => {
     const won = mine > theirs;
     if (won) score += 300 + (mine - theirs) * 50;
     fx.stamp(won ? '🏆 YOU WIN!' : mine === theirs ? 'DRAW' : 'HOUSE WINS', won ? '#ffd23f' : '#aaa', 1.6);
@@ -202,7 +201,7 @@ export const airhockey: Run = (cv, g, done, hud) => {
       ai.ty = 64;
     }
     // Sloppier when it's slow.
-    const wob = Math.max(0, 22 - L * 3.5);
+    const wob = Math.max(0, 40 - L * 7);
     ai.tx += (Math.random() - 0.5) * wob;
   };
 
@@ -352,7 +351,7 @@ export const airhockey: Run = (cv, g, done, hud) => {
         if (Math.random() < 0.3) aimX = GX0 + 10 + Math.random() * (GX1 - GX0 - 20);
         think(el);
       }
-      drive(ai, 230 + 80 * L, dt, true);
+      drive(ai, 190 + 85 * L, dt, true);
       if (pause > 0) pause -= dt;
       else {
         const h = dt / SUB;
@@ -376,7 +375,7 @@ export const airhockey: Run = (cv, g, done, hud) => {
       }
       if (left <= 0 && !fin.ended) {
         sfx.done();
-        finish(now);
+        finish();
       }
     }
     frame(now, left);
@@ -388,7 +387,7 @@ export const airhockey: Run = (cv, g, done, hud) => {
     raf = requestAnimationFrame(loop);
   };
   const goalThenLoop = (forMe: boolean, now: number, left: number) => {
-    goal(forMe, now);
+    goal(forMe);
     frame(now, left);
   };
   raf = requestAnimationFrame(loop);

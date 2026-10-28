@@ -12,7 +12,10 @@ import { ARCADE_BY_ID, ARCADE_GAMES, PLAY_COST, PRIZES, bestScore, payToPlay, re
 import { sfx } from './audio.ts';
 import { rain, type CasinoHost } from './casino.ts';
 import { openModal, openSheet, onAct, toast } from './dom.ts';
-import { emoji, H, RUNS, W } from './arcade-games.ts';
+import { emoji, H, RUNS as RUNS1, W } from './arcade-games.ts';
+import { RUNS2 } from './arcade-games-2.ts';
+
+const RUNS = { ...RUNS1, ...RUNS2 };
 import { fetchBoard, postScore } from '../net/scores.ts';
 import { boardHtml, openScoreboards } from './scoreboard.ts';
 
@@ -23,7 +26,7 @@ import { boardHtml, openScoreboards } from './scoreboard.ts';
 export interface Versus { name: string; skill: number; done: (mine: number, theirs: number) => void }
 
 /** On your phone (📱 Games): free, for the high score; tickets only at the arcade. */
-export const PHONE_GAMES = ['stack', 'dash', 'pigeons', 'hoops', 'beats', 'snake'];
+export const PHONE_GAMES = ['stack', 'dash', 'pigeons', 'hoops', 'beats', 'snake', 'breakout', 'rooftop'];
 
 export function playArcade(host: CasinoHost, id: string, versus?: Versus, opts: { phone?: boolean } = {}): void {
   const phone = !!opts.phone;
@@ -34,7 +37,7 @@ export function playArcade(host: CasinoHost, id: string, versus?: Versus, opts: 
   const m = openModal(`<div class="arc" style="--cab:${game.color}">
     <div class="arc-top"><b>${game.emoji} ${esc(game.name)}</b><span class="arc-hud" aria-live="off"></span></div>
     <div class="arc-screen"><canvas width="${W}" height="${H}"></canvas>
-      <div class="arc-over"><div class="big">${game.emoji}</div><p>${esc(game.howTo)}</p><p class="sub">${versus ? `Head-to-head with ${esc(versus.name)}: you go first.` : phone ? `Best: ${bestScore(s, id)} · 📱 free on your phone · 🎟️ tickets only at Pixel Palace` : `Best: ${bestScore(s, id)} · 🎟️ ${tickets(s)}`}</p><button class="btn primary" data-go>${versus ? 'Start' : phone ? '▶️ Play' : `Insert coin · ${money(PLAY_COST)}`}</button></div>
+      <div class="arc-over"><div class="big">${game.emoji}</div><p>${esc(game.howTo)}</p><p class="sub">${versus ? `Head-to-head with ${esc(versus.name)}: you go first.` : phone ? `Best: ${bestScore(s, id)} · 📱 free on your phone · 🎟️ tickets only at the arcades` : `Best: ${bestScore(s, id)} · 🎟️ ${tickets(s)}`}</p><button class="btn primary" data-go>${versus ? 'Start' : phone ? '▶️ Play' : `Insert coin · ${money(PLAY_COST)}`}</button></div>
     </div>
     ${id === 'claw' ? '<div class="arc-pad arc-claw"><button data-claw-l aria-label="Move left">◀️</button><button class="btn primary" data-claw-drop>DROP</button><button data-claw-r aria-label="Move right">▶️</button></div>' : ''}
     ${id === 'snake' ? '<div class="arc-pad"><button data-d="0,-1" aria-label="Up">⬆️</button><button data-d="-1,0" aria-label="Left">⬅️</button><button data-d="1,0" aria-label="Right">➡️</button><button data-d="0,1" aria-label="Down">⬇️</button></div>' : ''}
@@ -90,7 +93,7 @@ export function playArcade(host: CasinoHost, id: string, versus?: Versus, opts: 
       host.onScore?.(id, score);
       postScore(id, score);
       overlay.innerHTML = phone
-        ? `<div class="big">${r.best ? '🏆' : game.emoji}</div><h3>${r.best ? 'New best!' : 'Game over'}</h3><p class="arc-score">${score}</p><p class="sub">At 🕹️ Pixel Palace this would’ve won you ${Math.floor(game.tickets(score))} 🎟️.</p><button class="btn primary" data-go>Play again</button><button class="btn ghost" data-board>🏆 Leaderboard</button>`
+        ? `<div class="big">${r.best ? '🏆' : game.emoji}</div><h3>${r.best ? 'New best!' : 'Game over'}</h3><p class="arc-score">${score}</p><p class="sub">At an 🕹️ arcade this would’ve won you ${Math.floor(game.tickets(score))} 🎟️.</p><button class="btn primary" data-go>Play again</button><button class="btn ghost" data-board>🏆 Leaderboard</button>`
         : `<div class="big">${r.best ? '🏆' : game.emoji}</div><h3>${r.best ? 'New best!' : 'Game over'}</h3><p class="arc-score">${score}</p><p>+${r.tickets} 🎟️ · you have ${tickets(s)}</p><button class="btn primary" data-go>Play again · ${money(PLAY_COST)}</button><button class="btn ghost" data-board>🏆 Leaderboard</button>`;
       if (r.best) rain(m.el, '🎟️', 18);
       r.tickets ? sfx.win() : sfx.tap();

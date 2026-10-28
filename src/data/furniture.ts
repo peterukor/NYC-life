@@ -324,7 +324,7 @@ FURNITURE.add(
   // 🕹️ more cabinets and 🎰 more tables (2026-10-27)
   { id: 'cabBreakout', name: 'Brooklyn Breakout', emoji: '🧱', price: 0, parts: [{ model: 'toyCabBreakout' }], actions: ['playBreakout'], fixed: true, pulse: 'breathe' },
   { id: 'cabRooftop', name: 'Rooftop Jump', emoji: '🏙️', price: 0, parts: [{ model: 'toyCabRooftop' }], actions: ['playRooftop'], fixed: true, pulse: 'breathe' },
-  { id: 'pinballMachine', name: 'Liberty Pinball', emoji: '📍', price: 0, parts: [{ model: 'toyPinball' }], actions: ['playPinball'], fixed: true, pulse: 'chase' },
+  { id: 'pinballMachine', name: 'Liberty Pinball', emoji: '🗽', price: 0, parts: [{ model: 'toyPinball' }], actions: ['playPinball'], fixed: true, pulse: 'chase' },
   { id: 'skeeBall', name: 'Coney Skee-Ball', emoji: '🎳', price: 0, parts: [{ model: 'toySkeeBall' }], actions: ['playSkeeball'], fixed: true },
   { id: 'pokerTable', name: 'Poker table', emoji: '♠️', price: 0, parts: [{ model: 'toyPokerTable' }], actions: ['playPoker'], fixed: true },
   { id: 'crapsTable', name: 'Craps table', emoji: '🎲', price: 0, parts: [{ model: 'toyCrapsTable' }], actions: ['playCraps'], fixed: true },

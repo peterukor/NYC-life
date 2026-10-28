@@ -178,7 +178,9 @@ const sizeOf = (won: number, staked: number): 'small' | 'big' | 'huge' => (won >
 // =============================================================== ♠️ HOLD'EM
 
 /** Seat spots around the oval (clockwise from you at the bottom). */
-const SPOTS: Record<string, [number, number]> = { B: [50, 87], LL: [12, 69], UL: [12, 29], T: [50, 11], UR: [88, 29], LR: [88, 69] };
+const SPOTS: Record<string, [number, number]> = { B: [50, 88], LL: [14, 73], UL: [14, 27], T: [50, 11], UR: [86, 27], LR: [86, 73] };
+/** Where each seat's bet sits on the felt. */
+const BET_SPOTS: Record<string, [number, number]> = { B: [50, 69], LL: [36, 64], UL: [33, 32], T: [50, 26], UR: [67, 32], LR: [64, 64] };
 const LAYOUT: Record<number, string[]> = { 4: ['B', 'UL', 'T', 'UR'], 5: ['B', 'LL', 'UL', 'UR', 'LR'], 6: ['B', 'LL', 'UL', 'T', 'UR', 'LR'] };
 
 export function openPoker(host: CasinoHost): void {
@@ -209,25 +211,30 @@ export function openPoker(host: CasinoHost): void {
   let npcs = 4;
   let boughtIn = 0;
   let shownBoard = 0;
+  let seatsDealt = -1;
   let busy = false;
   const spotOf = (i: number) => SPOTS[LAYOUT[t!.seats.length][i]];
+  const betSpotOf = (i: number) => BET_SPOTS[LAYOUT[t!.seats.length][i]];
 
   const drawSeats = (showdown: boolean) => {
     const tb = T.q('[data-table]');
     tb.querySelectorAll('.pk-seat, .pk-bet').forEach((x) => x.remove());
     const winners = new Set(t!.winners.map((w) => w.seat));
+    // Hole cards fly in once per hand, then sit still.
+    const still = seatsDealt === t!.hands ? ' still' : '';
+    seatsDealt = t!.hands;
     t!.seats.forEach((p, i) => {
       const [x, y] = spotOf(i);
       const reveal = showdown && !p.folded && !p.out && !p.human && t!.winners.some((w) => w.hand);
-      const cards = p.human || p.out ? '' : `<div class="pk-cards">${p.hole.map((c, k) => cardHtml(c, { down: true, i: k, cls: 'sm' })).join('')}</div>`;
-      const cls = ['pk-seat', p.human ? 'me' : '', reveal ? 'reveal' : '', t!.toAct === i ? 'turn' : '', p.folded ? 'fold' : '', p.out ? 'out' : '', winners.has(i) ? 'win' : ''].join(' ');
+      const cards = p.human || p.out ? '' : `<div class="pk-cards">${p.hole.map((c, k) => cardHtml(c, { down: true, i: k, cls: `sm${still}` })).join('')}</div>`;
+      const cls = ['pk-seat', p.human ? 'me' : '', reveal ? 'reveal' : '', x > 50 ? 'right' : '', t!.toAct === i ? 'turn' : '', p.folded ? 'fold' : '', p.out ? 'out' : '', winners.has(i) ? 'win' : ''].join(' ');
       tb.insertAdjacentHTML('beforeend', `<div class="${cls}" style="left:${x}%;top:${y}%" data-seat="${i}">
         ${cards}<div class="pk-av">${p.emoji}${t!.button === i ? '<i class="pk-dealer">D</i>' : ''}</div>
         <div class="pk-name">${esc(p.name)}</div><div class="pk-stack">${p.allIn && !t!.handOver ? 'ALL-IN' : $(p.stack)}</div>
         ${p.last ? `<div class="pk-say${/Raise|Bet|All-in/.test(p.last) ? ' hot' : /Wins/.test(p.last) ? ' won' : ''}">${esc(p.last)}</div>` : ''}
       </div>`);
       if (p.bet > 0) {
-        const bx = x + (50 - x) * 0.42, by = y + (50 - y) * 0.42;
+        const [bx, by] = betSpotOf(i);
         tb.insertAdjacentHTML('beforeend', `<div class="pk-bet" style="left:${bx}%;top:${by}%"><i></i>${$(p.bet)}</div>`);
       }
     });
@@ -247,8 +254,8 @@ export function openPoker(host: CasinoHost): void {
     shownBoard = t.board.length;
     const me = t.seats[0];
     const hole = T.q('[data-hole]');
-    if (hole.dataset.hand !== String(t.hands)) {
-      hole.dataset.hand = String(t.hands);
+    if (hole.dataset.dealt !== String(t.hands)) {
+      hole.dataset.dealt = String(t.hands);
       hole.innerHTML = me.hole.map((c, k) => cardHtml(c, { i: k, cls: 'lg' })).join('');
     }
     hole.classList.toggle('fold', me.folded);
@@ -400,8 +407,8 @@ const CRAPS_SPOTS: { id: CrapsBet; label: string; sub: string }[] = [
   { id: 'dontPass', label: 'Don’t Pass Bar', sub: '2·3 win · 12 push' },
   { id: 'dontOdds', label: 'Lay Odds', sub: 'behind don’t pass' },
   { id: 'field', label: 'Field', sub: '2 pays 2× · 3·4·9·10·11 · 12 pays 3×' },
-  { id: 'passOdds', label: 'Odds', sub: 'true odds, up to 2×' },
   { id: 'pass', label: 'Pass Line', sub: '7·11 win · 2·3·12 lose' },
+  { id: 'passOdds', label: 'Odds', sub: 'true odds, up to 2×' },
 ];
 
 export function openCraps(host: CasinoHost): void {
@@ -544,7 +551,7 @@ export function openBaccarat(host: CasinoHost): void {
     <div class="bac-bets">
       <button class="bac-bet player" data-bet="player"><b>PLAYER</b><small>pays 1 to 1</small></button>
       <button class="bac-bet tie" data-bet="tie"><b>TIE</b><small>pays 8 to 1</small></button>
-      <button class="bac-bet banker" data-bet="banker"><b>BANKER</b><small>1 to 1, 5% commission</small></button>
+      <button class="bac-bet banker" data-bet="banker"><b>BANKER</b><small>1 to 1, less 5%</small></button>
     </div>
     ${chipRow('baccarat')}
     <button class="btn primary block cas-go" data-deal>Deal</button>
@@ -1124,7 +1131,7 @@ export function openPlinko(host: CasinoHost): void {
     ${head('🔻', 'Plinko', s)}
     <div class="pl-board"><canvas data-cv></canvas></div>
     <div class="pl-recent" data-recent></div>
-    <div class="cg-seg" role="radiogroup" aria-label="Risk">${(['low', 'medium', 'high'] as PlinkoRisk[]).map((r) => `<button data-risk="${r}" class="${r === 'medium' ? 'on' : ''}">${r === 'low' ? '🟢 Low' : r === 'medium' ? '🟡 Medium' : '🔴 High'} risk</button>`).join('')}</div>
+    <div class="cg-seg" role="radiogroup" aria-label="Risk">${(['low', 'medium', 'high'] as PlinkoRisk[]).map((r) => `<button data-risk="${r}" class="${r === 'medium' ? 'on' : ''}">${r === 'low' ? '🟢 Low' : r === 'medium' ? '🟡 Medium' : '🔴 High'}</button>`).join('')}</div>
     <p class="cas-msg" aria-live="polite">Drop a ball. Edges pay big, the middle pays small.</p>
     ${chipRow('plinko')}
     <button class="btn primary block cas-go" data-drop>Drop ball</button>
@@ -1185,10 +1192,10 @@ export function openPlinko(host: CasinoHost): void {
       g.roundRect(x - dx / 2 + 1.5, y - 11, dx - 3, 24, 5);
       g.fill();
       g.fillStyle = '#1c2340';
-      g.font = `900 ${mults[k] >= 100 ? 8.5 : 9.5}px system-ui, sans-serif`;
+      g.font = `900 ${mults[k] >= 100 || mults[k] < 1 ? 8 : 9.5}px system-ui, sans-serif`;
       g.textAlign = 'center';
       g.textBaseline = 'middle';
-      g.fillText(`${mults[k]}×`, x, y + 1);
+      g.fillText(mults[k] < 1 ? `.${String(mults[k]).split('.')[1]}` : `${mults[k]}×`, x, y + 1);
     }
     // Balls.
     let live = false;
