@@ -1,0 +1,29 @@
+/* 🎬 Union Square Pictures: box office and the screen (ui/cinema.ts). */
+.cine-modal { max-width: 440px; width: calc(100vw - 32px); }
+.cine { display: flex; flex-direction: column; gap: 12px; }
+.cine-marquee { background: #3c1518; border-radius: 14px; padding: 12px; text-align: center; box-shadow: inset 0 0 0 3px #ffd36b, 0 0 18px rgba(255, 211, 107, 0.35); }
+.cine-marquee span { font-weight: 900; letter-spacing: 0.2em; color: #ffd36b; text-shadow: 0 0 8px rgba(255, 211, 107, 0.8); }
+.cine-list { display: flex; flex-direction: column; gap: 8px; max-height: 46vh; overflow-y: auto; }
+.cine-film { display: flex; align-items: flex-start; gap: 12px; text-align: left; padding: 10px 12px; border-radius: 14px; border: 2px solid #1b1d22; background: #fff8ee; cursor: pointer; }
+.cine-film:active { transform: translateY(1px); }
+.cine-film b { display: block; font-size: 16px; }
+.cine-film small { display: block; color: #9d0208; font-weight: 700; margin: 2px 0; }
+.cine-emoji { font-size: 30px; line-height: 1; }
+.cine-blurb { display: block; font-size: 13px; color: #4a4a4a; }
+.cine-link label { font-size: 13px; font-weight: 700; display: block; margin-bottom: 6px; }
+.cine-link .row { display: flex; gap: 8px; }
+.cine-link input { flex: 1; min-width: 0; padding: 10px 12px; border-radius: 12px; border: 2px solid #1b1d22; font-size: 16px; }
+
+/* The theater itself: dark, curtains, the film, a row of seats. */
+.modal-wrap:has(.cine-dark) { background: rgba(5, 2, 4, 0.94); }
+.cine-dark { background: #120608; color: #fff; max-width: 920px; width: calc(100vw - 16px); padding: 12px; }
+.cine-room { position: relative; display: flex; flex-direction: column; gap: 10px; }
+.cine-curtain { position: absolute; top: 0; bottom: 64px; width: 7%; background: repeating-linear-gradient(90deg, #6a040f 0 8px, #9d0208 8px 16px); border-radius: 6px; }
+.cine-curtain.l { left: 0; }
+.cine-curtain.r { right: 0; }
+.cine-screen { position: relative; margin: 0 8%; aspect-ratio: 16 / 9; background: #000; border-radius: 6px; overflow: hidden; box-shadow: 0 0 40px rgba(154, 209, 255, 0.35); }
+.cine-screen iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.cine-seats { text-align: center; font-size: 20px; letter-spacing: 4px; opacity: 0.8; }
+.cine-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-weight: 700; }
+@media (orientation: portrait) and (max-width: 500px) { .cine-screen { margin: 0 4%; } .cine-curtain { width: 3%; } }
+.cine-bar .btn { color: #1b1d22; background: #ffd36b; }

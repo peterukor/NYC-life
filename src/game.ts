@@ -139,6 +139,7 @@ import { closeSheet, fade, html, isSheetOpen, onAct, openModal, openSheet, progr
 import { Hud, type NavKey } from './ui/hud.ts';
 import { openBlackjack, openRocket, openRoulette, openSlots, casinoNetLine, rain, type CasinoHost } from './ui/casino.ts';
 import { openPool } from './ui/pool.ts';
+import { openCinema } from './ui/cinema.ts';
 import { openBaccarat, openBigSix, openCraps, openKeno, openPlinko, openPoker, openScratch, openVideoPoker } from './ui/casino-games.ts';
 import { openPrizeCounter, playArcade } from './ui/arcade.ts';
 import { openSportsbook, settleAndTell } from './ui/sportsbook.ts';
@@ -1448,6 +1449,9 @@ export class Game {
         this.openBottleMenu();
         return true;
       case 'chess':
+      case 'watchMovie':
+        openCinema(this.funHost());
+        return true;
       case 'browseClothes': {
         // The thrift's racks, bins and mannequins open the clothes store (ui/store).
         const shopHere = s.location.placeId ? PLACE_BY_ID[s.location.placeId] : null;

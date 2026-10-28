@@ -21,7 +21,7 @@ for (const [pl, act] of games) {
   await page.evaluate((o) => window.__nyc.openObject(o), obj); await wait(600);
   const clicked = await page.evaluate((a) => { const b = document.querySelector(`[data-act="do:${a}"]`); b?.click(); return !!b; }, act);
   await wait(1800);
-  if (process.env.PLAY) { await page.evaluate(() => document.querySelector('.modal-wrap .btn.primary')?.click()); await wait(+process.env.PLAY); }
+  if (process.env.PLAY) { await page.evaluate((sel) => document.querySelector(sel)?.click(), process.env.CLICK ?? '.modal-wrap .btn.primary'); await wait(+process.env.PLAY); }
   const opened = await page.evaluate(() => document.querySelectorAll('.modal-wrap').length);
   await page.screenshot({ path: `test-results/game-${act}-${pl}.png` });
   console.log(pl, act, 'button', clicked, 'modals', opened);
