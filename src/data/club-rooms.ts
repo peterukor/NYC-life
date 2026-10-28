@@ -1,8 +1,8 @@
 // =====================================================================
 // club-rooms.ts — the five clubs' rooms (Peter, 2026-10-27: "build those
 // first… they should all look different… add poles where people will be
-// dancing… make this lit"). Three night clubs make the ladder (Basement 718
-// in the Bronx → The Velvet Room in Midtown → Aurum, members only) and two
+// dancing… make this lit"). Three night clubs make the ladder (Ludlow Basement
+// on the Lower East Side → The Velvet Room in Midtown → Aurum, members only) and two
 // never close (Skye Rooftop LIC in Queens, Warehouse 9 in Brooklyn).
 //
 // Pole stages (polePodium, cagePole) belong to the club's NPC dancers
@@ -17,14 +17,14 @@ const H = Math.PI / 2;
 const PI = Math.PI;
 
 export const CLUB_ROOMS: Record<string, HomeLayout> = {
-  // 🎧 BASEMENT 718 (the Bronx · the easy door, 2026-10-27): a hip-hop basement off the
-  // Grand Concourse. Black brick and graffiti, speaker stacks, two cage dancers and a
+  // 🎧 LUDLOW BASEMENT (Lower East Side · the easy door; was Basement 718 in the Bronx,
+  // moved 2026-10-28): a hip-hop basement on Ludlow Street. Black brick and graffiti, speaker stacks, two cage dancers and a
   // pole in the middle of the crowd, red and blue lasers, CO2 on the drop.
   club1: {
-    id: 'club1', name: 'Basement 718', width: 20, depth: 14, wallColor: '#1b1b20', zoomable: true, shaped: true, door: { x: -6, z: 7 },
+    id: 'club1', name: 'Ludlow Basement', width: 20, depth: 14, wallColor: '#1b1b20', zoomable: true, shaped: true, door: { x: -6, z: 7 },
     windows: { xs: [], w: 0, h: 0, y: 0 }, mood: 'club', version: 2,
     life: { visitors: 30, pops: ['🎶', '🔥', '🕺', '💃', '🍻', '💸', '🎤'], fx: ['club', 'notes', 'lasers', 'haze', 'co2', 'confetti'], laserColors: ['#ff2a5c', '#3d8bff', '#ff2a5c', '#ffffff'] },
-    signs: [{ text: 'BASEMENT 718', color: '#ff2a5c', x: 0, y: 2.45, z: -6.86, rot: 0, size: 0.75, font: 'block' }, { text: 'BX', color: '#3d8bff', x: 9.86, y: 1.6, z: -5.2, rot: -Math.PI / 2, size: 1.0, font: 'block' }],
+    signs: [{ text: 'LUDLOW', color: '#ff2a5c', x: 0, y: 2.45, z: -6.86, rot: 0, size: 0.85, font: 'block' }, { text: 'LES', color: '#3d8bff', x: 9.86, y: 1.6, z: -5.2, rot: -Math.PI / 2, size: 1.0, font: 'block' }],
     screens: [{ x: -6.6, y: 2.2, z: -6.88, rot: 0, w: 2.6, h: 0.9, kind: 'waves' }, { x: 6.6, y: 2.2, z: -6.88, rot: 0, w: 2.6, h: 0.9, kind: 'waves' }],
     workers: [{ x: 8.9, z: 3.4, rot: -1.5707963267948966 }, { x: -6, z: 5.4, rot: 3.141592653589793 }, { x: 0, z: -5.6, rot: 0 }, { x: -4.6, z: 3.8, rot: 0 }, { x: 4.2, z: 5.3, rot: 0 }, { x: -8.0, z: 0.2, rot: 1.5707963267948966 }],
     rooms: [

@@ -7,8 +7,8 @@
 // Bars: The Rusty Nail (Brooklyn dive), Astoria Beer Garden (Queens,
 // open air), Lenox Lounge Revival (Harlem jazz), The Stoop (East Village,
 // with a backyard). Arcades: Pixel Palace (Times Square), Kings Arcade
-// (Brooklyn boardwalk), The Hub (Bronx blacklight). Casinos: Empire
-// (Midtown), Astoria Royale (Queens), Navy Yard Card Club (Brooklyn),
+// (Brooklyn boardwalk), Canal Street Arcade (Chinatown blacklight). Casinos: Empire
+// (Midtown), Astoria Royale (Queens), Bowery Card Club (Manhattan),
 // Lucky Star (Bronx).
 // =====================================================================
 
@@ -383,10 +383,10 @@ export const FUN_ROOMS: Record<string, HomeLayout> = {
   // three Beat Street machines with a neon dance floor for the crowd, Breakout, Rooftop
   // Jump and Snake, skee-ball lanes, a claw machine and graffiti on the black brick.
   arcade3: {
-    id: 'arcade3', name: 'The Hub Arcade', width: 20, depth: 14, wallColor: '#1b1b20', zoomable: true, shaped: true, door: { x: -5, z: 7 },
+    id: 'arcade3', name: 'Canal Street Arcade', width: 20, depth: 14, wallColor: '#1b1b20', zoomable: true, shaped: true, door: { x: -5, z: 7 },
     windows: { xs: [], w: 0, h: 0, y: 0 }, mood: 'club', version: 1,
     life: { visitors: 22, pops: ['🕺', '🎵', '👾', '🎟️', '🔥'], fx: ['neon', 'lasers', 'haze'], laserColors: ['#7bd8ff', '#b6ff3d', '#ff4fa3'] },
-    signs: [{ text: 'THE HUB', color: '#7bd8ff', x: 2.0, y: 2.5, z: -6.86, rot: 0, size: 0.9, font: 'block' }, { text: 'Bronx', color: '#b6ff3d', x: 9.86, y: 2.3, z: 0.4, rot: -Math.PI / 2, size: 0.7, font: 'script' }],
+    signs: [{ text: 'CANAL ST', color: '#7bd8ff', x: 2.0, y: 2.5, z: -6.86, rot: 0, size: 0.9, font: 'block' }, { text: 'Chinatown', color: '#b6ff3d', x: 9.86, y: 2.3, z: 0.4, rot: -Math.PI / 2, size: 0.7, font: 'script' }],
     workers: [{ x: 7.0, z: -6.0, rot: 0 }, { x: -5, z: 6.2, rot: 3.141592653589793 }, { x: -4.0, z: 3.2, rot: 3.141592653589793 }, { x: 2.4, z: 4.2, rot: 0 }, { x: -1.4, z: 5.4, rot: 0 }, { x: 5.0, z: 0.4, rot: 0 }],
     rooms: [
       { label: 'Arcade', rect: [-10, -7, 10, 7], floor: '#222222', style: { floor: 'cosmic', wall: 'darkBrick' } },
@@ -554,14 +554,14 @@ export const FUN_ROOMS: Record<string, HomeLayout> = {
       { uid: 'craps3', item: 'crapsTable', x: 4.6, z: -4.6, rot: 0 },
     ],
   },
-  // ♠️ NAVY YARD CARD CLUB (Brooklyn, 2026-10-27): an old shipyard warehouse. Brick and
+  // ♠️ BOWERY CARD CLUB (Manhattan, was the Navy Yard, moved 2026-10-28): an old warehouse. Brick and
   // concrete, Edison bulbs over three Hold'em tables, baccarat, blackjack and craps, and a
   // walnut pool hall with three tables for money games.
   casino3: {
-    id: 'casino3', name: 'Navy Yard Card Club', width: 26, depth: 18, wallColor: '#3b2416', zoomable: true, shaped: true, door: { x: -7, z: 9 },
+    id: 'casino3', name: 'Bowery Card Club', width: 26, depth: 18, wallColor: '#3b2416', zoomable: true, shaped: true, door: { x: -7, z: 9 },
     windows: { xs: [], w: 0, h: 0, y: 0 }, mood: 'bar', version: 1,
     life: { visitors: 24, pops: ['♠️', '🎱', '💰', '😤', '🥃', '🤫'], fx: ['haze'] },
-    signs: [{ text: 'CARD CLUB', color: '#ffd36b', x: -6.0, y: 2.5, z: -8.86, rot: 0, size: 0.85, font: 'block' }, { text: 'Pool hall', color: '#7bd88f', x: 12.86, y: 2.3, z: 0.0, rot: -Math.PI / 2, size: 0.7, font: 'script' }],
+    signs: [{ text: 'CARD CLUB', color: '#ffd36b', x: -6.0, y: 2.5, z: -8.86, rot: 0, size: 0.85, font: 'block' }, { text: 'Bowery', color: '#7bd88f', x: 12.86, y: 2.3, z: 0.0, rot: -Math.PI / 2, size: 0.7, font: 'script' }],
     workers: [{ x: -9.6, z: -4.3, rot: 0 }, { x: -5.2, z: -4.3, rot: 0 }, { x: -0.8, z: -4.3, rot: 0 }, { x: -1.2, z: 8.2, rot: 3.141592653589793 }, { x: -7, z: 8.2, rot: 3.141592653589793 }, { x: 10.0, z: 0.0, rot: -1.5707963267948966 }],
     rooms: [
       { label: 'Card room', rect: [-13, -9, 3, 9], floor: '#222222', style: { floor: 'concrete', wall: 'brick' } },

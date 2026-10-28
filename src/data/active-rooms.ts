@@ -4,8 +4,8 @@
 // You need to revamp the parks… make them so much nicer fr").
 //
 // Gyms: Iron Hell’s Kitchen (Manhattan, the neighbourhood gym), Flex
-// Fitness Fulton (Brooklyn, budget, 24/7), Pulse Athletic Club (Long
-// Island City, premium with a pool). Equipment opens the gym mini-games
+// Fitness Fulton (Brooklyn, budget, 24/7), Pulse Tribeca (premium with a
+// pool). Equipment opens the gym mini-games
 // (ui/gym-games.ts). Laid out with clash checks against real footprints.
 // =====================================================================
 
@@ -142,14 +142,14 @@ export const ACTIVE_ROOMS: Record<string, HomeLayout> = {
       { uid: 'light5', item: 'flushLight2', x: 5, z: 3, rot: 0 },
     ],
   },
-  // 🏊 PULSE ATHLETIC CLUB (Long Island City, premium, 2026-10-28): oak and marble. A lap
+  // 🏊 PULSE TRIBECA (Manhattan, premium; moved from Long Island City, 2026-10-28): oak and marble. A lap
   // pool behind glass, a cedar sauna, a studio with spin bikes and yoga mats, rowers lined up
   // like a crew, a turf lane, a squat rack, a smoothie bar and the skyline out the window.
   gym3: {
-    id: 'gym3', name: 'Pulse Athletic Club', width: 26, depth: 18, wallColor: '#0f766e', zoomable: true, shaped: true, door: { x: -8, z: 9 },
+    id: 'gym3', name: 'Pulse Tribeca', width: 26, depth: 18, wallColor: '#0f766e', zoomable: true, shaped: true, door: { x: -8, z: 9 },
     windows: { xs: [], w: 0, h: 0, y: 0 }, mood: 'bright', backdrop: 'skyline', version: 1,
     life: { visitors: 16, pops: ['💪', '🏊', '🧖', '🥤', '✨', '🧘'], fx: ['steam'] },
-    signs: [{ text: 'PULSE', color: '#2dd4bf', x: -1.6, y: 2.5, z: -8.86, rot: 0, size: 1.0, font: 'block' }, { text: 'Athletic Club', color: '#f8f9fa', x: 12.86, y: 2.4, z: 4.6, rot: -Math.PI / 2, size: 0.6, font: 'script' }],
+    signs: [{ text: 'PULSE', color: '#2dd4bf', x: -1.6, y: 2.5, z: -8.86, rot: 0, size: 1.0, font: 'block' }, { text: 'Tribeca', color: '#f8f9fa', x: 12.86, y: 2.4, z: 4.6, rot: -Math.PI / 2, size: 0.6, font: 'script' }],
     workers: [{ x: -4.2, z: 6.2, rot: 3.141592653589793 }, { x: 2.8, z: 6.8, rot: 0 }, { x: 4.0, z: -7.4, rot: 1.5707963267948966 }, { x: -9.0, z: -5.6, rot: -1.5707963267948966 }, { x: 9.0, z: 2.0, rot: 1.5707963267948966 }, { x: -2.5, z: -3.8, rot: 3.141592653589793 }],
     rooms: [
       { label: 'Club', rect: [-13, -9, 13, 9], floor: '#222222', style: { floor: 'herringbone', wall: 'panel' } },

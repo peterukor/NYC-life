@@ -126,9 +126,9 @@ const RAW: RawPlace[] = [
     actions: ['gymSession', 'gymShower'],
   },
   {
-    id: 'pulseLic', area: 'queens', name: 'Pulse Athletic Club', emoji: '🏊', type: 'fitness',
-    blurb: 'The fancy one in Long Island City: a lap pool, a sauna, eucalyptus towels and a skyline view from the rowers.',
-    at: [40.7468, -73.9440], hours: [5, 24], interior: 'gym', color: '#0f766e',
+    id: 'pulseLic', area: 'manhattan', name: 'Pulse Tribeca', emoji: '🏊', type: 'fitness',
+    blurb: 'The fancy one on Hudson Street in Tribeca: a lap pool, a sauna, eucalyptus towels and a skyline view from the rowers.',
+    at: [40.7193, -74.0090], hours: [5, 24], interior: 'gym', color: '#0f766e',
     actions: ['gymSession', 'spinClass', 'lapSwim', 'sauna', 'gymShower'],
   },
   {
@@ -250,9 +250,9 @@ const RAW: RawPlace[] = [
     actions: ['playSkeeball', 'playPinball', 'playHoops', 'playDash', 'playStack', 'playRooftop', 'playAirhockey', 'playClaw', 'prizeCounter'],
   },
   {
-    id: 'hubArcade', area: 'bronx', name: 'The Hub Arcade', emoji: '🕹️', type: 'nightlife',
-    blurb: 'Retro cabinets under blacklight on 149th Street: Beat Street battles, Brooklyn Breakout, Rooftop Jump, skee-ball and a dance pad crowd.',
-    at: [40.8180, -73.9140], hours: [11, 2], interior: 'arcade', color: '#7bd8ff',
+    id: 'hubArcade', area: 'manhattan', name: 'Canal Street Arcade', emoji: '🕹️', type: 'nightlife',
+    blurb: 'Down a Chinatown stairwell off Canal Street: retro cabinets under blacklight, Beat Street battles, Brooklyn Breakout, Rooftop Jump, skee-ball and a dance pad crowd.',
+    at: [40.7181, -73.9990], hours: [11, 2], interior: 'arcade', color: '#7bd8ff',
     actions: ['playBeats', 'playSnake', 'playRooftop', 'playBreakout', 'playPigeons', 'playSkeeball', 'playDash', 'playClaw', 'prizeCounter'],
   },
   {
@@ -262,9 +262,9 @@ const RAW: RawPlace[] = [
     actions: ['playSlots', 'playCraps', 'playRoulette', 'playKeno', 'playPlinko', 'playScratch', 'playVideoPoker', 'playBigSix', 'casinoCashier'],
   },
   {
-    id: 'navyYardClub', area: 'brooklyn', name: 'Navy Yard Card Club', emoji: '♠️', type: 'nightlife',
-    blurb: 'An old shipyard warehouse turned card room and pool hall: Hold’em tables, baccarat, craps and money games on the pool tables.',
-    at: [40.6990, -73.9780], interior: 'casino', color: '#1d3557',
+    id: 'navyYardClub', area: 'manhattan', name: 'Bowery Card Club', emoji: '♠️', type: 'nightlife',
+    blurb: 'An old Bowery warehouse turned card room and pool hall: Hold’em tables, baccarat, craps and money games on the pool tables.',
+    at: [40.7246, -73.9921], interior: 'casino', color: '#1d3557',
     actions: ['playPoker', 'playBlackjack', 'playBaccarat', 'playCraps', 'playPool', 'playSlots', 'casinoCashier'],
   },
   {
@@ -376,9 +376,9 @@ const RAW: RawPlace[] = [
   // More clubs, one per level (data/clubs.ts has the door policy and what makes each bigger).
   {
     // Moved to the Bronx (Peter, 2026-10-27: clubs across the boroughs). The easy door: everyone starts here.
-    id: 'basement212', area: 'bronx', name: 'Basement 718', emoji: '🎧', type: 'nightlife',
-    blurb: 'Down a staircase off the Grand Concourse. Graffiti, speaker stacks, cage dancers, nobody checks your shoes. Everyone starts here.',
-    at: [40.8205, -73.9235], hours: [21, 4], interior: 'club', color: '#e63946',
+    id: 'basement212', area: 'manhattan', name: 'Ludlow Basement', emoji: '🎧', type: 'nightlife',
+    blurb: 'Down a staircase on Ludlow Street, Lower East Side. Graffiti, speaker stacks, cage dancers, nobody checks your shoes. Everyone starts here.',
+    at: [40.7203, -73.9884], hours: [21, 4], interior: 'club', color: '#e63946',
     actions: ['bottleService', 'dancefloor', 'happyHour', 'mingle'],
   },
   {

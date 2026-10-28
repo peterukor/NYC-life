@@ -18,8 +18,9 @@ const life = () => newLife({ name: 'Jack', birthYear: 1995, origin: 'hustler', s
 test('five clubs: a three-step ladder and two 24/7 clubs, each a real place with its own room', () => {
   assert.deepEqual(CLUBS.filter((c) => !c.allDay).map((c) => c.tier), [1, 2, 4]);
   assert.equal(CLUBS.filter((c) => c.allDay).length, 2);
-  // Spread over the boroughs, every club its own room.
-  assert.ok(new Set(CLUBS.map((c) => PLACE_BY_ID[c.placeId].area)).size >= 4);
+  // The whole ladder is in Manhattan (open now); the two 24/7 clubs wait in Queens and Brooklyn.
+  assert.ok(CLUBS.filter((c) => !c.allDay).every((c) => PLACE_BY_ID[c.placeId].area === 'manhattan'));
+  assert.ok(new Set(CLUBS.map((c) => PLACE_BY_ID[c.placeId].area)).size >= 3);
   assert.equal(new Set(CLUBS.map((c) => WORKPLACE_LAYOUT_FOR[c.placeId])).size, CLUBS.length);
   for (const c of CLUBS) {
     const p = PLACE_BY_ID[c.placeId];

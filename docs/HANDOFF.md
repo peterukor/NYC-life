@@ -524,3 +524,11 @@ Peter's plan: redo the people, NPCs and every location with the Quaternius/Kenne
 - Gym mini-games: ui/gym-games.ts (frame) + ui/gym-runs.ts (games) + sim/gym-games.ts. Equipment actions playBench/Treadmill/Bag/Rope/Spin/Row/Yoga; old `trainHard` opens bench.
 - Bright-mood venues now show the time-of-day sky behind them (home-interior.ts).
 - `GAMES=place:action,… PLAY=ms node scripts/qa-games.mjs` opens games and screenshots them.
+
+### Moved into Manhattan (2026-10-28)
+Peter: one more club, arcade, casino and gym in Manhattan, renamed after real places. Ids unchanged (saves keep working):
+- `basement212` → Ludlow Basement (Lower East Side; the tier-1 club, so the whole ladder is in Manhattan)
+- `hubArcade` → Canal Street Arcade (Chinatown)
+- `navyYardClub` → Bowery Card Club (the Bowery)
+- `pulseLic` → Pulse Tribeca (Hudson St)
+Only Manhattan is open (`OPEN_AREAS` in sim/types.ts); the other 8 rebuilt venues wait in Brooklyn/Queens/Bronx.

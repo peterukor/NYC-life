@@ -48,9 +48,9 @@ export interface ClubDef {
 export const CLUBS: ClubDef[] = [
   // ---- The ladder (Peter, 2026-10-27: 3 night clubs, easy door → VIP), across the boroughs.
   {
-    placeId: 'basement212', tier: 1, label: 'Bronx basement · no list, no dress code',
+    placeId: 'basement212', tier: 1, label: 'Lower East Side basement · no list, no dress code',
     door: { rank: 0, cool: 0 }, cover: 1_500, show: 1, rep: 1, dropEvery: 150,
-    djs: ['DJ Boogie Down', 'DJ Grand Concourse', 'DJ Bodega Cat'],
+    djs: ['DJ Delancey', 'DJ Ludlow', 'DJ Bodega Cat'],
     connectChance: 0.1, screen: '#e63946',
     regulars: ['Marco from the deli', 'Tiff', 'Big Steve', 'Jaz'], regularSpend: [5_000, 40_000],
   },
