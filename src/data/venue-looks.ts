@@ -124,15 +124,6 @@ export const VENUE_LOOKS: Record<string, Look> = {
     add: [hang('flushLight', -4, -2), hang('flushLight', 0, -2), hang('flushLight', -4, 2.5), hang('flushLight', 0, 2.5), hang('flushLight', 5, 2.5), hang('bellPendant', 2.4, -3.5), hang('bellPendant', 4.6, -3.5)],
     signs: [neonBack('DELI', RED, -3.6, 2.25, 7.2, 0.55), neonBack('OPEN 24 HRS', BLUE, -7.0, 2.25, 7.2, 0.32), neonLeft('BACON EGG & CHEESE', AMBER, 0.6, 2.2, 9.6, 0.26)],
   },
-  // 🏋️ Iron (24 × 16.8): rubber floor, black brick, red neon.
-  gym: {
-    screens: [{ x: 11.88, y: 1.85, z: 1.2, rot: -H, w: 3.4, h: 1.7, kind: 'game' }, { x: -8.4, y: 2.35, z: -8.28, rot: 0, w: 6, h: 0.8, kind: 'waves' }],
-    notch: [[-12, 6.4, -9.6, 8.4]],
-    scale: 1.2, mood: 'bright',
-    rooms: [{ floor: 'rubber', wall: 'concreteWall' }, { floor: 'ash', wall: 'concreteWall' }],
-    add: [at('speaker', -11.6, -1.5, H), at('speaker', 11.6, -1.5, -H), at('palmPot', 2.0, 7.7), back('ledStripLow', 0, 8.4, { lc: '#ff3b3b' }), hang('flushLight2', -6, -3), hang('flushLight2', 0, -3), hang('flushLight2', 6, -3), hang('flushLight2', -6, 3), hang('flushLight2', 0, 3), hang('flushLight2', 6, 3), right('mirrorArch', 5.5, 12), right('mirrorArch', 7.0, 12), back('ledStrip', -6.6, 8.4, { lc: RED }), back('ledStrip', 4.4, 8.4, { lc: RED })],
-    signs: [neonBack('IRON', RED, -2.4, 2.2, 8.4, 0.7), neonLeft('no pain no gain', '#ff6a3d', -2.0, 2.1, 12, 0.4, 'script')],
-  },
   // 💻 Chelsea Works (24 × 16.8): concrete, white brick, a neon motto.
   startup: {
     screens: [{ x: 4.2, y: 1.9, z: -8.28, rot: 0, w: 4, h: 1.7, kind: 'waves' }],
@@ -183,11 +174,6 @@ export const VENUE_LOOKS: Record<string, Look> = {
     scale: 1.2, mood: 'bright',
     rooms: [{ floor: 'tile:#cfd8dc', wall: 'panel:#5b6b78' }, { floor: 'carpet:#5b6b78', wall: 'paint:#cfd8dc' }],
     add: [at('palmPot', -11.4, 7.6), at('trashTall', 2.0, -7.9), hang('flushLight2', -6, 0), hang('flushLight2', 0, 0), hang('flushLight2', -6, 4), hang('flushLight2', 0, 4), hang('flushLight2', 6, -5), hang('flushLight2', 6, -2), right('bathMirror', 6.0, 12)],
-  },
-  // 🌳 Central Park (26.9 × 20.2): grass, paver paths, low hedges round the edge.
-  park: {
-    scale: 1.12, mood: 'outdoor', wallHeight: 1.1,
-    rooms: [{ floor: 'grass', wall: 'hedge' }, { floor: 'hex:#cfc6b8', wall: 'hedge' }, { floor: 'hex:#cfc6b8', wall: 'hedge' }],
   },
 };
 

@@ -180,6 +180,26 @@ const LIST: ActionDef[] = [
   // ---------- Gym ----------
   { id: 'gymSession', label: 'Lift weights', emoji: '🏋️', seconds: 14, cost: 1_500, needs: { energy: -16, hygiene: -20, fun: 8 }, skill: { key: 'fitness', gain: 1.1 }, tags: ['fitness'] },
   { id: 'spinClass', label: 'Spin class', emoji: '🚴', seconds: 14, cost: 3_200, needs: { energy: -20, hygiene: -20, fun: 14, social: 10 }, skill: { key: 'fitness', gain: 1.3 }, tags: ['fitness', 'social'] },
+  // 🏋️ Gym mini-games (ui/gym-games.ts) and the new park things (2026-10-28).
+  { id: 'playBench', label: 'Bench press (mini-game)', emoji: '🏋️', seconds: 2, tags: ['service'] },
+  { id: 'playTreadmill', label: 'Treadmill sprint (mini-game)', emoji: '🏃', seconds: 2, tags: ['service'] },
+  { id: 'playBag', label: 'Heavy bag combos (mini-game)', emoji: '🥊', seconds: 2, tags: ['service'] },
+  { id: 'playRope', label: 'Jump rope (mini-game)', emoji: '🪢', seconds: 2, tags: ['service'] },
+  { id: 'playSpin', label: 'Spin class (mini-game)', emoji: '🚴', seconds: 2, tags: ['service'] },
+  { id: 'playRow', label: 'Rowing machine (mini-game)', emoji: '🚣', seconds: 2, tags: ['service'] },
+  { id: 'playYoga', label: 'Yoga flow (mini-game)', emoji: '🧘', seconds: 2, tags: ['service'] },
+  { id: 'smoothie', label: 'Protein smoothie', emoji: '🥤', seconds: 5, cost: 900, needs: { hunger: 22, energy: 8 }, tags: ['eat'] },
+  { id: 'massageChair', label: 'Massage chair', emoji: '💆', seconds: 8, cost: 200, needs: { energy: 10, fun: 8 }, moodlet: { id: 'massage', label: 'Kneaded and needed', emoji: '💆', value: 5, minutes: 120 }, tags: ['relax'] },
+  { id: 'rideCarousel', label: 'Ride the carousel', emoji: '🎠', seconds: 8, cost: 400, needs: { fun: 22 }, moodlet: { id: 'carousel', label: 'Round and round', emoji: '🎠', value: 5, minutes: 120 }, tags: ['fun'] },
+  { id: 'swingSet', label: 'Go on the swings', emoji: '🛝', seconds: 6, needs: { fun: 14 }, tags: ['fun'] },
+  { id: 'carriageRide', label: 'Horse carriage ride', emoji: '🐴', seconds: 12, cost: 6_000, needs: { fun: 30, social: 10 }, moodlet: { id: 'carriage', label: 'Main character moment', emoji: '🐴', value: 10, minutes: 180 }, tags: ['fun', 'landmark'] },
+  { id: 'petDogs', label: 'Say hi to the dogs', emoji: '🐕', seconds: 6, needs: { fun: 14, social: 6 }, moodlet: { id: 'dogs', label: 'Pet a good dog', emoji: '🐕', value: 6, minutes: 120 }, tags: ['fun'] },
+  { id: 'castleView', label: 'Take in the view from the castle', emoji: '🏰', seconds: 8, needs: { fun: 12, energy: -2 }, moodlet: { id: 'castle', label: 'King of the park', emoji: '🏰', value: 4, minutes: 120 }, tags: ['fun', 'landmark'] },
+  { id: 'bandshell', label: 'Catch the band at the shell', emoji: '🎺', seconds: 12, needs: { fun: 20, social: 8 }, tags: ['fun', 'social'] },
+  { id: 'softball', label: 'Join a softball game', emoji: '🥎', seconds: 12, needs: { fun: 20, social: 12, energy: -12, hygiene: -8 }, skill: { key: 'fitness', gain: 0.4 }, tags: ['fun', 'fitness', 'social'] },
+  { id: 'climbRocks', label: 'Sit up on the rocks', emoji: '🪨', seconds: 8, needs: { fun: 10, energy: 4 }, tags: ['relax'] },
+  { id: 'lapSwim', label: 'Swim laps', emoji: '🏊', seconds: 12, needs: { energy: -14, hygiene: 20, fun: 12 }, skill: { key: 'fitness', gain: 1.0 }, moodlet: { id: 'swim', label: 'Pool brain, no thoughts', emoji: '🏊', value: 6, minutes: 120 }, tags: ['fitness'] },
+  { id: 'sauna', label: 'Sit in the sauna', emoji: '🧖', seconds: 8, needs: { energy: 10, fun: 10, hygiene: 10 }, moodlet: { id: 'sauna', label: 'Steamed and serene', emoji: '🧖', value: 8, minutes: 150 }, tags: ['relax'] },
   { id: 'gymShower', label: 'Locker room shower', emoji: '🚿', seconds: 6, needs: { hygiene: 70 }, tags: ['bathe'] },
 
   // ---------- Parks and plazas ----------

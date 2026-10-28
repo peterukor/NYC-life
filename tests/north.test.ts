@@ -5,12 +5,13 @@ import { ACTIONS } from '../src/data/actions.ts';
 import { PLACE_BY_ID, PLACES } from '../src/data/places.ts';
 import { pickTwist } from '../src/sim/oddities.ts';
 
-test('north Manhattan is filled in: 30+ places above 110th St, spread to Inwood', () => {
+// Trimmed 2026-10-28 (Peter cut the parks to Central Park only).
+test('north Manhattan is filled in: 25+ places above 110th St, spread to Inwood', () => {
   const north = PLACES.filter((p) => p.area === 'manhattan' && p.at[0] > 40.795);
-  assert.ok(north.length >= 30, `north places: ${north.length}`);
+  assert.ok(north.length >= 25, `north places: ${north.length}`);
   // Every stretch has something: Harlem, the Heights, Inwood.
   for (const [lo, hi] of [[40.795, 40.82], [40.82, 40.845], [40.845, 40.875]]) {
-    assert.ok(north.filter((p) => p.at[0] >= lo && p.at[0] < hi).length >= 6, `${lo}–${hi}`);
+    assert.ok(north.filter((p) => p.at[0] >= lo && p.at[0] < hi).length >= 4, `${lo}–${hi}`);
   }
 });
 

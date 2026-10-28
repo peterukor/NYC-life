@@ -115,9 +115,21 @@ const RAW: RawPlace[] = [
   },
   {
     id: 'ironGym', area: 'manhattan', name: 'Iron Hell’s Kitchen', emoji: '🏋️', type: 'fitness',
-    blurb: 'No-frills gym, frills-only clientele.',
+    blurb: 'The neighbourhood gym: free weights, a turf lane, a spin room and a front desk that knows your name.',
     at: [40.765, -73.9965], hours: [5, 23], interior: 'gym', color: '#2b2d42',
     actions: ['gymSession', 'spinClass', 'gymShower'],
+  },
+  {
+    id: 'flexFulton', area: 'brooklyn', name: 'Flex Fitness Fulton', emoji: '💪', type: 'fitness',
+    blurb: 'Cheap, purple, open all night. Rows of treadmills, a wall of mirrors and a massage chair with a waiting list.',
+    at: [40.6880, -73.9800], interior: 'gym', color: '#7b2cbf',
+    actions: ['gymSession', 'gymShower'],
+  },
+  {
+    id: 'pulseLic', area: 'queens', name: 'Pulse Athletic Club', emoji: '🏊', type: 'fitness',
+    blurb: 'The fancy one in Long Island City: a lap pool, a sauna, eucalyptus towels and a skyline view from the rowers.',
+    at: [40.7468, -73.9440], hours: [5, 24], interior: 'gym', color: '#0f766e',
+    actions: ['gymSession', 'spinClass', 'lapSwim', 'sauna', 'gymShower'],
   },
   {
     id: 'midtownTower', area: 'manhattan', name: 'Sixth Avenue Tower', emoji: '🏢', type: 'work',
@@ -130,13 +142,6 @@ const RAW: RawPlace[] = [
     at: [40.758, -73.9855], interior: 'none', color: '#ff2d55',
     actions: ['peopleWatch', 'photoSelfie', 'hotDogCart', 'busk', 'publicRestroom'],
     landmark: { description: 'Midtown’s famous plaza of giant screens at Broadway and Seventh Avenue.', officialSite: 'https://www.timessquarenyc.org/', siteLabel: 'timessquarenyc.org' },
-  },
-  {
-    id: 'bryantPark', area: 'manhattan', name: 'Bryant Park', emoji: '🌳', type: 'park',
-    blurb: 'Lawn, chess tables and the library next door. Midtown’s backyard.',
-    at: [40.7536, -73.9832], hours: [7, 23], interior: 'none', color: '#2e8b57',
-    actions: ['picnic', 'chess', 'peopleWatch', 'halalCart', 'jog', 'publicRestroom'],
-    landmark: { description: 'Nine-acre park behind the New York Public Library’s main branch.', officialSite: 'https://bryantpark.org/', siteLabel: 'bryantpark.org' },
   },
   {
     id: 'empireState', area: 'manhattan', name: 'Empire State Building', emoji: '🏙️', type: 'landmark',
@@ -277,18 +282,6 @@ const RAW: RawPlace[] = [
     actions: ['subwayShowtime', 'tipPerformer'],
   },
   {
-    id: 'gantryPlaza', area: 'queens', name: 'Gantry Plaza State Park', emoji: '🌇', type: 'park',
-    blurb: 'Old ship gantries, the Pepsi-Cola sign and the best Manhattan skyline view there is.',
-    at: [40.7454, -73.9584], hours: [6, 24], interior: 'none', color: '#2e8b57',
-    actions: ['picnic', 'peopleWatch', 'jog', 'photoSelfie'],
-  },
-  {
-    id: 'astoriaPark', area: 'queens', name: 'Astoria Park', emoji: '🌳', type: 'park',
-    blurb: 'Under the Hell Gate and Triborough bridges: a huge lawn, a track and the city’s oldest pool.',
-    at: [40.7786, -73.9228], hours: [6, 23], interior: 'none', color: '#2e8b57',
-    actions: ['picnic', 'jog', 'peopleWatch'],
-  },
-  {
     id: 'beerGarden', area: 'queens', name: 'Astoria Beer Garden', emoji: '🍺', type: 'nightlife',
     blurb: 'Long picnic tables under the trees, pitchers and a grill. Since 1910.',
     at: [40.7728, -73.9093], hours: [12, 2], interior: 'bar', color: '#6a994e',
@@ -314,12 +307,6 @@ const RAW: RawPlace[] = [
     at: [40.8296, -73.9262], interior: 'none', color: '#1c2b5a',
     actions: ['sportsbook', 'catchGame', 'photoSelfie', 'peopleWatch'],
     landmark: { description: 'Home of the New York Yankees since 2009, on East 161st Street in the Bronx.', officialSite: 'https://www.mlb.com/yankees/ballpark', siteLabel: 'mlb.com/yankees' },
-  },
-  {
-    id: 'bronxZoo', area: 'bronx', name: 'Bronx Zoo', emoji: '🦁', type: 'park',
-    blurb: 'Tigers, gorillas and a monorail through “Wild Asia”. Bring snacks.',
-    at: [40.8506, -73.8769], hours: [10, 17], interior: 'none', color: '#2e8b57',
-    actions: ['picnic', 'peopleWatch', 'jog', 'photoSelfie'],
   },
   {
     id: 'arthurAve', area: 'bronx', name: 'Arthur Ave Pizzeria', emoji: '🍕', type: 'food',
@@ -472,13 +459,6 @@ const RAW: RawPlace[] = [
     at: [40.702, -73.9935], interior: 'none', color: '#8d6e63',
     actions: ['walkBridge', 'photoSelfie', 'jog'],
     landmark: { description: 'The 1883 suspension bridge linking Brooklyn and Manhattan over the East River.', officialSite: 'https://www.nyc.gov/html/dot/html/infrastructure/brooklyn-bridge.shtml', siteLabel: 'nyc.gov (NYC DOT)' },
-  },
-  {
-    id: 'fortGreenePark', area: 'brooklyn', name: 'Fort Greene Park', emoji: '🌳', type: 'park',
-    blurb: 'Hilltop park with a monument, a farmers market and Saturday pickup games.',
-    at: [40.6913, -73.9757], hours: [6, 1], interior: 'none', color: '#40916c',
-    actions: ['picnic', 'chess', 'jog', 'peopleWatch', 'busk', 'publicRestroom'],
-    landmark: { description: 'Historic Brooklyn park designed by Olmsted and Vaux.', officialSite: 'https://www.nycgovparks.org/parks/fort-greene-park', siteLabel: 'nycgovparks.org' },
   },
   {
     id: 'atlanticPlaza', area: 'brooklyn', name: 'Atlantic Plaza', emoji: '🌆', type: 'plaza',

@@ -121,12 +121,6 @@ export const NORTH_PLACES: RawPlace[] = [
     actions: ['jazzSet', 'happyHour', 'jazzSitIn'],
   },
   {
-    id: 'marcusDrums', area: 'manhattan', name: 'Marcus Garvey Park Drum Circle', emoji: '🥁', type: 'park',
-    blurb: 'Every Saturday for fifty years: drums on the hill. You can join in if you keep time. Nobody minds if you don’t, much.',
-    at: [40.8044, -73.9445], interior: 'none', color: '#2d6a4f',
-    actions: ['busk', 'picnic', 'peopleWatch', 'jog'],
-  },
-  {
     id: 'unoKicks', area: 'manhattan', name: 'Uptown Kicks on 125th', emoji: '👟', type: 'shop',
     blurb: 'Sneakers, fitted caps and the strongest opinions on 125th Street. The guy behind the counter remembers your shoe size forever.',
     at: [40.8093, -73.9480], hours: [10, 21], interior: 'none', color: '#ff7f11',
@@ -171,18 +165,6 @@ export const NORTH_PLACES: RawPlace[] = [
     actions: ['marketHaggle', 'mofongo'],
   },
   // ---------- Hamilton Heights / Washington Heights ----------
-  {
-    id: 'ruckerPark', area: 'manhattan', name: 'Rucker Park', emoji: '🏀', type: 'park',
-    blurb: 'The most famous outdoor court in the world. Legends played here. Today it’s you, a guy named Big Ray and a lot of opinions.',
-    at: [40.8297, -73.9363], hours: [6, 23], interior: 'none', color: '#ff7f11',
-    actions: ['pickupGame', 'peopleWatch'],
-  },
-  {
-    id: 'heightsBoxing', area: 'manhattan', name: 'Uptown Boxing Club', emoji: '🥊', type: 'fitness',
-    blurb: 'Third floor, no elevator, no air conditioning, three world champions on the wall. The coach yells in two languages.',
-    at: [40.8348, -73.9447], hours: [6, 22], interior: 'gym', color: '#c1121f',
-    actions: ['boxingClass', 'gymSession', 'gymShower'],
-  },
   {
     id: 'panaderia', area: 'manhattan', name: 'Panadería Doña Rosa', emoji: '🥐', type: 'cafe',
     blurb: 'Dominican bakery: pastelitos, tres leches, cafecito strong enough to see through time. Doña Rosa calls you “mi amor”.',

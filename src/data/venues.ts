@@ -16,6 +16,7 @@ import type { InteriorKind } from './places.ts';
 import { dressVenue } from './venue-looks.ts';
 import { CLUB_ROOMS } from './club-rooms.ts';
 import { FUN_ROOMS } from './fun-rooms.ts';
+import { ACTIVE_ROOMS } from './active-rooms.ts';
 
 const PI = Math.PI;
 const H = PI / 2;
@@ -185,31 +186,6 @@ export const WORKPLACE_LAYOUTS: Record<string, HomeLayout> = {
     ],
     workers: [{ x: 1.9, z: -3.6, rot: 0 }, { x: 3.4, z: -3.6, rot: 0 }, { x: 4.8, z: -3.6, rot: 0 }, { x: 2.4, z: -4.7, rot: B }, { x: -4.1, z: -2.4, rot: -H }, { x: 6.6, z: -2.3, rot: H }],
   },
-  gym: {
-    id: 'gym', name: 'Iron Hell’s Kitchen', width: 20, depth: 14, wallColor: '#2b2d42', zoomable: true,
-    life: { visitors: 12, pops: ['💪', '💦', '🔥', '🏋️', '😤'], fx: [] },
-    rooms: [{ label: 'Gym floor', rect: [-10, -7, 10, 7], floor: '#3d3f4f' }, { label: 'Mats', rect: [2.0, 1.6, 10, 7], floor: '#5a6b7a' }],
-    walls: [],
-    furniture: [
-      { uid: 'desk', item: 'gymDesk', x: -6.8, z: 4.4, rot: 0 },
-      { uid: 'tm1', item: 'treadmill', x: -8.8, z: -5.85, rot: 0 },
-      { uid: 'tm2', item: 'treadmill', x: -7.6, z: -5.85, rot: 0 },
-      { uid: 'tm3', item: 'treadmill', x: -6.4, z: -5.85, rot: 0 },
-      { uid: 'tm4', item: 'treadmill', x: -5.2, z: -5.85, rot: 0 },
-      { uid: 'bench', item: 'benchPress', x: -1.6, z: -5.6, rot: 0 },
-      { uid: 'bench2', item: 'benchPress', x: 0.6, z: -5.6, rot: 0 },
-      { uid: 'bench3', item: 'benchPress', x: 0.6, z: -2.0, rot: 0 },
-      { uid: 'rack', item: 'dumbbellRack', x: 3.4, z: -6.55, rot: 0 },
-      { uid: 'rack2', item: 'dumbbellRack', x: 5.4, z: -6.55, rot: 0 },
-      { uid: 'bag', item: 'punchingBag', x: 8.8, z: -5.6, rot: 0 },
-      { uid: 'bag2', item: 'punchingBag', x: 8.8, z: -3.2, rot: 0 },
-      { uid: 'mats', item: 'yogaMats', x: 6.8, z: 4.4, rot: 0 },
-      { uid: 'mats2', item: 'yogaMats', x: 3.8, z: 4.4, rot: 0 },
-      { uid: 'p1', item: 'plant', x: -9.4, z: 6.4, rot: 0 },
-      { uid: 'p2', item: 'plant', x: 9.4, z: 0.6, rot: 0 },
-    ],
-    workers: [{ x: -6.8, z: 3.6, rot: 0 }, { x: -7.0, z: -4.2, rot: 0 }, { x: -0.5, z: -4.4, rot: 0 }, { x: 8.0, z: -4.4, rot: H }, { x: 5.3, z: 3.0, rot: 0 }, { x: 4.4, z: -5.4, rot: B }],
-  },
   startup: {
     id: 'startup', name: 'Chelsea Works', width: 20, depth: 14, wallColor: '#f0ebe3', zoomable: true,
     life: { visitors: 10, pops: ['💬', '☕', '💡', '🐛', '🚀', '📱'], fx: [] },
@@ -341,55 +317,18 @@ export const WORKPLACE_LAYOUTS: Record<string, HomeLayout> = {
     ],
     workers: [{ x: -1.6, z: -4.0, rot: 0 }, { x: 3.8, z: -5.4, rot: B }, { x: 6.6, z: -5.4, rot: B }, { x: 3.8, z: -2.8, rot: B }, { x: -8.4, z: -4.6, rot: B }, { x: 6.6, z: -2.8, rot: B }],
   },
-  park: {
-    id: 'park', name: 'Central Park', width: 24, depth: 18, wallColor: '#3e7b3a', zoomable: true,
-    windows: { xs: [], w: 0, h: 0, y: 0 },
-    life: { visitors: 16, pops: ['🌳', '🦆', '☀️', '🍦', '🐿️', '💬', '🎶', '🐕'], fx: ['ducks', 'splash'] },
-    rooms: [
-      { label: 'Lawn', rect: [-12, -9, 12, 9], floor: '#6bb35e' },
-      { label: 'Path', rect: [-1.2, -9, 1.2, 9], floor: '#d9c9a3' },
-      { label: 'Path', rect: [-12, -1, 12, 1], floor: '#d9c9a3' },
-    ],
-    walls: [],
-    furniture: [
-      { uid: 'pond', item: 'pond', x: -6.6, z: -5.2, rot: 0 },
-      { uid: 'fountain', item: 'fountain', x: 6.4, z: -5.4, rot: 0 },
-      { uid: 'lawn', item: 'lawn', x: -6.4, z: 5.0, rot: 0 },
-      { uid: 'lawn2', item: 'lawn', x: 6.0, z: 5.6, rot: 0 },
-      { uid: 'bench1', item: 'parkBench', x: -2.3, z: -5.0, rot: H },
-      { uid: 'bench2', item: 'parkBench', x: -2.3, z: 4.4, rot: H },
-      { uid: 'bench3', item: 'parkBench', x: 2.3, z: -2.8, rot: -H },
-      { uid: 'bench4', item: 'parkBench', x: 2.3, z: 3.2, rot: -H },
-      { uid: 'bench5', item: 'parkBench', x: -8.4, z: -1.8, rot: 0 },
-      { uid: 'bench6', item: 'parkBench', x: 8.6, z: 1.9, rot: B },
-      { uid: 'icecream', item: 'iceCreamCart', x: 4.6, z: -2.0, rot: 0 },
-      { uid: 'chess', item: 'chessTable', x: 10.3, z: 3.0, rot: 0 },
-      { uid: 'chess2', item: 'chessTable', x: 10.3, z: 6.0, rot: 0 },
-      { uid: 't1', item: 'parkTree', x: -10.6, z: -7.6, rot: 0 },
-      { uid: 't2', item: 'parkTree', x: -10.6, z: 7.6, rot: 0 },
-      { uid: 't3', item: 'parkTree', x: 10.6, z: -7.6, rot: 0 },
-      { uid: 't4', item: 'parkTree', x: -3.6, z: 7.8, rot: 0 },
-      { uid: 't5', item: 'parkTree', x: 3.6, z: -7.9, rot: 0 },
-      { uid: 't6', item: 'parkTree', x: -10.8, z: 2.4, rot: 0 },
-      { uid: 't7', item: 'parkTree', x: 2.6, z: 7.9, rot: 0 },
-      { uid: 'lamp1', item: 'parkLamp', x: 1.6, z: -6.2, rot: 0 },
-      { uid: 'lamp2', item: 'parkLamp', x: -1.6, z: 6.4, rot: 0 },
-      { uid: 'lamp3', item: 'parkLamp', x: -5.0, z: 1.6, rot: 0 },
-      { uid: 'lamp4', item: 'parkLamp', x: 8.6, z: -1.6, rot: 0 },
-    ],
-    // The ice cream guy, a busker, a chess hustler, a park ranger, a dog walker and a jogger.
-    workers: [{ x: 4.6, z: -2.9, rot: 0 }, { x: -3.8, z: -1.7, rot: 0 }, { x: 10.3, z: 2.4, rot: 0 }, { x: 0.2, z: 8.0, rot: B }, { x: 6.6, z: -1.6, rot: H }, { x: -9.0, z: 1.6, rot: H }],
-  },
 };
 
 // The five clubs (data/club-rooms.ts).
-Object.assign(WORKPLACE_LAYOUTS, CLUB_ROOMS, FUN_ROOMS);
+Object.assign(WORKPLACE_LAYOUTS, CLUB_ROOMS, FUN_ROOMS, ACTIVE_ROOMS);
 
 /** Each workplace's own room, by place id (wins over the shared venue plans). */
 export const WORKPLACE_LAYOUT_FOR: Record<string, string> = {
   barrioDeli: 'deliGrill',
   theStoop: 'stoopBar',
   ironGym: 'gym',
+  flexFulton: 'gym2',
+  pulseLic: 'gym3',
   dumboWorks: 'startup',
   midtownTower: 'tradingFloor',
   velvetRoom: 'club',

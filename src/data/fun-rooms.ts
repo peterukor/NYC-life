@@ -329,7 +329,7 @@ export const FUN_ROOMS: Record<string, HomeLayout> = {
   // Stack, Delivery Dash and Rooftop Jump, air hockey, an ice cream cart, warm bulbs.
   arcade2: {
     id: 'arcade2', name: 'Kings Arcade', width: 24, depth: 16, wallColor: '#fff3e0', zoomable: true, shaped: true, door: { x: 6, z: 8 },
-    windows: { xs: [], w: 0, h: 0, y: 0 }, mood: 'bright', version: 1,
+    windows: { xs: [], w: 0, h: 0, y: 0 }, mood: 'bright', backdrop: 'skyline', version: 1,
     life: { visitors: 24, pops: ['🎳', '🎟️', '🍦', '🏆', '😂', '🎉'], fx: ['neon'] },
     signs: [{ text: 'KINGS ARCADE', color: '#e63946', x: -4.0, y: 2.55, z: -7.86, rot: 0, size: 0.9, font: 'block' }, { text: 'Skee-Ball', color: '#ff7f11', x: -8.6, y: 2.25, z: -7.86, rot: 0, size: 0.6, font: 'script' }],
     workers: [{ x: 0.0, z: -7.0, rot: 0 }, { x: 6, z: 7.2, rot: 3.141592653589793 }, { x: -8.6, z: -5.4, rot: 0 }, { x: -1.2, z: 3.6, rot: 0 }, { x: 4.6, z: -5.6, rot: 0 }, { x: 9.6, z: 4.0, rot: 0 }],

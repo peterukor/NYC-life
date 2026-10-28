@@ -468,18 +468,29 @@ export class VenueLife {
       }
     }
     if (fx.includes('ducks')) {
-      for (const o of pieces(['pond'])) {
+      // The duck pond, and the Lake in Central Park (more ducks, two rowboats, wider circles).
+      for (const o of pieces(['pond', 'lake'])) {
+        const lake = this.home.pieceInfo(o.id)?.item === 'lake';
         const c = o.mesh.getWorldPosition(new THREE.Vector3()).setY(0.32);
-        for (let k = 0; k < 4; k++) {
+        if (lake) c.x -= 3.6;
+        for (let k = 0; k < (lake ? 6 : 4); k++) {
+          if (lake && k >= 4) {
+            const boat = new THREE.Sprite(new THREE.SpriteMaterial({ map: emojiTexture('🚣'), transparent: true, depthWrite: false }));
+            boat.scale.set(0.9, 0.9, 0.9);
+            this.home.scene.add(boat);
+            this.extras.push(boat);
+            this.ducks.push({ sprite: boat, c: c.clone().setX(c.x + 4.6), r: 1.6 + (k - 4) * 0.5, a: k * 2.2, w: (k % 2 ? -1 : 1) * 0.18 });
+            continue;
+          }
           const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: emojiTexture(k === 3 ? '🦢' : '🦆'), transparent: true, depthWrite: false }));
           sprite.scale.set(0.55, 0.55, 0.55);
           this.home.scene.add(sprite);
           this.extras.push(sprite);
-          this.ducks.push({ sprite, c, r: 0.6 + k * 0.32, a: k * 1.9, w: (k % 2 ? -1 : 1) * (0.35 + this.rand() * 0.25) });
+          this.ducks.push({ sprite, c, r: (lake ? 0.9 : 0.6) + k * (lake ? 0.45 : 0.32), a: k * 1.9, w: (k % 2 ? -1 : 1) * (0.35 + this.rand() * 0.25) });
         }
       }
     }
-    if (fx.includes('splash')) for (const o of pieces(['fountain'])) this.emitters.push({ at: o.mesh.getWorldPosition(new THREE.Vector3()).setY(2.0), kind: 'drops', every: 0.18, t: 0 });
+    if (fx.includes('splash')) for (const o of pieces(['fountain', 'bethesdaFountain'])) this.emitters.push({ at: o.mesh.getWorldPosition(new THREE.Vector3()).setY(this.home.pieceInfo(o.id)?.item === 'bethesdaFountain' ? 2.4 : 2.0), kind: 'drops', every: 0.18, t: 0 });
     if (fx.includes('notes')) for (const o of pieces(['jukebox', 'djBooth'])) this.emitters.push({ at: o.mesh.getWorldPosition(new THREE.Vector3()).setY(1.5), kind: 'notes', every: 0.9, t: 0 });
   }
 

@@ -256,12 +256,6 @@ export const UPTOWN_PLACES: RawPlace[] = [
     at: [40.8650, -73.9290], hours: [10, 18], interior: 'none', color: '#6b4423',
     actions: ['stocksSelfie'],
   },
-  {
-    id: 'inwoodForest', area: 'manhattan', name: 'Inwood Hill Old Forest', emoji: '🌲', type: 'park',
-    blurb: 'The last old forest on the island: caves, cliffs, owls. After dark people swear they hear Dutch.',
-    at: [40.8710, -73.9260], interior: 'none', color: '#2d6a4f',
-    actions: ['hauntedHike'],
-  },
 ];
 
 // North Manhattan's odd activities (data/north.ts) roll the same way.

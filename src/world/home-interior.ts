@@ -953,7 +953,8 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
     if (mood && mood !== 'outdoor') {
       // Venues are lit for what they are, whatever the time outside.
       const m = MOODS[mood];
-      d.bg.set(m.bg);
+      // Bright rooms (gyms, delis, offices) keep the real sky behind them: dark at night (2026-10-28).
+      if (mood !== 'bright') d.bg.set(m.bg);
       d.sky.set(m.sky);
       d.ground.set(m.ground);
       d.hemi = m.hemi;
