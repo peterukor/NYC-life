@@ -23,6 +23,7 @@ for (const [pl, act] of games) {
   await wait(1800);
   if (process.env.PLAY) { await page.evaluate((sel) => document.querySelector(sel)?.click(), process.env.CLICK ?? '.modal-wrap .btn.primary'); await wait(+process.env.PLAY); }
   const opened = await page.evaluate(() => document.querySelectorAll('.modal-wrap').length);
+  if (process.env.DBG) console.log(await page.evaluate(() => { const c = document.querySelector('.arc-count'); return c ? [c.hidden, c.textContent, getComputedStyle(c).display] : 'none'; }));
   await page.screenshot({ path: `test-results/game-${act}-${pl}.png` });
   console.log(pl, act, 'button', clicked, 'modals', opened);
 }

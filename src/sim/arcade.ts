@@ -47,7 +47,7 @@ const ARCADE_GAMES_2: ArcadeGame[] = [
   {
     id: 'skeeball',
     name: 'Coney Skee-Ball',
-    emoji: '🎳',
+    emoji: '🎡',
     color: '#ff6f59',
     howTo: 'Touch the ball, then flick up: a faster flick rolls harder and the angle aims. Land in the rings for 10–50 or a corner 💯. Nine balls, and the last one counts double.',
     tickets: (s) => Math.floor(s / 8),

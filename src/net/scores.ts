@@ -34,7 +34,7 @@ function rng(seed: number) {
 }
 
 /** A "good" score for a game: where it pays about 40 🎟️. */
-function typicalScore(game: string): number {
+export function typicalScore(game: string): number {
   const g = ARCADE_BY_ID[game];
   if (!g) return 100;
   let lo = 1, hi = 1;

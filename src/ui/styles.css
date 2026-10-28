@@ -1192,3 +1192,9 @@ body.mirror .hud { opacity: 0; visibility: hidden; transition: opacity 0.2s, vis
 .lb-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
 .sheet .lb-row { background: var(--card, rgba(0, 0, 0, 0.05)); }
 .arc-over .lb { max-height: 260px; overflow-y: auto; width: 100%; }
+/* Arcade count-in (ui/arcade.ts, 2026-10-28). */
+.arc-count { position: absolute; inset: 0; display: grid; place-items: center; font: 900 96px "Lilita One", "Arial Black", system-ui, sans-serif; color: #ffd23f; text-shadow: 0 6px 0 #0008, 0 0 30px #ffd23f88; pointer-events: none; background: #0b0b1666; }
+.arc-count[hidden] { display: none; }
+.arc-count.pop { animation: arcPop 0.5s cubic-bezier(.2,1.6,.4,1); }
+@keyframes arcPop { from { transform: scale(1.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .arc-count.pop { animation: none; } }

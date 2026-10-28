@@ -16,7 +16,7 @@ import { emoji, H, RUNS as RUNS1, W } from './arcade-games.ts';
 import { RUNS2 } from './arcade-games-2.ts';
 
 const RUNS = { ...RUNS1, ...RUNS2 };
-import { fetchBoard, postScore } from '../net/scores.ts';
+import { fetchBoard, postScore, typicalScore } from '../net/scores.ts';
 import { boardHtml, openScoreboards } from './scoreboard.ts';
 
 
@@ -37,6 +37,7 @@ export function playArcade(host: CasinoHost, id: string, versus?: Versus, opts: 
   const m = openModal(`<div class="arc" style="--cab:${game.color}">
     <div class="arc-top"><b>${game.emoji} ${esc(game.name)}</b><span class="arc-hud" aria-live="off"></span></div>
     <div class="arc-screen"><canvas width="${W}" height="${H}"></canvas>
+      <div class="arc-count" aria-live="assertive" hidden></div>
       <div class="arc-over"><div class="big">${game.emoji}</div><p>${esc(game.howTo)}</p><p class="sub">${versus ? `Head-to-head with ${esc(versus.name)}: you go first.` : phone ? `Best: ${bestScore(s, id)} · 📱 free on your phone · 🎟️ tickets only at the arcades` : `Best: ${bestScore(s, id)} · 🎟️ ${tickets(s)}`}</p><button class="btn primary" data-go>${versus ? 'Start' : phone ? '▶️ Play' : `Insert coin · ${money(PLAY_COST)}`}</button></div>
     </div>
     ${id === 'claw' ? '<div class="arc-pad arc-claw"><button data-claw-l aria-label="Move left">◀️</button><button class="btn primary" data-claw-drop>DROP</button><button data-claw-r aria-label="Move right">▶️</button></div>' : ''}
@@ -75,6 +76,25 @@ export function playArcade(host: CasinoHost, id: string, versus?: Versus, opts: 
     sfx.coin();
     host.saved();
     overlay.hidden = true;
+    // A 3-2-1 count-in on the cabinet before the game starts (2026-10-28).
+    const countEl = m.el.querySelector<HTMLElement>('.arc-count')!;
+    countEl.hidden = false;
+    let n = 3;
+    const tick = () => {
+      if (!m.el.isConnected) return;
+      countEl.textContent = n > 0 ? String(n) : 'GO!';
+      countEl.classList.remove('pop');
+      void countEl.offsetWidth;
+      countEl.classList.add('pop');
+      n > 0 ? sfx.tick() : sfx.coin();
+      if (n-- > 0) return void (countTimer = window.setTimeout(tick, 520));
+      countTimer = window.setTimeout(() => { countEl.hidden = true; begin(); }, 380);
+    };
+    let countTimer = 0;
+    stop = () => window.clearTimeout(countTimer);
+    tick();
+  });
+  const begin = () => {
     stop = run(cv, g, (score) => {
       stop?.();
       stop = null;
@@ -82,8 +102,10 @@ export function playArcade(host: CasinoHost, id: string, versus?: Versus, opts: 
       host.saved();
       overlay.hidden = false;
       if (versus) {
-        // Their turn: a score around their skill, sometimes a fluke either way.
-        const theirs = Math.max(0, Math.round((60 + versus.skill * 40) * (0.6 + Math.random() * 0.8) / 10) * 10);
+        // Their score: around a good score for this game, scaled by their skill, sometimes a fluke either way.
+        const typical = typicalScore(id);
+        const raw = typical * (0.45 + versus.skill * 0.75) * (0.7 + Math.random() * 0.6);
+        const theirs = Math.max(0, typical >= 100 ? Math.round(raw / 10) * 10 : Math.round(raw));
         overlay.innerHTML = `<div class="big">${score > theirs ? '🏆' : score < theirs ? '😤' : '🤝'}</div><h3>${score > theirs ? 'You win!' : score < theirs ? `${esc(versus.name)} wins` : 'A tie'}</h3><p class="arc-vs"><span>You <b>${score}</b></span><span>${esc(versus.name)} <b>${theirs}</b></span></p><p>+${r.tickets} 🎟️</p><button class="btn primary" data-close>Done</button>`;
         const done = versus.done;
         versus = undefined; // once
@@ -98,7 +120,7 @@ export function playArcade(host: CasinoHost, id: string, versus?: Versus, opts: 
       if (r.best) rain(m.el, '🎟️', 18);
       r.tickets ? sfx.win() : sfx.tap();
     }, (text) => (hudEl.textContent = text));
-  });
+  };
 }
 
 /** The prize counter. */
