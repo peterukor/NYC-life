@@ -139,6 +139,7 @@ import { closeSheet, fade, html, isSheetOpen, onAct, openModal, openSheet, progr
 import { Hud, type NavKey } from './ui/hud.ts';
 import { openBlackjack, openRocket, openRoulette, openSlots, casinoNetLine, rain, type CasinoHost } from './ui/casino.ts';
 import { openPool } from './ui/pool.ts';
+import { openBaccarat, openBigSix, openCraps, openKeno, openPlinko, openPoker, openScratch, openVideoPoker } from './ui/casino-games.ts';
 import { openPrizeCounter, playArcade } from './ui/arcade.ts';
 import { openSportsbook, settleAndTell } from './ui/sportsbook.ts';
 import { openWorkout } from './ui/workout.ts';
@@ -1500,6 +1501,30 @@ export class Game {
         return true;
       case 'playRocket':
         openRocket(this.funHost());
+        return true;
+      case 'playPoker':
+        openPoker(this.funHost());
+        return true;
+      case 'playCraps':
+        openCraps(this.funHost());
+        return true;
+      case 'playBaccarat':
+        openBaccarat(this.funHost());
+        return true;
+      case 'playBigSix':
+        openBigSix(this.funHost());
+        return true;
+      case 'playScratch':
+        openScratch(this.funHost());
+        return true;
+      case 'playKeno':
+        openKeno(this.funHost());
+        return true;
+      case 'playPlinko':
+        openPlinko(this.funHost());
+        return true;
+      case 'playVideoPoker':
+        openVideoPoker(this.funHost());
         return true;
       case 'playPool': {
         // At a casino card room it's for money; at a bar it's a friendly rack.

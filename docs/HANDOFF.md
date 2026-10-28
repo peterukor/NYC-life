@@ -511,3 +511,9 @@ Peter's plan: redo the people, NPCs and every location with the Quaternius/Kenne
 - Branches named `feat/...`.
 - Comments in simple, detailed English.
 - Money is integer cents and only changes through `sim/economy.ts`.
+
+### Casino table games + pool (2026-10-28)
+- `ui/casino-games.ts` (+ `sim/casino-games.ts`): Hold'em vs NPC regulars, craps, baccarat, Big Six, scratchers, keno, Plinko, Jacks or Better video poker. Wired in game.ts (`playPoker`…`playVideoPoker`).
+- `ui/pool.ts` (+ `sim/pool.ts`): 8-ball / 9-ball vs AI. Bars = friendly rack vs Sal; casinos (Navy Yard, Lucky Star) = staked vs Hustler Vinnie.
+- `scripts/qa-games.mjs` opens every new game and screenshots it (test-results/game-*.png).
+- To tune later: poker regulars' strength, pool ball size on phones, AI think-pause on slow phones.

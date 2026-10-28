@@ -145,12 +145,12 @@ export interface PokerRegular { name: string; emoji: string; style: PokerStyle; 
 /** The regulars (all made up). */
 export const POKER_REGULARS: PokerRegular[] = [
   { name: 'Sal Bagels', emoji: '🥯', style: { tight: 0.55, aggro: 0.35, bluff: 0.05 }, line: 'Been playing here since it was a laundromat.' },
-  { name: 'Lucky Lorraine', emoji: '💅', style: { tight: 0.35, aggro: 0.7, bluff: 0.16 }, line: 'Honey, I raise on vibes.' },
+  { name: 'Lucky Lorraine', emoji: '💅', style: { tight: 0.45, aggro: 0.7, bluff: 0.12 }, line: 'Honey, I raise on vibes.' },
   { name: 'Dmitri', emoji: '🧔', style: { tight: 0.8, aggro: 0.55, bluff: 0.04 }, line: 'Folds for forty minutes, then takes your whole stack.' },
-  { name: 'Chad from Finance', emoji: '👔', style: { tight: 0.2, aggro: 0.85, bluff: 0.22 }, line: 'Calls it "position sizing".' },
+  { name: 'Chad from Finance', emoji: '👔', style: { tight: 0.4, aggro: 0.85, bluff: 0.14 }, line: 'Calls it "position sizing".' },
   { name: 'Nana Rosa', emoji: '👵', style: { tight: 0.65, aggro: 0.25, bluff: 0.08 }, line: 'Sweetest lady at the table. Never believe her.' },
   { name: 'Kofi', emoji: '🎧', style: { tight: 0.5, aggro: 0.5, bluff: 0.1 }, line: 'Headphones on, reads you anyway.' },
-  { name: 'Benny Knuckles', emoji: '🥊', style: { tight: 0.3, aggro: 0.45, bluff: 0.06 }, line: 'Calls everything. Everything.' },
+  { name: 'Benny Knuckles', emoji: '🥊', style: { tight: 0.42, aggro: 0.45, bluff: 0.06 }, line: 'Calls everything. Everything.' },
   { name: 'Tina Wu', emoji: '🕶️', style: { tight: 0.6, aggro: 0.7, bluff: 0.12 }, line: 'Sunglasses indoors. It works.' },
 ];
 
@@ -515,7 +515,9 @@ export function npcDecide(t: PokerTable, i: number, rand: Rand = Math.random, sa
   const st = s.style;
   const strength = rel + late - (st.tight - 0.5) * 0.5;
   const sizeTo = (frac: number) => t.currentBet + Math.round((pot + o.toCall) * frac);
-  const bluffing = rand() < st.bluff * (t.street === 'preflop' ? 0.4 : 1) * (opponents <= 2 ? 1.5 : 0.7);
+  // Bluffs are mostly semi-bluffs (some equity, few opponents); a pure air bluff is rare.
+  const semi = rel >= 0.7 && opponents <= 2;
+  const bluffing = rand() < st.bluff * (t.street === 'preflop' ? 0.4 : 1) * (semi ? 1.2 : opponents <= 1 ? 0.25 : 0);
 
   if (o.canCheck) {
     if (o.minRaiseTo && (strength > 1.6 + (1 - st.aggro) * 0.4 || eq > 0.8)) return { type: 'raise', to: sizeTo(eq > 0.85 && rand() < 0.4 ? 1 : 0.6) };
@@ -526,7 +528,8 @@ export function npcDecide(t: PokerTable, i: number, rand: Rand = Math.random, sa
   const big = o.toCall > s.stack * 0.5;
   if (o.minRaiseTo && (eq > 0.82 || strength > 2.1 + (1 - st.aggro) * 0.5) && !(big && eq < 0.7)) return { type: 'raise', to: sizeTo(rand() < st.aggro ? 1 : 0.6) };
   if (o.minRaiseTo && bluffing && !big && t.street !== 'river') return { type: 'raise', to: sizeTo(0.7) };
-  const margin = 0.03 + (st.tight - 0.5) * 0.08 + (big ? 0.08 : 0);
+  // Equity is measured against random hands, but people bet good hands: the bigger the bet, the more it takes to call.
+  const margin = 0.04 + (st.tight - 0.5) * 0.08 + (big ? 0.08 : 0) + 0.25 * Math.min(1, o.toCall / Math.max(1, pot));
   if (eq >= potOdds + margin) return { type: 'call' };
   // Cheap to see a flop with something playable.
   if (t.street === 'preflop' && o.toCall <= t.bb && strength > 0.85) return { type: 'call' };
