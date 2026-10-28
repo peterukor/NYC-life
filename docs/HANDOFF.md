@@ -517,3 +517,10 @@ Peter's plan: redo the people, NPCs and every location with the Quaternius/Kenne
 - `ui/pool.ts` (+ `sim/pool.ts`): 8-ball / 9-ball vs AI. Bars = friendly rack vs Sal; casinos (Navy Yard, Lucky Star) = staked vs Hustler Vinnie.
 - `scripts/qa-games.mjs` opens every new game and screenshots it (test-results/game-*.png).
 - To tune later: poker regulars' strength, pool ball size on phones, AI think-pause on slow phones.
+
+### Gyms + Central Park (2026-10-28)
+- Parks cut to Central Park only (data/active-rooms.ts `park`, 36×26): Lake + Bow Bridge (ducks and 🚣 sprites in venue-life), boat dock, angel fountain, castle, bandshell, carousel, dog run, picnics, playground, ball field, carts, carriage. New park actions in data/actions.ts.
+- Three gyms: ironGym → `gym`, flexFulton (Brooklyn, 24/7) → `gym2`, pulseLic (LIC, pool + sauna) → `gym3`. Uptown Boxing removed. Models: world/furniture-active.ts.
+- Gym mini-games: ui/gym-games.ts (frame) + ui/gym-runs.ts (games) + sim/gym-games.ts. Equipment actions playBench/Treadmill/Bag/Rope/Spin/Row/Yoga; old `trainHard` opens bench.
+- Bright-mood venues now show the time-of-day sky behind them (home-interior.ts).
+- `GAMES=place:action,… PLAY=ms node scripts/qa-games.mjs` opens games and screenshots them.

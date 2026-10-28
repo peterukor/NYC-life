@@ -807,7 +807,7 @@ const rope: GymRun = (c) => {
   const { g, fx, game } = c;
   const total = secs(45);
   const bg = backdrop((b) => gymRoom(b, game.color, 410, { night: false }));
-  let t = 0, phi = 0, passes = 0, misses = 0, jumps = 0, doubles = 0, streak = 0, score = 0, over = false, stall = 0, unlocked = false;
+  let t = 0, phi = -0.9 * Math.PI, passes = 0, misses = 0, jumps = 0, doubles = 0, streak = 0, score = 0, over = false, stall = 0, unlocked = false;
   let jump: { t0: number; air: number; big: boolean; cleared: number } | null = null;
   let buffered = -1;
   const FLOOR = 410;
@@ -1237,7 +1237,7 @@ const row: GymRun = (c) => {
   let drive = 0; // 0..1 seat/handle animation
   let drag: { y0: number; y: number; at: number; judged: 'perfect' | 'good' | 'miss' | null; id: number } | null = null;
   const start = 0.8; // first catch
-  const GHOST = 500 / 120; // 2:00 pace boat
+  const GHOST = 500 / 140; // 2:20 pace boat
   const catchTime = (i: number) => {
     // Catches follow the climbing stroke rate.
     let tt = start;
@@ -1256,7 +1256,7 @@ const row: GymRun = (c) => {
     const p = clamp01(power);
     if (r !== 'miss') {
       const rate = (r === 'perfect' ? 1 : 0.65) * (0.4 + 0.6 * p);
-      v += 3.1 * rate;
+      v += 5.2 * rate;
       quality += rate;
       strokes++;
       streak++;
@@ -1311,7 +1311,7 @@ const row: GymRun = (c) => {
     }
     // A long-held pull counts after 0.6 s.
     if (drag && drag.judged && t - drag.at > 0.8) finishStroke((drag.y - drag.y0) / 150);
-    v = Math.max(0, v - v * 0.28 * dt);
+    v = Math.max(0, v - v * 0.45 * dt);
     smooth = lerp(smooth, v, Math.min(1, dt * 2));
     dist += v * dt;
     if (!over) ghost += GHOST * dt * (t > start ? 1 : 0);
@@ -1354,7 +1354,7 @@ const row: GymRun = (c) => {
       label(g, name, x + 70, y - 4, 11, '#ffffffcc', 'left');
     };
     const gap = clamp((dist - ghost) * 3, -140, 140);
-    boat(150 - gap * 0.5, 186, '#c9ced9', Math.sin(t * TAU / 2.2) * 0.5 + 0.5, 'PACE 2:00');
+    boat(150 - gap * 0.5, 186, '#c9ced9', Math.sin(t * TAU / 2.2) * 0.5 + 0.5, 'PACE 2:20');
     boat(150 + gap * 0.5, 222, game.color, drive, 'YOU');
     // Split + distance.
     timeBar(g, 1 - t / total, game.color);
