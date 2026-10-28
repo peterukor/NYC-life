@@ -7,6 +7,8 @@
 // The games themselves are ui/arcade.ts.
 // =====================================================================
 
+import { pigeonTickets } from './arcade-pigeons.ts';
+import { beatTickets } from './arcade-beats.ts';
 import { changeMoney } from './economy.ts';
 import { addMoodlet } from './needs.ts';
 import type { GameState } from './types.ts';
@@ -28,8 +30,8 @@ export interface ArcadeGame {
 export const ARCADE_GAMES: ArcadeGame[] = [
   { id: 'snake', name: 'Subway Snake', emoji: '🐍', color: '#2ec4b6', howTo: 'Swipe or use the arrows. Eat 🍕 fast for combos (×5), grab the golden slice, sip 🥤 for slow-mo. Don’t crash into walls, 🚧 or yourself.', tickets: (s) => Math.floor(s / 3) },
   { id: 'hoops', name: 'Hoop Shot', emoji: '🏀', color: '#ff7f11', howTo: 'Tap when the bar is in the green (yellow = swish). Three in a row and you’re ON FIRE: ×2 and a wider green. 🟡 money balls score double, and the last 10 seconds are bonus time.', tickets: (s) => Math.floor(s * 1.2) },
-  { id: 'pigeons', name: 'Pigeon Pop', emoji: '🐦', color: '#8d99ae', howTo: 'Tap pigeons before they duck. Quick hits build a combo (×4). 🕊️ golden pigeon = FRENZY, 🥖 bread pops them all. Never tap the 🐀.', tickets: (s) => Math.floor(s / 5) },
-  { id: 'beats', name: 'Beat Street', emoji: '🎵', color: '#ff4fa3', howTo: 'Tap each lane as its note hits the line. PERFECT timing scores most. Misses drain the crowd 😃 (empty = booed off); combos fill 🔥 hype for ×2. Grade at the end.', tickets: (s) => Math.floor(s / 6) },
+  { id: 'pigeons', name: 'Pigeon Pop', emoji: '🐦', color: '#8d99ae', howTo: 'Tap 🐦 pigeons before they duck back in. Quick pops chain a combo (×4). 🕊️ golden pigeon = FRENZY ×2, 🥖 bread pops every pigeon that’s up. Never tap the 🐀. 45 seconds; the last 10 are rush hour.', tickets: pigeonTickets },
+  { id: 'beats', name: 'Beat Street', emoji: '🎵', color: '#ff4fa3', howTo: 'Pick a track and a difficulty, then tap each lane as its note hits the line (hold the long ones): your notes play the tune. Combos build to ×4, a full 🔥 hype meter doubles everything, misses drain the crowd 😃 (empty = booed off). Graded S–D. Off-beat? Use 🎧 Sync.', tickets: beatTickets },
   { id: 'stack', name: 'Bodega Stack', emoji: '🥪', color: '#e9c46a', howTo: 'Tap to drop each layer. What hangs over breaks off. Perfect drops keep it wide, and three in a row grow it back. ✨ Golden layers are worth ×3.', tickets: (s) => s * 2 },
   { id: 'dash', name: 'Delivery Dash', emoji: '🛵', color: '#2a9d8f', howTo: 'Tap or swipe to switch lanes. Sweep up 💵 for a streak bonus, grab 🧲 magnet, 🪖 helmet and ⚡ turbo, and dodge doors, potholes and people. Close calls score. Three hits and you’re out.', tickets: (s) => Math.floor(s / 7) },
   { id: 'claw', name: 'Claw Machine', emoji: '🧸', color: '#9b5de5', howTo: 'Drag on the glass (or hold ◀ ▶) to steer, then DROP. Centre it and let the swing settle for a strong grip. ✨ Shiny prizes are worth double. 15 seconds.', tickets: (s) => s },

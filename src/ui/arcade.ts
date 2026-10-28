@@ -14,8 +14,9 @@ import { rain, type CasinoHost } from './casino.ts';
 import { openModal, openSheet, onAct, toast } from './dom.ts';
 import { emoji, H, RUNS as RUNS1, W } from './arcade-games.ts';
 import { RUNS2 } from './arcade-games-2.ts';
+import { RUNS3 } from './arcade-classics.ts';
 
-const RUNS = { ...RUNS1, ...RUNS2 };
+const RUNS = { ...RUNS1, ...RUNS2, ...RUNS3 };
 import { fetchBoard, postScore, typicalScore } from '../net/scores.ts';
 import { boardHtml, openScoreboards } from './scoreboard.ts';
 
@@ -104,7 +105,8 @@ export function playArcade(host: CasinoHost, id: string, versus?: Versus, opts: 
       if (versus) {
         // Their score: around a good score for this game, scaled by their skill, sometimes a fluke either way.
         const typical = typicalScore(id);
-        const raw = typical * (0.45 + versus.skill * 0.75) * (0.7 + Math.random() * 0.6);
+        const k = Math.min(1, Math.max(0, versus.skill > 1 ? versus.skill / 3 : versus.skill));
+        const raw = typical * (0.45 + k * 0.75) * (0.7 + Math.random() * 0.6);
         const theirs = Math.max(0, typical >= 100 ? Math.round(raw / 10) * 10 : Math.round(raw));
         overlay.innerHTML = `<div class="big">${score > theirs ? '🏆' : score < theirs ? '😤' : '🤝'}</div><h3>${score > theirs ? 'You win!' : score < theirs ? `${esc(versus.name)} wins` : 'A tie'}</h3><p class="arc-vs"><span>You <b>${score}</b></span><span>${esc(versus.name)} <b>${theirs}</b></span></p><p>+${r.tickets} 🎟️</p><button class="btn primary" data-close>Done</button>`;
         const done = versus.done;

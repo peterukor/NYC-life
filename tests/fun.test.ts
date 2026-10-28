@@ -159,9 +159,9 @@ test('arcade: $2 a play, tickets for scores, prizes cost tickets', () => {
   const m = s.money;
   assert.equal(payToPlay(s), null);
   assert.equal(s.money, m - 200);
-  const r = recordScore(s, 'pigeons', 120);
+  const r = recordScore(s, 'pigeons', 1200); // rebuilt Pigeon Pop scores ×10 (2026-10-28)
   assert.ok(r.tickets > 0 && r.best);
-  assert.ok(!recordScore(s, 'pigeons', 50).best);
+  assert.ok(!recordScore(s, 'pigeons', 500).best);
   const cheapest = PRIZES[0];
   assert.equal(redeem(s, cheapest.id), null);
   assert.match(redeem(s, 'liberty') ?? '', /Needs/);
