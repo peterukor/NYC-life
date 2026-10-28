@@ -17,7 +17,7 @@
 import './minigolf.css';
 import { esc, money } from '../core/format.ts';
 import { fetchBoard, postScore } from '../net/scores.ts';
-import { stake } from '../sim/casino.ts';
+import { changeMoney } from '../sim/economy.ts';
 import {
   advance, atRest, BALL_R, cabAt, CUP_R, finishMinigolf, HOLES, MAX_STROKES, minigolfOf, MINIGOLF_COST, newPutter, PAR_TOTAL, planSteps, putt,
   seeded, spinnerAngle, stampFor, STAMP_WORD, STEP, toPar, type Hole, type PlayEvent, type Pt, type Putter, type Shot, type Stamp,
@@ -199,8 +199,9 @@ export function openMinigolf(host: CasinoHost, opts: MinigolfOpts = {}): void {
   };
 
   const startRound = () => {
-    const why = stake(s, MINIGOLF_COST, 'Mini golf');
-    if (why) return void toast(why, { icon: '⛳', tone: 'bad' });
+    // A round is a ticket, not a bet (not counted as casino money).
+    const paid = changeMoney(s, -MINIGOLF_COST, '⛳ Mini golf');
+    if (!paid.ok) return void toast('Not enough cash for a round.', { icon: '⛳', tone: 'bad' });
     sfx.coin();
     host.saved();
     for (const pl of players) {

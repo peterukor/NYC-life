@@ -48,6 +48,7 @@ export const RULES = {
   scoreGames: {
     snake: 20_000, hoops: 5_000, pigeons: 20_000, beats: 50_000, stack: 2_000, dash: 50_000, claw: 2_000,
     pinball: 2_000_000, skeeball: 20_000, breakout: 200_000, rooftop: 200_000, airhockey: 2_000, axe: 150,
+    bowling: 300, minigolf: 360,
   } as Record<string, number>,
   /** Score posts allowed per player per minute. */
   scorePostsPerMinute: 20,

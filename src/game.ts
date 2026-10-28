@@ -140,6 +140,7 @@ import { Hud, type NavKey } from './ui/hud.ts';
 import { openBlackjack, openRocket, openRoulette, openSlots, casinoNetLine, rain, type CasinoHost } from './ui/casino.ts';
 import { openPool } from './ui/pool.ts';
 import { openCinema } from './ui/cinema.ts';
+import { openMinigolf } from './ui/minigolf.ts';
 import { openBaccarat, openBigSix, openCraps, openKeno, openPlinko, openPoker, openScratch, openVideoPoker } from './ui/casino-games.ts';
 import { openPrizeCounter, playArcade } from './ui/arcade.ts';
 import { openSportsbook, settleAndTell } from './ui/sportsbook.ts';
@@ -1449,6 +1450,9 @@ export class Game {
         this.openBottleMenu();
         return true;
       case 'chess':
+      case 'playMinigolf':
+        openMinigolf(this.funHost());
+        return true;
       case 'watchMovie':
         openCinema(this.funHost());
         return true;

@@ -131,7 +131,7 @@ export const HOLES: Hole[] = [
     tee: { x: 25, y: 100 }, cup: { x: 25, y: 14 },
   },
   {
-    ...base, n: 4, id: 'turnstile', name: 'Turnstile Spin', emoji: '🎡', par: 3,
+    ...base, n: 4, id: 'turnstile', name: 'Turnstile Spin', emoji: '🎫', par: 3,
     tip: 'Time it through the turnstile. No MetroCard needed.',
     outer: box(0, 0, 54, 100),
     blocks: [rect(0, 48, 17, 53), rect(37, 48, 54, 53)],
@@ -742,7 +742,9 @@ export function* planSteps(h: Hole, from: { x: number; y: number }, t: number, s
   for (const c of pool) {
     let sum = c.v;
     for (const [a, p] of [[da, 0], [-da, 0], [0, dp], [0, -dp], [da * 0.7, dp * 0.7], [-da * 0.7, -dp * 0.7]]) sum += run({ angle: c.shot.angle + a, power: c.shot.power * (1 + p) });
-    const score = sum / 7;
+    // People aim at the cup when that works: a bank off the back wall only wins by a clear margin.
+    const off = 1 - Math.cos(c.shot.angle - direct);
+    const score = sum / 7 + off * 10;
     if (score < best) (best = score), (pick = c.shot);
     yield;
   }

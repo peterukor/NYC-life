@@ -750,7 +750,7 @@ export function openBowling(host: CasinoHost, opts: BowlingOpts = {}): void {
     let curve = th2 - th1;
     if (Math.hypot(z.x - tail.x, z.y - tail.y) < 10) curve = 0;
     const spin = Math.sign(curve) * clamp((Math.abs(curve) - 0.14) / 0.75, 0, 1);
-    const speed = SPEED.min + (SPEED.max - SPEED.min) * clamp((v - 450) / 2600, 0, 1);
+    const speed = SPEED.min + (SPEED.max - SPEED.min) * clamp((v - 400) / 2000, 0, 1);
     return { x: aimX, angle: clamp(th1 * 0.03, -0.04, 0.04), speed, spin };
   };
 
@@ -1095,8 +1095,8 @@ export function openBowling(host: CasinoHost, opts: BowlingOpts = {}): void {
     lane = newLane(pins);
     ballShownX = LANE.half + 14;
     over.hidden = true;
-    fit();
     sheet();
+    fit();
     // Count in while the first rack comes down.
     phase = 'count';
     count.hidden = false;
@@ -1131,14 +1131,14 @@ export function openBowling(host: CasinoHost, opts: BowlingOpts = {}): void {
     sheet();
     hud();
     const head = vs ? (score > theirs ? 'You win!' : score < theirs ? `${esc(vs.name)} wins` : 'A tie') : r.best ? 'New best!' : score >= 200 ? 'What a game!' : score >= 130 ? 'Nice game' : 'Game over';
-    const icon = r.best ? '🏆' : vs ? (score > theirs ? '🏆' : score < theirs ? '😤' : '🤝') : '🎳';
+    const icon = vs ? (score > theirs ? '🏆' : score < theirs ? '😤' : '🤝') : r.best ? '🏆' : '🎳';
     over.className = 'bw-over end';
     over.innerHTML = `<div class="bw-card">
       <div class="bw-emoji" aria-hidden="true">${icon}</div>
       <h3>${head}</h3>
       <p class="bw-score">${score}</p>
       ${vs ? `<p class="bw-vs"><span>You <b>${score}</b></span><span>${esc(vs.name)} <b>${theirs}</b></span></p>` : ''}
-      <div class="bw-chips"><span><b class="bw-x-mark">X</b> ${t.strikes} strike${t.strikes === 1 ? '' : 's'}</span><span><b class="bw-sp-mark">/</b> ${t.spares} spare${t.spares === 1 ? '' : 's'}</span><span>🏆 Best ${bowlingBest(s)}</span></div>
+      <div class="bw-chips"><span><b class="bw-x-mark">X</b> ${t.strikes} strike${t.strikes === 1 ? '' : 's'}</span><span><b class="bw-sp-mark">/</b> ${t.spares} spare${t.spares === 1 ? '' : 's'}</span><span>🏆 ${r.best && vs ? 'New best!' : `Best ${bowlingBest(s)}`}</span></div>
       <div class="bw-gains"><span class="bw-gain">+${r.fun} 🎉 fun</span>${r.social ? `<span class="bw-gain soc">+${r.social} 🤝 social</span>` : ''}${r.twoHundred ? '<span class="bw-gain hot">🎳 200 club</span>' : ''}</div>
       <div class="bw-btns"><button class="btn primary" data-again>🔁 Again · ${money(BOWLING_COST)}</button><button class="btn ghost" data-close>Done</button></div>
       <button class="btn ghost block bw-lb" data-board>🏆 Leaderboard</button>
