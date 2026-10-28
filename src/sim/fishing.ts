@@ -451,8 +451,10 @@ export function settleDerby(s: GameState, t: NycTime = nycTime()): string | null
   const d = rec.derby;
   if (!d || d.paid || (d.day === t.dateKey && t.hour < 11)) return null;
   d.paid = true;
-  const place = derbyBoard(s, d.day).findIndex((x) => x.you);
-  if (place < 0 || place > 2) return `🎣 Derby result: you were ${place + 1}th. Sal won again.`;
+  const board = derbyBoard(s, d.day);
+  const place = board.findIndex((x) => x.you);
+  if (place < 0) return null;
+  if (place > 2) return `🎣 Derby result: you were ${place + 1}th. ${board[0].name.replace(/ \(.*\)$/, '')} won with ${board[0].lb} lb.`;
   changeMoney(s, DERBY_PRIZES[place], `🎣 Pier 84 derby: ${['1st', '2nd', '3rd'][place]} place`);
   changeRep(s, 'street', [12, 6, 3][place]);
   return `🎣 Pier 84 derby: you came ${['1st 🥇', '2nd 🥈', '3rd 🥉'][place]}! +$${DERBY_PRIZES[place] / 100}.`;
