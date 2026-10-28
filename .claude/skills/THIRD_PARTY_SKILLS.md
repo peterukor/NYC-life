@@ -27,3 +27,4 @@ Not included, and why:
 - Trail of Bits insecure-defaults: packaged as a command plugin, not a skill.
 - anthemflynn asset-pipeline-3d: repository not publicly available.
 | interior-design-expert, color-theory-palette-harmony-expert | github.com/erichowens/some_claude_skills | MIT (Erich Owens) | Room layout, lighting layers, colour palettes for homes and venues (2026-10-27) |
+| game-feel, game-design-theory, level-design | github.com/jarrodmedrano/jarrod-claude-skills | MIT (Jarrod Medrano) | Arcade and casino games: juice and controls (Swink), what makes play fun (Rouse), venue layouts (2026-10-27) |

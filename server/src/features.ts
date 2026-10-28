@@ -27,6 +27,44 @@ import { ApiError, bad, field, notFound, RateLimiter, tooMany, type ApiReq } fro
 
 const gameDay = () => nycTime().dateKey;
 
+// ------------------------------------------------------------ 🏆 game leaderboards
+
+const scoreLimiter = new RateLimiter(RULES.scorePostsPerMinute, 60_000);
+
+/** Report a finished game's score; your best per game is kept. */
+export function postScore(ctx: Ctx, req: ApiReq) {
+  const u = requireUser(ctx, req);
+  const game = field(req.body, 'game', 'string')!;
+  const score = Math.floor(field(req.body, 'score', 'number')!);
+  const cap = RULES.scoreGames[game];
+  if (cap === undefined) throw bad('Unknown game.');
+  if (!(score >= 0) || score > cap) throw bad('That score isn’t possible.');
+  if (!scoreLimiter.hit(`score:${u.id}`, ctx.now())) throw tooMany('Slow down a little.');
+  const now = ctx.now();
+  ctx.db.prepare('INSERT INTO game_scores (game, user_id, best, updated) VALUES (?, ?, ?, ?) ON CONFLICT(game, user_id) DO UPDATE SET best = excluded.best, updated = excluded.updated WHERE excluded.best > game_scores.best').run(game, u.id, score, now);
+  const best = (ctx.db.prepare('SELECT best FROM game_scores WHERE game = ? AND user_id = ?').get(game, u.id) as { best: number }).best;
+  return { game, best, newBest: best === score && score > 0 };
+}
+
+/** A game's top 20 (and your own place, if you're signed in and on the board). */
+export function gameBoard(ctx: Ctx, req: ApiReq) {
+  const game = req.params.game;
+  if (RULES.scoreGames[game] === undefined) throw notFound('No such game.');
+  const top = ctx.db
+    .prepare('SELECT u.username, s.best AS score FROM game_scores s JOIN users u ON u.id = s.user_id WHERE s.game = ? AND u.banned = 0 ORDER BY s.best DESC, s.updated ASC LIMIT 20')
+    .all(game) as { username: string; score: number }[];
+  let you: { place: number; score: number } | null = null;
+  const u = req.headers.get('authorization') ? safeUser(ctx, req) : null;
+  if (u) {
+    const mine = ctx.db.prepare('SELECT best, updated FROM game_scores WHERE game = ? AND user_id = ?').get(game, u.id) as { best: number; updated: number } | undefined;
+    if (mine) {
+      const ahead = (ctx.db.prepare('SELECT COUNT(*) AS n FROM game_scores s JOIN users x ON x.id = s.user_id WHERE s.game = ? AND x.banned = 0 AND (s.best > ? OR (s.best = ? AND s.updated < ?))').get(game, mine.best, mine.best, mine.updated) as { n: number }).n;
+      you = { place: ahead + 1, score: mine.best };
+    }
+  }
+  return { game, top, you };
+}
+
 // ------------------------------------------------------------ ☁️ cloud save
 
 export function getSave(ctx: Ctx, req: ApiReq) {

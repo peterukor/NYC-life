@@ -41,4 +41,14 @@ export const RULES = {
   /** Paintings: data-URL size limit (bytes) and how many a player can hang per game day. */
   artMaxBytes: 90_000,
   artPerDay: 6,
+  /**
+   * 🏆 Game leaderboards (2026-10-27): the games that keep a best score, and the
+   * highest score each could plausibly reach (anything above is refused).
+   */
+  scoreGames: {
+    snake: 20_000, hoops: 5_000, pigeons: 20_000, beats: 50_000, stack: 2_000, dash: 50_000, claw: 2_000,
+    pinball: 2_000_000, skeeball: 20_000, breakout: 200_000, rooftop: 200_000, airhockey: 2_000,
+  } as Record<string, number>,
+  /** Score posts allowed per player per minute. */
+  scorePostsPerMinute: 20,
 };

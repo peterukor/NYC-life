@@ -15,6 +15,7 @@ import type { HomeLayout } from './homes.ts';
 import type { InteriorKind } from './places.ts';
 import { dressVenue } from './venue-looks.ts';
 import { CLUB_ROOMS } from './club-rooms.ts';
+import { FUN_ROOMS } from './fun-rooms.ts';
 
 const PI = Math.PI;
 const H = PI / 2;
@@ -184,37 +185,6 @@ export const WORKPLACE_LAYOUTS: Record<string, HomeLayout> = {
     ],
     workers: [{ x: 1.9, z: -3.6, rot: 0 }, { x: 3.4, z: -3.6, rot: 0 }, { x: 4.8, z: -3.6, rot: 0 }, { x: 2.4, z: -4.7, rot: B }, { x: -4.1, z: -2.4, rot: -H }, { x: 6.6, z: -2.3, rot: H }],
   },
-  stoopBar: {
-    id: 'stoopBar', name: 'The Stoop', width: 20, depth: 14, wallColor: '#6b2f2f', zoomable: true,
-    life: {
-      visitors: 14, pops: ['🍺', '🍸', '😂', '🎵', '💬', '🥂'], fx: ['notes'],
-      // Peter: bartenders stay behind the bar; a waiter runs the drinks to the tables.
-      runner: { from: 'bar2', to: ['booth1', 'booth2', 'booth3', 'booth4', 'ht1', 'ht2', 'ht3', 'ht4', 'pool', 'pool2'], carry: ['🍺', '🍸', '🍷', '🥃', '🍹'] },
-    },
-    rooms: [{ label: 'Bar', rect: [-10, -7, 10, 7], floor: '#4a2f22' }, { label: 'Pool room', rect: [3.6, -1.0, 10, 7], floor: '#3a2a20' }],
-    walls: [],
-    furniture: [
-      { uid: 'bar', item: 'barTop', x: -1.0, z: -3.2, rot: 0 },
-      { uid: 'bar2', item: 'barTop', x: 2.4, z: -3.2, rot: 0 },
-      { uid: 'back', item: 'bottleWall', x: -1.0, z: -6.7, rot: 0 },
-      { uid: 'back2', item: 'bottleWall', x: 2.2, z: -6.7, rot: 0 },
-      { uid: 'booth1', item: 'booth', x: -9.1, z: -4.0, rot: H },
-      { uid: 'booth2', item: 'booth', x: -9.1, z: -1.2, rot: H },
-      { uid: 'booth3', item: 'booth', x: -9.1, z: 1.6, rot: H },
-      { uid: 'booth4', item: 'booth', x: -9.1, z: 4.4, rot: H },
-      { uid: 'pool', item: 'poolTable', x: 6.4, z: 1.2, rot: 0 },
-      { uid: 'pool2', item: 'poolTable', x: 6.4, z: 4.6, rot: 0 },
-      { uid: 'juke', item: 'jukebox', x: 9.55, z: -3.4, rot: -H },
-      { uid: 'ht1', item: 'highTop', x: -5.0, z: 0.6, rot: 0 },
-      { uid: 'ht2', item: 'highTop', x: -5.0, z: 3.8, rot: 0 },
-      { uid: 'ht3', item: 'highTop', x: -2.4, z: 2.2, rot: 0 },
-      { uid: 'ht4', item: 'highTop', x: 2.0, z: 0.4, rot: 0 },
-      { uid: 'neon', item: 'neonSign', x: -6.5, z: -6.83, rot: 0 },
-      { uid: 'neon2', item: 'neonSign', x: 6.5, z: -6.83, rot: 0 },
-      { uid: 'p1', item: 'plant', x: -9.4, z: 6.4, rot: 0 },
-    ],
-    workers: [{ x: -2.0, z: -4.6, rot: 0 }, { x: -0.3, z: -4.6, rot: 0 }, { x: 1.4, z: -4.6, rot: 0 }, { x: 3.0, z: -4.6, rot: 0 }, { x: -0.6, z: -0.6, rot: B }, { x: 1.6, z: 5.8, rot: B }],
-  },
   gym: {
     id: 'gym', name: 'Iron Hell’s Kitchen', width: 20, depth: 14, wallColor: '#2b2d42', zoomable: true,
     life: { visitors: 12, pops: ['💪', '💦', '🔥', '🏋️', '😤'], fx: [] },
@@ -371,59 +341,6 @@ export const WORKPLACE_LAYOUTS: Record<string, HomeLayout> = {
     ],
     workers: [{ x: -1.6, z: -4.0, rot: 0 }, { x: 3.8, z: -5.4, rot: B }, { x: 6.6, z: -5.4, rot: B }, { x: 3.8, z: -2.8, rot: B }, { x: -8.4, z: -4.6, rot: B }, { x: 6.6, z: -2.8, rot: B }],
   },
-  // ================================================ entertainment (2026-10-14)
-  arcade: {
-    id: 'arcade', name: 'Pixel Palace Arcade', width: 18, depth: 14, wallColor: '#140b2e', zoomable: true,
-    windows: { xs: [], w: 0, h: 0, y: 0 },
-    life: { visitors: 12, pops: ['🎮', '🕹️', '🎟️', '🔥', '😤', '🏆'], fx: ['neon'] },
-    rooms: [{ label: 'Arcade', rect: [-9, -7, 9, 7], floor: '#22134a' }, { label: 'Prize corner', rect: [5.2, -1.2, 9, 7], floor: '#2d1b5e' }],
-    walls: [],
-    furniture: [
-      { uid: 'snake', item: 'cabSnake', x: -7.8, z: -6.2, rot: 0 },
-      { uid: 'pigeons', item: 'cabPigeons', x: -6.7, z: -6.2, rot: 0 },
-      { uid: 'beats', item: 'cabBeats', x: -5.4, z: -5.95, rot: 0 },
-      { uid: 'hoops', item: 'cabHoops', x: -3.2, z: -5.9, rot: 0 },
-      { uid: 'hoops2', item: 'cabHoops', x: -1.9, z: -5.9, rot: 0 },
-      { uid: 'snake2', item: 'cabSnake', x: 0.2, z: -6.2, rot: 0 },
-      { uid: 'pigeons2', item: 'cabPigeons', x: 1.3, z: -6.2, rot: 0 },
-      { uid: 'beats2', item: 'cabBeats', x: 2.6, z: -5.95, rot: 0 },
-      { uid: 'claw', item: 'clawMachine', x: 4.6, z: -6.1, rot: 0 },
-      { uid: 'claw2', item: 'clawMachine', x: 5.8, z: -6.1, rot: 0 },
-      { uid: 'claw3', item: 'clawMachine', x: 7.0, z: -6.1, rot: 0 },
-      { uid: 'prizes', item: 'prizeCounter', x: 8.3, z: 2.4, rot: -H },
-      { uid: 'hockey', item: 'airHockeyTable', x: -5.2, z: 1.2, rot: 0 },
-      { uid: 'hockey2', item: 'airHockeyTable', x: -2.2, z: 1.2, rot: 0 },
-      { uid: 'stack1', item: 'cabStack', x: -8.3, z: 4.5, rot: H },
-      { uid: 'dash1', item: 'cabDash', x: -8.1, z: 2.2, rot: H },
-      { uid: 'neon', item: 'neonSign', x: -3.0, z: -6.83, rot: 0 },
-      { uid: 'neon2', item: 'neonSign', x: 3.6, z: -6.83, rot: 0 },
-    ],
-    // Staff: the prize counter, a tech fixing a cabinet, and the change machine guy.
-    workers: [{ x: 7.6, z: 2.4, rot: H }, { x: -3.8, z: -4.6, rot: B }, { x: 2.0, z: 3.6, rot: B }, { x: 6.0, z: -4.6, rot: B }, { x: -6.0, z: 4.8, rot: H }, { x: 0.6, z: 6.0, rot: B }],
-  },
-  casino: {
-    id: 'casino', name: 'Empire Casino', width: 22, depth: 16, wallColor: '#3d0c1e', zoomable: true,
-    windows: { xs: [], w: 0, h: 0, y: 0 }, // casinos never have windows (or clocks)
-    life: { visitors: 16, pops: ['🎰', '💰', '🃏', '😱', '🙏', '🥂', '💸'], fx: ['neon'] },
-    rooms: [{ label: 'Casino floor', rect: [-11, -8, 11, 8], floor: '#5b1a2e' }, { label: 'High limit', rect: [2.6, -8, 11, -3.6], floor: '#3c0d1e' }],
-    walls: [],
-    furniture: [
-      ...[-6.4, -5.4, -4.4, -3.4, 2.4, 3.4, 4.4].map((z, i) => ({ uid: `slotL${i}`, item: 'slotMachine', x: -10.4, z, rot: H })),
-      ...[-6.4, -5.4, -4.4, -3.4, -2.4, -1.4].map((x, i) => ({ uid: `slotB${i}`, item: 'slotMachine', x, z: -7.45, rot: 0 })),
-      { uid: 'bj1', item: 'blackjackTable', x: -4.6, z: -1.6, rot: 0 },
-      { uid: 'bj2', item: 'blackjackTable', x: -0.6, z: -1.6, rot: 0 },
-      { uid: 'bj3', item: 'blackjackTable', x: -4.6, z: 3.4, rot: 0 },
-      { uid: 'roulette', item: 'rouletteTable', x: 5.6, z: -5.6, rot: 0 },
-      { uid: 'roulette2', item: 'rouletteTable', x: 3.4, z: 0.6, rot: 0 },
-      { uid: 'rocket', item: 'rocketScreen', x: 8.2, z: 2.8, rot: -H },
-      { uid: 'cashier', item: 'cashierCage', x: 10.2, z: -1.4, rot: -H },
-      { uid: 'bar', item: 'barCounter', x: 0.6, z: 6.6, rot: B },
-      { uid: 'chand', item: 'chandelier', x: -2.6, z: 1.0, rot: 0 },
-      { uid: 'chand2', item: 'chandelier', x: 4.4, z: 3.8, rot: 0 },
-    ],
-    // Dealers, the croupier, the cashier, the floor boss and security.
-    workers: [{ x: -4.6, z: -2.6, rot: 0 }, { x: -0.6, z: -2.6, rot: 0 }, { x: 5.6, z: -6.6, rot: 0 }, { x: 9.3, z: -1.4, rot: -H }, { x: -4.6, z: 2.4, rot: 0 }, { x: -1.0, z: 7.2, rot: B }],
-  },
   park: {
     id: 'park', name: 'Central Park', width: 24, depth: 18, wallColor: '#3e7b3a', zoomable: true,
     windows: { xs: [], w: 0, h: 0, y: 0 },
@@ -466,7 +383,7 @@ export const WORKPLACE_LAYOUTS: Record<string, HomeLayout> = {
 };
 
 // The five clubs (data/club-rooms.ts).
-Object.assign(WORKPLACE_LAYOUTS, CLUB_ROOMS);
+Object.assign(WORKPLACE_LAYOUTS, CLUB_ROOMS, FUN_ROOMS);
 
 /** Each workplace's own room, by place id (wins over the shared venue plans). */
 export const WORKPLACE_LAYOUT_FOR: Record<string, string> = {
@@ -486,7 +403,15 @@ export const WORKPLACE_LAYOUT_FOR: Record<string, string> = {
   // Entertainment (no jobs here yet; NPC staff fill the spots).
   warehouseRave: 'club5',
   pixelPalace: 'arcade',
+  kingsArcade: 'arcade2',
+  hubArcade: 'arcade3',
   empireCasino: 'casino',
+  astoriaRoyale: 'casino2',
+  navyYardClub: 'casino3',
+  luckyStar: 'casino4',
+  diveBar: 'bar1',
+  beerGarden: 'bar2',
+  lenoxLounge: 'bar3',
   centralPark: 'park',
 };
 

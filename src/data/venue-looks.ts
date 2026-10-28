@@ -51,7 +51,6 @@ const at = (item: string, x: number, z: number, rot = 0, extra: Partial<HomeItem
 /** A neon word on the back wall (y up the wall), the left wall or the right wall. */
 const neonBack = (text: string, color: string, x: number, y: number, hd: number, size = 0.55, font: 'script' | 'block' = 'block') => ({ text, color, x, y, z: -hd + 0.12, rot: 0, size, font });
 const neonLeft = (text: string, color: string, z: number, y: number, hw: number, size = 0.55, font: 'script' | 'block' = 'block') => ({ text, color, x: -hw + 0.12, y, z, rot: H, size, font });
-const neonRight = (text: string, color: string, z: number, y: number, hw: number, size = 0.55, font: 'script' | 'block' = 'block') => ({ text, color, x: hw - 0.12, y, z, rot: -H, size, font });
 
 const PINK = '#ff4fb8', CYAN = '#22d3ee', PURPLE = '#9b5cff', AMBER = '#ffae42', RED = '#ff3b3b', GREEN = '#3ddc84', GOLD = '#ffd36b', BLUE = '#3d8bff';
 
@@ -125,15 +124,6 @@ export const VENUE_LOOKS: Record<string, Look> = {
     add: [hang('flushLight', -4, -2), hang('flushLight', 0, -2), hang('flushLight', -4, 2.5), hang('flushLight', 0, 2.5), hang('flushLight', 5, 2.5), hang('bellPendant', 2.4, -3.5), hang('bellPendant', 4.6, -3.5)],
     signs: [neonBack('DELI', RED, -3.6, 2.25, 7.2, 0.55), neonBack('OPEN 24 HRS', BLUE, -7.0, 2.25, 7.2, 0.32), neonLeft('BACON EGG & CHEESE', AMBER, 0.6, 2.2, 9.6, 0.26)],
   },
-  // 🍺 The Stoop (24 × 16.8): two glowing bars, lit bottle walls, lounge tables, a pool room in green and wood.
-  stoopBar: {
-    scale: 1.2, mood: 'bar', remove: ['neon', 'neon2', 'p1'], notch: [[-12, 6.6, -8.6, 8.4]],
-    rooms: [{ floor: 'walnut', wall: 'brick' }, { floor: 'carpet:#2f4f3a', wall: 'woodPanel' }],
-    swap: { bar: ['ledBar', -1.2, -3.8, 0], bar2: ['ledBarPlain', 3.3, -3.8, 0], back: ['bottleShelf', -1.2, -8.19, 0], back2: ['bottleShelf', 2.6, -8.19, 0], ht1: ['loungeSet', -6.0, 0.7, 0], ht2: ['loungeSet', -6.0, 4.6, 0], ht3: ['loungeSet', -2.9, 2.6, 0], ht4: ['loungeSet', 2.4, 0.6, 0] },
-    add: [hang('edisonCluster', -2.4, -4.0), hang('edisonCluster', 1.6, -4.0), hang('edisonCluster', 4.6, -4.0), hang('bellPendant', 7.7, 1.0), hang('bellPendant', 7.7, 1.9), hang('bellPendant', 7.7, 5.2), hang('bellPendant', 7.7, 6.1), at('loungeSet', -2.6, 6.6, 0), at('loungeSet', 0.9, 6.6, 0), back('ledStrip', -6.6, 8.4, { lc: AMBER }), back('ledStrip', 7.0, 8.4, { lc: PINK }), left('ledStripLow', 0.5, 12, { lc: PURPLE }), at('oliveTree', -7.6, 7.6)],
-    screens: [{ x: 11.86, y: 1.9, z: 3.4, rot: -H, w: 3.2, h: 1.8, kind: 'game' }],
-    signs: [neonBack('The Stoop', PINK, -8.0, 2.2, 8.4, 0.6, 'script'), neonRight('POOL', CYAN, 7.0, 2.3, 12, 0.45), neonBack('ON TAP', AMBER, 7.0, 2.35, 8.4, 0.35)],
-  },
   // 🏋️ Iron (24 × 16.8): rubber floor, black brick, red neon.
   gym: {
     screens: [{ x: 11.88, y: 1.85, z: 1.2, rot: -H, w: 3.4, h: 1.7, kind: 'game' }, { x: -8.4, y: 2.35, z: -8.28, rot: 0, w: 6, h: 0.8, kind: 'waves' }],
@@ -193,23 +183,6 @@ export const VENUE_LOOKS: Record<string, Look> = {
     scale: 1.2, mood: 'bright',
     rooms: [{ floor: 'tile:#cfd8dc', wall: 'panel:#5b6b78' }, { floor: 'carpet:#5b6b78', wall: 'paint:#cfd8dc' }],
     add: [at('palmPot', -11.4, 7.6), at('trashTall', 2.0, -7.9), hang('flushLight2', -6, 0), hang('flushLight2', 0, 0), hang('flushLight2', -6, 4), hang('flushLight2', 0, 4), hang('flushLight2', 6, -5), hang('flushLight2', 6, -2), right('bathMirror', 6.0, 12)],
-  },
-  // 🕹️ Pixel Palace (21.6 × 16.8): the cosmic carpet, a marquee video strip over the cabinets, neon, a lit entrance.
-  arcade: {
-    scale: 1.2, mood: 'arcade', remove: ['neon', 'neon2'], move: { stack1: [-9.7, 5.4] }, notch: [[-10.8, 6.2, -7.6, 8.4]],
-    rooms: [{ floor: 'cosmic', wall: 'paint:#140b2e' }, { floor: 'carpet:#2d1b5e', wall: 'paint:#1d1340' }],
-    add: [back('ledStripLow', -6.0, 8.4, { lc: PINK }), back('ledStripLow', 2.0, 8.4, { lc: CYAN }), left('ledStrip', -2.0, 10.8, { lc: CYAN }), left('ledStrip', 3.5, 10.8, { lc: PINK }), right('ledStrip', -4.4, 10.8, { lc: GREEN }), hang('ringPendant', -4.4, 1.4, CYAN), hang('ringPendant', 0, 4.4, PINK), hang('ringPendant', 4.4, 1.4, PURPLE), at('neonArch', 0, 7.7), at('beanbag', 5.6, 6.8, 0, { a: '#ff4fb8' }), at('beanbag', 4.2, 7.0, 0, { a: '#22d3ee' }), at('pouf', 6.6, 5.6, 0, { a: '#9b5cff' })],
-    screens: [{ x: -1.0, y: 2.5, z: -8.28, rot: 0, w: 18, h: 0.65, kind: 'game' }, { x: 10.68, y: 1.8, z: -3.0, rot: -H, w: 3.2, h: 1.6, kind: 'game' }],
-    signs: [neonLeft('ARCADE', CYAN, 0.2, 2.3, 10.8, 0.55), neonRight('PRIZES', GOLD, 3.0, 2.3, 10.8, 0.5), neonLeft('HIGH SCORE', GREEN, -4.6, 2.25, 10.8, 0.32)],
-  },
-  // 🎰 Empire Casino (24.6 × 17.9): red carpet, damask, crystal, a glowing bar, a jackpot wall.
-  casino: {
-    scale: 1.12, mood: 'casino', notch: [[-12.32, 6.0, -8.6, 8.96]],
-    rooms: [{ floor: 'casinoCarpet', wall: 'damask:#3d0c1e' }, { floor: 'casinoCarpet:#1f3b4d', wall: 'velvet:#3d0c1e' }],
-    swap: { bar: ['ledBar', 0.7, 7.3, Math.PI] },
-    add: [hang('crystalChandelier', -6, -1), hang('crystalChandelier', 6, 6), hang('crystalChandelier', 6.8, -6.0), hang('tulipChandelier', -6, 5), at('vipRiser', 7.6, -6.4, 0), at('loungeSet', -5.8, 7.0, 0), at('loungeSet', 6.6, 7.0, 0), back('ledStrip', -9.5, 8.96, { lc: GOLD }), back('ledStrip', 9.5, 8.96, { lc: GOLD }), right('ledStripLow', 4.0, 12.32, { lc: RED }), at('columnTall', -1.6, 8.3), at('columnTall', 4.0, 8.3)],
-    screens: [{ x: 3.6, y: 1.85, z: -8.84, rot: 0, w: 4.2, h: 1.7, kind: 'game' }],
-    signs: [neonBack('JACKPOT', GOLD, 3.6, 2.6, 8.96, 0.4), neonRight('777', RED, 6.2, 2.3, 12.32, 0.6), neonLeft('Empire', PINK, -1, 2.3, 12.32, 0.55, 'script')],
   },
   // 🌳 Central Park (26.9 × 20.2): grass, paver paths, low hedges round the edge.
   park: {

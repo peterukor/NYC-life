@@ -21,7 +21,7 @@ const LEAF = ['#2d6a4f', '#40916c', '#52b788'];
 
 function screen(t: Toy, w: number, h: number, x: number, y0: number, z: number, face: string, tilt = 0): void {
   t.add(new THREE.BoxGeometry(w, h, 0.05).rotateX(tilt).translate(x, y0 + h / 2, z), INK);
-  t.add(new THREE.BoxGeometry(w * 0.88, h * 0.82, 0.01).rotateX(tilt).translate(x, y0 + h / 2, z + 0.03), face);
+  t.inSlot(3, () => t.add(new THREE.BoxGeometry(w * 0.88, h * 0.82, 0.01).rotateX(tilt).translate(x, y0 + h / 2, z + 0.03), face));
 }
 
 /** An upright arcade cabinet in a colour, with a marquee and a screen. */
@@ -29,7 +29,7 @@ function cabinet(t: Toy, body: string, face: string, marquee: string): void {
   t.block(0.8, 1.15, 0.75, 0, 0, 0, body, 0.06);
   t.block(0.8, 0.5, 0.45, 0, 1.15, -0.15, body, 0.06);
   t.block(0.84, 0.26, 0.5, 0, 1.65, -0.12, marquee, 0.06); // marquee
-  t.block(0.7, 0.12, 0.02, 0, 1.72, 0.14, '#fff6b0', 0.05); // its light
+  t.inSlot(3, () => t.block(0.7, 0.12, 0.02, 0, 1.72, 0.14, marquee, 0.05)); // its light
   screen(t, 0.62, 0.48, 0, 1.13, 0.1, face, -0.18);
   t.block(0.78, 0.08, 0.32, 0, 1.0, 0.3, INK, 0.05); // control panel
   t.cyl(0.03, 0.03, 0.1, -0.2, 1.06, 0.32, INK, 8);
@@ -91,15 +91,130 @@ export const FUN_TOYS: Record<string, (t: Toy) => void> = {
     t.cyl(0.04, 0.04, 0.01, 0.2, 0.78, 0.1, INK, 10);
   },
 
+  // ============================================================ 🕹️ more cabinets (2026-10-27)
+  toyCabBreakout: (t) => cabinet(t, '#8d2c1d', '#120a08', '#ff6a3d'),
+  toyCabRooftop: (t) => cabinet(t, '#2d5aa0', '#0d1a33', '#7bd8ff'),
+  /** A pinball machine: legs, a sloped glass playfield with bumpers, a lit backbox. */
+  toyPinball(t) {
+    for (const [x, z] of [[-0.3, -0.55], [0.3, -0.55], [-0.3, 0.55], [0.3, 0.55]]) t.cyl(0.03, 0.03, 0.8, x, 0, z, STEEL, 6);
+    t.add(new THREE.BoxGeometry(0.72, 0.18, 1.3).rotateX(-0.12).translate(0, 0.88, 0), '#7b2cbf');
+    t.add(new THREE.BoxGeometry(0.64, 0.01, 1.2).rotateX(-0.12).translate(0, 0.98, 0), '#1b1035');
+    for (const [x, z, c] of [[-0.12, -0.25, '#ffd23f'], [0.12, -0.3, '#ff4fa3'], [0, -0.05, '#36c5f0']] as [number, number, string][]) t.cyl(0.06, 0.06, 0.06, x, 0.98 - z * 0.12, z, c, 12);
+    t.block(0.1, 0.02, 0.03, -0.12, 1.02, 0.45, '#ffffff', 0.2);
+    t.block(0.1, 0.02, 0.03, 0.12, 1.02, 0.45, '#ffffff', 0.2);
+    t.block(0.72, 0.62, 0.14, 0, 0.98, -0.66, '#7b2cbf', 0.04);
+    t.inSlot(3, () => t.block(0.62, 0.48, 0.02, 0, 1.05, -0.58, '#ff4fa3', 0.04));
+    t.inSlot(3, () => t.block(0.4, 0.08, 0.02, 0, 1.38, -0.57, '#ffd23f', 0.2));
+  },
+  /** A skee-ball lane: a long ramp up to rings in a net cage. */
+  toySkeeBall(t) {
+    t.block(0.8, 0.6, 2.4, 0, 0, 0, '#c1121f', 0.05);
+    t.add(new THREE.BoxGeometry(0.66, 0.04, 1.6).rotateX(-0.18).translate(0, 0.78, 0.25), '#d9a066');
+    t.block(0.8, 0.9, 0.6, 0, 0.6, -0.9, '#c1121f', 0.05);
+    for (const [r, y, c] of [[0.28, 1.0, '#ffd23f'], [0.18, 1.12, '#36c5f0'], [0.1, 1.24, '#ff4fa3']] as [number, number, string][]) t.add(new THREE.TorusGeometry(r, 0.02, 6, 20).rotateX(Math.PI / 2 - 0.5).translate(0, y, -0.85), c);
+    for (const x of [-0.4, 0.4]) t.block(0.02, 1.2, 1.8, x, 0.6, 0, '#ffffff22', 0.05);
+    t.block(0.8, 0.3, 0.1, 0, 1.6, -1.15, '#1b1d22', 0.05);
+    t.block(0.6, 0.18, 0.02, 0, 1.66, -1.09, '#ffd23f', 0.1);
+    for (let i = 0; i < 5; i++) t.sphere(0.05, -0.2 + i * 0.1, 0.66, 1.1, '#8a5a34');
+  },
+
+  // ============================================================ 🎰 more tables (2026-10-27)
+  /** Poker: an oval table, rail, chip stacks at each seat, the dealer's button. */
+  toyPokerTable(t) {
+    t.cyl(0.18, 0.28, 0.72, 0, 0, 0, INK, 12);
+    const oval = (r: number, h: number, y: number, c: string) => t.add(new THREE.CylinderGeometry(r, r, h, 32).scale(1.45, 1, 1).translate(0, y, 0), c);
+    oval(0.95, 0.06, 0.74, WOOD_DK);
+    oval(0.84, 0.06, 0.76, '#145a32');
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2;
+      t.cyl(0.04, 0.04, 0.06 + (i % 3) * 0.03, Math.cos(a) * 0.95, 0.79, Math.sin(a) * 0.6, ['#e0283f', '#36c5f0', GOLD][i % 3], 10);
+      t.block(0.1, 0.01, 0.14, Math.cos(a) * 0.7, 0.8, Math.sin(a) * 0.42, '#fffdf5', 0.05);
+    }
+    for (let i = 0; i < 5; i++) t.block(0.1, 0.01, 0.14, -0.26 + i * 0.13, 0.8, 0, '#fffdf5', 0.05);
+    t.cyl(0.05, 0.05, 0.02, 0.4, 0.8, 0.2, '#ffffff', 12);
+  },
+  /** Craps: a long tub table with the layout and a pair of dice. */
+  toyCrapsTable(t) {
+    t.block(2.6, 0.8, 1.3, 0, 0, 0, WOOD_DK, 0.08);
+    t.block(2.4, 0.04, 1.1, 0, 0.72, 0, '#14532d', 0.05);
+    t.block(2.6, 0.12, 0.1, 0, 0.8, 0.62, WOOD, 0.2);
+    t.block(2.6, 0.12, 0.1, 0, 0.8, -0.62, WOOD, 0.2);
+    t.block(0.9, 0.01, 0.18, -0.5, 0.77, 0.3, '#ffffff', 0.05); // PASS LINE
+    t.block(0.5, 0.01, 0.3, 0.6, 0.77, 0, '#ffd23f', 0.05); // FIELD
+    for (const [x, z] of [[0.1, -0.2], [0.22, -0.1]]) t.block(0.08, 0.08, 0.08, x, 0.76, z, '#e0283f', 0.15);
+    t.cyl(0.02, 0.02, 0.5, -1.1, 0.8, -0.3, WOOD, 6); // the stick
+  },
+  /** Baccarat: a kidney table, numbered seats, the shoe, cards dealt. */
+  toyBaccaratTable(t) {
+    t.cyl(0.1, 0.15, 0.72, 0, 0, 0, INK, 10);
+    t.add(new THREE.CylinderGeometry(1.2, 1.2, 0.08, 28, 1, false, -Math.PI / 2, Math.PI).translate(0, 0.76, 0), '#7a1430');
+    t.add(new THREE.TorusGeometry(1.2, 0.06, 6, 28, Math.PI).rotateX(-Math.PI / 2).rotateY(Math.PI).translate(0, 0.8, 0), GOLD);
+    t.block(2.4, 0.08, 0.16, 0, 0.76, -0.04, WOOD_DK, 0.2);
+    t.block(0.22, 0.12, 0.3, -0.7, 0.82, 0.12, '#2b2d33', 0.1); // the shoe
+    for (const x of [-0.25, 0.25]) for (const dx of [0, 0.1]) t.block(0.12, 0.01, 0.17, x + dx, 0.81, 0.4 + dx, '#fffdf5', 0.05);
+  },
+  /** The Big Six money wheel: a tall wheel of coloured segments on a stand, a clapper on top. */
+  toyBigSix(t) {
+    t.block(1.0, 0.25, 0.6, 0, 0, 0, WOOD_DK, 0.05);
+    t.block(0.14, 1.0, 0.14, 0, 0.25, 0, GOLD, 0.05);
+    const cols = ['#e0283f', '#ffd23f', '#36c5f0', '#7bd88f', '#ff4fa3', '#ffffff'];
+    for (let i = 0; i < 24; i++) {
+      const a0 = (i / 24) * Math.PI * 2;
+      t.add(new THREE.CylinderGeometry(0.9, 0.9, 0.06, 2, 1, false, a0, (Math.PI * 2) / 24).rotateX(Math.PI / 2).translate(0, 2.05, 0.08), cols[i % cols.length]);
+    }
+    t.add(new THREE.TorusGeometry(0.92, 0.05, 6, 40).translate(0, 2.05, 0.1), GOLD);
+    t.cyl(0.12, 0.12, 0.1, 0, 2.0, 0.08, GOLD, 16);
+    t.block(0.06, 0.2, 0.06, 0, 2.97, 0.12, '#e0283f', 0.1);
+    t.block(1.4, 0.75, 0.6, 0, 0, 0.8, '#14532d', 0.05); // betting board
+    for (let i = 0; i < 6; i++) t.block(0.18, 0.01, 0.4, -0.55 + i * 0.22, 0.76, 0.8, cols[i], 0.05);
+  },
+  /** Plinko: a tall upright board of pegs with lit slots at the bottom. */
+  toyPlinko(t) {
+    t.block(1.4, 0.9, 0.5, 0, 0, 0, '#1b1d22', 0.05);
+    t.block(1.4, 1.9, 0.12, 0, 0.9, -0.15, '#0d1030', 0.03);
+    for (let r = 0; r < 9; r++) for (let c = 0; c <= r; c++) t.sphere(0.025, -r * 0.065 + c * 0.13, 2.55 - r * 0.17, -0.07, '#e9ecef');
+    const cols = ['#e0283f', '#ff7f11', '#ffd23f', '#7bd88f', '#36c5f0', '#7bd88f', '#ffd23f', '#ff7f11', '#e0283f'];
+    t.inSlot(3, () => cols.forEach((c, i) => t.block(0.13, 0.14, 0.02, -0.56 + i * 0.14, 0.95, -0.08, c, 0.1)));
+    t.inSlot(3, () => t.block(1.5, 0.22, 0.2, 0, 2.8, -0.15, '#ff4fa3', 0.06));
+  },
+  /** A scratch-card kiosk: a lit stand of cards and a counter. */
+  toyScratchKiosk(t) {
+    t.block(1.2, 1.0, 0.6, 0, 0, 0, '#ffd23f', 0.06);
+    t.block(1.2, 0.04, 0.65, 0, 1.0, 0, '#ffffff', 0.05);
+    t.block(1.1, 0.9, 0.12, 0, 1.04, -0.24, '#1b1d22', 0.05);
+    const cols = ['#e0283f', '#36c5f0', '#7bd88f', '#ff4fa3', '#ffd23f', '#9b5de5'];
+    for (let i = 0; i < 12; i++) t.block(0.14, 0.2, 0.01, -0.4 + (i % 6) * 0.16, 1.15 + Math.floor(i / 6) * 0.32, -0.17, cols[i % 6], 0.05);
+    t.inSlot(3, () => t.block(1.2, 0.2, 0.14, 0, 2.0, -0.24, '#e0283f', 0.06));
+  },
+  /** A video poker machine: a bar-top cabinet with a big screen and five hold buttons. */
+  toyVideoPoker(t) {
+    t.block(0.7, 0.95, 0.65, 0, 0, 0, '#1d3557', 0.06);
+    t.block(0.7, 0.8, 0.4, 0, 0.95, -0.1, '#1d3557', 0.06);
+    screen(t, 0.58, 0.46, 0, 1.08, 0.12, '#0b3d2e', -0.12);
+    for (let i = 0; i < 5; i++) t.block(0.08, 0.04, 0.06, -0.2 + i * 0.1, 0.96, 0.28, '#ffd23f', 0.2);
+    for (let i = 0; i < 5; i++) t.block(0.08, 0.12, 0.01, -0.2 + i * 0.1, 1.3, 0.16, '#fffdf5', 0.05);
+    t.inSlot(3, () => t.block(0.72, 0.16, 0.42, 0, 1.75, -0.1, '#e0283f', 0.06));
+  },
+  /** A keno board: a big wall of 80 numbers, the drawn ones lit. */
+  toyKenoBoard(t) {
+    t.block(2.4, 1.3, 0.08, 0, 1.2, 0, '#0b0b16', 0.03);
+    for (let i = 0; i < 80; i++) {
+      const lit = (i * 37) % 4 === 0;
+      if (lit) t.inSlot(3, () => t.block(0.2, 0.1, 0.01, -1.0 + (i % 10) * 0.222, 1.3 + Math.floor(i / 10) * 0.14, 0.05, '#ffd23f', 0.1));
+      else t.block(0.2, 0.1, 0.01, -1.0 + (i % 10) * 0.222, 1.3 + Math.floor(i / 10) * 0.14, 0.05, '#2b2d44', 0.1);
+    }
+    t.inSlot(3, () => t.block(2.4, 0.18, 0.1, 0, 2.5, 0, '#e0283f', 0.05));
+  },
+
   // ============================================================ 🎰 casino
   /** A slot machine: three reels, a lever, lights on top. */
   toySlotMachine(t) {
     t.block(0.7, 1.0, 0.6, 0, 0, 0, '#9d0208', 0.06);
     t.block(0.7, 0.75, 0.45, 0, 1.0, -0.07, '#d00000', 0.06);
-    t.block(0.56, 0.3, 0.02, 0, 1.25, 0.16, '#fff8e1', 0.05); // reels window
+    t.inSlot(3, () => t.block(0.56, 0.3, 0.02, 0, 1.25, 0.16, '#fff8e1', 0.05)); // reels window
     for (const [x, c] of [[-0.17, '#e0283f'], [0, GOLD], [0.17, '#2a9d8f']] as [number, string][]) t.block(0.12, 0.14, 0.02, x, 1.33, 0.17, c, 0.2);
     t.block(0.74, 0.18, 0.5, 0, 1.75, -0.07, GOLD, 0.06);
-    for (let i = 0; i < 5; i++) t.sphere(0.04, -0.28 + i * 0.14, 1.95, 0.15, ['#ffd23f', '#fff', '#ff4fa3', '#fff', '#ffd23f'][i]);
+    t.inSlot(3, () => { for (let i = 0; i < 5; i++) t.sphere(0.04, -0.28 + i * 0.14, 1.95, 0.15, ['#ffd23f', '#fff', '#ff4fa3', '#fff', '#ffd23f'][i]); });
     t.cyl(0.02, 0.02, 0.45, 0.4, 1.05, 0, STEEL, 6); // lever
     t.sphere(0.07, 0.4, 1.52, 0, '#e0283f');
     t.block(0.6, 0.06, 0.25, 0, 0.95, 0.25, INK, 0.05);
@@ -138,7 +253,7 @@ export const FUN_TOYS: Record<string, (t: Toy) => void> = {
     t.block(0.2, 2.2, 0.2, -1.1, 0, -0.2, INK, 0.1);
     t.block(0.2, 2.2, 0.2, 1.1, 0, -0.2, INK, 0.1);
     screen(t, 2.4, 1.4, 0, 1.3, -0.2, '#0d1030');
-    for (let i = 0; i < 8; i++) t.block(0.24, 0.05, 0.02, -0.9 + i * 0.26, 1.5 + (i * i) * 0.018, -0.15, '#36c46b', 0.2); // the curve
+    t.inSlot(3, () => { for (let i = 0; i < 8; i++) t.block(0.24, 0.05, 0.02, -0.9 + i * 0.26, 1.5 + (i * i) * 0.018, -0.15, '#36c46b', 0.2); }); // the curve
     t.block(0.16, 0.16, 0.02, 0.95, 2.4, -0.14, '#ff4fa3', 0.3); // the rocket
     t.block(1.0, 0.7, 0.5, 0, 0, 0.3, '#2b2d33', 0.06); // betting podium
     t.block(0.8, 0.04, 0.4, 0, 0.7, 0.3, '#ffd23f', 0.1);

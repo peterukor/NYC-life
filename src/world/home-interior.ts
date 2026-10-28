@@ -1107,7 +1107,7 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
     const sign = new THREE.Mesh(t(new THREE.PlaneGeometry(6, 1.1)), cutaway(t(new THREE.MeshBasicMaterial({ map: t(signTexture(place.name, place.color)) }))));
     sign.geometry.setAttribute('aWall', new THREE.Float32BufferAttribute(new Array(sign.geometry.getAttribute('position').count).fill([0, -1, 3]).flat(), 3));
     sign.position.set(0, wallH - 0.55, -hd + WALL_T / 2 + 0.03);
-    if (wallH > 2 && !layout.screens?.length) scene.add(sign);
+    if (wallH > 2 && !layout.screens?.length && !layout.signs?.length) scene.add(sign);
     const counter = items.find((i) => FURNITURE.get(i.item)?.placeActions);
     const people: { x: number; z: number; ry: number }[] = [];
     if (counter) people.push({ x: counter.x + 0.6, z: counter.z - 1.0, ry: 0 });

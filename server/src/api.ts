@@ -31,6 +31,9 @@ const ROUTES: [string, string, Handler][] = [
   ['POST', '/api/season/points', f.addPoints],
   ['GET', '/api/season/board', f.seasonBoard],
   ['POST', '/api/season/claim', f.claimSeason],
+  // Game leaderboards
+  ['POST', '/api/scores', f.postScore],
+  ['GET', '/api/scores/:game', f.gameBoard],
   // Gallery
   ['GET', '/api/art', f.artWall],
   ['POST', '/api/art', f.hangArt],

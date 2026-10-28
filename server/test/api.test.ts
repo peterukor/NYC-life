@@ -183,3 +183,16 @@ test('unknown routes and wrong methods', async () => {
   assert.equal((await call('GET', '/nope')).status, 404);
   assert.equal((await call('DELETE', '/save', undefined, alice)).status, 405);
 });
+
+test('game leaderboards: best score per player, impossible scores refused', async () => {
+  assert.equal((await call('POST', '/scores', { game: 'snake', score: 120 })).status, 401, 'signed in only');
+  assert.equal((await call('POST', '/scores', { game: 'tetris', score: 10 }, alice)).status, 400, 'unknown game');
+  assert.equal((await call('POST', '/scores', { game: 'snake', score: 99_999_999 }, alice)).status, 400, 'impossible score');
+  assert.equal((await call('POST', '/scores', { game: 'snake', score: 300 }, alice)).body.best, 300);
+  assert.equal((await call('POST', '/scores', { game: 'snake', score: 120 }, alice)).body.best, 300, 'a worse game keeps the best');
+  await call('POST', '/scores', { game: 'snake', score: 450 }, boss);
+  const board = await call('GET', '/scores/snake', undefined, alice);
+  assert.deepEqual(board.body.top.map((r: { username: string }) => r.username), ['BossLady', 'Alice']);
+  assert.deepEqual(board.body.you, { place: 2, score: 300 });
+  assert.equal((await call('GET', '/scores/tetris')).status, 404);
+});

@@ -13,6 +13,8 @@ import { sfx } from './audio.ts';
 import { rain, type CasinoHost } from './casino.ts';
 import { openModal, openSheet, onAct, toast } from './dom.ts';
 import { emoji, H, RUNS, W } from './arcade-games.ts';
+import { fetchBoard, postScore } from '../net/scores.ts';
+import { boardHtml, openScoreboards } from './scoreboard.ts';
 
 
 
@@ -54,6 +56,15 @@ export function playArcade(host: CasinoHost, id: string, versus?: Versus, opts: 
       stop?.();
       return m.close();
     }
+    if (t.closest('[data-board]')) {
+      const btn = t.closest<HTMLElement>('[data-board]')!;
+      btn.setAttribute('disabled', '');
+      void fetchBoard(s, id).then((b) => {
+        btn.insertAdjacentHTML('afterend', boardHtml(id, b));
+        btn.remove();
+      });
+      return;
+    }
     if (!t.closest('[data-go]')) return;
     // A head-to-head was paid for already (two plays).
     const why = versus || phone ? null : payToPlay(s);
@@ -77,9 +88,10 @@ export function playArcade(host: CasinoHost, id: string, versus?: Versus, opts: 
         return;
       }
       host.onScore?.(id, score);
+      postScore(id, score);
       overlay.innerHTML = phone
-        ? `<div class="big">${r.best ? '🏆' : game.emoji}</div><h3>${r.best ? 'New best!' : 'Game over'}</h3><p class="arc-score">${score}</p><p class="sub">At 🕹️ Pixel Palace this would’ve won you ${Math.floor(game.tickets(score))} 🎟️.</p><button class="btn primary" data-go>Play again</button>`
-        : `<div class="big">${r.best ? '🏆' : game.emoji}</div><h3>${r.best ? 'New best!' : 'Game over'}</h3><p class="arc-score">${score}</p><p>+${r.tickets} 🎟️ · you have ${tickets(s)}</p><button class="btn primary" data-go>Play again · ${money(PLAY_COST)}</button>`;
+        ? `<div class="big">${r.best ? '🏆' : game.emoji}</div><h3>${r.best ? 'New best!' : 'Game over'}</h3><p class="arc-score">${score}</p><p class="sub">At 🕹️ Pixel Palace this would’ve won you ${Math.floor(game.tickets(score))} 🎟️.</p><button class="btn primary" data-go>Play again</button><button class="btn ghost" data-board>🏆 Leaderboard</button>`
+        : `<div class="big">${r.best ? '🏆' : game.emoji}</div><h3>${r.best ? 'New best!' : 'Game over'}</h3><p class="arc-score">${score}</p><p>+${r.tickets} 🎟️ · you have ${tickets(s)}</p><button class="btn primary" data-go>Play again · ${money(PLAY_COST)}</button><button class="btn ghost" data-board>🏆 Leaderboard</button>`;
       if (r.best) rain(m.el, '🎟️', 18);
       r.tickets ? sfx.win() : sfx.tap();
     }, (text) => (hudEl.textContent = text));
@@ -91,14 +103,15 @@ export function openPrizeCounter(host: CasinoHost): void {
   const s = host.state;
   const render = () => `<p class="blurb">You have <b>${tickets(s)} 🎟️</b>. Best scores: ${ARCADE_GAMES.map((g) => `${g.emoji} ${bestScore(s, g.id)}`).join(' · ')}</p>
     <div class="travel">${PRIZES.map((p) => `<button class="opt" data-act="prize:${p.id}" ${tickets(s) < p.cost ? 'disabled aria-disabled="true"' : ''}><span style="font-size:24px">${p.emoji}</span><span class="grow"><b>${esc(p.name)}</b></span><span class="cost">${p.cost} 🎟️</span></button>`).join('')}</div>`;
-  const sheet = openSheet({ emoji: '🎟️', title: 'Prize counter', sub: 'Pixel Palace', body: render() });
+  const sheet = openSheet({ emoji: '🎟️', title: 'Prize counter', sub: 'Trade your tickets', body: render() + '<button class="btn ghost block" data-act="boards">🏆 High scores</button>' });
   onAct(sheet.body, (act) => {
+    if (act === 'boards') return openScoreboards(s);
     if (!act.startsWith('prize:')) return;
     const why = redeem(s, act.slice(6));
     if (why) return toast(why, { icon: '🎟️', tone: 'bad' });
     sfx.win();
     toast('Enjoy your prize!', { icon: '🎁', tone: 'good' });
     host.saved();
-    sheet.body.innerHTML = render();
+    sheet.body.innerHTML = render() + '<button class="btn ghost block" data-act="boards">🏆 High scores</button>';
   });
 }

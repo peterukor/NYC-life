@@ -101,10 +101,11 @@ const RAW: RawPlace[] = [
     actions: ['latte', 'bagelSchmear', 'laptopCafe'],
   },
   {
-    id: 'diveBar', area: 'manhattan', name: 'The Rusty Nail', emoji: '🍺', type: 'nightlife',
-    blurb: 'Dive bar with a jukebox stuck on 2004. Karaoke Thursdays (and every other day).',
-    at: [40.7612, -73.9975], hours: [16, 4], interior: 'bar', color: '#8c2f39',
-    actions: ['happyHour', 'karaoke', 'streetDeal', 'collectDebt', 'betrayCrew'],
+    // Moved to Brooklyn (Peter, 2026-10-27: four bars, spread across the city).
+    id: 'diveBar', area: 'brooklyn', name: 'The Rusty Nail', emoji: '🍺', type: 'nightlife',
+    blurb: 'Brooklyn dive bar with a jukebox stuck on 2004, two pool tables and a back room where deals get done.',
+    at: [40.6948, -73.9832], hours: [16, 4], interior: 'bar', color: '#8c2f39',
+    actions: ['happyHour', 'karaoke', 'playPool', 'streetDeal', 'collectDebt', 'betrayCrew'],
   },
   {
     id: 'comedyCellar', area: 'manhattan', name: 'The Basement Comedy Club', emoji: '😂', type: 'nightlife',
@@ -225,16 +226,47 @@ const RAW: RawPlace[] = [
   {
     // Entertainment (Peter, 2026-10-14): five cabinets and a prize counter (ui/arcade.ts).
     id: 'pixelPalace', area: 'manhattan', name: 'Pixel Palace Arcade', emoji: '🕹️', type: 'nightlife',
-    blurb: 'Five cabinets, a claw machine that’s definitely rigged, and a prize wall of plush pigeons.',
+    blurb: 'Times Square neon: Snake, Hoop Shot, Beat Street, pinball, air hockey, a claw machine that’s definitely rigged and a prize wall of plush pigeons.',
     at: [40.7593, -73.9873], hours: [10, 2], interior: 'arcade', color: '#ff4fa3',
-    actions: ['playSnake', 'playHoops', 'playPigeons', 'playBeats', 'playClaw', 'prizeCounter'],
+    actions: ['playSnake', 'playHoops', 'playPigeons', 'playBeats', 'playPinball', 'playBreakout', 'playAirhockey', 'playClaw', 'prizeCounter'],
   },
   {
     // In-game money only (sim/casino.ts). Slots, blackjack, roulette and the Rocket.
     id: 'empireCasino', area: 'manhattan', name: 'Empire Casino', emoji: '🎰', type: 'nightlife',
-    blurb: 'Chandeliers, carpet that hides everything, and a Rocket game that only goes up. Until it doesn’t.',
+    blurb: 'Chandeliers, red carpet, high-limit poker and baccarat, and a Rocket game that only goes up. Until it doesn’t.',
     at: [40.7565, -73.9975], interior: 'casino', color: '#c1272d',
-    actions: ['playSlots', 'playBlackjack', 'playRoulette', 'playRocket', 'casinoCashier'],
+    actions: ['playSlots', 'playBlackjack', 'playRoulette', 'playRocket', 'playPoker', 'playBaccarat', 'playBigSix', 'playVideoPoker', 'casinoCashier'],
+  },
+  // More arcades and casinos (Peter, 2026-10-27: three arcades, four casinos, across the boroughs). Game money only.
+  {
+    id: 'kingsArcade', area: 'brooklyn', name: 'Kings Arcade', emoji: '🕹️', type: 'nightlife',
+    blurb: 'A boardwalk arcade in Downtown Brooklyn: skee-ball lanes, pinball, air hockey, Rooftop Jump and the loudest prize bell in the borough.',
+    at: [40.6893, -73.9843], hours: [10, 2], interior: 'arcade', color: '#ff7f11',
+    actions: ['playSkeeball', 'playPinball', 'playHoops', 'playDash', 'playStack', 'playRooftop', 'playAirhockey', 'playClaw', 'prizeCounter'],
+  },
+  {
+    id: 'hubArcade', area: 'bronx', name: 'The Hub Arcade', emoji: '🕹️', type: 'nightlife',
+    blurb: 'Retro cabinets under blacklight on 149th Street: Beat Street battles, Brooklyn Breakout, Rooftop Jump, skee-ball and a dance pad crowd.',
+    at: [40.8180, -73.9140], hours: [11, 2], interior: 'arcade', color: '#7bd8ff',
+    actions: ['playBeats', 'playSnake', 'playRooftop', 'playBreakout', 'playPigeons', 'playSkeeball', 'playDash', 'playClaw', 'prizeCounter'],
+  },
+  {
+    id: 'astoriaRoyale', area: 'queens', name: 'Astoria Royale Casino', emoji: '🎲', type: 'nightlife',
+    blurb: 'Loud, lucky and open all night: a packed craps pit, keno on the big board, Plinko, scratch cards and a wall of slots.',
+    at: [40.7650, -73.9180], interior: 'casino', color: '#2a9d8f',
+    actions: ['playSlots', 'playCraps', 'playRoulette', 'playKeno', 'playPlinko', 'playScratch', 'playVideoPoker', 'playBigSix', 'casinoCashier'],
+  },
+  {
+    id: 'navyYardClub', area: 'brooklyn', name: 'Navy Yard Card Club', emoji: '♠️', type: 'nightlife',
+    blurb: 'An old shipyard warehouse turned card room and pool hall: Hold’em tables, baccarat, craps and money games on the pool tables.',
+    at: [40.6990, -73.9780], interior: 'casino', color: '#1d3557',
+    actions: ['playPoker', 'playBlackjack', 'playBaccarat', 'playCraps', 'playPool', 'playSlots', 'casinoCashier'],
+  },
+  {
+    id: 'luckyStar', area: 'bronx', name: 'Lucky Star Casino', emoji: '⭐', type: 'nightlife',
+    blurb: 'Neon stars on the Concourse: cheap slots, Plinko, keno, scratch cards, the Rocket and a pool table with a waiting list.',
+    at: [40.8262, -73.9198], interior: 'casino', color: '#ffd23f',
+    actions: ['playSlots', 'playPlinko', 'playScratch', 'playKeno', 'playRocket', 'playRoulette', 'playPool', 'casinoCashier'],
   },
 
   // ======================= QUEENS =======================
@@ -260,7 +292,7 @@ const RAW: RawPlace[] = [
     id: 'beerGarden', area: 'queens', name: 'Astoria Beer Garden', emoji: '🍺', type: 'nightlife',
     blurb: 'Long picnic tables under the trees, pitchers and a grill. Since 1910.',
     at: [40.7728, -73.9093], hours: [12, 2], interior: 'bar', color: '#6a994e',
-    actions: ['happyHour', 'karaoke'],
+    actions: ['happyHour', 'karaoke', 'playPool'],
   },
   {
     id: 'jhDeli', area: 'queens', name: 'Jackson Heights Deli', emoji: '🥟', type: 'food',

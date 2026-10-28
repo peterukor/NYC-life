@@ -72,6 +72,14 @@ CREATE TABLE IF NOT EXISTS art (
   hidden INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS art_created ON art(created);
+CREATE TABLE IF NOT EXISTS game_scores (
+  game TEXT NOT NULL,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  best INTEGER NOT NULL,
+  updated INTEGER NOT NULL,
+  PRIMARY KEY (game, user_id)
+);
+CREATE INDEX IF NOT EXISTS game_scores_board ON game_scores(game, best DESC);
 CREATE TABLE IF NOT EXISTS art_likes (
   art_id INTEGER NOT NULL REFERENCES art(id) ON DELETE CASCADE,
   user_id INTEGER NOT NULL,

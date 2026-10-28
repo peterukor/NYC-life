@@ -152,12 +152,6 @@ export const NORTH_PLACES: RawPlace[] = [
     actions: ['laundromatDrama'],
   },
   {
-    id: 'stNicks', area: 'manhattan', name: 'Saint Nicholas Pub', emoji: '🎺', type: 'nightlife',
-    blurb: 'A tiny Sugar Hill bar with a jam session on Mondays. The trumpet player is 84 and could still beat you up.',
-    at: [40.8240, -73.9441], hours: [16, 3], interior: 'bar', color: '#6a040f',
-    actions: ['happyHour', 'karaoke', 'jazzSitIn'],
-  },
-  {
     id: 'dominoTable', area: 'manhattan', name: 'Sugar Hill Dominoes Table', emoji: '🁫', type: 'fun',
     blurb: 'A folding table, four milk crates and the most serious game on the block. Bring cash. Bring humility.',
     at: [40.8270, -73.9430], hours: [10, 23], interior: 'none', color: '#023047',
@@ -234,12 +228,6 @@ export const NORTH_PLACES: RawPlace[] = [
     at: [40.8649, -73.9319], hours: [10, 17], interior: 'none', color: '#6b4423',
     actions: ['peopleWatch', 'picnic'],
     landmark: { description: 'The Metropolitan Museum of Art’s branch for medieval art and architecture, in Fort Tryon Park, home of the Unicorn Tapestries.', officialSite: 'https://www.metmuseum.org/plan-your-visit/met-cloisters', siteLabel: 'metmuseum.org' },
-  },
-  {
-    id: 'dyckmanHookah', area: 'manhattan', name: 'Dyckman Nights Hookah Lounge', emoji: '💨', type: 'nightlife',
-    blurb: 'Neon, bachata, a DJ who only stops for birthdays (there are six birthdays a night). Dyckman Street on a Friday is a whole festival.',
-    at: [40.8656, -73.9262], hours: [19, 4], interior: 'bar', color: '#7209b7',
-    actions: ['hookahSesh', 'happyHour', 'karaoke'],
   },
   {
     id: 'canoeClub', area: 'manhattan', name: 'Inwood Canoe Club Dock', emoji: '🛶', type: 'fun',

@@ -103,6 +103,13 @@ function migrate(data: GameState): GameState | null {
     data.location = { area: home.area, placeId: home.id, x: door.x, z: door.z };
     data.layoutVersion = 5;
   }
+  // 2026-10-27: some places closed (two bars) — anyone standing in one wakes up at home.
+  if (data.location?.placeId && !PLACE_BY_ID[data.location.placeId]) {
+    const home = PLACE_BY_ID[data.home?.placeId] ?? PLACE_BY_ID.hkStudio;
+    const door = doorOf(home);
+    data.location = { area: home.area, placeId: home.id, x: door.x, z: door.z };
+  }
+  if (data.recentPlaces) data.recentPlaces = data.recentPlaces.filter((id) => PLACE_BY_ID[id]);
   // 2026-10-13: the classes became poor / middle / rich / billionaire.
   const oldClass: Record<string, string> = { upper: 'rich', wealthy: 'billionaire' };
   if (data.profile?.spawnClass && oldClass[data.profile.spawnClass]) data.profile.spawnClass = oldClass[data.profile.spawnClass] as typeof data.profile.spawnClass;
