@@ -9,7 +9,7 @@
 //   • Swipe up to bowl: the swipe's direction aims, its speed is the
 //     ball speed, and curving the end of the swipe hooks the ball.
 //   • ← → move, Space / ↑ bowls a straight ball.
-// A game costs $8 with shoes (sim/casino.ts stake: in-game money only).
+// A game costs $8 with shoes (a ticket, not a bet: in-game money only).
 //
 // openBowling(host, { opponent?: { name, skill 0..1 } })
 // =====================================================================
@@ -20,7 +20,7 @@ import {
   BALL_R, BOWLING_COST, FRAMES, LANE, RACK, SPEED, bowlingBest, clearDeadwood, finishBowling, frameMarks, gameOver, gameScore, isSplit, mph, newLane, newRack,
   nextBall, npcThrow, release, scoreFrames, settle, settled, splitFrames, standing, stepLane, strikeRun, tally, type Lane, type Pin, type Throw,
 } from '../sim/bowling.ts';
-import { stake } from '../sim/casino.ts';
+import { changeMoney } from '../sim/economy.ts';
 import { fetchBoard, postScore } from '../net/scores.ts';
 import { burst as noiseBurst, drum, sfx } from './audio.ts';
 import { rain, type CasinoHost } from './casino.ts';
@@ -416,7 +416,7 @@ export function openBowling(host: CasinoHost, opts: BowlingOpts = {}): void {
     g.textAlign = 'center';
     g.textBaseline = 'middle';
     g.fillStyle = '#ffd6ee';
-    g.fillText('NYC LANES', mid.x, mid.y);
+    g.fillText('HELL’S KITCHEN LANES', mid.x, mid.y);
     g.restore();
     // Lane numbers.
     g.font = `900 ${Math.round(Math.min(18, 7 * mid.s))}px ${DISPLAY}`;
@@ -1081,8 +1081,8 @@ export function openBowling(host: CasinoHost, opts: BowlingOpts = {}): void {
   };
 
   const start = () => {
-    const why = stake(s, BOWLING_COST, 'Bowling');
-    if (why) return void toast(why, { icon: '🎳', tone: 'bad' });
+    const paid = changeMoney(s, -BOWLING_COST, '🎳 Bowling');
+    if (!paid.ok) return void toast('Not enough cash for a game.', { icon: '🎳', tone: 'bad' });
     sfx.coin();
     host.saved();
     lastMode = mode;

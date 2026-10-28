@@ -141,6 +141,7 @@ import { openBlackjack, openRocket, openRoulette, openSlots, casinoNetLine, rain
 import { openPool } from './ui/pool.ts';
 import { openCinema } from './ui/cinema.ts';
 import { openMinigolf } from './ui/minigolf.ts';
+import { openBowling } from './ui/bowling.ts';
 import { openBaccarat, openBigSix, openCraps, openKeno, openPlinko, openPoker, openScratch, openVideoPoker } from './ui/casino-games.ts';
 import { openPrizeCounter, playArcade } from './ui/arcade.ts';
 import { openSportsbook, settleAndTell } from './ui/sportsbook.ts';
@@ -1450,6 +1451,9 @@ export class Game {
         this.openBottleMenu();
         return true;
       case 'chess':
+      case 'playBowling':
+        openBowling(this.funHost());
+        return true;
       case 'playMinigolf':
         openMinigolf(this.funHost());
         return true;
