@@ -12,11 +12,13 @@ import { ARCADE_BY_ID, ARCADE_GAMES, PLAY_COST, PRIZES, bestScore, payToPlay, re
 import { sfx } from './audio.ts';
 import { rain, type CasinoHost } from './casino.ts';
 import { openModal, openSheet, onAct, toast } from './dom.ts';
-import { emoji, H, RUNS as RUNS1, W } from './arcade-games.ts';
+import { emoji, H, W } from './arcade-games.ts';
 import { RUNS2 } from './arcade-games-2.ts';
 import { RUNS3 } from './arcade-classics.ts';
 
-const RUNS = { ...RUNS1, ...RUNS2, ...RUNS3 };
+const RUNS = { ...RUNS2, ...RUNS3 };
+/** Cabinets that run their own count-in or menu (no 3-2-1 from the frame). */
+const OWN_START = new Set(['snake', 'dash', 'pigeons', 'beats']);
 import { fetchBoard, postScore, typicalScore } from '../net/scores.ts';
 import { boardHtml, openScoreboards } from './scoreboard.ts';
 
@@ -78,6 +80,8 @@ export function playArcade(host: CasinoHost, id: string, versus?: Versus, opts: 
     host.saved();
     overlay.hidden = true;
     // A 3-2-1 count-in on the cabinet before the game starts (2026-10-28).
+    // Games with their own start beat (READY…, STAND CLEAR…, the track menu) skip it.
+    if (OWN_START.has(id)) return begin();
     const countEl = m.el.querySelector<HTMLElement>('.arc-count')!;
     countEl.hidden = false;
     let n = 3;

@@ -83,9 +83,8 @@ export const claw: Run = (cv, g, done, hud) => {
       if (t.id === dragId) input.target = clamp(t.x, CAB.L + 30, CAB.R - 24);
     },
     up: (t) => {
-      if (t.id !== dragId) return;
-      dragId = -1;
-      input.target = null;
+      // The claw keeps going to where you let go (a tap on the glass sends it there).
+      if (t.id === dragId) dragId = -1;
     },
   });
   // The frame's pad: hold ◀ ▶, tap DROP.
@@ -93,8 +92,8 @@ export const claw: Run = (cv, g, done, hud) => {
   const btnL = pad?.querySelector<HTMLElement>('[data-claw-l]') ?? null;
   const btnR = pad?.querySelector<HTMLElement>('[data-claw-r]') ?? null;
   const btnD = pad?.querySelector<HTMLElement>('[data-claw-drop]') ?? null;
-  const holdL = (e: Event) => (e.preventDefault(), (input.dir = -1));
-  const holdR = (e: Event) => (e.preventDefault(), (input.dir = 1));
+  const holdL = (e: Event) => (e.preventDefault(), (input.dir = -1), (input.target = null));
+  const holdR = (e: Event) => (e.preventDefault(), (input.dir = 1), (input.target = null));
   const release = () => (input.dir = 0);
   const onDrop = (e: Event) => (e.preventDefault(), drop());
   btnL?.addEventListener('pointerdown', holdL);
@@ -108,8 +107,8 @@ export const claw: Run = (cv, g, done, hud) => {
   window.addEventListener('pointerup', release);
   const offK = keys(
     (k) => {
-      if (k === 'ArrowLeft') input.dir = -1;
-      if (k === 'ArrowRight') input.dir = 1;
+      if (k === 'ArrowLeft') (input.dir = -1), (input.target = null);
+      if (k === 'ArrowRight') (input.dir = 1), (input.target = null);
       if (k === ' ' || k === 'ArrowDown' || k === 'Enter') drop();
     },
     (k) => {
@@ -553,7 +552,7 @@ export const claw: Run = (cv, g, done, hud) => {
       label(g, `${Math.ceil(game.aimLeft)}`, CAB.R - 18, TOP + 38, 16, low ? '#ff6b6b' : '#fff');
       if (game.try === 1 && game.aimLeft > AIM_TIME - 6) {
         const bob = REDUCED ? 0 : Math.sin(now / 220) * 4;
-        label(g, 'drag to steer · tap DROP', 180, TOP + 52 + bob, 14, '#fff');
+        label(g, 'drag or tap the glass to steer · DROP', 180, TOP + 52 + bob, 13, '#fff');
       }
     }
     if (gripT > 0 && (game.held || game.phase === 'close')) {
@@ -579,6 +578,8 @@ export const claw: Run = (cv, g, done, hud) => {
     if (!fx.frozen) {
       if (game.phase !== 'over') game.step(dt, input);
       input.drop = false;
+      // Arrived (and not being dragged): stop steering; a new try starts from the chute.
+      if (input.target !== null && dragId < 0 && (game.phase !== 'aim' || (Math.abs(game.gx - input.target) < 1 && Math.abs(game.gv) < 4))) input.target = null;
       handle();
       gripT = Math.max(0, gripT - dt);
       sagWarn = Math.max(0, sagWarn - dt);

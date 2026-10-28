@@ -533,6 +533,9 @@ Peter: one more club, arcade, casino and gym in Manhattan, renamed after real pl
 - `pulseLic` → Pulse Tribeca (Hudson St)
 Only Manhattan is open (`OPEN_AREAS` in sim/types.ts); the other 8 rebuilt venues wait in Brooklyn/Queens/Bronx.
 
+### Arcade classics rebuilt (2026-10-28)
+- All 7 originals rebuilt: ui/arcade/{snake,stack,dash,hoops,claw,pigeons,beats}.ts + sim/arcade-<id>.ts, registered in ui/arcade-classics.ts. ui/arcade-games.ts is now just the Run contract and helpers. Frame (ui/arcade.ts): 3-2-1 count-in (except games with their own start), versus scores from typicalScore(). New score scales: pigeons/beats ~10×; caps in server/src/config.ts.
+
 ### Food, cafés, shops, workplaces, nights out (2026-10-28)
 - Food cut to 5: El Barrio Deli & Grill (kept: it's the deli job, near the starter walk-up; Kings Deli cut and its cat/lotto/owner moved here), Slice of Ninth, Miss Dee's, new Mulberry Street Trattoria (mid), new The Gramercy Room (fine dining). Cafés: Bean Machine, Panadería Doña Rosa.
 - Rooms in data/town-rooms.ts (deli2, slice, soulKitchen, trattoria, gramercy, beanCafe, panaderia, chessHouse2, thrift, storage, lab, homeStore, office2, startup2, alley2, precinct2, lanes, cinema, golf); pieces in world/furniture-town.ts. Generators: /tmp/claude-0/plans/{food,shops,work,fun2,decor}.py (not in repo).

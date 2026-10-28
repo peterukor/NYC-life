@@ -7,6 +7,8 @@
 // The games themselves are ui/arcade.ts.
 // =====================================================================
 
+import { hoopsTickets } from './arcade-hoops.ts';
+import { clawTickets } from './arcade-claw.ts';
 import { snakeTickets } from './arcade-snake.ts';
 import { stackTickets } from './arcade-stack.ts';
 import { dashTickets } from './arcade-dash.ts';
@@ -32,12 +34,12 @@ export interface ArcadeGame {
 
 export const ARCADE_GAMES: ArcadeGame[] = [
   { id: 'snake', name: 'Subway Snake', emoji: '🐍', color: '#2ec4b6', howTo: 'Swipe or use the arrows to steer the train. Eat 🍕 quickly to build a combo (up to ×5); every five is a new stop and a 🚧 goes up. ✨ Golden slices pay big, 🥤 is slow-mo. The brakes screech before a crash, so turn! 90 seconds.', tickets: snakeTickets },
-  { id: 'hoops', name: 'Hoop Shot', emoji: '🏀', color: '#ff7f11', howTo: 'Tap when the bar is in the green (yellow = swish). Three in a row and you’re ON FIRE: ×2 and a wider green. 🟡 money balls score double, and the last 10 seconds are bonus time.', tickets: (s) => Math.floor(s * 1.2) },
+  { id: 'hoops', name: 'Hoop Shot', emoji: '🏀', color: '#ff7f11', howTo: 'Touch low and flick up at the hoop: flick speed is power, direction is aim (the POWER bar shows your last one). Three in a row and you’re 🔥 ON FIRE (×2, bigger sweet spot). The last ball of every rack is a 💰 money ball (×2), a perfect rack adds 5 s, the last 10 s are bonus time (×2). From 0:20 the hoop moves: lead it.', tickets: hoopsTickets },
   { id: 'pigeons', name: 'Pigeon Pop', emoji: '🐦', color: '#8d99ae', howTo: 'Tap 🐦 pigeons before they duck back in. Quick pops chain a combo (×4). 🕊️ golden pigeon = FRENZY ×2, 🥖 bread pops every pigeon that’s up. Never tap the 🐀. 45 seconds; the last 10 are rush hour.', tickets: pigeonTickets },
   { id: 'beats', name: 'Beat Street', emoji: '🎵', color: '#ff4fa3', howTo: 'Pick a track and a difficulty, then tap each lane as its note hits the line (hold the long ones): your notes play the tune. Combos build to ×4, a full 🔥 hype meter doubles everything, misses drain the crowd 😃 (empty = booed off). Graded S–D. Off-beat? Use 🎧 Sync.', tickets: beatTickets },
   { id: 'stack', name: 'Bodega Stack', emoji: '🥪', color: '#e9c46a', howTo: 'Tap to drop each layer. What hangs over gets sliced off; land it just right for a PERFECT, and three in a row grow it back. Every 10th layer is the top 🍞: ORDER UP, ×3.', tickets: stackTickets },
   { id: 'dash', name: 'Delivery Dash', emoji: '🛵', color: '#2a9d8f', howTo: 'Tap or swipe left and right to change lanes, swipe up to hop. Hop potholes and sawhorses, steer round cabs, buses, trucks, steam stacks, people and opening doors. 💵 streaks up to ×5, 🥡 pays big, plus 🧲 🪖 ⚡. Close calls score. 90-second shift, three hits and you’re out.', tickets: dashTickets },
-  { id: 'claw', name: 'Claw Machine', emoji: '🧸', color: '#9b5de5', howTo: 'Drag on the glass (or hold ◀ ▶) to steer, then DROP. Centre it and let the swing settle for a strong grip. ✨ Shiny prizes are worth double. 15 seconds.', tickets: (s) => s },
+  { id: 'claw', name: 'Claw Machine', emoji: '🧸', color: '#9b5de5', howTo: 'Drag or tap the glass (or hold ◀ ▶) to steer, then DROP. Land dead on a prize’s middle and let the swing settle for a strong GRIP; heavy prizes need a strong one. Drop it past the wall into the chute to win it. ✨ Shiny prizes are worth double. Three tries a coin.', tickets: clawTickets },
 ];
 /** Five more (2026-10-27): Pinball, Skee-Ball, Breakout, Rooftop Jump, Air Hockey; + Axe Throwing (2026-10-28) (ui/arcade-games-2.ts). */
 const ARCADE_GAMES_2: ArcadeGame[] = [

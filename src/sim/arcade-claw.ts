@@ -48,7 +48,7 @@ export const PLUSH: ReadonlyArray<PlushKind> = [
   { id: 'pizza', emoji: '🍕', parts: [{ x: -9, y: 0, r: 13 }, { x: 9, y: 0, r: 13 }], value: 15, fabric: 0.95, mass: 0.75 },
   { id: 'rat', emoji: '🐀', parts: [{ x: -11, y: 2, r: 12 }, { x: 11, y: 2, r: 12 }], value: 15, fabric: 0.9, mass: 0.7 },
   { id: 'unicorn', emoji: '🦄', parts: [{ x: -10, y: 0, r: 17 }, { x: 10, y: 0, r: 17 }], value: 30, fabric: 0.95, mass: 1.35 },
-  { id: 'liberty', emoji: '🗽', parts: [{ x: 0, y: -13, r: 14 }, { x: 0, y: 11, r: 17 }], value: 40, fabric: 0.85, mass: 1.5 },
+  { id: 'liberty', emoji: '🗽', parts: [{ x: 0, y: -13, r: 14 }, { x: 0, y: 11, r: 17 }], value: 40, fabric: 0.97, mass: 1.3 },
 ];
 export const PLUSH_BY_ID: Record<string, PlushKind> = Object.fromEntries(PLUSH.map((k) => [k.id, k]));
 
@@ -117,7 +117,7 @@ export function clawGrip(f: GripIn): number {
   const o = Math.abs(f.offset) / Math.max(1, f.hw);
   const centring = Math.max(0.05, 1 - 2.2 * o * o);
   const depth = Math.max(0.3, Math.min(1, 0.82 + f.depth * 0.4));
-  const weight = Math.max(0.4, Math.min(1, 1.2 - f.mass * 0.25));
+  const weight = Math.max(0.4, Math.min(1, 1.2 - f.mass * 0.2));
   const calm = Math.max(0.35, 1 - Math.abs(f.swing) * 2.2 - Math.abs(f.swingV) * 0.1);
   return Math.max(0, Math.min(1, centring * depth * f.fabric * weight * calm * f.power));
 }
@@ -128,7 +128,7 @@ export function clawGrip(f: GripIn): number {
  * prize's middle (it hangs and twists), and a spike at the top.
  */
 export function clawLoad(f: { mass: number; accel: number; offCentre: number; jerk: number }): number {
-  return f.mass * 0.4 + (Math.abs(f.accel) / GRAV) * 0.55 + Math.min(1, Math.abs(f.offCentre) / 24) * 0.12 + f.jerk;
+  return f.mass * 0.36 + (Math.abs(f.accel) / GRAV) * 0.55 + Math.min(1, Math.abs(f.offCentre) / 24) * 0.12 + f.jerk;
 }
 
 /** Sag (px) the prize slips per second when the load beats the grip. */
@@ -175,8 +175,7 @@ export type ClawEvent =
   | { kind: 'release' }
   | { kind: 'win'; body: Body; value: number; lucky: boolean }
   | { kind: 'tryEnd'; won: number }
-  | { kind: 'over'; score: number }
-  | { kind: 'bump'; x: number; y: number; power: number };
+  | { kind: 'over'; score: number };
 
 export interface ClawInput {
   /** Hold to move: −1 left, +1 right. */
@@ -714,5 +713,5 @@ export function segDist(px: number, py: number, s: Seg): { d: number; x: number;
   return { d: Math.hypot(px - x, py - y), x, y };
 }
 
-/** Tickets: one a point (a good go, two prizes, ~40 🎟️). */
-export const clawTickets = (score: number): number => Math.floor(Math.max(0, score));
+/** Tickets: ⅘ of a point (a careful coin, ~50 points of plush, is ~40 🎟️). */
+export const clawTickets = (score: number): number => Math.floor((Math.max(0, score) * 4) / 5);
