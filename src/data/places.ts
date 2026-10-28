@@ -22,7 +22,7 @@ import { project } from '../world/geo-proj.ts';
 import { UPTOWN_PLACES } from './uptown.ts';
 import { NORTH_PLACES } from './north.ts';
 
-export type InteriorKind = 'apartment' | 'restaurant' | 'bowling' | 'cinema' | 'golf' | 'shop' | 'bodega' | 'pizza' | 'cafe' | 'bar' | 'club' | 'office' | 'gym' | 'comedy' | 'furniture' | 'alley' | 'precinct' | 'arcade' | 'casino' | 'park' | 'none';
+export type InteriorKind = 'apartment' | 'pier' | 'restaurant' | 'bowling' | 'cinema' | 'golf' | 'shop' | 'bodega' | 'pizza' | 'cafe' | 'bar' | 'club' | 'office' | 'gym' | 'comedy' | 'furniture' | 'alley' | 'precinct' | 'arcade' | 'casino' | 'park' | 'none';
 
 export type PlaceType = 'home' | 'food' | 'cafe' | 'nightlife' | 'work' | 'fitness' | 'park' | 'plaza' | 'landmark' | 'station' | 'shop' | 'fun';
 
@@ -390,7 +390,7 @@ const RAW: RawPlace[] = [
   {
     id: 'pier84', area: 'manhattan', name: 'Pier 84 Fishing', emoji: '🎣', type: 'fun',
     blurb: 'Free fishing on the Hudson. Rods to borrow, a bucket, and a morning derby: biggest fish by 11 AM wins cash.',
-    at: [40.7635, -73.9982], hours: [5, 22], interior: 'none', color: '#3a86ff',
+    at: [40.7635, -73.9982], hours: [5, 22], interior: 'pier', color: '#3a86ff',
     actions: ['goFishing', 'fishDerby'],
   },
   {

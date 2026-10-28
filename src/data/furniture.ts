@@ -377,6 +377,13 @@ FURNITURE.add(
   { id: 'golfTower', name: 'Hole: the water tower', emoji: '⛳', price: 0, parts: [{ model: 'toyGolfTower' }], actions: ['playMinigolf'], fixed: true },
   { id: 'golfBridge', name: 'Hole: the bridge', emoji: '⛳', price: 0, parts: [{ model: 'toyGolfBridge' }], actions: ['playMinigolf'], fixed: true },
   { id: 'golfStarter', name: 'First tee', emoji: '⛳', price: 0, parts: [{ model: 'toyGolfStarter' }], actions: ['playMinigolf'], fixed: true },
+  { id: 'easel', name: 'Easel', emoji: '🎨', price: 0, parts: [{ model: 'toyEasel' }], actions: ['paintArt'], fixed: true },
+  { id: 'galleryStand', name: 'Gallery wall', emoji: '🖼️', price: 0, parts: [{ model: 'toyGalleryStand' }], actions: ['viewGallery'], fixed: true, pulse: 'steady' },
+  { id: 'paintTable', name: 'Paint table', emoji: '🖌️', price: 0, parts: [{ model: 'toyPaintTable' }], actions: ['paintArt'], fixed: true },
+  { id: 'pierRiver', name: 'The Hudson', emoji: '🌊', price: 0, parts: [{ model: 'toyPierRiver' }], actions: ['goFishing'], fixed: true, pulse: 'breathe' },
+  { id: 'fishingSpot', name: 'Fishing spot', emoji: '🎣', price: 0, parts: [{ model: 'toyFishingSpot' }], actions: ['goFishing'], fixed: true },
+  { id: 'baitShack', name: 'Bait shack', emoji: '🪱', price: 0, parts: [{ model: 'toyBaitShack' }], actions: ['fishDerby', 'goFishing'], fixed: true, pulse: 'steady' },
+  { id: 'bollard', name: 'Bollard', emoji: '⚓', price: 0, parts: [{ model: 'toyBollard' }], actions: [], fixed: true },
   { id: 'axeLane', name: 'Axe lane', emoji: '🪓', price: 0, parts: [{ model: 'toyAxeLane' }], actions: ['playAxe'], fixed: true, pulse: 'steady' },
   // 🏋️ The three gyms (world/furniture-active.ts, 2026-10-28).
   { id: 'spinBike', name: 'Spin bike', emoji: '🚴', price: 0, parts: [{ model: 'toySpinBike' }], actions: ['playSpin', 'spinClass'], fixed: true, pulse: 'steady' },

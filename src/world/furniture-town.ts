@@ -378,6 +378,82 @@ export const TOWN_TOYS: Record<string, (t: Toy) => void> = {
     for (let i = 0; i < 6; i++) t.add(new THREE.ConeGeometry(1.4, 0.5, 6, 1, true, (i / 6) * Math.PI * 2, Math.PI / 3).scale(1, 1, 0.6).translate(0, 2.85, -0.1), i % 2 ? '#2a9d8f' : '#f1faee');
   },
 
+  // ============================================================ 🎨 art parlor
+  /** A wooden easel with a canvas mid-painting and a stool. */
+  toyEasel(t) {
+    for (const s of [-1, 1]) t.add(new THREE.CylinderGeometry(0.025, 0.03, 1.8, 6).rotateZ(s * 0.12).translate(s * 0.28, 0.9, 0.05), WOOD);
+    t.add(new THREE.CylinderGeometry(0.025, 0.03, 1.8, 6).rotateX(-0.3).translate(0, 0.86, -0.25), WOOD);
+    t.block(0.7, 0.04, 0.12, 0, 0.72, 0.1, WOOD_DK, 0.2);
+    t.block(0.66, 0.82, 0.04, 0, 0.76, 0.12, '#fbfbf7', 0.05);
+    const c = ['#3a86ff', '#ffbe0b', '#ff006e', '#06d6a0', '#fb5607'];
+    for (let i = 0; i < 6; i++) t.block(0.2 + (i % 3) * 0.08, 0.12, 0.005, -0.18 + (i % 2) * 0.2, 0.9 + i * 0.1, 0.145, c[i % c.length], 0.4);
+    t.cyl(0.18, 0.18, 0.04, 0, 0.55, 0.75, WOOD_LT, 12).cyl(0.02, 0.02, 0.55, 0, 0, 0.75, INK, 6);
+    t.block(0.28, 0.02, 0.18, 0.4, 0.74, 0.18, '#d4a373', 0.3); // palette
+    for (let i = 0; i < 4; i++) t.cyl(0.02, 0.02, 0.01, 0.32 + i * 0.05, 0.76, 0.16, c[i], 6);
+  },
+  /** A big framed gallery wall piece on a stand, lit from above. */
+  toyGalleryStand(t) {
+    t.block(1.8, 2.0, 0.12, 0, 0, 0, '#f8f9fa', 0.03);
+    for (const [x, y, w, h, c] of [[-0.45, 1.15, 0.6, 0.7, '#e76f51'], [0.4, 1.3, 0.5, 0.45, '#2a9d8f'], [0.4, 0.6, 0.5, 0.4, '#e9c46a'], [-0.45, 0.45, 0.6, 0.4, '#264653']] as [number, number, number, number, string][]) {
+      t.block(w + 0.06, h + 0.06, 0.03, x, y - 0.03, 0.07, '#b08d57', 0.1);
+      t.block(w, h, 0.01, x, y, 0.09, c, 0.1);
+    }
+    t.block(0.08, 0.06, 0.3, 0, 2.0, 0.12, INK, 0.2);
+    glow(t, 1.6, 0.03, 0, 1.95, 0.25, '#fff3b0', 0.02);
+  },
+  /** A paint-splattered work table with jars of brushes. */
+  toyPaintTable(t) {
+    t.block(1.8, 0.06, 0.9, 0, 0.78, 0, '#e9ecef', 0.2);
+    for (const [x, z] of [[-0.8, -0.38], [0.8, -0.38], [-0.8, 0.38], [0.8, 0.38]]) t.block(0.06, 0.78, 0.06, x, 0, z, WOOD_DK, 0.3);
+    const c = ['#ff006e', '#3a86ff', '#ffbe0b', '#06d6a0', '#8338ec', '#fb5607'];
+    for (let i = 0; i < 9; i++) t.cyl(0.06 + (i % 3) * 0.03, 0.06 + (i % 3) * 0.03, 0.005, -0.6 + (i % 5) * 0.3, 0.84, -0.25 + Math.floor(i / 5) * 0.4, c[i % c.length], 10);
+    for (let i = 0; i < 3; i++) {
+      t.cyl(0.06, 0.06, 0.14, -0.5 + i * 0.5, 0.84, 0.2, GLASS, 10);
+      for (let k = 0; k < 3; k++) t.cyl(0.008, 0.008, 0.28, -0.52 + i * 0.5 + k * 0.02, 0.9, 0.2, WOOD_LT, 4);
+    }
+  },
+
+  // ============================================================ 🎣 the pier
+  /** The Hudson: a strip of river beyond the pier edge, with a rail along it (walk up to the rail). */
+  toyPierRiver(t) {
+    t.block(20, 0.02, 4.6, 0, 0, 0, '#2f6690', 0.02);
+    t.inSlot(3, () => { for (let i = 0; i < 18; i++) t.block(0.6 + (i % 3) * 0.4, 0.005, 0.04, -9 + i * 1.05, 0.025, -1.6 + ((i * 7) % 5) * 0.7, '#a9d6e5', 0.3); });
+    // The rail at the pier's edge (front of the strip).
+    for (let i = 0; i <= 20; i++) t.block(0.06, 1.05, 0.06, -10 + i, 0.02, 2.2, '#3d405b', 0.3);
+    t.block(20, 0.06, 0.08, 0, 1.05, 2.2, '#3d405b', 0.3).block(20, 0.04, 0.06, 0, 0.6, 2.2, '#3d405b', 0.3);
+    // A tug and a sailboat out on the water.
+    t.block(1.6, 0.4, 0.6, -5.0, 0.02, -1.0, '#c1121f', 0.2).block(0.6, 0.45, 0.45, -5.3, 0.42, -1.0, '#f8f9fa', 0.2).cyl(0.08, 0.08, 0.4, -5.3, 0.87, -1.0, INK, 8);
+    t.block(1.0, 0.18, 0.3, 5.5, 0.02, -1.4, '#f8f9fa', 0.2);
+    t.add(new THREE.ConeGeometry(0.4, 1.3, 3).scale(0.2, 1, 1).translate(5.5, 0.85, -1.4), '#f1faee');
+  },
+  /** A fishing spot at the rail: a rod in a holder, a bucket, a tackle box. */
+  toyFishingSpot(t) {
+    t.cyl(0.04, 0.04, 0.5, 0, 0, -0.35, '#495057', 6);
+    t.add(new THREE.CylinderGeometry(0.012, 0.02, 2.4, 6).rotateX(-0.35).translate(0, 1.4, -0.6), INK);
+    t.cyl(0.05, 0.05, 0.06, 0, 0.55, -0.42, STEEL, 10);
+    t.cyl(0.15, 0.12, 0.3, 0.35, 0, 0.1, '#ffbe0b', 12).cyl(0.14, 0.14, 0.01, 0.35, 0.28, 0.1, '#4ea8de', 12);
+    t.block(0.4, 0.2, 0.22, -0.35, 0, 0.15, '#2a9d8f', 0.2).block(0.42, 0.04, 0.24, -0.35, 0.2, 0.15, '#21867a', 0.2);
+    t.cyl(0.16, 0.16, 0.04, 0, 0, 0.35, '#e9ecef', 12); // a folding stool
+  },
+  /** The bait shack: a little hut with a counter, a derby board and a life ring. */
+  toyBaitShack(t) {
+    t.block(2.6, 2.3, 1.6, 0, 0, -0.1, '#e9c46a', 0.04);
+    t.add(new THREE.ConeGeometry(2.0, 0.7, 4).rotateY(Math.PI / 4).scale(1, 1, 0.65).translate(0, 2.65, -0.1), '#c1121f');
+    t.block(2.2, 0.08, 0.5, 0, 1.05, 0.8, WOOD, 0.2).block(2.2, 1.0, 0.1, 0, 0.05, 0.7, WOOD_DK, 0.1);
+    t.block(1.8, 0.8, 0.02, 0, 1.15, 0.71, '#22223b', 0.05);
+    glow(t, 1.6, 0.04, 0, 2.05, 0.75, '#fff3b0', 0.04);
+    t.block(0.9, 0.6, 0.03, 0.75, 1.3, 0.71, '#f8f9fa', 0.1); // derby board
+    for (let i = 0; i < 3; i++) t.block(0.6, 0.05, 0.005, 0.75, 1.45 - i * 0.14, 0.73, INK, 0.3);
+    t.add(new THREE.TorusGeometry(0.22, 0.07, 8, 18).translate(-1.35, 1.4, 0.4).rotateY(0), '#ff6b35');
+    t.cyl(0.25, 0.22, 0.5, -1.0, 0, 1.05, '#3a86ff', 12); // a cooler of bait
+  },
+  /** A stack of crates and a coil of rope by a bollard. */
+  toyBollard(t) {
+    t.cyl(0.2, 0.24, 0.5, 0, 0, 0, '#22223b', 12).cyl(0.26, 0.26, 0.08, 0, 0.5, 0, '#22223b', 12);
+    t.add(new THREE.TorusGeometry(0.25, 0.05, 6, 16).rotateX(Math.PI / 2).translate(0.55, 0.06, 0.2), '#d4a373');
+    t.add(new THREE.TorusGeometry(0.18, 0.05, 6, 16).rotateX(Math.PI / 2).translate(0.55, 0.14, 0.2), '#d4a373');
+  },
+
   // ============================================================ 🪓 axe lanes
   /** An axe-throwing lane: a wooden target in a chain-link cage, a throw line. */
   toyAxeLane(t) {
