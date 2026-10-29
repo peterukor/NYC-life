@@ -49,6 +49,8 @@ export const RULES = {
     snake: 8_000, hoops: 3_000, pigeons: 15_000, beats: 20_000, stack: 15_000, dash: 30_000, claw: 400,
     pinball: 2_000_000, skeeball: 20_000, breakout: 200_000, rooftop: 200_000, airhockey: 2_000, axe: 150,
     bowling: 300, minigolf: 360,
+    // ⛳ Mini golf, one board per course (2026-10-29): 1000 = par strokes in par time, 2000 the ceiling.
+    golf1: 2_000, golf2: 2_000, golf3: 2_000, golf4: 2_000, golf5: 2_000, golf6: 2_000, golf7: 2_000,
   } as Record<string, number>,
   /** Score posts allowed per player per minute. */
   scorePostsPerMinute: 20,

@@ -1,6 +1,8 @@
 /* =====================================================================
-   minigolf.css — ⛳ rooftop mini golf (ui/minigolf.ts). A dusk rooftop
-   modal: green header, the hole on a canvas, a scorecard underneath.
+   minigolf.css — ⛳ Central Park mini golf (ui/minigolf.ts). A dusk
+   modal: a header in the course's colour (--mg), the strokes / time
+   chips, the hole on a canvas, a scorecard underneath; the course
+   picker, pause and end cards float over the canvas.
    ===================================================================== */
 
 .modal-wrap.putt-wrap { padding: 8px; }
@@ -20,7 +22,22 @@
 .putt { display: grid; gap: 6px; min-width: 0; }
 
 .putt-top { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 6px 6px 6px 12px; border: var(--line-thin); border-radius: 14px; background: var(--mg); box-shadow: inset 0 -4px 0 #0003, var(--drop-sm); }
-.putt-top b { font-family: var(--display); font-weight: 400; font-size: 19px; white-space: nowrap; text-shadow: 0 2px 0 #0005; }
+.putt-top b { font-family: var(--display); font-weight: 400; font-size: 19px; white-space: nowrap; text-shadow: 0 2px 0 #0005; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.putt-top .putt-title { flex: 0 1 auto; }
+.putt-top .putt-hud { flex: 1 1 0; }
+.putt-x[hidden] { display: none; }
+.putt-pause { font-size: 13px; }
+
+/* Live strokes and ⏱ time: three chips under the header. */
+.putt-stats { display: grid; grid-template-columns: 1fr 1fr 1.3fr; gap: 5px; min-width: 0; }
+.putt-stats[hidden] { display: none; }
+.putt-chip { display: grid; grid-template-columns: auto 1fr; grid-template-areas: "s s" "b i"; align-items: baseline; column-gap: 5px; min-width: 0; padding: 3px 8px 4px; border: 1px solid #ffffff2a; border-radius: 12px; background: #ffffff12; font-variant-numeric: tabular-nums; }
+.putt-chip small { grid-area: s; font-size: 10px; font-weight: 900; letter-spacing: 0.06em; text-transform: uppercase; color: #aab3d4; }
+.putt-chip b { grid-area: b; font-family: var(--display); font-weight: 400; font-size: 17px; line-height: 1.05; color: #fff; white-space: nowrap; }
+.putt-chip i { grid-area: i; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-style: normal; font-size: 11px; font-weight: 800; color: #c9d1ec; text-align: right; }
+.putt-time.running { border-color: #7bf0a1; background: #2fbf7126; }
+.putt-time.running b { color: #7bf0a1; }
+.putt-time.slow b { color: #ffb36b; }
 .putt-hud { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; font-size: 13px; font-weight: 900; font-variant-numeric: tabular-nums; }
 .putt-x { flex: none; width: 34px; height: 34px; border: 2px solid var(--ink); border-radius: 50%; background: #fff; color: var(--ink); font: inherit; font-size: 14px; font-weight: 900; box-shadow: 0 2px 0 var(--ink); }
 
@@ -39,14 +56,55 @@
 .putt-banner { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); width: max-content; max-width: calc(100% - 20px); pointer-events: none; opacity: 0; }
 .putt-banner.show { animation: putt-banner 2.6s var(--spring) both; }
 .putt-hole { display: grid; justify-items: center; gap: 2px; padding: 8px 14px; border: 2px solid var(--ink); border-radius: 14px; background: #fffdf5; color: var(--ink); box-shadow: var(--drop-sm); text-align: center; }
-.putt-hole small { font-size: 11px; font-weight: 900; letter-spacing: 0.06em; text-transform: uppercase; color: #2f9e64; }
+.putt-hole small { font-size: 11px; font-weight: 900; letter-spacing: 0.04em; text-transform: uppercase; color: #2f9e64; }
 .putt-hole b { font-family: var(--display); font-weight: 400; font-size: 19px; line-height: 1.1; }
 .putt-hole span { font-size: 12px; font-weight: 700; line-height: 1.3; color: var(--ink-soft, #4b5578); }
 
 /* Intro and end cards. */
-.putt-over { position: absolute; inset: 0; display: grid; place-items: center; padding: 12px; background: linear-gradient(180deg, #141833cc, #141833f0); overflow-y: auto; }
+.putt-over { position: absolute; inset: 0; display: grid; place-items: center; padding: 12px; background: linear-gradient(180deg, #141833cc, #141833f0); overflow-y: auto; overscroll-behavior: contain; }
+.putt-over.intro, .putt-over.end { place-items: start center; }
 .putt-over[hidden] { display: none; }
 .putt-card { width: 100%; max-width: 310px; display: grid; justify-items: center; gap: 8px; text-align: center; animation: putt-in 0.38s var(--spring) both; }
+.putt-card.wide { max-width: 360px; gap: 7px; margin: auto 0; }
+.putt-over.intro .putt-card h3 { font-size: 24px; }
+/* The Tee off button stays in reach while the course list scrolls. */
+.putt-cta { position: sticky; bottom: -12px; z-index: 1; padding: 6px 0 12px; margin-bottom: -6px; background: linear-gradient(180deg, #14183300, #141833f2 30%); }
+.modal .putt-card .putt-lede { font-size: 13px; }
+.modal .putt-card .putt-rule, .modal .putt-card .putt-small { font-size: 12px; font-weight: 700; line-height: 1.35; color: #c9d1ec; }
+.putt-rule b { color: #ffd23f; }
+
+/* The course picker: seven tiles. */
+.putt-courses { display: grid; gap: 5px; width: 100%; }
+.putt-course { display: grid; grid-template-columns: 32px 1fr auto; align-items: center; gap: 8px; width: 100%; min-width: 0; min-height: 44px; padding: 3px 10px 3px 6px; border: 2px solid #ffffff22; border-radius: 12px; background: #ffffff10; color: #fff; font: inherit; text-align: left; cursor: pointer; transition: background 0.15s, border-color 0.15s, transform 0.12s; -webkit-tap-highlight-color: transparent; }
+.putt-course:active { transform: scale(0.98); }
+.putt-course.on { border-color: var(--cc); background: color-mix(in srgb, var(--cc) 28%, transparent); box-shadow: 0 0 0 1px #0004 inset, 0 3px 0 #0005; }
+.putt-course.locked { opacity: 0.55; cursor: not-allowed; }
+.putt-cemoji { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 10px; background: #0003; font-size: 20px; line-height: 1; }
+.putt-cmain { display: grid; min-width: 0; }
+.putt-cmain b { font-family: var(--display); font-weight: 400; font-size: 16px; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.putt-cmain small { font-size: 11px; font-weight: 800; color: #c9d1ec; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.putt-stars { font-size: 11px; letter-spacing: -1px; color: #ffd23f; white-space: nowrap; }
+.putt-stars i { font-style: normal; color: #ffffff2e; }
+
+/* End card: strokes and time against par, the score sum, bests per course. */
+.putt-res { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; width: 100%; }
+.putt-res > span { display: grid; justify-items: center; gap: 1px; padding: 6px 4px; border: 1px solid #ffffff2a; border-radius: 12px; background: #ffffff10; font-variant-numeric: tabular-nums; }
+.putt-res small { font-size: 11px; font-weight: 900; color: #aab3d4; text-transform: uppercase; letter-spacing: 0.05em; }
+.putt-res b { font-family: var(--display); font-weight: 400; font-size: 30px; line-height: 1; color: #ffd23f; text-shadow: 0 3px 0 #0008; }
+.putt-res em { padding: 0 8px; border: 2px solid var(--ink); border-radius: 999px; background: #fff; color: var(--ink); font-style: normal; font-size: 13px; font-weight: 900; }
+.putt-res em.under { background: #7bf0a1; }
+.putt-res em.overpar { background: #ffb3b3; }
+.putt-res i { font-style: normal; font-size: 11px; font-weight: 800; color: #c9d1ec; }
+.putt-break { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center; gap: 4px 6px; width: 100%; padding: 6px 8px; border-radius: 12px; background: #0003; font-size: 12px; font-weight: 800; color: #c9d1ec; font-variant-numeric: tabular-nums; }
+.putt-break b { color: #fff; font-size: 14px; }
+.putt-break .tot b { color: #ffd23f; font-family: var(--display); font-weight: 400; font-size: 20px; }
+.putt-bests { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; width: 100%; }
+.putt-bests span { display: grid; justify-items: center; padding: 3px 0; border-radius: 8px; background: #ffffff10; font-size: 10px; font-weight: 800; color: #dfe4f2; font-variant-numeric: tabular-nums; overflow: hidden; }
+.putt-bests span i { font-style: normal; font-size: 15px; line-height: 1.2; }
+.putt-bests span.on { background: color-mix(in srgb, var(--mg) 40%, transparent); color: #fff; }
+.putt-bests span.locked { opacity: 0.45; }
+.putt-card .btn.primary.alt { background: #3c8dde; }
+.putt-lbme { display: block; font-size: 11px; font-weight: 800; color: #ffe8a3; }
 .putt-card h3 { margin: 0; font-family: var(--display); font-weight: 400; font-size: 27px; line-height: 1.05; color: #fff; text-shadow: 0 3px 0 #0008; }
 .modal .putt-card p { margin: 0; font-size: 14px; font-weight: 700; line-height: 1.4; color: #dfe4f2; }
 .putt-emoji { width: 74px; height: 74px; display: grid; place-items: center; border: 3px solid var(--ink); border-radius: 50%; background: var(--mg); box-shadow: 0 4px 0 var(--ink), 0 0 30px #2fbf7188; font-size: 40px; line-height: 1; }
@@ -70,11 +128,12 @@
 .putt-board { width: 100%; color: #fff; }
 .putt-board .lb { margin-top: 2px; }
 
-/* Scorecard: eleven narrow columns that fit a 375 px phone. */
+/* Scorecard: twelve narrow columns that fit a 375 px phone. */
 .putt-sc-wrap { min-width: 0; overflow-x: auto; }
 .putt-sc { width: 100%; border-collapse: separate; border-spacing: 2px; table-layout: fixed; font-size: 12px; font-weight: 800; font-variant-numeric: tabular-nums; }
 .putt-sc th, .putt-sc td { height: 22px; padding: 0; border-radius: 6px; text-align: center; overflow: hidden; white-space: nowrap; }
-.putt-sc th:first-child { width: 44px; text-align: left; padding-left: 4px; font-size: 11px; text-overflow: ellipsis; }
+.putt-sc th:first-child { width: 40px; text-align: left; padding-left: 4px; font-size: 11px; text-overflow: ellipsis; }
+.putt-sc th:last-child, .putt-sc td:last-child { width: 30px; }
 .putt-sc tr:first-child th { color: #aab3d4; font-size: 11px; }
 .putt-sc tr:first-child th.cur { color: #ffd23f; }
 .putt-sc .par td { color: #aab3d4; }
