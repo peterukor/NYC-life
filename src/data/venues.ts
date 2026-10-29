@@ -367,7 +367,6 @@ export const WORKPLACE_LAYOUT_FOR: Record<string, string> = {
   homeGoods: 'homeStore',
   hkLanes: 'lanes',
   unionSqCinema: 'cinema',
-  seaportGolf: 'golf',
 };
 
 export const VENUE_LAYOUT_FOR: Partial<Record<InteriorKind, string>> = { furniture: 'furniture', cafe: 'cafe', bodega: 'bodega', pizza: 'pizza', bar: 'bar', office: 'office', comedy: 'comedy' };

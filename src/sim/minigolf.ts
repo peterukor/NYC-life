@@ -1,5 +1,5 @@
 // =====================================================================
-// minigolf.ts — ⛳ rooftop mini golf: nine holes, the ball physics, the
+// minigolf.ts — ⛳ Central Park mini golf: nine holes, the ball physics, the
 // cup, the computer player's putts and the scoring. Pure logic, no DOM;
 // the course is drawn by ui/minigolf.ts.
 //
@@ -812,6 +812,6 @@ export function finishMinigolf(s: GameState, strokes: number, par: number = PAR_
   fun.best.minigolf = Math.max(fun.best.minigolf ?? 0, score);
   applyNeeds(s, { fun: 14, social: opts.versus ? 10 : 4, energy: -3 });
   const underPar = st < par;
-  if (underPar) addMoodlet(s, { id: 'minigolf', label: 'Under par on the roof', emoji: '⛳', value: 5, minutes: 180 });
+  if (underPar) addMoodlet(s, { id: 'minigolf', label: 'Under par in the park', emoji: '⛳', value: 5, minutes: 180 });
   return { score, best, underPar };
 }

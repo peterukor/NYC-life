@@ -1,5 +1,5 @@
 // =====================================================================
-// minigolf.ts (ui) — ⛳ rooftop mini golf: the intro card, nine holes
+// minigolf.ts (ui) — ⛳ Central Park mini golf (moved from the Seaport roof 2026-10-29): the intro card, nine holes
 // drawn top-down on a canvas, the scorecard, and the end card with the
 // 🏆 board. Holes, physics, the other player's putts and scoring live
 // in sim/minigolf.ts.
@@ -187,8 +187,8 @@ export function openMinigolf(host: CasinoHost, opts: MinigolfOpts = {}): void {
     over.className = 'putt-over';
     over.innerHTML = `<div class="putt-card">
       <div class="putt-emoji" aria-hidden="true">⛳</div>
-      <h3>Rooftop Mini Golf</h3>
-      <p>Nine holes up on the roof. Drag back from anywhere, let go to putt. Tap to cancel.</p>
+      <h3>Central Park Mini Golf</h3>
+      <p>Nine city-themed holes on the east side of the park. Drag back from anywhere, let go to putt. Tap to cancel.</p>
       <div class="putt-chips"><span>💵 ${money(MINIGOLF_COST).replace('.00', '')} a round</span><span>⛳ Par ${PAR_TOTAL}</span>${rec?.best ? `<span>🏆 Best ${rec.best}</span>` : ''}</div>
       ${foe ? `<p class="putt-vsline">You vs <b>${esc(foe.name)}</b> <span class="putt-skill">${skillWord(foe.skill)}</span></p>` : ''}
       <button class="btn primary block" data-go>⛳ Tee off · ${money(MINIGOLF_COST).replace('.00', '')}</button>
@@ -334,7 +334,7 @@ export function openMinigolf(host: CasinoHost, opts: MinigolfOpts = {}): void {
       <p class="putt-total">${total} <small>strokes</small> <em class="${total < PAR_TOTAL ? 'under' : total > PAR_TOTAL ? 'overpar' : ''}">${tp}</em></p>
       ${vsLine}
       <div class="putt-chips"><span>🏆 Score ${r.score}</span><span>${r.best ? '✨ New best' : `Best ${minigolfOf(s)?.best ?? total}`}</span>${aces ? `<span>⛳ ${aces} hole${aces > 1 ? 's' : ''} in one</span>` : ''}</div>
-      ${r.underPar ? '<p class="putt-mood">⛳ Under par on the roof. You’re in a good mood.</p>' : ''}
+      ${r.underPar ? '<p class="putt-mood">⛳ Under par in the park. You’re in a good mood.</p>' : ''}
       <div class="putt-btns"><button class="btn primary" data-go>🔁 Again · ${money(MINIGOLF_COST).replace('.00', '')}</button><button class="btn ghost" data-board>🏆 Board</button></div>
       <button class="btn ghost block" data-close>Done</button>
     </div>`;

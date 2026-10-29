@@ -206,19 +206,21 @@ export const ACTIVE_ROOMS: Record<string, HomeLayout> = {
   // 🌳 CENTRAL PARK (rebuilt, 2026-10-28: "revamp the parks, make them so much nicer fr").
   // The Lake with Bow Bridge and rowboats, the boathouse dock, the angel fountain on the
   // terrace, a castle up on the rocks, the bandshell, the carousel, a dog run, chess, Sheep
-  // Meadow picnics under cherry trees, a playground, a ball field, carts and a horse carriage.
+  // Meadow picnics under cherry trees, a playground, a ball field, carts and a horse carriage,
+  // the Ramble's woods on the west side and a mini golf course on the east (2026-10-29).
   // Daylight by day, lamp-lit by night (mood: outdoor follows the clock).
   park: {
-    id: 'park', name: 'Central Park', width: 36, depth: 26, wallColor: '#3e7b3a', zoomable: true, wallHeight: 1.0,
+    id: 'park', name: 'Central Park', width: 46, depth: 26, wallColor: '#3e7b3a', zoomable: true, wallHeight: 1.0,
     windows: { xs: [], w: 0, h: 0, y: 0 }, mood: 'outdoor', backdrop: 'skyline', version: 2,
-    life: { visitors: 34, pops: ['🌳', '🦆', '☀️', '🍦', '🐿️', '💬', '🎶', '🐕', '🥨', '🎠', '🥏', '📸'], fx: ['ducks', 'splash'] },
+    life: { visitors: 34, pops: ['🌳', '🦆', '☀️', '🍦', '🐿️', '💬', '🎶', '🐕', '🥨', '🎠', '🥏', '📸', '⛳'], fx: ['ducks', 'splash'] },
     workers: [{ x: -15.4, z: -2.0, rot: 0 }, { x: 6.6, z: -9.2, rot: 0 }, { x: 4.6, z: -0.8, rot: 0 }, { x: 3.2, z: 3.1, rot: 0 }, { x: -3.0, z: -1.3, rot: 0 }, { x: 10.8, z: -3.0, rot: 0 }, { x: 5.6, z: 8.6, rot: -1.5707963267948966 }, { x: -8.0, z: 0.6, rot: 3.141592653589793 }],
     rooms: [
-      { label: 'Park', rect: [-18, -13, 18, 13], floor: '#222222', style: { floor: 'grass', wall: 'hedge' } },
+      { label: 'Park', rect: [-23, -13, 23, 13], floor: '#222222', style: { floor: 'grass', wall: 'hedge' } },
+      { label: 'Mini golf', rect: [18.4, -13, 23, 13], floor: '#222222', style: { floor: 'bigTile:#c9b79c', wall: 'hedge' } },
       { label: 'Path', rect: [-1.2, -13, 1.2, 13], floor: '#222222', style: { floor: 'paving', wall: 'hedge' } },
-      { label: 'Path', rect: [-18, -1.0, 18, 1.0], floor: '#222222', style: { floor: 'paving', wall: 'hedge' } },
+      { label: 'Path', rect: [-23, -1.0, 18.4, 1.0], floor: '#222222', style: { floor: 'paving', wall: 'hedge' } },
       { label: 'Terrace', rect: [-14, -4.2, -4.6, 1.0], floor: '#222222', style: { floor: 'terracotta', wall: 'hedge' } },
-      { label: 'Path', rect: [-18, 11.6, 18, 13], floor: '#222222', style: { floor: 'paving', wall: 'hedge' } },
+      { label: 'Path', rect: [-23, 11.6, 18.4, 13], floor: '#222222', style: { floor: 'paving', wall: 'hedge' } },
     ],
     walls: [
     ],
@@ -275,6 +277,21 @@ export const ACTIVE_ROOMS: Record<string, HomeLayout> = {
       { uid: 'pb3', item: 'parkBench', x: 12.4, z: -1.5, rot: 0 },
       { uid: 'pb4', item: 'parkBench', x: 14.4, z: 1.5, rot: PI },
       { uid: 'pb5', item: 'parkBench', x: -15.6, z: 1.5, rot: PI },
+      { uid: 'starter', item: 'golfStarter', x: 20.6, z: 10.6, rot: PI },
+      { uid: 'hole1', item: 'golfBridge', x: 20.7, z: -10.9, rot: H },
+      { uid: 'hole2', item: 'golfTower', x: 20.7, z: -7.32, rot: 0 },
+      { uid: 'hole3', item: 'golfHole', x: 20.7, z: -3.74, rot: H },
+      { uid: 'hole4', item: 'golfBridge', x: 20.7, z: 0.34, rot: H },
+      { uid: 'hole5', item: 'golfTower', x: 20.7, z: 3.92, rot: 0 },
+      { uid: 'hole6', item: 'golfHole', x: 20.7, z: 7.5, rot: H },
+      { uid: 'pine0', item: 'pine', x: -21.4, z: -11.4, rot: 0 },
+      { uid: 'pine1', item: 'pine', x: -21.6, z: -6.6, rot: 0 },
+      { uid: 'pine2', item: 'pine', x: -20.4, z: 4.0, rot: 0 },
+      { uid: 'pine3', item: 'pine', x: -21.6, z: 9.4, rot: 0 },
+      { uid: 'rmaple0', item: 'maple', x: -19.6, z: -9.0, rot: 0 },
+      { uid: 'rmaple1', item: 'maple', x: -21.0, z: 6.8, rot: 0 },
+      { uid: 'ramble1', item: 'rocks', x: -19.8, z: -3.4, rot: 0 },
+      { uid: 'tulips', item: 'flowerBed', x: -20.2, z: 1.6, rot: 0 },
     ],
   },
 };

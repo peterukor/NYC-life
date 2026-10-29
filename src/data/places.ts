@@ -161,7 +161,7 @@ const RAW: RawPlace[] = [
     blurb: 'Lawns, a lake with rowboats, buskers and the whole city taking a breath.',
     // A walkable park inside (data/venues.ts → park): benches, the lawn, a duck pond, the fountain.
     at: [40.7712, -73.9742], hours: [6, 1], interior: 'park', color: '#2e8b57',
-    actions: ['picnic', 'jog', 'rowboat', 'peopleWatch', 'busk', 'halalCart', 'publicRestroom'],
+    actions: ['picnic', 'jog', 'rowboat', 'playMinigolf', 'peopleWatch', 'busk', 'halalCart', 'publicRestroom'],
     landmark: { description: 'The 843-acre park in the middle of Manhattan, designed by Olmsted and Vaux.', officialSite: 'https://www.centralparknyc.org/', siteLabel: 'centralparknyc.org' },
   },
   {
@@ -348,7 +348,7 @@ const RAW: RawPlace[] = [
     at: [40.7378, -73.9862], hours: [17, 24], interior: 'restaurant', color: '#1d3557',
     actions: ['tastingMenu', 'wineFlight', 'chefsTable'],
   },
-  // Nights out (2026-10-28): bowling, the movies, rooftop mini golf.
+  // Nights out (2026-10-28): bowling and the movies (mini golf moved into Central Park, 2026-10-29).
   {
     id: 'hkLanes', area: 'manhattan', name: 'Hell’s Kitchen Lanes', emoji: '🎳', type: 'fun',
     blurb: 'Twelve glow-in-the-dark lanes off Tenth Avenue, rental shoes of questionable history, a bar and a jukebox.',
@@ -360,12 +360,6 @@ const RAW: RawPlace[] = [
     blurb: 'A big old movie house on Union Square: red seats, a massive screen, butter on everything.',
     at: [40.7352, -73.9905], hours: [10, 2], interior: 'cinema', color: '#9d0208',
     actions: ['watchMovie', 'popcorn'],
-  },
-  {
-    id: 'seaportGolf', area: 'manhattan', name: 'Seaport Rooftop Golf', emoji: '⛳', type: 'fun',
-    blurb: 'Nine holes of mini golf on a rooftop at the South Street Seaport, with the Brooklyn Bridge in the background.',
-    at: [40.7060, -74.0032], hours: [11, 24], interior: 'golf', color: '#2a9d8f',
-    actions: ['playMinigolf', 'happyHour'],
   },
   {
     // Night Dancer's club (Peter, 2026-10-13). Kept PG-13: shows, tips and the odd rowdy customer.
