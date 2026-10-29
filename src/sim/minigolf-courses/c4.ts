@@ -114,7 +114,7 @@ export const course: CourseDef = {
       // A gale on the long span, unless you hit the button out on the Bronx arm first.
       id: 'triborough', name: 'Triborough Junction', emoji: '🧭', par: 3, parTime: 14,
       tip: 'The gale stops for good once you hit the button. Or time it.',
-      outer: [[28, 0], [68, 0], [72, 4], [72, 18], [68, 22], [52, 22], [52, 124], [48, 128], [28, 128], [24, 124], [24, 98], [4, 98], [0, 94], [0, 76], [4, 72], [24, 72], [24, 4]],
+      outer: [[28, 0], [48, 0], [52, 4], [52, 124], [48, 128], [28, 128], [24, 124], [24, 98], [4, 98], [0, 94], [0, 76], [4, 72], [24, 72], [24, 4]],
       zones: [{ kind: 'water', poly: rect(24, 28, 30, 66) }, { kind: 'water', poly: rect(46, 28, 52, 66) }],
       winds: [{ poly: rect(24, 26, 52, 68), dir: 0, force: 110, period: 4.5, on: 2.2, warn: 1.2, sw: { id: 'A', active: 'off' } }],
       switches: [{ id: 'A', x: 8, y: 85, mode: 'once' }],

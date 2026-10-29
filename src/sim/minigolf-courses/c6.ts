@@ -165,29 +165,30 @@ export const course: CourseDef = {
       deco: [{ x: 64, y: 70, text: '⇧', size: 5, color: '#ffe9b0' }],
     },
     {
-      // Finale, shaped like the building: fly the gap in the gust, beat the searchlights at the first
-      // setback, get past the flippers to the spire, sink it on the sliding cup.
+      // Finale, shaped like the building: fly the gap in the gust, bank to a searchlight gate at either
+      // end of the first setback, ride the water tower to the spire past its flippers, sink it on the sliding cup.
       id: 'empire-state', name: 'Empire State of Mind', emoji: '🏙️', par: 5, parTime: 26,
-      tip: 'Jump the gap, time the lights, mind the flippers. The cup won\'t wait.',
+      tip: 'Jump the gap, out of the tar through a searchlight gate, ride the tower up.',
       outer: [[0, 140], [0, 60], [12, 60], [12, 30], [24, 30], [24, 4], [28, 0], [52, 0], [56, 4], [56, 30], [68, 30], [68, 60], [80, 60], [80, 140]],
-      zones: [{ kind: 'water', poly: rect(10, 90, 80, 106) }],
+      zones: [{ kind: 'water', poly: rect(10, 90, 80, 106) }, { kind: 'sand', poly: rect(0, 62, 80, 67) }],
       jumps: [{ x: 40, y: 110, dir: deg(-90), w: 12, len: 10, minSpeed: 42, lift: 0.3 }],
       low: [rect(10, 88.4, 80, 90)],
       winds: [{ poly: rect(0, 88, 80, 108), dir: Math.PI, force: 60, period: 4.4, on: 1.6, warn: 1.2 }],
-      blocks: [rect(12, 56, 18, 60), rect(30, 56, 50, 60), rect(62, 56, 68, 60), rect(24, 26, 34, 30), rect(46, 26, 56, 30)],
+      blocks: [rect(24, 56, 56, 60), rect(24, 26, 36, 30), rect(44, 26, 56, 30)],
       gates: [
-        { a: { x: 18, y: 58 }, b: { x: 30, y: 58 }, period: 4, open: 1.2 },
-        { a: { x: 50, y: 58 }, b: { x: 62, y: 58 }, period: 4, open: 1.2, phase: 2 },
+        { a: { x: 24, y: 58 }, b: { x: 12, y: 58 }, period: 4, open: 1.2 },
+        { a: { x: 56, y: 58 }, b: { x: 68, y: 58 }, period: 4, open: 1.2, phase: 2 },
+        { a: { x: 36, y: 28 }, b: { x: 44, y: 28 }, period: 3.6, open: 1.3, phase: 1 },
       ],
       arms: [
         { x: 24, y: 36, len: 9, a0: deg(15), amp: deg(-45), period: 2.4, kind: 'flipper' },
         { x: 56, y: 36, len: 9, a0: deg(165), amp: deg(45), period: 2.4, phase: 1.2, kind: 'flipper' },
       ],
-      magnets: [{ x: 40, y: 47, r: 8, strength: -55 }],
+      turntables: [{ x: 40, y: 45, r: 9, omega: -1.1 }],
       bumpers: [{ x: 18, y: 78, r: 2.4, kind: 'trampoline' }, { x: 62, y: 78, r: 2.4, kind: 'trampoline' }],
       cupTrack: { x: 48, y: 12, period: 4.6 },
       tee: { x: 40, y: 130 }, cup: { x: 32, y: 12 },
-      deco: [{ x: 5, y: 98, emoji: '🪜', size: 3 }, { x: 40, y: 47, emoji: '📡', size: 4 }],
+      deco: [{ x: 5, y: 98, emoji: '🪜', size: 3 }, { x: 6, y: 70, emoji: '📡', size: 4 }],
     },
   ],
 };
