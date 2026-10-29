@@ -1045,6 +1045,8 @@ export function idle(h: Hole, from: { x: number; y: number }, t0: number, steps:
 interface Field { x0: number; y0: number; w: number; h: number; d: Float64Array }
 const fieldCache = new WeakMap<Hole, Map<string, Field>>();
 const CELL = 1;
+/** Field cost per cell of a standing crumbling wall, per knock it still needs (so the planner sees each knock as progress). */
+const CRUMBLE_COST = 7;
 
 const segsCross = (ax: number, ay: number, bx: number, by: number, cx: number, cy: number, dx: number, dy: number) => {
   const d1 = (bx - ax) * (cy - ay) - (by - ay) * (cx - ax);
@@ -1060,7 +1062,9 @@ const shutDoors = (h: Hole, st?: HoleState): Gate[] => h.gates.filter((g) => !g.
 /** The field to a cup position (cached; a sliding cup gets a few, every switch setting its own). */
 export function cupField(h: Hole, cx = h.cup.x, cy = h.cup.y, st?: HoleState): Field {
   const doors = shutDoors(h, st);
-  const key = `${Math.round(cx)},${Math.round(cy)},${h.gates.map((g) => (doors.includes(g) ? 1 : 0)).join('')}`;
+  // Knocks each crumbling wall still needs (a fresh hole if no state): every knock left makes going through dearer.
+  const left = h.crumbles.map((q, i) => Math.max(0, q.hits - (st?.cracks[i] ?? 0)));
+  const key = `${Math.round(cx)},${Math.round(cy)},${h.gates.map((g) => (doors.includes(g) ? 1 : 0)).join('')},${left.join('.')}`;
   let m = fieldCache.get(h);
   if (!m) fieldCache.set(h, (m = new Map()));
   const hit = m.get(key);
@@ -1082,7 +1086,7 @@ export function cupField(h: Hole, cx = h.cup.x, cy = h.cup.y, st?: HoleState): F
     if (surfaceAt(h, x, y, null).sand) k = 3;
     if (h.zones.some((z) => z.kind === 'water' && inZone(z, x, y))) k = 12;
     if (h.tides.some((td) => x > td.x0 && x < td.x1 && y > td.y0 && y < td.y1)) k = Math.max(k, 2);
-    if (h.crumbles.some((c) => pointInPoly(x, y, c.poly))) k = Math.max(k, 4);
+    for (let ci = 0; ci < h.crumbles.length; ci++) if (left[ci] > 0 && pointInPoly(x, y, h.crumbles[ci].poly)) k = Math.max(k, 1 + CRUMBLE_COST * left[ci]);
     if (h.low.some((q) => pointInPoly(x, y, q)) || lowSegs.some((s) => segDist(x, y, s[0], s[1], s[2], s[3]) < BALL_R)) k = Math.max(k, 5);
     cost[i] = k;
   }
