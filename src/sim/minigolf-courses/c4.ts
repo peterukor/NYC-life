@@ -77,12 +77,12 @@ export const course: CourseDef = {
     {
       // Wind between the towers, a cable at the arches, and the cup sliding along the top.
       id: 'brooklyn-gusts', name: 'Brooklyn Bridge Gusts', emoji: '🌉', par: 4, parTime: 18,
-      tip: 'Through the arches, past the cable, ahead of the gust.',
+      tip: 'Through the arches, past the cable. Don’t park in a gust.',
       outer: box(0, 0, 60, 128),
       blocks: [rect(0, 92, 12, 98), rect(22, 92, 38, 98), rect(48, 92, 60, 98), rect(0, 30, 12, 36), rect(22, 30, 38, 36), rect(48, 30, 60, 36)],
       look: { block: '#b07a4f' },
-      zones: [{ kind: 'water', poly: rect(0, 44, 7, 84) }, { kind: 'water', poly: rect(53, 44, 60, 84) }],
-      winds: [{ poly: rect(0, 40, 60, 88), dir: 0, force: 75, period: 5, on: 2, warn: 1.2 }],
+      zones: [{ kind: 'water', poly: rect(0, 44, 7, 84) }, { kind: 'water', poly: rect(54, 52, 60, 76) }],
+      winds: [{ poly: rect(0, 40, 60, 88), dir: 0, force: 65, period: 5, on: 2, warn: 1.2 }],
       arms: [{ x: 30, y: 64, len: 15, a0: deg(0), amp: deg(75), period: 3.2, kind: 'cable' }],
       cupTrack: { x: 44, y: 14, period: 6 },
       tee: { x: 30, y: 114 }, cup: { x: 16, y: 14 },
@@ -134,8 +134,8 @@ export const course: CourseDef = {
       blocks: [rect(0, 34, 13, 40), rect(23, 34, 49, 40), rect(59, 34, 72, 40), rect(28, 54, 44, 60)],
       look: { block: '#c0504d' },
       bumpers: [{ x: 24, y: 110, r: 2, kind: 'post' }, { x: 48, y: 110, r: 2, kind: 'post' }],
-      cupTrack: { x: 56, y: 14, period: 6 },
-      tee: { x: 14, y: 128 }, cup: { x: 16, y: 14 },
+      cupTrack: { x: 52, y: 14, period: 6.5 },
+      tee: { x: 14, y: 128 }, cup: { x: 18, y: 14 },
     },
   ],
 };
