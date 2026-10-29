@@ -42,9 +42,9 @@ export const course: CourseDef = {
     },
     {
       id: 'penthouse-pinball', name: 'Penthouse Pinball', emoji: '🪩', par: 3, parTime: 13,
-      tip: 'Flippers fire when they glow. The left magnet grabs, the right one shoves.',
+      tip: 'The DJ booth guards the cup. Flippers fire when they glow; the left magnet grabs, the right shoves.',
       outer: box(0, 0, 60, 116),
-      blocks: [rect(22, 34, 38, 38)],
+      blocks: [rect(21, 23, 39, 27)],
       look: { label: 'DJ' },
       arms: [
         { x: 10, y: 66, len: 13, a0: deg(30), amp: deg(-55), period: 2.4, kind: 'flipper' },
@@ -56,7 +56,7 @@ export const course: CourseDef = {
     },
     {
       // Searchlights sweep the crossings in step: hit it at the right pace and they go green ahead of you.
-      id: 'searchlights', name: 'Searchlight Row', emoji: '🔦', par: 3, parTime: 14,
+      id: 'searchlights', name: 'Searchlight Row', emoji: '🔦', par: 4, parTime: 16,
       tip: 'Three lights, one after another. Zig, zag, and go when they go.',
       outer: box(0, 0, 56, 128),
       blocks: [
@@ -77,10 +77,10 @@ export const course: CourseDef = {
       id: 'water-tower', name: 'Water Tower', emoji: '🛢️', par: 3, parTime: 14,
       tip: 'In through a gap in the rail, then between the turning fences. Gently.',
       outer: box(0, 0, 70, 110),
-      low: ring(35, 38, 19, 12, [2, 7]),
-      turntables: [{ x: 35, y: 38, r: 15, omega: 0.9 }],
-      spinners: [{ x: 35, y: 38, hub: 3.3, len: 14.5, arms: 3, omega: 0.9, a0: 0 }],
-      winds: [{ poly: rect(0, 64, 70, 80), dir: Math.PI, force: 60, period: 4, on: 1.5, warn: 1.2 }],
+      low: ring(35, 38, 19, 16, [2, 10]),
+      turntables: [{ x: 35, y: 38, r: 15, omega: 1.5 }],
+      spinners: [{ x: 35, y: 38, hub: 3.3, len: 14.5, arms: 4, omega: 1.5, a0: 0 }],
+      winds: [{ poly: rect(0, 64, 70, 80), dir: Math.PI, force: 80, period: 4, on: 1.5, warn: 1.2 }],
       bumpers: [{ x: 20, y: 86, r: 1.6, kind: 'post' }],
       tee: { x: 60, y: 96 }, cup: { x: 35, y: 38 },
       deco: [{ x: 64, y: 70, emoji: '💨', size: 4 }],
@@ -94,7 +94,7 @@ export const course: CourseDef = {
       look: { label: 'LIFT' },
       springs: [{ a: { x: 1, y: 72 }, b: { x: 12, y: 62 } }, { a: { x: 52, y: 62 }, b: { x: 63, y: 72 } }],
       bumpers: [{ x: 10, y: 40, r: 2.4, kind: 'trampoline' }, { x: 54, y: 40, r: 2.4, kind: 'trampoline' }],
-      cupTrack: { x: 46, y: 22, period: 4.4 },
+      cupTrack: { x: 46, y: 22, period: 3.8 },
       zones: [{ kind: 'path', circle: { x: 32, y: 22, r: 16 } }],
       tee: { x: 32, y: 108 }, cup: { x: 18, y: 22 },
       deco: [{ x: 32, y: 22, text: 'H', size: 9, color: 'rgba(255,255,255,0.35)' }],
@@ -102,13 +102,13 @@ export const course: CourseDef = {
     {
       // Breather: the roof garden. Planters are low; the bird bath magnet helps at the end.
       id: 'roof-garden', name: 'Roof Garden', emoji: '🌿', par: 3, parTime: 11,
-      tip: 'The sprinkler pushes you off line. The bird bath pulls you home.',
+      tip: 'The hedge pocket opens at its corner. The sprinkler shoves, the bird bath pulls.',
       outer: box(0, 0, 80, 92),
-      low: [rect(20, 30, 50, 32), rect(30, 58, 62, 60)],
+      low: [rect(4, 26, 28, 28), rect(28, 4, 30, 19), rect(30, 58, 62, 60)],
       zones: [{ kind: 'sand', circle: { x: 66, y: 30, r: 6 } }, { kind: 'sand', circle: { x: 14, y: 64, r: 6 } }],
-      magnets: [{ x: 14, y: 14, r: 10, strength: 45 }, { x: 44, y: 44, r: 9, strength: -55 }],
+      magnets: [{ x: 14, y: 14, r: 7, strength: 35 }, { x: 44, y: 44, r: 10, strength: -65 }],
       tee: { x: 68, y: 80 }, cup: { x: 14, y: 14 },
-      deco: [{ x: 35, y: 31, emoji: '🌿', size: 3 }, { x: 46, y: 59, emoji: '🌷', size: 3 }, { x: 44, y: 44, emoji: '💦', size: 4 }],
+      deco: [{ x: 16, y: 27, emoji: '🌿', size: 3 }, { x: 46, y: 59, emoji: '🌷', size: 3 }, { x: 44, y: 44, emoji: '💦', size: 4 }],
     },
     {
       // Two alleys, two gusts: the wind blows in the air too. The bulkhead stops a jump that's too big.
@@ -130,7 +130,7 @@ export const course: CourseDef = {
     },
     {
       // Key cards: 🔘A opens the lobby door (no way round it), 🔘B the roof door. Or bash the fire door.
-      id: 'key-card', name: 'Key Card Access', emoji: '🛎️', par: 5, parTime: 22,
+      id: 'key-card', name: 'Key Card Access', emoji: '🛎️', par: 4, parTime: 20,
       tip: '🔘A opens the lobby. 🔘B opens the roof, or knock the fire door down.',
       outer: box(0, 0, 76, 124),
       blocks: [rect(0, 58, 10, 62), rect(22, 58, 56, 62), rect(70, 58, 76, 62), rect(36, 62, 40, 92), rect(36, 104, 40, 124)],
@@ -150,17 +150,17 @@ export const course: CourseDef = {
     {
       // Park it by the flipper in the right lane and it launches you up. Or thread the gap between the flippers.
       id: 'pinball-wizard', name: 'Pinball Wizard', emoji: '🕹️', par: 4, parTime: 17,
-      tip: 'Roll into the right lane: the flipper launches you. Or thread the middle gap.',
+      tip: 'Roll down to the bottom right: the flipper launches you. Or thread the middle gap.',
       outer: box(0, 0, 70, 128),
-      blocks: [rect(54, 34, 58, 108), rect(0, 34, 24, 38), rect(30, 34, 54, 38)],
-      zones: [{ kind: 'ramp', poly: rect(58, 44, 70, 98), push: [0, 20] }],
+      blocks: [rect(54, 34, 58, 102), rect(0, 34, 23, 38), rect(31, 34, 54, 38), rect(56, 122.5, 70, 128)],
+      zones: [{ kind: 'ramp', poly: rect(58, 44, 70, 112), push: [0, 32] }, { kind: 'ramp', poly: rect(44, 112, 67, 122.5), push: [24, 0] }],
       oneways: [{ a: { x: 58, y: 40 }, b: { x: 70, y: 40 }, dir: deg(-90) }],
       arms: [
-        { x: 58.5, y: 120, len: 11, a0: deg(-6), amp: deg(-60), period: 2.5, kind: 'flipper', hold: 0.3 },
-        { x: 13, y: 46, len: 10, a0: deg(25), amp: deg(-50), period: 2.4, kind: 'flipper' },
-        { x: 41, y: 46, len: 10, a0: deg(155), amp: deg(50), period: 2.4, phase: 1.2, kind: 'flipper' },
+        { x: 58.5, y: 119.5, len: 11, a0: deg(-6), amp: deg(-60), period: 2.5, kind: 'flipper', hold: 0.3 },
+        { x: 15, y: 46, len: 8, a0: deg(25), amp: deg(-50), period: 2.4, kind: 'flipper' },
+        { x: 39, y: 46, len: 8, a0: deg(155), amp: deg(50), period: 2.4, phase: 1.2, kind: 'flipper' },
       ],
-      bumpers: [{ x: 16, y: 72, r: 2.6, kind: 'trampoline' }, { x: 38, y: 84, r: 2.6, kind: 'trampoline' }, { x: 28, y: 20, r: 2, kind: 'bumper' }],
+      bumpers: [{ x: 16, y: 72, r: 2.6, kind: 'trampoline' }, { x: 38, y: 84, r: 2, kind: 'post' }, { x: 28, y: 20, r: 2, kind: 'bumper' }],
       tee: { x: 24, y: 116 }, cup: { x: 12, y: 14 },
       deco: [{ x: 64, y: 70, text: '⇧', size: 5, color: '#ffe9b0' }],
     },
