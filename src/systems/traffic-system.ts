@@ -11,6 +11,9 @@ import { Traffic } from '../world/traffic.ts';
 
 let traffic: Traffic | null = null;
 
+/** The running traffic (QA hooks and perf checks only). */
+export const currentTraffic = (): Traffic | null => traffic;
+
 SYSTEMS.add({
   id: 'traffic',
   areaLoaded(ctx) {

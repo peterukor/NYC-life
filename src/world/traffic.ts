@@ -117,11 +117,13 @@ export class Traffic {
 
   private nearLanes: number[] = [];
   private nearTimer = 0;
+  private lastFocus: { x: number; z: number } | undefined;
 
   /** focus = where the player/camera is: cars that wander far away respawn near it, so the streets around you stay busy. */
   update(dt: number, rush: boolean, focus?: { x: number; z: number }): void {
     // Rush hour: everything crawls.
     const slow = rush ? 0.45 : 1;
+    if (focus) this.lastFocus = focus;
     if (focus && (this.nearTimer -= dt) <= 0) {
       this.nearTimer = 1;
       this.nearLanes = [];
@@ -149,6 +151,17 @@ export class Traffic {
       this.meshes[car.mesh].setMatrixAt(car.slot, this.dummy.matrix);
     });
     for (const m of this.meshes) m.instanceMatrix.needsUpdate = true;
+  }
+
+  /** QA: where the cars are, and how long 100 updates take (ms each). */
+  debug(): { lanes: number; cars: { x: number; z: number; h: number; v: number }[]; updateMs: number } {
+    const cars = this.cars.map((c) => {
+      const at = laneAt(this.lanes[c.lane], c.t);
+      return { x: Math.round(at.x), z: Math.round(at.z), h: +at.heading.toFixed(2), v: +c.speed.toFixed(1) };
+    });
+    const t0 = performance.now();
+    for (let i = 0; i < 100; i++) this.update(1 / 60, false, this.lastFocus);
+    return { lanes: this.lanes.length, cars, updateMs: (performance.now() - t0) / 100 };
   }
 
   dispose(): void {

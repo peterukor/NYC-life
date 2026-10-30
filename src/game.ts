@@ -116,6 +116,7 @@ import { DISTRICTS, crossStreets, blockRect } from './world/layout.ts';
 import { findPath, nearestWalkable } from './world/nav.ts';
 import { SystemRunner, type SystemContext } from './core/systems.ts';
 import './systems/index.ts';
+import { currentTraffic } from './systems/traffic-system.ts';
 import './sim/gang-events.ts';
 import { syncJail } from './ui/jail.ts';
 import { eventAt, joinEvent } from './data/city-events.ts';
@@ -638,6 +639,17 @@ export class Game {
       fps: () => Math.round(this.engine.fps),
       drawCalls: () => this.engine.renderer.info.render.calls,
       triangles: () => this.engine.renderer.info.render.triangles,
+      /** Street camera at (x, y, z) looking at (tx, ty, tz); stops following the player (scripts/qa-traffic.mjs). */
+      streetCam: (x: number, y: number, z: number, tx: number, ty: number, tz: number) => {
+        const { camera, controls } = this.engine;
+        controls.minDistance = 0.5;
+        controls.target.set(tx, ty, tz);
+        camera.position.set(x, y, z);
+        controls.update();
+        this.followCamera = false;
+      },
+      /** Moving cars (positions, headings) and the time one traffic update takes (scripts/qa-traffic.mjs). */
+      traffic: () => currentTraffic()?.debug() ?? null,
     };
   }
 
