@@ -21,16 +21,16 @@
 //     instanced meshes, drifting.
 // The trees are planted by the city generator (city.ts → nycgen), so
 // they cost no extra draw calls and get its near/far detail.
-// About 12 draw calls in all (the old park was 4 + 8 for its ponds).
+// 11 draw calls in all (the old park was 4, plus 8 for its ponds).
 // =====================================================================
 
 import * as THREE from 'three';
-import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { doorOf } from '../../data/places.ts';
 import { signTexture } from '../../render/textures.ts';
 import { centralParkPlan, type CentralParkPlan, type CPFeature } from '../central-park-plan.ts';
 import { toyFurnitureModels } from '../furniture-toys.ts';
 import { paintParkGround } from './central-park-ground.ts';
+import { nightGlow } from '../night-glow.ts';
 import { LANDMARKS } from './registry.ts';
 
 const STONE = '#a39a8c';
@@ -39,46 +39,60 @@ const STONE_DK = '#857d71';
 const IRON = '#2b2d31';
 const CREAM = '#efe6d2';
 
-/** Merges flat-coloured shapes and ready-coloured toy pieces into one geometry. */
+/**
+ * Merges flat-coloured shapes and ready-coloured toy pieces into one
+ * geometry. Vertices are written straight into flat arrays (no geometry per
+ * piece and no merge step: ~2,000 pieces in a few milliseconds).
+ */
 class Kit {
-  private parts: THREE.BufferGeometry[] = [];
+  private pos: number[] = [];
+  private nor: number[] = [];
+  private col: number[] = [];
   private m = new THREE.Matrix4();
+  private nm = new THREE.Matrix3();
   private q = new THREE.Quaternion();
   private e = new THREE.Euler();
+  private c = new THREE.Color();
+  private p0 = new THREE.Vector3();
+  private s0 = new THREE.Vector3();
 
   get empty(): boolean {
-    return !this.parts.length;
+    return !this.pos.length;
   }
 
   /** Any geometry in one colour, placed by position / turn (Y) / scale. */
   add(geo: THREE.BufferGeometry, color: THREE.ColorRepresentation, x = 0, y = 0, z = 0, rotY = 0, sx = 1, sy = sx, sz = sx): this {
-    let g = geo.index ? geo.toNonIndexed() : geo;
-    if (g === geo) g = geo.clone();
-    g.deleteAttribute('uv');
-    if (!g.getAttribute('normal')) g.computeVertexNormals();
-    const col = new THREE.Color(color);
-    const n = g.getAttribute('position').count;
-    const arr = new Float32Array(n * 3);
-    for (let i = 0; i < n; i++) arr.set([col.r, col.g, col.b], i * 3);
-    g.setAttribute('color', new THREE.BufferAttribute(arr, 3));
-    this.place(g, x, y, z, rotY, sx, sy, sz);
+    this.c.set(color);
+    this.write(flat(geo), false, x, y, z, rotY, sx, sy, sz);
     return this;
   }
 
   /** A toy piece that already has its colours (furniture-toys.ts). */
   addToy(geo: THREE.BufferGeometry | undefined, x: number, y: number, z: number, rotY: number, s: number): this {
-    if (!geo) return this;
-    const g = geo.index ? geo.toNonIndexed() : geo.clone();
-    for (const k of Object.keys(g.attributes)) if (k !== 'position' && k !== 'normal' && k !== 'color') g.deleteAttribute(k);
-    this.place(g, x, y, z, rotY, s, s, s);
+    if (geo) this.write(flat(geo), true, x, y, z, rotY, s, s, s);
     return this;
   }
 
-  private place(g: THREE.BufferGeometry, x: number, y: number, z: number, rotY: number, sx: number, sy: number, sz: number): void {
+  private write(g: THREE.BufferGeometry, ownColors: boolean, x: number, y: number, z: number, rotY: number, sx: number, sy: number, sz: number): void {
     this.q.setFromEuler(this.e.set(0, rotY, 0));
-    this.m.compose(new THREE.Vector3(x, y, z), this.q, new THREE.Vector3(sx, sy, sz));
-    g.applyMatrix4(this.m);
-    this.parts.push(g);
+    this.m.compose(this.p0.set(x, y, z), this.q, this.s0.set(sx, sy, sz));
+    this.nm.getNormalMatrix(this.m);
+    const p = g.getAttribute('position').array, n = g.getAttribute('normal').array;
+    const ca = g.getAttribute('color');
+    const c = ownColors && ca ? ca.array : null;
+    const e = this.m.elements, k = this.nm.elements;
+    const pos = this.pos, nor = this.nor, col = this.col;
+    const cr = this.c.r, cg = this.c.g, cb = this.c.b;
+    for (let i = 0; i < p.length; i += 3) {
+      const px = p[i], py = p[i + 1], pz = p[i + 2];
+      pos.push(e[0] * px + e[4] * py + e[8] * pz + e[12], e[1] * px + e[5] * py + e[9] * pz + e[13], e[2] * px + e[6] * py + e[10] * pz + e[14]);
+      const nx = n[i], ny = n[i + 1], nz = n[i + 2];
+      const ox = k[0] * nx + k[3] * ny + k[6] * nz, oy = k[1] * nx + k[4] * ny + k[7] * nz, oz = k[2] * nx + k[5] * ny + k[8] * nz;
+      const l = Math.sqrt(ox * ox + oy * oy + oz * oz) || 1;
+      nor.push(ox / l, oy / l, oz / l);
+      if (c) col.push(c[i], c[i + 1], c[i + 2]);
+      else col.push(cr, cg, cb);
+    }
   }
 
   /** A box sitting on y0, centred on x/z, turned by rotY. */
@@ -92,13 +106,28 @@ class Kit {
   }
 
   build(): THREE.BufferGeometry | null {
-    if (!this.parts.length) return null;
-    const g = mergeGeometries(this.parts);
-    this.parts = [];
-    if (!g) return null;
+    if (!this.pos.length) return null;
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(this.pos, 3));
+    g.setAttribute('normal', new THREE.Float32BufferAttribute(this.nor, 3));
+    g.setAttribute('color', new THREE.Float32BufferAttribute(this.col, 3));
+    this.pos = [];
+    this.nor = [];
+    this.col = [];
     g.computeBoundingSphere();
     return g;
   }
+}
+
+/** Non-indexed copy of a geometry, with normals (cached for shared shapes like BOX). */
+const flatCache = new WeakMap<THREE.BufferGeometry, THREE.BufferGeometry>();
+function flat(geo: THREE.BufferGeometry): THREE.BufferGeometry {
+  let g = flatCache.get(geo);
+  if (g) return g;
+  g = geo.index ? geo.toNonIndexed() : geo;
+  if (!g.getAttribute('normal')) g.computeVertexNormals();
+  flatCache.set(geo, g);
+  return g;
 }
 const BOX = new THREE.BoxGeometry(1, 1, 1);
 
@@ -164,19 +193,19 @@ LANDMARKS.add({
       switch (f.kind) {
         case 'bethesda': toy('toyBethesdaFountain'); break;
         case 'terrace': terrace(k, f); break;
-        case 'carousel': toy('toyCarousel'); break;
+        case 'carousel': carousel(k, f); break;
         case 'bandshell': toy('toyBandshell'); break;
         case 'playground': if (!lite || f.z > zA) toy('toyPlayground'); break;
         case 'statue': toy('toyStatue'); break;
         case 'pretzel': if (!nearDoor(f.x, f.z, 4)) toy('toyPretzelCart', f.z > g.maxZ ? 0.18 : 0.3); break;
         case 'carriage': toy('toyCarriage', 0.18); break;
         case 'golfStarter': toy('toyGolfStarter'); break;
-        case 'golfHole': toy('toyGolfHole'); break;
-        case 'golfBridge': toy('toyGolfBridge'); break;
-        case 'golfTower': toy('toyGolfTower'); break;
+        case 'golfHole':
+        case 'golfBridge':
+        case 'golfTower': golfHole(k, f); break;
         case 'golfFence': golfFence(k, plan); break;
         case 'golfSign': golfSign = f; signPosts(k, f); break;
-        case 'dock': toy('toyBoatDock', 0.05); break;
+        case 'dock': dock(k, f); break;
         case 'castle': toy('toyCastle', 1.2); break;
         case 'vistaRock': rocks(k, f.x, f.z, [[0, 0, 6.5], [-5, 3, 4.2], [5, 2.5, 4.6], [-2, -5, 4], [4, -4, 3.5]], 0.55); break;
         case 'rocks': if (!lite || f.s > 1) rocks(k, f.x, f.z, [[0, 0, 2.3 * f.s], [1.8 * f.s, 0.9 * f.s, 1.5 * f.s], [-1.4 * f.s, 1.2 * f.s, 1.2 * f.s]], 0.62, f.rot); break;
@@ -195,7 +224,7 @@ LANDMARKS.add({
         case 'cherryFountain':
           k.cyl(2.4, 2.6, 0.5, f.x, 0.3, f.z, STONE_LT, 14).cyl(2.1, 2.1, 0.06, f.x, 0.75, f.z, '#6cc0ef', 14).cyl(0.3, 0.45, 2.2, f.x, 0.3, f.z, '#c9a227', 8).add(new THREE.SphereGeometry(0.5, 8, 6), '#c9a227', f.x, 2.7, f.z);
           break;
-        case 'consGarden': consGarden(k, f, toys); break;
+        case 'consGarden': consGarden(k, f); break;
       }
     }
 
@@ -293,6 +322,7 @@ LANDMARKS.add({
     let time = 0;
     animate((dt) => {
       time += dt;
+      headMat.emissiveIntensity = 0.45 + Math.min(1, nightGlow.value) * 1.4; // lamps come on after sunset
       for (const b of boats) {
         b.loops.forEach((l, i) => {
           const a = b.phase[i] + time * b.speed[i];
@@ -342,6 +372,96 @@ function waterGeometry(plan: CentralParkPlan): THREE.BufferGeometry {
   return geo;
 }
 
+/**
+ * The Carousel, same look as the walk-in park's toy (striped canopy, gold
+ * trim, painted horses) without its 24 light bulbs: ~700 triangles, not 5,000.
+ */
+function carousel(k: Kit, f: CPFeature): void {
+  const s = f.s, y = 0.3;
+  k.cyl(2.2 * s, 2.3 * s, 0.3 * s, f.x, y, f.z, '#9d0208', 20);
+  k.cyl(2.1 * s, 2.1 * s, 0.04 * s, f.x, y + 0.3 * s, f.z, '#f1e3c8', 20);
+  k.cyl(0.4 * s, 0.4 * s, 2.4 * s, f.x, y + 0.3 * s, f.z, '#ffd166', 10);
+  for (let i = 0; i < 16; i++) {
+    const a0 = (i / 16) * Math.PI * 2;
+    k.add(new THREE.ConeGeometry(2.5 * s, 1.0 * s, 2, 1, true, a0, Math.PI / 8), i % 2 ? '#e63946' : '#fff8e7', f.x, y + 3.2 * s, f.z);
+  }
+  k.add(new THREE.CylinderGeometry(2.5 * s, 2.5 * s, 0.25 * s, 20, 1, true), '#ffd166', f.x, y + 2.67 * s, f.z);
+  k.add(new THREE.OctahedronGeometry(0.22 * s, 0), '#ffd166', f.x, y + 3.85 * s, f.z);
+  const horse = ['#ffffff', '#f4a261', '#8ecae6', '#cdb4db', '#ffafcc', '#b7e4c7'];
+  for (let i = 0; i < 6; i++) {
+    const a = (i / 6) * Math.PI * 2, x = f.x + Math.cos(a) * 1.55 * s, z = f.z + Math.sin(a) * 1.55 * s, hy = y + (0.75 + (i % 2) * 0.25) * s;
+    k.add(new THREE.CylinderGeometry(0.03 * s, 0.03 * s, 2.3 * s, 4, 1, true), '#ffd166', x, y + 1.45 * s, z);
+    k.box(0.2 * s, 0.26 * s, 0.62 * s, x, hy - 0.13 * s, z, horse[i], -a);
+    const hx = x + Math.cos(a + Math.PI / 2) * 0.3 * s, hz = z + Math.sin(a + Math.PI / 2) * 0.3 * s;
+    k.box(0.12 * s, 0.32 * s, 0.16 * s, hx, hy + 0.04 * s, hz, horse[i], -a);
+  }
+}
+
+/** The Boathouse dock: a plank deck on posts with rowboats tied up (faces the water along rot). */
+function dock(k: Kit, f: CPFeature): void {
+  const s = f.s;
+  k.box(3.0 * s, 0.2 * s, 1.6 * s, f.x, 0.05, f.z, '#8a5a34', f.rot);
+  for (let i = 0; i < 5; i++) {
+    const p = turn(f.x, f.z, (-1.2 + i * 0.6) * s, 0, -f.rot);
+    k.box(0.04 * s, 0.01, 1.6 * s, p.x, 0.05 + 0.2 * s, p.z, '#5c3a21', f.rot);
+  }
+  for (const lx of [-1.4, 1.4]) for (const lz of [-0.7, 0.7]) {
+    const p = turn(f.x, f.z, lx * s, lz * s, -f.rot);
+    k.add(new THREE.CylinderGeometry(0.07 * s, 0.07 * s, 0.6 * s, 5, 1, true), '#5c3a21', p.x, 0.3 * s, p.z);
+  }
+  for (const [lx, c] of [[-0.8, '#e63946'], [0, '#3a86ff'], [0.8, '#2a9d8f']] as [number, string][]) {
+    const p = turn(f.x, f.z, lx * s, 1.35 * s, -f.rot);
+    k.add(new THREE.SphereGeometry(1, 8, 3, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2), c, p.x, 0.42, p.z, f.rot, 0.2 * s, 0.16 * s, 0.45 * s);
+  }
+  const sp = turn(f.x, f.z, -1.2 * s, -0.6 * s, -f.rot);
+  k.box(0.06 * s, 1.4 * s, 0.06 * s, sp.x, 0.3, sp.z, '#5c3a21', f.rot);
+  const bp = turn(f.x, f.z, -0.75 * s, -0.6 * s, -f.rot);
+  k.box(1.0 * s, 0.4 * s, 0.05 * s, bp.x, 0.3 + 1.3 * s, bp.z, '#1b4332', f.rot);
+}
+
+/**
+ * A mini golf hole (low-poly, ~200 triangles): a green in a white frame,
+ * the cup and flag, and its obstacle — a yellow cab, a water tower to putt
+ * under, or a little bridge (like the walk-in pieces, much lighter).
+ */
+function golfHole(k: Kit, f: CPFeature): void {
+  const s = f.s, r = f.rot;
+  const at = (lx: number, lz: number) => turn(f.x, f.z, lx * s, lz * s, -r);
+  const L = f.kind === 'golfTower' ? 3.0 : 4.0, D = f.kind === 'golfTower' ? 3.0 : 2.2;
+  k.box(L * s, 0.1 * s, D * s, f.x, 0.3, f.z, '#3a5a40', r);
+  k.box((L - 0.2) * s, 0.04 * s, (D - 0.2) * s, f.x, 0.3 + 0.1 * s, f.z, f.kind === 'golfBridge' ? '#38b000' : f.kind === 'golfTower' ? '#80ed99' : '#57cc99', r);
+  for (const sz of [-1, 1]) {
+    const p = at(0, (sz * (D - 0.12)) / 2);
+    k.box(L * s, 0.12 * s, 0.12 * s, p.x, 0.3 + 0.1 * s, p.z, '#f1faee', r);
+  }
+  for (const sx of [-1, 1]) {
+    const p = at((sx * (L - 0.12)) / 2, 0);
+    k.box(0.12 * s, 0.12 * s, D * s, p.x, 0.3 + 0.1 * s, p.z, '#f1faee', r);
+  }
+  const cup = at(L / 2 - 0.6, f.kind === 'golfHole' ? 0 : -0.5);
+  k.add(new THREE.CircleGeometry(0.09 * s, 8).rotateX(-Math.PI / 2), '#1b1d22', cup.x, 0.3 + 0.15 * s, cup.z);
+  k.add(new THREE.CylinderGeometry(0.015 * s, 0.015 * s, 0.8 * s, 4, 1, true), '#f8f9fa', cup.x, 0.3 + 0.55 * s, cup.z);
+  const flag = at(L / 2 - 0.45, f.kind === 'golfHole' ? 0 : -0.5);
+  k.box(0.3 * s, 0.18 * s, 0.02 * s, flag.x, 0.3 + 0.75 * s, flag.z, f.kind === 'golfTower' ? '#3a86ff' : f.kind === 'golfBridge' ? '#ffbe0b' : '#e63946', r);
+  if (f.kind === 'golfHole') {
+    const c = at(0, 0.4);
+    k.box(0.5 * s, 0.18 * s, 0.28 * s, c.x, 0.3 + 0.12 * s, c.z, '#ffd60a', r).box(0.28 * s, 0.12 * s, 0.26 * s, c.x, 0.3 + 0.3 * s, c.z, '#ffd60a', r);
+  } else if (f.kind === 'golfTower') {
+    for (const [lx, lz] of [[-0.4, -0.4], [0.4, -0.4], [-0.4, 0.4], [0.4, 0.4]]) {
+      const p = at(lx, lz);
+      k.add(new THREE.CylinderGeometry(0.04 * s, 0.04 * s, 1.4 * s, 4, 1, true), '#7a5230', p.x, 0.3 + 0.8 * s, p.z);
+    }
+    k.cyl(0.6 * s, 0.6 * s, 0.8 * s, f.x, 0.3 + 1.5 * s, f.z, '#a47148', 10);
+    k.add(new THREE.ConeGeometry(0.66 * s, 0.4 * s, 10, 1, true), '#5c3a21', f.x, 0.3 + 2.5 * s, f.z);
+  } else {
+    for (const lx of [-0.8, 0.8]) {
+      const p = at(lx, 0);
+      k.box(0.3 * s, 1.6 * s, 0.4 * s, p.x, 0.3 + 0.1 * s, p.z, '#b5838d', r);
+    }
+    k.box(2.4 * s, 0.1 * s, 0.6 * s, f.x, 0.3 + 0.9 * s, f.z, '#6d6875', r);
+  }
+}
+
 /** A cluster of schist boulders: [dx, dz, size] each, squashed by `flat`. */
 function rocks(k: Kit, x: number, z: number, list: number[][], flat: number, rot = 0): void {
   const shades = ['#8d8a85', '#a19d97', '#77736e', '#9a958f'];
@@ -379,7 +499,7 @@ function bowBridge(k: Kit, f: CPFeature): void {
     const seg = new THREE.BoxGeometry(W, 0.25, L / n + 0.08).rotateX(slope);
     k.add(seg, '#d9cbb0', f.x, yy, z);
     for (const sx of [-1, 1]) {
-      k.add(new THREE.BoxGeometry(0.14, 0.9, L / n + 0.08).rotateX(slope), i % 2 ? '#e8dcc3' : CREAM, f.x + sx * (W / 2 - 0.07), yy + 0.55, z);
+      k.add(new THREE.BoxGeometry(0.14, 0.9, L / n + 0.08).rotateX(slope), CREAM, f.x + sx * (W / 2 - 0.07), yy + 0.55, z);
       k.add(new THREE.BoxGeometry(0.22, 0.1, L / n + 0.1).rotateX(slope), '#f6f0e2', f.x + sx * (W / 2 - 0.07), yy + 1.02, z);
     }
   }
@@ -527,8 +647,7 @@ function signPosts(k: Kit, f: CPFeature): void {
 }
 
 /** The Conservatory Garden: clipped hedges round the lawn, fountains, the Vanderbilt Gate. */
-function consGarden(k: Kit, f: CPFeature, toys: Map<string, THREE.BufferGeometry>): void {
-  void toys;
+function consGarden(k: Kit, f: CPFeature): void {
   const hedge = (x: number, z: number, w: number, d: number) => {
     k.box(w, 1.5, d, x, 0.3, z, '#2d6a4f');
     const n = Math.round(Math.max(w, d) / 2.2);

@@ -46,6 +46,7 @@ import { CityBlocks } from "./nycgen/city-blocks.ts";
 import { groundTextures } from "./nycgen/atlas.ts";
 import { buildCoast, onLand } from "./coast.ts";
 import { pondsFor } from "../data/parks.ts";
+import { nightGlow } from "./night-glow.ts";
 import { centralParkPlan, centralParkTrees, seasonOf } from "./central-park-plan.ts";
 import { nycTime } from "../core/clock.ts";
 import type { QualityTier } from "../render/quality.ts";
@@ -141,7 +142,7 @@ export interface BuiltCity {
 // ---------------------------------------------------------------------
 
 /** All facade materials share one night-glow strength we update every frame. */
-export const nightGlow = { value: 0 };
+export { nightGlow };
 const facadeMats = new Map<FacadeStyle, THREE.MeshLambertMaterial>();
 
 export function facadeMaterial(style: FacadeStyle): THREE.MeshLambertMaterial {
@@ -707,7 +708,10 @@ export function buildCity(
       // Central Park's trees: species + seasonal colour, kept off the doors.
       ...(cp && opts.trees
         ? centralParkTrees(cp, seasonOf(nycTime().dateKey)).filter(
-            (t) => !doorSpots.some((s) => Math.hypot(s.door.x - t.x, s.door.z - t.z) < 6),
+            (t, i) =>
+              !doorSpots.some((s) => Math.hypot(s.door.x - t.x, s.door.z - t.z) < 6) &&
+              // Cheap phones: a third fewer trees out on the lawns (woods and the Mall stay full).
+              (opts.tier !== "low" || t.zone === "mall" || t.zone === "woods" || i % 3 !== 2),
           )
         : []),
     ],

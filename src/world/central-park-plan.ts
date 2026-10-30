@@ -47,6 +47,8 @@ export interface CPTree {
   s: number;
   /** Crown colour. */
   c: string;
+  /** Where it grows (the Mall, the woods, open groves…). */
+  zone: CentralParkPlan['treeSpots'][number]['zone'];
 }
 
 export interface CPWater {
@@ -414,8 +416,10 @@ function buildPlan(d: DistrictDef): CentralParkPlan | null {
     }
     return { name: w.name, kind: w.kind, pts: p, x: (x0 + x1) / 2, z: (z0 + z1) / 2, rx: (x1 - x0) / 2, rz: (z1 - z0) / 2 };
   });
+  // Every 3rd outline point is plenty for "how close to the shore" (and 3× faster).
+  const coarse = waters.map((w) => w.pts.filter((_, i) => i % 3 === 0));
   const inWater = (x: number, z: number, pad = 0) =>
-    waters.some((w) => Math.abs(x - w.x) < w.rx + pad + 1 && Math.abs(z - w.z) < w.rz + pad + 1 && (pointInPoly(x, z, w.pts) || (pad > 0 && distToPoly(x, z, w.pts) < pad)));
+    waters.some((w, i) => Math.abs(x - w.x) < w.rx + pad + 1 && Math.abs(z - w.z) < w.rz + pad + 1 && (pointInPoly(x, z, coarse[i]) || (pad > 0 && distToPoly(x, z, coarse[i]) < pad)));
 
   // ---- drives and paths as sampled lines
   const loop = spline(mp(LOOP), true, 2);
@@ -434,14 +438,17 @@ function buildPlan(d: DistrictDef): CentralParkPlan | null {
   const cherry = CHERRY_WALKS.map(mp);
 
   // Spatial hash of every line segment (paths and drives) for distance tests.
-  const CELL = 8;
+  // Each segment is filed under every cell within its half-width + MARGIN, so
+  // a query (pad ≤ MARGIN) only has to look in its own cell.
+  const CELL = 8, MARGIN = 2;
   const hash = new Map<string, { a: XZ; b: XZ; hw: number }[]>();
   const addLine = (line: XZ[], hw: number, closed = false) => {
     const n = closed ? line.length : line.length - 1;
     for (let i = 0; i < n; i++) {
       const a = line[i], b = line[(i + 1) % line.length];
-      const cx0 = Math.floor((Math.min(a.x, b.x) - hw) / CELL), cx1 = Math.floor((Math.max(a.x, b.x) + hw) / CELL);
-      const cz0 = Math.floor((Math.min(a.z, b.z) - hw) / CELL), cz1 = Math.floor((Math.max(a.z, b.z) + hw) / CELL);
+      const m = hw + MARGIN;
+      const cx0 = Math.floor((Math.min(a.x, b.x) - m) / CELL), cx1 = Math.floor((Math.max(a.x, b.x) + m) / CELL);
+      const cz0 = Math.floor((Math.min(a.z, b.z) - m) / CELL), cz1 = Math.floor((Math.max(a.z, b.z) + m) / CELL);
       for (let cx = cx0; cx <= cx1; cx++)
         for (let cz = cz0; cz <= cz1; cz++) {
           const k = `${cx},${cz}`;
@@ -455,14 +462,9 @@ function buildPlan(d: DistrictDef): CentralParkPlan | null {
   for (const dr of drives) addLine(dr, DRIVE_W / 2);
   for (const p of paths) addLine(p.pts, p.w / 2);
   const onLine = (x: number, z: number, pad = 0) => {
-    const k = `${Math.floor(x / CELL)},${Math.floor(z / CELL)}`;
-    for (let dx = -1; dx <= 1; dx++)
-      for (let dz = -1; dz <= 1; dz++) {
-        const l = hash.get(`${Math.floor(x / CELL) + dx},${Math.floor(z / CELL) + dz}`);
-        if (!l) continue;
-        for (const s of l) if (distToSeg(x, z, s.a, s.b) < s.hw + pad) return true;
-      }
-    void k;
+    const l = hash.get(`${Math.floor(x / CELL)},${Math.floor(z / CELL)}`);
+    if (!l) return false;
+    for (const s of l) if (distToSeg(x, z, s.a, s.b) < s.hw + Math.min(pad, MARGIN)) return true;
     return false;
   };
   const onPlaza = (x: number, z: number, pad = 0) => plazas.some((p) => pointInPoly(x, z, p.pts) || (pad > 0 && distToPoly(x, z, p.pts) < pad));
@@ -510,7 +512,6 @@ function buildPlan(d: DistrictDef): CentralParkPlan | null {
     F('statue', 180, -247, 0.8, 2.6), // Sherman-ish by Grand Army Plaza
     F('pretzel', 61, -246, 0, 1.6),
     F('pretzel', 70, -350, 0.5, 1.6),
-    F('pretzel', 160, -468, 0, 1.6),
     F('carriage', 128, -236, Math.PI / 2, 1.6),
     F('carriage', 143, -236, Math.PI / 2, 1.6),
     F('hedges', 168, -1022, 0, 1),
@@ -551,7 +552,11 @@ function buildPlan(d: DistrictDef): CentralParkPlan | null {
   clearRect(140, -524, 186, -598); // mini golf
   for (const dm of diamonds) clear.push({ x: dm.x, z: dm.z, r: 12 * dm.s });
 
-  const blocked = (x: number, z: number, pad = 0) => clear.some((c) => Math.hypot(x - c.x, z - c.z) < c.r + pad);
+  const blocked = (x: number, z: number, pad = 0) =>
+    clear.some((c) => {
+      const dx = x - c.x, dz = z - c.z, r = c.r + pad;
+      return dx < r && dx > -r && dz < r && dz > -r && dx * dx + dz * dz < r * r;
+    });
 
   // ---- ground painting
   const paint: PaintOp[] = [];
@@ -570,7 +575,7 @@ function buildPlan(d: DistrictDef): CentralParkPlan | null {
   for (let row = 0; row < 2; row++) for (let i = 0; i < 6; i++) paint.push({ t: 'tennis', x: mx(-45 + i * 6.6), z: mz(-886 - row * 15), w: 5.6, d: 12 });
   // Water (shore, depth, lilies, the Reservoir's fence).
   for (const w of waters) {
-    paint.push({ t: 'water', pts: w.pts, deep: w.kind === 'reservoir' ? '#2c78b8' : w.kind === 'pool' ? '#4fa9d8' : '#3a8fc6', shallow: w.kind === 'reservoir' ? '#4a9bd2' : '#64bfe6', rim: w.kind === 'pool' ? '#d9d1c1' : w.kind === 'reservoir' ? '#c9c0ae' : '#b9ad95', fence: w.kind === 'reservoir', lilies: w.name === 'Turtle Pond' || w.name === 'The Pool' ? 10 : w.name === 'Harlem Meer' ? 8 : w.name === 'The Pond' ? 6 : 0 });
+    paint.push({ t: 'water', pts: w.pts, deep: w.kind === 'reservoir' ? '#2c78b8' : w.kind === 'pool' ? '#3f9fd2' : '#2f84bf', shallow: w.kind === 'reservoir' ? '#4a9bd2' : '#4fb0de', rim: w.kind === 'pool' ? '#d9d1c1' : w.kind === 'reservoir' ? '#c9c0ae' : '#b9ad95', fence: w.kind === 'reservoir', lilies: w.name === 'Turtle Pond' || w.name === 'The Pool' ? 10 : w.name === 'Harlem Meer' ? 8 : w.name === 'The Pond' ? 6 : 0 });
   }
   // The Loch: a stream from the Pool through the woods to the Meer.
   paint.push({ t: 'stroke', pts: spline(mp([[2, -1006], [16, -1016], [32, -1026], [50, -1034], [66, -1048], [80, -1062], [95, -1074]]), false, 2), w: 4.2, color: '#b9ad95' });
@@ -766,17 +771,17 @@ function buildPlan(d: DistrictDef): CentralParkPlan | null {
   const rowboats = boatLoops(waters.find((w) => w.name === 'The Lake'), 9, 2.5, 6);
   const sailboats = boatLoops(waters.find((w) => w.name === 'Conservatory Water'), 4, 1.5, 3);
 
-  // ---- no walking on water: rectangles (rows of cells inside the water)
+  // ---- no walking on water: rectangles (runs of 2 m cells whose middle is wet)
   const solids: Rect[] = [];
   for (const w of waters) {
-    const step = 4;
-    for (let z = w.z - w.rz; z < w.z + w.rz; z += step) {
+    const step = 2;
+    for (let z = w.z - w.rz - step; z < w.z + w.rz + step; z += step) {
       let run: number | null = null;
-      for (let x = w.x - w.rx; x <= w.x + w.rx + step; x += step) {
-        const inside = [[0, 0], [step, 0], [0, step], [step, step]].every(([dx, dz]) => pointInPoly(x + dx, z + dz, w.pts));
-        if (inside && run === null) run = x;
-        if (!inside && run !== null) {
-          solids.push({ minX: run + 0.6, maxX: x - 0.6 + step, minZ: z + 0.6, maxZ: z + step - 0.6 });
+      for (let x = w.x - w.rx - step; x <= w.x + w.rx + step; x += step) {
+        const wet = pointInPoly(x + step / 2, z + step / 2, w.pts);
+        if (wet && run === null) run = x;
+        if (!wet && run !== null) {
+          solids.push({ minX: run, maxX: x, minZ: z, maxZ: z + step });
           run = null;
         }
       }
@@ -787,7 +792,9 @@ function buildPlan(d: DistrictDef): CentralParkPlan | null {
   const treeSpots: CentralParkPlan['treeSpots'] = [];
   const shoreDist = (x: number, z: number) => {
     let dd = Infinity;
-    for (const w of waters) if (Math.abs(x - w.x) < w.rx + 14 && Math.abs(z - w.z) < w.rz + 14) dd = Math.min(dd, distToPoly(x, z, w.pts));
+    waters.forEach((w, i) => {
+      if (Math.abs(x - w.x) < w.rx + 14 && Math.abs(z - w.z) < w.rz + 14) dd = Math.min(dd, distToPoly(x, z, coarse[i]));
+    });
     return dd;
   };
   const inLawn = (x: number, z: number) => lawns.some((l) => pointInPoly(x, z, l.pts));
@@ -795,29 +802,30 @@ function buildPlan(d: DistrictDef): CentralParkPlan | null {
   along(mall, 7.5, (q, nx, nz) => {
     for (const off of [-10.5, -6.8, 6.8, 10.5]) {
       const x = q.x + nx * off, z = q.z + nz * off;
-      if (!blocked(x, z) && !onLine(x, z, 0.5)) treeSpots.push({ x, z, s: rng.range(1.55, 1.8), zone: 'mall' });
+      if (!blocked(x, z) && !onPath(x, z, 0.5)) treeSpots.push({ x, z, s: rng.range(1.55, 1.8), zone: 'mall' });
     }
   }, 3);
-  const SP = 6.2;
+  const mallTrees = treeSpots.slice();
+  const SP = 6.4;
   for (let gx = grass.minX + 3; gx < grass.maxX - 3; gx += SP)
     for (let gz = grass.minZ + 3; gz < grass.maxZ - 3; gz += SP) {
       const x = gx + rng.range(-SP * 0.42, SP * 0.42);
       const z = gz + rng.range(-SP * 0.42, SP * 0.42);
       const roll = rng.next();
       if (!inGrass(x, z, 2.2)) continue;
-      if (inWater(x, z, 2.4) || onPath(x, z, 1.6) || blocked(x, z) || inLawn(x, z)) continue;
-      if (treeSpots.some((t) => t.zone === 'mall' && Math.abs(t.x - x) < 4 && Math.abs(t.z - z) < 4)) continue;
+      if (blocked(x, z) || inLawn(x, z) || onPath(x, z, 1.6) || inWater(x, z, 2.4)) continue;
+      if (mallTrees.some((t) => Math.abs(t.x - x) < 4 && Math.abs(t.z - z) < 4)) continue;
       const edge = Math.min(x - grass.minX, grass.maxX - x, z - grass.minZ, grass.maxZ - z);
       const sd = shoreDist(x, z);
       let dens: number, zone: CentralParkPlan['treeSpots'][number]['zone'];
       if (pointInPoly(x, z, pinetum)) (dens = 0.8), (zone = 'pinetum');
       else if (cherry.some((c) => pointInPoly(x, z, c))) (dens = 0.75), (zone = 'cherry');
       else if (woods.some((w) => pointInPoly(x, z, w))) (dens = 0.88), (zone = 'woods');
-      else if (edge < 13) (dens = 0.78), (zone = 'edge');
+      else if (edge < 12) (dens = 0.68), (zone = 'edge');
       else if (sd < 11) (dens = 0.55), (zone = 'shore');
       else {
         const n = valueNoise(x / 38, z / 38, 7) * 0.7 + valueNoise(x / 13, z / 13, 3) * 0.3;
-        dens = 0.12 + 0.68 * Math.min(1, Math.max(0, (n - 0.4) / 0.3));
+        dens = 0.06 + 0.62 * Math.min(1, Math.max(0, (n - 0.42) / 0.3));
         zone = 'grove';
       }
       if (roll > dens) continue;
@@ -904,6 +912,6 @@ export function centralParkTrees(plan: CentralParkPlan, season: Season): CPTree[
       case 'woods': sp = rng.chance(0.08) ? 'pine' : rng.chance(0.35) ? 'maple' : rng.chance(0.5) ? 'oak' : 'elm'; break;
       default: sp = rng.chance(0.06) ? 'pine' : rng.chance(0.3) ? 'maple' : rng.chance(0.5) ? 'elm' : 'oak';
     }
-    return { x: t.x, z: t.z, y: 0.28, sp, s: sp === 'cherry' ? t.s * 0.9 : t.s, c: rng.pick(pal[sp]) };
+    return { x: t.x, z: t.z, y: 0.28, sp, s: sp === 'cherry' ? t.s * 0.9 : t.s, c: rng.pick(pal[sp]), zone: t.zone };
   });
 }
