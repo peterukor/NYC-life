@@ -154,7 +154,7 @@ export const UPTOWN_PLACES: RawPlace[] = [
   {
     id: 'eternalRest', area: 'manhattan', name: 'Eternal Rest Showroom', emoji: '⚰️', type: 'fun',
     blurb: 'Caskets, urns and “pre-need planning”. Free coffee. They really, really want you to lie down in something.',
-    at: [40.7479, -73.9790], hours: [10, 19], interior: 'office', color: '#4a4e69',
+    at: [40.7479, -73.9790], hours: [10, 19], interior: 'none', color: '#4a4e69',
     actions: ['coffinNap', 'planFuneral'],
   },
   {
@@ -210,7 +210,7 @@ export const UPTOWN_PLACES: RawPlace[] = [
   {
     id: 'clinicalTrial', area: 'manhattan', name: 'Uptown Paid Research Center', emoji: '🧪', type: 'work',
     blurb: 'Studies that pay cash for your time (and your blood pressure). Side effects listed in very small print.',
-    at: [40.7905, -73.9530], hours: [8, 18], interior: 'none', color: '#2a9d8f',
+    at: [40.7905, -73.9530], hours: [8, 18], interior: 'office', color: '#2a9d8f',
     actions: ['clinicalTrial'],
   },
   {
@@ -235,7 +235,7 @@ export const UPTOWN_PLACES: RawPlace[] = [
   {
     id: 'storageAuction', area: 'manhattan', name: 'Heights Storage Auctions', emoji: '📦', type: 'shop',
     blurb: 'Abandoned units, sold blind, cash only. Most are junk. One had a parking spot in it. People still talk about it.',
-    at: [40.8490, -73.9365], hours: [10, 19], interior: 'none', color: '#f4a261',
+    at: [40.8490, -73.9365], hours: [10, 19], interior: 'shop', color: '#f4a261',
     actions: ['storageAuction'],
   },
   {
