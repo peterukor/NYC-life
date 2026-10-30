@@ -1,7 +1,7 @@
 // =====================================================================
 // QA: moving traffic at street level, plus how long a traffic update takes.
 //   HOUR=12 OUT=day node scripts/qa-traffic.mjs → test-results/traffic-<OUT>-*.png
-// Needs `npx vite preview --port 4173`. Q=high (85 cars) by default.
+// Needs `npx vite preview --port 4173` (or PORT=…). Q=high (85 cars) by default.
 // =====================================================================
 import puppeteer from 'puppeteer-core';
 import { mkdirSync } from 'node:fs';
@@ -20,7 +20,7 @@ await page.setViewport({ width: +(process.env.W ?? 900), height: +(process.env.H
 const errors = [];
 page.on('pageerror', (e) => errors.push(e.message));
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
-await page.goto(`http://localhost:4173/?qa=1&class=middle&weather=sunny&hour=${process.env.HOUR ?? 12}&quality=${process.env.Q ?? 'high'}`, { waitUntil: 'load' });
+await page.goto(`http://localhost:${process.env.PORT ?? 4173}/?qa=1&class=middle&weather=sunny&hour=${process.env.HOUR ?? 12}&quality=${process.env.Q ?? 'high'}`, { waitUntil: 'load' });
 await page.evaluate(() => localStorage.clear());
 await page.reload({ waitUntil: 'load' });
 await page.waitForSelector('#ob-year', { timeout: 30000 });
@@ -61,6 +61,27 @@ for (const { c } of scored) {
   if (views.some((v) => Math.hypot(v.x - c.x, v.z - c.z) < 50)) continue;
   views.push(c);
   if (views.length >= 3) break;
+}
+if (process.env.CLOSE) {
+  // Close-ups (paint, glass, wheels): a car waiting at a red light, from ~7 m at
+  // kerb height, front three-quarter. Waits for a red if nobody is stopped.
+  const used = [];
+  for (let j = 1; j <= +process.env.CLOSE; j++) {
+    let car = null;
+    for (let tries = 0; tries < 8 && !car; tries++) {
+      const cars = (await page.evaluate(() => window.__nyc.traffic())).cars;
+      car = cars.filter((c) => c.lane >= 0 && c.v < 0.3 && Math.hypot(c.x - me.x, c.z - me.z) < 220 && !used.some((u) => Math.hypot(u.x - c.x, u.z - c.z) < 12))
+        .sort((a, b) => Math.hypot(a.x - me.x, a.z - me.z) - Math.hypot(b.x - me.x, b.z - me.z))[0] ?? null;
+      if (!car) await wait(2500);
+    }
+    if (!car) break;
+    used.push(car);
+    const fx = Math.sin(car.h), fz = Math.cos(car.h);
+    const side = j % 2 ? 1 : -1;
+    await page.evaluate((a) => window.__nyc.streetCam(...a), [car.x + fx * 5.5 + fz * 4 * side, 2.0, car.z + fz * 5.5 - fx * 4 * side, car.x, 0.6, car.z]);
+    await wait(400);
+    await page.screenshot({ path: `${dir}/close-${out}-${j}.png` });
+  }
 }
 let k = 0;
 for (const c of views) {

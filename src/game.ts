@@ -20,7 +20,7 @@ import { PLOT_BY_ID, PLOTS } from './data/plots.ts';
 import { openPlotPanel } from './ui/plot-panel.ts';
 import * as THREE from 'three';
 import { VEHICLES } from './data/vehicles.ts';
-import { vehicleGeometry, vehicleMaterial } from './world/vehicle-models.ts';
+import { vehicleGeometry, vehicleMaterial, vehicleMesh } from './world/vehicle-models.ts';
 import { bus } from './core/bus.ts';
 import { clockLabel, gameMinutesToRealMs, isRushHour, nowMs, nycTime } from './core/clock.ts';
 import { MAP_MAX_DISTANCE, MAP_SPAN_FRACTION, MANHATTAN_BOUNDS, DETAIL_RADIUS, RIDESHARE, SUBWAY_FARE, TRAVEL_SECONDS, BLACK_CAR_REP, WALK_SPEED, INDOOR_WALK, SHIFT_GAME_HOURS, MAX_SHIFTS_PER_DAY, DIRECTOR_TICK_SECONDS, CAMERA } from './core/constants.ts';
@@ -4565,7 +4565,7 @@ export class Game {
       this.carKey = key;
       const v = car ? VEHICLES.get(car.model) : undefined;
       if (v && car) {
-        this.carMesh = new THREE.Mesh(vehicleGeometry(v, car.paint), vehicleMaterial());
+        this.carMesh = vehicleMesh(v, car.paint); // showroom detail + its contact shadow
         this.carMesh.name = 'my-car';
         this.engine.cityScene.add(this.carMesh);
       }

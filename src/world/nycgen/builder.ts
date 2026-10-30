@@ -11,6 +11,10 @@
 //   color              — the paint colour (walls, props)
 //   aCell              — where it sits on the facade grid (bays, floors)
 //   aInfo              — x: atlas tile number, y: building id (for fading)
+//   aMat               — vehicles only: what the surface is made of (paint,
+//                        glass, chrome… see car-shapes.ts MAT), so the
+//                        vehicle shader can make paint glossy and glass
+//                        reflective. Only written when something set it.
 // =====================================================================
 
 import * as THREE from 'three';
@@ -23,6 +27,13 @@ export class CityMeshBuilder {
   private cell: number[] = [];
   private info: number[] = [];
   private idx: number[] = [];
+  private mats: number[] = [];
+  private anyMat = false;
+  /** Material id stamped on everything added until it's changed (vehicles: car-shapes.ts MAT). */
+  mat = 0;
+  /** When set, picks the material id from each piece's colour instead of `mat`. */
+  matFor: ((color: THREE.ColorRepresentation) => number) | null = null;
+  private curMat = 0;
   /** Building id stamped on everything added until it's changed. */
   bid = 0;
   /** When set, overrides bid for everything (far stand-ins use one id per block). */
@@ -39,7 +50,15 @@ export class CityMeshBuilder {
     this.col.push(this.c.r, this.c.g, this.c.b);
     this.cell.push(u, v);
     this.info.push(tile, this.lockBid ?? this.bid);
+    this.mats.push(this.curMat);
+    if (this.curMat) this.anyMat = true;
     return this.pos.length / 3 - 1;
+  }
+
+  /** Set the colour (and material id) for the vertices that follow. */
+  private paint(color: THREE.ColorRepresentation): void {
+    this.c.set(color);
+    this.curMat = this.matFor ? this.matFor(color) : this.mat;
   }
 
   /**
@@ -48,7 +67,7 @@ export class CityMeshBuilder {
    * shift the pattern.
    */
   quad(a: THREE.Vector3Like, b: THREE.Vector3Like, c: THREE.Vector3Like, d: THREE.Vector3Like, color: THREE.ColorRepresentation, tile = 0, cu = 1, cv = 1, u0 = 0, v0 = 0): void {
-    this.c.set(color);
+    this.paint(color);
     const ex = b.x - a.x, ey = b.y - a.y, ez = b.z - a.z;
     const fx = d.x - a.x, fy = d.y - a.y, fz = d.z - a.z;
     let nx = ey * fz - ez * fy, ny = ez * fx - ex * fz, nz = ex * fy - ey * fx;
@@ -99,7 +118,7 @@ export class CityMeshBuilder {
 
   /** A low-poly cylinder (water tanks, poles, tree trunks). */
   cyl(x: number, z: number, y0: number, y1: number, rBottom: number, rTop: number, color: THREE.ColorRepresentation, sides = 8, cap = true): void {
-    this.c.set(color);
+    this.paint(color);
     const base = this.vertexCount;
     const slope = (rBottom - rTop) / Math.max(0.001, y1 - y0);
     for (let i = 0; i <= sides; i++) {
@@ -183,7 +202,7 @@ export class CityMeshBuilder {
 
   /** Copy any small geometry in (scaled, rotated about Y, moved). Non-indexed or indexed. */
   add(src: THREE.BufferGeometry, color: THREE.ColorRepresentation, x: number, y: number, z: number, sx = 1, sy = 1, sz = 1, rotY = 0): void {
-    this.c.set(color);
+    this.paint(color);
     const p = src.getAttribute('position');
     const n = src.getAttribute('normal');
     const cs = Math.cos(rotY), sn = Math.sin(rotY);
@@ -212,6 +231,7 @@ export class CityMeshBuilder {
     const info = src.getAttribute('aInfo');
     const cs = Math.cos(rotY), sn = Math.sin(rotY);
     const base = this.vertexCount;
+    this.curMat = 0; // copies into city blocks: plain city material
     for (let i = 0; i < p.count; i++) {
       const px = p.getX(i), pz = p.getZ(i);
       const nx = n.getX(i), nz = n.getZ(i);
@@ -222,10 +242,10 @@ export class CityMeshBuilder {
     for (let i = 0; i < index.count; i++) this.idx.push(base + index.getX(i));
   }
 
-  /** Add one plain-coloured vertex (for custom smooth shapes like car bodies). Returns its index. */
-  rawVert(x: number, y: number, z: number, nx: number, ny: number, nz: number, color: THREE.ColorRepresentation): number {
-    this.c.set(color);
-    return this.vert(x, y, z, nx, ny, nz, 0, 0, 0);
+  /** Add one plain-coloured vertex (for custom smooth shapes like car bodies). u/v go in aCell (car rims use it). Returns its index. */
+  rawVert(x: number, y: number, z: number, nx: number, ny: number, nz: number, color: THREE.ColorRepresentation, u = 0, v = 0): number {
+    this.paint(color);
+    return this.vert(x, y, z, nx, ny, nz, u, v, 0);
   }
 
   /** Add one triangle from three rawVert indices (counter-clockwise seen from outside). */
@@ -252,6 +272,7 @@ export class CityMeshBuilder {
     g.setAttribute('color', new THREE.Float32BufferAttribute(this.col, 3));
     g.setAttribute('aCell', new THREE.Float32BufferAttribute(this.cell, 2));
     g.setAttribute('aInfo', new THREE.Float32BufferAttribute(this.info, 2));
+    if (this.anyMat) g.setAttribute('aMat', new THREE.Float32BufferAttribute(this.mats, 1));
     const n = this.vertexCount;
     g.setIndex(n > 65535 ? new THREE.Uint32BufferAttribute(this.idx, 1) : new THREE.Uint16BufferAttribute(this.idx, 1));
     g.computeBoundingBox();

@@ -8,8 +8,11 @@
 import { isRushHour } from '../core/clock.ts';
 import { SYSTEMS } from '../core/systems.ts';
 import { Traffic } from '../world/traffic.ts';
+import { CarShadows } from '../world/vehicle-models.ts';
 
 let traffic: Traffic | null = null;
+/** Soft contact shadows under every moving car (one draw call). */
+let shadows: CarShadows | null = null;
 
 /** The running traffic (QA hooks and perf checks only). */
 export const currentTraffic = (): Traffic | null => traffic;
@@ -19,11 +22,15 @@ SYSTEMS.add({
   areaLoaded(ctx) {
     traffic = new Traffic(ctx.district, ctx.quality.cars);
     ctx.scene.add(traffic.group);
+    shadows = new CarShadows(traffic.group);
   },
   update(dt, ctx) {
     traffic?.update(dt, isRushHour(ctx.time), ctx.player, ctx.camera);
+    shadows?.sync();
   },
   areaUnloaded() {
+    shadows?.dispose();
+    shadows = null;
     traffic?.dispose();
     traffic = null;
   },

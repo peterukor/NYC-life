@@ -115,7 +115,7 @@ function lighten(hex: string, k: number): string {
  */
 export function parkedCar(b: CityMeshBuilder, x: number, z: number, along: 'x' | 'z', rng: Rng): void {
   const v = pickVehicle(() => rng.next(), 'parkWeight');
-  const geo = vehicleGeometry(v, rng.pick(v.paints), 0);
+  const geo = vehicleGeometry(v, rng.pick(v.paints), 0, true); // baked: merged into the block's city mesh
   const facing = rng.chance(0.5) ? 0 : Math.PI;
   b.addBuilt(geo, x, 0, z, (along === 'x' ? Math.PI / 2 : 0) + facing);
 }

@@ -14,7 +14,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import type { HomeLayout } from '../data/homes.ts';
 import { VEHICLES } from '../data/vehicles.ts';
 import { floorMaterial } from '../render/home-surfaces.ts';
-import { vehicleGeometry } from './vehicle-models.ts';
+import { vehicleMesh } from './vehicle-models.ts';
 
 export interface YardOptions {
   /** The car on the driveway (a vehicle id and paint), or none. */
@@ -218,8 +218,8 @@ export function buildYard(layout: HomeLayout, opts: YardOptions = {}): Yard {
   // ---- the car on the driveway
   if (carOn && opts.car) {
     const v = VEHICLES.get(opts.car.model)!;
-    const g = vehicleGeometry(v, opts.car.paint, 1);
-    const m = new THREE.Mesh(g, keep(new THREE.MeshLambertMaterial({ vertexColors: true })));
+    // Same glossy look as on the street (shared material and geometry: not disposed here).
+    const m = vehicleMesh(v, opts.car.paint);
     m.position.set(driveX, LAWN_Y + 0.02, hd + PAVE + 2.6);
     m.rotation.y = Math.PI; // nose to the house
     m.castShadow = !!opts.shadows;

@@ -19,8 +19,18 @@
 // fewer triangles and rare cars get smoother curves.
 //
 // Orientation: front is +z, sits on y = 0, centred on x = 0.
+//
+// MATERIALS: every vertex also says what it is made of (MAT: paint, glass,
+// chrome, black trim, rim, tyre, lamp) in the builder's aMat attribute.
+// The vehicle shader (vehicle-models.ts) reads it to make paint glossy,
+// glass dark and reflective, chrome shiny and tyres matte. Paint vertices
+// also carry where the black trim starts (bumpers, sills), so the trim
+// line is crisp without extra triangles. Parked cars are merged into the
+// city's blocks and don't use that shader: they're built with `baked`
+// set, which paints the trim and lights into the vertex colours instead.
 // =====================================================================
 
+import * as THREE from 'three';
 import type { CityMeshBuilder } from './nycgen/builder.ts';
 
 type V3 = [number, number, number];
@@ -207,12 +217,86 @@ export interface CarSpec {
   taillight?: string;
   /** Height of the head/tail lights (m). Default: worked out from the body (right for cars; vans and buses set it). */
   lightY?: number;
+  /** Front grille between the headlights: 'black' (default for cars), 'chrome', or false (EVs, supercars, vans). */
+  grille?: 'black' | 'chrome' | false;
+  /** Door mirrors (default: on any car with a cabin). */
+  mirrors?: boolean;
 }
 
-export const GLASS = '#8fd0f5';
-export const DARK_GLASS = '#3c4f6b';
-export const TYRE = '#26282e';
+/** Tinted glass (the shader adds the sky's reflection and a streak). Was a flat light blue. */
+export const GLASS = '#34475c';
+export const DARK_GLASS = '#1c2531';
+/** Bus and van side windows. */
+export const BUS_GLASS = '#26313f';
+export const TYRE = '#1c1d21';
 export const CHROME = '#d5dbe3';
+/** Bumpers, sills, grilles, mirrors' stalks: satin black plastic. */
+export const TRIM_BLACK = '#1b1d22';
+
+/**
+ * What a surface is made of (the builder's aMat attribute, read by the
+ * vehicle shader). Paint ids also pack the trim line: see paintMat().
+ */
+export const MAT = { matte: 0, paint: 1, glass: 2, chrome: 3, trim: 4, rim: 5, tyre: 6, lamp: 7 } as const;
+
+/** Paint's material id, with the height (m) below which it turns to trim (kind 1 = black, 2 = chrome). */
+export function paintMat(trimY: number, kind: 0 | 1 | 2): number {
+  return MAT.paint + 16 * kind + 64 * Math.round(Math.max(0, trimY) * 100);
+}
+
+/**
+ * Metallic or solid paint. Paints are plain hex strings everywhere (saves,
+ * the shop, traffic's instance colours), so "metallic" rides in the colour
+ * itself: an odd blue byte = metallic, even = solid. One step of blue is
+ * invisible; the vehicle shader reads it back per car (instanced or not).
+ */
+export function metallic(hex: string): string {
+  return withBlueBit(hex, 1);
+}
+export function solid(hex: string): string {
+  return withBlueBit(hex, 0);
+}
+export function isMetallic(hex: string): boolean {
+  return (parseInt(hex.slice(5, 7), 16) & 1) === 1;
+}
+function withBlueBit(hex: string, bit: 0 | 1): string {
+  let bl = parseInt(hex.slice(5, 7), 16);
+  if ((bl & 1) !== bit) bl = bit ? (bl === 255 ? 255 : bl + 1) : bl - 1;
+  return `${hex.slice(0, 5)}${bl.toString(16).padStart(2, '0')}`.toLowerCase();
+}
+
+const GLASSES = new Set([GLASS, DARK_GLASS, BUS_GLASS, '#1d2636', '#141a26']);
+const CHROMES = new Set([CHROME, '#c9d1db', '#e0e5ec', '#e5e7eb', '#f6f6f6', '#9ca3af']);
+const isChrome = (c: string) => CHROMES.has(c.toLowerCase());
+
+/**
+ * Pick a material id from a piece's colour (for bodies and the extras in
+ * data/vehicles.ts): the paint is paint, known glass/chrome/lamp colours
+ * are those, near-black is trim, anything else (stripes, wings, signs'
+ * housings) is painted and glossy.
+ */
+function matClassifier(paint: string, paintId: number, glass: string[]): (c: THREE.ColorRepresentation) => number {
+  const memo = new Map<string, number>();
+  const glasses = new Set([...GLASSES, ...glass.map((g) => g.toLowerCase())]);
+  const lamps = new Set([HEADLIGHT, TAILLIGHT, SIGN_LIT, BEACON_BLUE, '#e0f7ff']);
+  const tmp = new THREE.Color();
+  return (c) => {
+    const k = typeof c === 'string' ? c.toLowerCase() : `#${tmp.set(c).getHexString()}`;
+    let m = memo.get(k);
+    if (m !== undefined) return m;
+    if (k === paint.toLowerCase()) m = paintId;
+    else if (lamps.has(k)) m = MAT.lamp;
+    else if (glasses.has(k)) m = MAT.glass;
+    else if (CHROMES.has(k)) m = MAT.chrome;
+    else {
+      tmp.set(k);
+      const lum = 0.2126 * tmp.r + 0.7152 * tmp.g + 0.0722 * tmp.b; // linear
+      m = lum < 0.03 ? MAT.trim : paintMat(0, 0);
+    }
+    memo.set(k, m);
+    return m;
+  };
+}
 /**
  * Lamp colours. Moving traffic's material (vehicle-models.ts) recognises
  * these exact colours and makes them glow at night, so use them for
@@ -234,15 +318,21 @@ export interface CarFrame {
   sideAt: (t: number, y: number) => number;
 }
 
+/** Detail: 0 = cheap (parked cars, low-end phones), 1 = traffic, 2 = showroom (your own car). */
+export type CarLod = 0 | 1 | 2;
+
 /**
  * Build a smooth cartoon car into the builder. Returns helpers for adding extras.
- * lod 0 = cheap (parked cars, low-end phones), 1 = full detail.
+ * baked = for the city's block meshes (parked cars): no vehicle shader, so
+ * trim is painted into the vertex colours. Otherwise every vertex gets a
+ * material id (MAT) and the shader does paint, trim, glass and chrome.
+ * The builder's matFor stays set afterwards, so extras get material ids too.
  */
-export function buildCar(b: CityMeshBuilder, s: CarSpec, paint: string, lod: 0 | 1 = 1): CarFrame {
+export function buildCar(b: CityMeshBuilder, s: CarSpec, paint: string, lod: CarLod = 1, baked = false): CarFrame {
   const L = s.length;
   const W = s.width;
   const n = s.round ?? 3;
-  const segs = lod ? s.segs ?? 12 : 8;
+  const segs = lod === 2 ? (s.segs ?? 12) + 4 : lod ? s.segs ?? 12 : 8;
   const er = s.endRound ?? 0.45;
   const R = s.wheelR;
   const top = curve(s.top);
@@ -272,24 +362,34 @@ export function buildCar(b: CityMeshBuilder, s: CarSpec, paint: string, lod: 0 |
   const hw = (t: number) => (W / 2) * plan(t) * endF(t);
   const P = (t: number, u: number): V3 => [hw(t) * sp(Math.cos(u), 2 / n), cy(t) + hh(t) * sp(Math.sin(u), 2 / n), z(t)];
   const center = (t: number): V3 => [0, cy(t), z(t)];
+  const topAt = (t: number, xf: number) => cy(t) + hh(t) * Math.max(0, 1 - Math.abs(xf) ** n) ** (1 / n);
+  const sideAt = (t: number, y: number) => hw(t) * Math.max(0, 1 - Math.min(1, Math.abs((y - cy(t)) / hh(t))) ** n) ** (1 / n);
+  const frame: CarFrame = { top, halfW: hw, z, topAt, sideAt };
 
   // Slices: bunched at the rounded ends, evenly spread in between.
   const ts: number[] = [];
   const ends = (lod ? [0, 0.12, 0.35, 0.65, 1] : [0, 0.4, 1]).map((f) => (f * er) / L);
   for (const f of ends) ts.push(f);
-  const mid = lod ? s.slices ?? 7 : 3;
+  const mid = lod === 2 ? (s.slices ?? 7) + 3 : lod ? s.slices ?? 7 : 3;
   for (let i = 1; i < mid; i++) ts.push(ends[ends.length - 1] + ((1 - 2 * ends[ends.length - 1]) * i) / mid);
   for (const f of [...ends].reverse()) ts.push(1 - f);
   // Extra slices across each wheel arch so it reads round.
   for (const tw of s.wheels) for (const o of lod ? [-1, -0.5, 0, 0.5, 1] : [-1, 0, 1]) ts.push(tw + (o * R * 1.15) / L);
   const uniq = [...new Set(ts.map((t) => Math.round(Math.min(1, Math.max(0, t)) * 1e4) / 1e4))].sort((a, b2) => a - b2);
 
+  // Materials. With the shader, the paint ids carry the trim line: black
+  // bumpers and sills on every car (the colour blob reads as a car), or
+  // the spec's own trim (chrome on the limo and the classics).
+  const trimY = s.trim?.below ?? R * 0.98;
+  const trimKind: 1 | 2 = s.trim && isChrome(s.trim.color) ? 2 : 1;
+  b.matFor = baked ? null : matClassifier(paint, paintMat(trimY, trimKind), [s.cabin?.glass ?? GLASS]);
+  b.mat = 0;
   const bodyColor = (t: number, u: number) => {
     if (!s.trim) return paint;
     const y = cy(t) + hh(t) * sp(Math.sin(u), 2 / n);
     return y < s.trim.below ? s.trim.color : paint;
   };
-  surface(b, P, uniq, [{ u0: -Math.PI, u1: Math.PI, segs: segs, color: s.trim ? bodyColor : paint }], center, true);
+  surface(b, P, uniq, [{ u0: -Math.PI, u1: Math.PI, segs: segs, color: s.trim && baked ? bodyColor : paint }], center, true);
 
   // ----- Cabin (glasshouse) -----
   if (s.cabin) {
@@ -345,8 +445,14 @@ export function buildCar(b: CityMeshBuilder, s: CarSpec, paint: string, lod: 0 |
   for (const tw of s.wheels) {
     for (const side of [-1, 1]) {
       const xo = side * (W / 2 - wr * 0.42);
-      wheel(b, xo, z(tw), R, wr, side, s.tyre ?? TYRE, s.rim ?? CHROME, lod ? Math.max(10, segs - 2) : 8);
+      wheel(b, xo, z(tw), R, wr, side, s.tyre ?? TYRE, s.rim ?? CHROME, lod ? Math.max(10, segs - 2) : 8, !baked);
     }
+  }
+  // A dark plate just above the road under the body: the gap under the car
+  // reads as shade instead of bright asphalt (cars stop floating). 2 triangles.
+  {
+    const hx = (W / 2) * 0.6, hz = L / 2 - er * 1.4; // well inside the body's footprint
+    b.quad({ x: -hx, y: 0.08, z: hz }, { x: hx, y: 0.08, z: hz }, { x: hx, y: 0.08, z: -hz }, { x: -hx, y: 0.08, z: -hz }, '#0b0c0e');
   }
 
   // ----- Lights -----
@@ -372,12 +478,52 @@ export function buildCar(b: CityMeshBuilder, s: CarSpec, paint: string, lod: 0 |
     const zf = z(edgeT(xf, yf, true));
     const zr = z(edgeT(xr, yr, false));
     // A little bigger than they used to be: at street distance they're the car's "eyes".
-    b.box(xf - 0.21, xf + 0.21, yf - 0.095, yf + 0.095, zf - 0.08, zf + 0.06, hl, 'nsewt');
-    b.box(xr - 0.22, xr + 0.22, yr - 0.08, yr + 0.08, zr - 0.06, zr + 0.08, tl, 'nsewt');
+    // Set into the nose and tail (they used to stick out like blocks).
+    b.box(xf - 0.21, xf + 0.21, yf - 0.095, yf + 0.095, zf - 0.1, zf + 0.025, hl, 'nsewt');
+    b.box(xr - 0.22, xr + 0.22, yr - 0.08, yr + 0.08, zr - 0.025, zr + 0.1, tl, 'nsewt');
   }
-  const topAt = (t: number, xf: number) => cy(t) + hh(t) * Math.max(0, 1 - Math.abs(xf) ** n) ** (1 / n);
-  const sideAt = (t: number, y: number) => hw(t) * Math.max(0, 1 - Math.min(1, Math.abs((y - cy(t)) / hh(t))) ** n) ** (1 / n);
-  return { top, halfW: hw, z, topAt, sideAt };
+
+  // ----- Grille: a black (or chrome) mouth between the headlights, hugging the nose -----
+  const grille = s.grille ?? (s.lightY ? false : 'black');
+  if (grille) {
+    const tf = 1 - (er * 0.5) / L;
+    const yc = cy(tf) + hh(tf) * 0.4;
+    const gw = Math.min(0.5, hw(tf) * 0.42);
+    const y0 = yc - 0.13, y1 = yc + 0.05;
+    const across = lod ? 4 : 2;
+    const at = (k: number, y: number, lift: number) => {
+      const x = -gw + (2 * gw * k) / across;
+      return { x, y, z: z(edgeT(x, y, true)) + lift };
+    };
+    for (let k = 0; k < across; k++) {
+      // Black mouth (faces +z) under a thin chrome lip; 'chrome' adds a bar across it.
+      b.quad(at(k + 1, y0, 0.012), at(k, y0, 0.012), at(k, y1, 0.012), at(k + 1, y1, 0.012), TRIM_BLACK);
+      b.quad(at(k + 1, y1, 0.014), at(k, y1, 0.014), at(k, y1 + 0.035, 0.014), at(k + 1, y1 + 0.035, 0.014), CHROME);
+      if (grille === 'chrome') {
+        const ym = (y0 + y1) / 2;
+        b.quad(at(k + 1, ym - 0.015, 0.016), at(k, ym - 0.015, 0.016), at(k, ym + 0.015, 0.016), at(k + 1, ym + 0.015, 0.016), CHROME);
+      }
+    }
+  }
+
+  // ----- Door mirrors and handles (only when you're close enough to see them) -----
+  if (s.cabin && (s.mirrors ?? true) && lod) {
+    const c = s.cabin;
+    const tm = c.from + (c.to - c.from) * 0.9;
+    const yb = cy(tm) + hh(tm) * 0.55 + 0.04;
+    const xw = sideAt(tm, yb + 0.05); // the body's side at mirror height: attach there
+    for (const x of [-1, 1]) {
+      const x0 = x * (xw - 0.04), x1 = x * (xw + 0.12);
+      b.box(Math.min(x0, x1), Math.max(x0, x1), yb, yb + 0.1, z(tm) - 0.06, z(tm) + 0.05, paint, 'nsewt');
+    }
+    // Handles: small chrome bars on each door.
+    const doors = [c.from + (c.to - c.from) * 0.62, ...(c.pillars?.length ? [c.from + (c.to - c.from) * Math.max(0.12, c.pillars[0] - 0.22)] : [])];
+    for (const td of doors) {
+      const yh = cy(td) + hh(td) * 0.35;
+      for (const side of [1, -1] as const) sidePanel(b, frame, side, td - 0.05 / L * 2, td, yh, yh + 0.035, CHROME, 1);
+    }
+  }
+  return frame;
 }
 
 /**
@@ -399,7 +545,11 @@ export function topPanel(b: CityMeshBuilder, f: CarFrame, t0: number, t1: number
 }
 
 /** A round tyre with a rim, its axle along x. side = -1 (left) or +1 (right) faces outwards. */
-function wheel(b: CityMeshBuilder, x: number, zc: number, r: number, w: number, side: number, tyre: string, rim: string, segs: number): void {
+function wheel(b: CityMeshBuilder, x: number, zc: number, r: number, w: number, side: number, tyre: string, rim: string, segs: number, shaded: boolean): void {
+  // Explicit materials: a rim's colour can match anything (black rims, gold).
+  const keep = b.matFor;
+  b.matFor = null;
+  b.mat = shaded ? MAT.tyre : 0;
   const xs = [-w / 2, -w * 0.38, w * 0.38, w / 2];
   const rs = [r * 0.82, r, r, r * 0.82];
   const ts = [0, 1 / 3, 2 / 3, 1];
@@ -412,20 +562,25 @@ function wheel(b: CityMeshBuilder, x: number, zc: number, r: number, w: number, 
     return [x + xx * side, r + rr * Math.sin(u), zc + rr * Math.cos(u)];
   };
   surface(b, P, ts, [{ u0: 0, u1: Math.PI * 2, segs, color: tyre }], (t) => [x + (xs[0] + (xs[3] - xs[0]) * t) * side, r, zc]);
-  // Rim: a shallow dish on the outer face.
+  // Rim: a shallow dish on the outer face. With the shader, aCell holds
+  // where on the rim each vertex is (centre 0.5, edge 0.5 ± 0.4) so the
+  // fragment shader can draw spokes and a centre cap for free.
   const xo = x + (w / 2) * side;
   const nrm: V3 = [side, 0, 0];
-  const mid = b.rawVert(xo - 0.03 * side, r, zc, side, 0, 0, rim);
+  b.mat = shaded ? MAT.rim : 0;
+  const mid = b.rawVert(xo - 0.03 * side, r, zc, side, 0, 0, rim, 0.5, 0.5);
   const ringAt = (rad: number, col: string, dx: number) => {
     const out: { i: number; p: V3 }[] = [];
     for (let k = 0; k <= segs; k++) {
       const u = (k / segs) * Math.PI * 2;
       const p: V3 = [xo + dx * side, r + rad * Math.sin(u), zc + rad * Math.cos(u)];
-      out.push({ i: b.rawVert(p[0], p[1], p[2], nrm[0], nrm[1], nrm[2], col), p });
+      const f = (0.4 * rad) / (r * 0.6);
+      out.push({ i: b.rawVert(p[0], p[1], p[2], nrm[0], nrm[1], nrm[2], col, 0.5 + f * Math.cos(u) * side, 0.5 + f * Math.sin(u)), p });
     }
     return out;
   };
   const ring = ringAt(r * 0.6, rim, 0.005);
+  b.mat = shaded ? MAT.tyre : 0;
   const m = { i: mid, p: [xo, r, zc] as V3 };
   const away: V3 = [xo + side * 10, r, zc];
   for (let k = 0; k < segs; k++) triFacing(b, m, ring[k], ring[k + 1], away);
@@ -436,6 +591,7 @@ function wheel(b: CityMeshBuilder, x: number, zc: number, r: number, w: number, 
     triFacing(b, a[k], a[k + 1], o[k + 1], away);
     triFacing(b, a[k], o[k + 1], o[k], away);
   }
+  b.matFor = keep;
 }
 
 export { smooth };
