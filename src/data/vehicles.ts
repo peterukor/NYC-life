@@ -24,7 +24,7 @@
 
 import { Registry } from '../core/registry.ts';
 import type { CityMeshBuilder } from '../world/nycgen/builder.ts';
-import { buildCar, CHROME, DARK_GLASS, GLASS, TYRE, type CarFrame, type CarSpec } from '../world/car-shapes.ts';
+import { BEACON_BLUE, buildCar, CHROME, DARK_GLASS, GLASS, HEADLIGHT, sidePanel, TAILLIGHT, topPanel, TYRE, SIGN_LIT, type CarFrame, type CarSpec } from '../world/car-shapes.ts';
 
 export type Rarity = 'common' | 'premium' | 'exclusive' | 'veryRare';
 
@@ -247,57 +247,99 @@ VEHICLES.add(
     trafficWeight: 9, parkWeight: 2, speed: [8, 12], price: 0, paints: ['#ffc629'],
     spec: SEDAN,
     extras: (b, _p, f) => {
-      b.rounded(0, f.z(0.47), f.top(0.47) + 0.6, 0.75, 0.26, 0.36, '#fff6d6'); // roof light
-      const w = f.halfW(0.5) + 0.01;
-      b.box(-w, w, 0.62, 0.74, f.z(0.25), f.z(0.72), '#1d1d1d', 'ew'); // checker stripe
+      // The roof sign (lit at night, like a cab that's free) on a dark mount.
+      const zr = f.z(0.47), yr = f.top(0.47) + 0.6;
+      b.rounded(0, zr, yr - 0.02, 0.5, 0.06, 0.2, '#2a2d33');
+      b.rounded(0, zr, yr + 0.03, 0.78, 0.24, 0.32, HEADLIGHT);
+      // The black-and-white checker band down both sides.
+      const n = 16, t0 = 0.24, t1 = 0.76, y0 = 0.6, h = 0.065;
+      for (const side of [1, -1] as const) {
+        for (let k = 0; k < n; k++) {
+          const ta = t0 + ((t1 - t0) * k) / n, tb = t0 + ((t1 - t0) * (k + 1)) / n;
+          sidePanel(b, f, side, ta, tb, y0, y0 + h, k % 2 ? '#15171b' : '#f7f7f2', 1);
+          sidePanel(b, f, side, ta, tb, y0 + h, y0 + 2 * h, k % 2 ? '#f7f7f2' : '#15171b', 1);
+        }
+      }
     },
   },
   {
     id: 'police', name: 'Police Car', rarity: 'common', service: true,
     trafficWeight: 0.8, parkWeight: 0.4, speed: [9, 13], price: 0, paints: ['#ffffff'],
-    spec: { ...SEDAN, length: 4.6 },
+    spec: { ...SEDAN, length: 4.6, trim: { color: '#2a2d33', below: 0.42 } },
     extras: (b, _p, f) => {
-      const w = f.halfW(0.5) + 0.01;
-      b.box(-w, w, 0.6, 0.78, f.z(0.15), f.z(0.85), '#1d4ed8', 'ew');
-      b.rounded(-0.3, f.z(0.47), f.top(0.47) + 0.6, 0.55, 0.2, 0.36, '#e11d48');
-      b.rounded(0.3, f.z(0.47), f.top(0.47) + 0.6, 0.55, 0.2, 0.36, '#2563eb');
+      // NYPD: a blue band with a thin navy line over it, and a red/blue light bar.
+      for (const side of [1, -1] as const) {
+        sidePanel(b, f, side, 0.06, 0.94, 0.56, 0.72, '#2f6fd6', 6);
+        sidePanel(b, f, side, 0.06, 0.94, 0.735, 0.78, '#13265c', 6);
+      }
+      const zr = f.z(0.47), yr = f.top(0.47) + 0.6;
+      b.rounded(0, zr, yr - 0.02, 1.3, 0.07, 0.3, '#22252b');
+      b.rounded(-0.33, zr, yr + 0.04, 0.62, 0.15, 0.27, TAILLIGHT);
+      b.rounded(0.33, zr, yr + 0.04, 0.62, 0.15, 0.27, BEACON_BLUE);
     },
   },
   {
     id: 'deliveryVan', name: 'Delivery Van', rarity: 'common', service: true,
     trafficWeight: 2, parkWeight: 1.5, speed: [6, 9], price: 0, paints: ['#ffffff', '#f1faee', '#ffd166'],
-    spec: boxBody(5.2, 2.05, 2.25, 0.72, 1.35, 0.4, [0.17, 0.82]),
-    extras: (b, _p, f) => sideWindows(b, f, 0.76, 0.9, 1.2, 1.6),
+    // A step van: a tall box with the cab built in and a sloping windscreen.
+    spec: { ...boxBody(5.2, 2.05, 2.35, 0.74, 1.3, 0.4, [0.17, 0.8]), top: H([[0, 2.35], [0.74, 2.35], [0.8, 2.3], [0.92, 1.45], [1, 1.2]]), endRound: 0.45, lightY: 0.82 },
+    extras: (b, _p, f) => {
+      topPanel(b, f, 0.805, 0.905, 0.8, GLASS);
+      for (const side of [1, -1] as const) sidePanel(b, f, side, 0.735, 0.83, 1.35, 2.0, GLASS, 2);
+    },
   },
   {
     id: 'bus', name: 'City Bus', rarity: 'common', service: true,
-    trafficWeight: 1, parkWeight: 0, speed: [6, 8], price: 0, paints: ['#3a6ea5'],
-    spec: { length: 11, width: 2.5, wheelR: 0.52, wheels: [0.17, 0.78], segs: 12, round: 5, endRound: 0.7, slices: 10, top: H([[0, 3.0], [1, 3.0]]), bottom: H([[0, 0.45], [1, 0.45]]), trim: { color: '#f1f3f5', below: 6 } },
-    extras: (b, paint, f) => {
-      const w = f.halfW(0.5) + 0.012;
-      b.box(-w, w, 0.55, 1.25, f.z(0.05), f.z(0.95), paint, 'ew'); // blue skirt
-      b.box(-w, w, 1.6, 2.5, f.z(0.06), f.z(0.95), GLASS, 'ew'); // window band
-      b.box(-1.0, 1.0, 1.4, 2.6, f.z(1) - 0.05, f.z(1) + 0.01, GLASS, 's'); // windscreen
-      b.rounded(0, f.z(0.5), 2.95, 1.9, 0.25, 7, '#d9dde3'); // roof unit
+    trafficWeight: 1, parkWeight: 0, speed: [6, 8], price: 0, paints: ['#f4f6f8'],
+    // An MTA bus: white, a blue stripe under dark windows, a big black
+    // windscreen with the amber route sign over it, doors on the kerb side.
+    spec: { length: 11, width: 2.55, wheelR: 0.52, wheels: [0.24, 0.79], segs: 12, round: 6, endRound: 0.38, slices: 10, top: H([[0, 3.0], [1, 3.0]]), bottom: H([[0, 0.42], [1, 0.42]]), trim: { color: '#3d424a', below: 0.62 }, lightY: 0.82 },
+    extras: (b, _p, f) => {
+      const BUS_GLASS = '#26313f';
+      const MTA_BLUE = '#1f5fbf';
+      for (const side of [1, -1] as const) {
+        sidePanel(b, f, side, 0.035, 0.965, 1.1, 1.38, MTA_BLUE, 8);
+        // Window panes with white pillars between (the right side stops for the front door).
+        const end = side < 0 ? 0.855 : 0.95;
+        const panes = side < 0 ? 7 : 8;
+        for (let k = 0; k < panes; k++) {
+          const ta = 0.06 + ((end - 0.06) * k) / panes, tb = 0.06 + ((end - 0.06) * (k + 1)) / panes;
+          sidePanel(b, f, side, ta + 0.007, tb - 0.007, 1.55, 2.55, BUS_GLASS, 1);
+        }
+      }
+      // Front door (kerb side = right, -x): glass top to bottom.
+      sidePanel(b, f, -1, 0.87, 0.94, 0.55, 2.55, BUS_GLASS, 1);
+      const zf = f.z(1) + 0.01;
+      b.box(-1.05, 1.05, 1.05, 2.42, zf - 0.04, zf, BUS_GLASS, 's'); // windscreen
+      b.box(-0.85, 0.85, 2.5, 2.74, zf - 0.04, zf + 0.005, SIGN_LIT, 's'); // route sign
+      const zr = f.z(0) - 0.01;
+      b.box(-0.8, 0.8, 1.9, 2.55, zr, zr + 0.04, BUS_GLASS, 'n'); // rear window
+      b.rounded(0, f.z(0.3), 2.97, 1.7, 0.26, 2.6, '#cfd5dc'); // roof air-con
     },
   },
   {
     id: 'ambulance', name: 'Ambulance', rarity: 'common', service: true,
     trafficWeight: 0.35, parkWeight: 0, speed: [10, 14], price: 0, paints: ['#ffffff'],
-    spec: boxBody(5.8, 2.15, 2.45, 0.7, 1.4, 0.42, [0.17, 0.82]),
+    // A box module behind a van cab, red band, red lights on the cab roof.
+    spec: { ...boxBody(5.8, 2.15, 2.6, 0.64, 1.4, 0.42, [0.17, 0.8]), top: H([[0, 2.6], [0.64, 2.6], [0.68, 2.15], [0.76, 2.1], [0.88, 1.4], [1, 1.18]]), endRound: 0.42, lightY: 0.85 },
     extras: (b, _p, f) => {
-      sideWindows(b, f, 0.75, 0.9, 1.25, 1.65);
-      const w = f.halfW(0.4) + 0.012;
-      b.box(-w, w, 1.55, 1.85, f.z(0.05), f.z(0.68), '#e63946', 'ew');
-      b.rounded(0, f.z(0.66), 2.42, 1.4, 0.2, 0.32, '#e63946');
+      topPanel(b, f, 0.765, 0.865, 0.8, GLASS);
+      for (const side of [1, -1] as const) {
+        sidePanel(b, f, side, 0.685, 0.775, 1.4, 1.95, GLASS, 2);
+        sidePanel(b, f, side, 0.03, 0.63, 1.5, 1.8, '#e63946', 4);
+      }
+      b.rounded(0, f.z(0.71), 2.1, 1.3, 0.16, 0.3, TAILLIGHT);
     },
   },
   {
     id: 'firetruck', name: 'Fire Engine', rarity: 'common', service: true,
     trafficWeight: 0.2, parkWeight: 0, speed: [9, 13], price: 0, paints: ['#d62828'],
-    spec: { ...boxBody(9, 2.5, 2.1, 0.78, 2.3, 0.5, [0.18, 0.8]), top: H([[0, 2.1], [0.74, 2.1], [0.8, 2.55], [0.95, 2.5], [1, 2.2]]) },
+    spec: { ...boxBody(9, 2.5, 2.1, 0.78, 2.3, 0.5, [0.18, 0.8]), top: H([[0, 2.1], [0.74, 2.1], [0.8, 2.55], [0.95, 2.5], [1, 2.2]]), lightY: 0.9 },
     extras: (b, _p, f) => {
       sideWindows(b, f, 0.82, 0.95, 1.6, 2.25);
+      const zf = f.z(1) + 0.01;
+      b.box(-1.0, 1.0, 1.55, 2.1, zf - 0.04, zf, GLASS, 's'); // windscreen
+      b.box(-1.1, 1.1, 0.55, 0.75, zf - 0.04, zf + 0.06, CHROME, 'st'); // bumper
       b.beam(-0.4, 2.3, f.z(0.08), -0.4, 2.3, f.z(0.72), 0.1, '#d5dbe3'); // ladder
       b.beam(0.4, 2.3, f.z(0.08), 0.4, 2.3, f.z(0.72), 0.1, '#d5dbe3');
       for (let t = 0.12; t < 0.72; t += 0.07) b.beam(-0.4, 2.3, f.z(t), 0.4, 2.3, f.z(t), 0.06, '#d5dbe3');

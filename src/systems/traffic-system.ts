@@ -21,7 +21,7 @@ SYSTEMS.add({
     ctx.scene.add(traffic.group);
   },
   update(dt, ctx) {
-    traffic?.update(dt, isRushHour(ctx.time), ctx.player);
+    traffic?.update(dt, isRushHour(ctx.time), ctx.player, ctx.camera);
   },
   areaUnloaded() {
     traffic?.dispose();

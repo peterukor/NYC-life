@@ -205,18 +205,33 @@ export interface CarSpec {
   slices?: number;
   headlight?: string;
   taillight?: string;
+  /** Height of the head/tail lights (m). Default: worked out from the body (right for cars; vans and buses set it). */
+  lightY?: number;
 }
 
 export const GLASS = '#8fd0f5';
 export const DARK_GLASS = '#3c4f6b';
 export const TYRE = '#26282e';
 export const CHROME = '#d5dbe3';
+/**
+ * Lamp colours. Moving traffic's material (vehicle-models.ts) recognises
+ * these exact colours and makes them glow at night, so use them for
+ * anything that should light up (taxi roof signs, a bus's route sign).
+ */
+export const HEADLIGHT = '#fff6cf';
+export const TAILLIGHT = '#ff3b4f';
+export const SIGN_LIT = '#ffb21e';
+export const BEACON_BLUE = '#3d7bff';
 
 /** Body helpers a car's extras can use (positions on the finished body). */
 export interface CarFrame {
   top: (t: number) => number;
   halfW: (t: number) => number;
   z: (t: number) => number;
+  /** Height of the bodywork's upper surface at t, xf of the way out from the middle (0…1). */
+  topAt: (t: number, xf: number) => number;
+  /** How far out (|x|) the bodywork's side is at t, height y. */
+  sideAt: (t: number, y: number) => number;
 }
 
 /**
@@ -335,8 +350,8 @@ export function buildCar(b: CityMeshBuilder, s: CarSpec, paint: string, lod: 0 |
   }
 
   // ----- Lights -----
-  const hl = s.headlight ?? '#fff6cf';
-  const tl = s.taillight ?? '#ff3b4f';
+  const hl = s.headlight ?? HEADLIGHT;
+  const tl = s.taillight ?? TAILLIGHT;
   // Find where the bodywork is at (x, y) going in from a bumper, so the
   // lights sit snugly on the curved nose and tail.
   const inside = (t: number, x: number, y: number) => Math.abs(x / hw(t)) ** n + Math.abs((y - cy(t)) / hh(t)) ** n <= 1;
@@ -350,16 +365,37 @@ export function buildCar(b: CityMeshBuilder, s: CarSpec, paint: string, lod: 0 |
   for (const x of [-1, 1]) {
     const tf = 1 - (er * 0.5) / L;
     const tr = (er * 0.5) / L;
-    const yf = cy(tf) + hh(tf) * 0.4;
-    const yr = cy(tr) + hh(tr) * 0.45;
-    const xf = hw(tf) * 0.6 * x;
-    const xr = hw(tr) * 0.62 * x;
+    const yf = s.lightY ?? cy(tf) + hh(tf) * 0.4;
+    const yr = s.lightY ?? cy(tr) + hh(tr) * 0.45;
+    const xf = hw(tf) * (s.lightY ? 0.72 : 0.6) * x;
+    const xr = hw(tr) * (s.lightY ? 0.74 : 0.62) * x;
     const zf = z(edgeT(xf, yf, true));
     const zr = z(edgeT(xr, yr, false));
-    b.box(xf - 0.18, xf + 0.18, yf - 0.08, yf + 0.08, zf - 0.08, zf + 0.05, hl, 'nsewt');
-    b.box(xr - 0.18, xr + 0.18, yr - 0.07, yr + 0.07, zr - 0.05, zr + 0.08, tl, 'nsewt');
+    // A little bigger than they used to be: at street distance they're the car's "eyes".
+    b.box(xf - 0.21, xf + 0.21, yf - 0.095, yf + 0.095, zf - 0.08, zf + 0.06, hl, 'nsewt');
+    b.box(xr - 0.22, xr + 0.22, yr - 0.08, yr + 0.08, zr - 0.06, zr + 0.08, tl, 'nsewt');
   }
-  return { top, halfW: hw, z };
+  const topAt = (t: number, xf: number) => cy(t) + hh(t) * Math.max(0, 1 - Math.abs(xf) ** n) ** (1 / n);
+  const sideAt = (t: number, y: number) => hw(t) * Math.max(0, 1 - Math.min(1, Math.abs((y - cy(t)) / hh(t))) ** n) ** (1 / n);
+  return { top, halfW: hw, z, topAt, sideAt };
+}
+
+/**
+ * Glass (or any panel) lying on the bodywork's upper surface between t0
+ * and t1, out to xf of the half-width: a van's windscreen on its sloping
+ * nose. Follows the curve so it neither floats nor sinks.
+ */
+export function topPanel(b: CityMeshBuilder, f: CarFrame, t0: number, t1: number, xf: number, color: string, steps = 3, across = 4): void {
+  const lift = 0.018;
+  const at = (t: number, k: number) => {
+    const u = -xf + (2 * xf * k) / across;
+    return { x: f.halfW(t) * u, y: f.topAt(t, u) + lift, z: f.z(t) };
+  };
+  for (let i = 0; i < steps; i++) {
+    const ta = t0 + ((t1 - t0) * i) / steps;
+    const tb = t0 + ((t1 - t0) * (i + 1)) / steps;
+    for (let k = 0; k < across; k++) b.quad(at(tb, k), at(tb, k + 1), at(ta, k + 1), at(ta, k), color);
+  }
 }
 
 /** A round tyre with a rim, its axle along x. side = -1 (left) or +1 (right) faces outwards. */
@@ -403,3 +439,19 @@ function wheel(b: CityMeshBuilder, x: number, zc: number, r: number, w: number, 
 }
 
 export { smooth };
+
+/**
+ * A flat stripe or window on the side of the body (side +1 = left/+x,
+ * -1 = right/-x), from t0 to t1 and y0 to y1, hugging the curve along
+ * the car in `segs` pieces.
+ */
+export function sidePanel(b: CityMeshBuilder, f: CarFrame, side: 1 | -1, t0: number, t1: number, y0: number, y1: number, color: string, segs = 4): void {
+  const lift = 0.014;
+  const p = (t: number, y: number) => ({ x: side * (f.sideAt(t, y) + lift), y, z: f.z(t) });
+  for (let i = 0; i < segs; i++) {
+    const ta = t0 + ((t1 - t0) * i) / segs; // rear
+    const tb = t0 + ((t1 - t0) * (i + 1)) / segs; // front
+    if (side > 0) b.quad(p(tb, y0), p(ta, y0), p(ta, y1), p(tb, y1), color);
+    else b.quad(p(ta, y0), p(tb, y0), p(tb, y1), p(ta, y1), color);
+  }
+}

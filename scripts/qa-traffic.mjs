@@ -38,7 +38,8 @@ if (process.env.SHOW) {
   // Showroom: the service vehicles and a few everyday cars side by side.
   const ids = process.env.SHOW.split(',');
   await page.evaluate((i) => window.__nyc.carShow(i, 4), ids);
-  await page.evaluate(() => window.__nyc.streetCam(1, 7, 25, 0, 0.6, 4.5));
+  const cam = (process.env.SHOWCAM ?? '1,7,25,0,0.6,4.5').split(',').map(Number);
+  await page.evaluate((a) => window.__nyc.streetCam(...a), cam);
   await wait(1500);
   await page.screenshot({ path: `${dir}/show-${out}.png` });
   console.log(errors.length ? errors : 'no errors');
@@ -79,6 +80,20 @@ if (views[0]) {
   await page.evaluate((a) => window.__nyc.streetCam(...a), [c.x + fx * 30 + fz * 9, 9, c.z + fz * 30 - fx * 9, c.x - fx * 20, 0, c.z - fz * 20]);
   await wait(900);
   await page.screenshot({ path: `${dir}/traffic-${out}-wide.png` });
+}
+if (process.env.SEQ) {
+  // From above the player's block, a few seconds apart: queues at red lights.
+  // The intersection nearest the player: an avenue (cars heading ~N/S) meets a street (~E/W).
+  const ns = info.cars.filter((c) => Math.abs(Math.sin(c.h)) < 0.1), ew = info.cars.filter((c) => Math.abs(Math.cos(c.h)) < 0.1);
+  const nearest = (list, key) => list.map((c) => c[key]).sort((a, b) => Math.abs(a - me[key]) - Math.abs(b - me[key]))[0] ?? me[key];
+  const ix = nearest(ns, 'x'), iz = nearest(ew, 'z');
+  await page.evaluate((m) => window.__nyc.streetCam(m.x + 1, 75, m.z + 35, m.x, 0, m.z), { x: ix, z: iz });
+  for (let i = 0; i < 4; i++) {
+    await wait(+(process.env.SEQ) * 1000);
+    const g = await page.evaluate(() => window.__nyc.traffic().green);
+    await page.screenshot({ path: `${dir}/traffic-${out}-seq${i}.png` });
+    console.log('seq', i, g);
+  }
 }
 console.log('fps', await page.evaluate(() => window.__nyc.fps()), 'calls', await page.evaluate(() => window.__nyc.drawCalls()), 'tris', await page.evaluate(() => window.__nyc.triangles()));
 console.log(errors.length ? errors : 'no errors');
