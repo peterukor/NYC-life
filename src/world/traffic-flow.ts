@@ -19,6 +19,8 @@
 //     camera can't see (behind it, or far off), with room to fit.
 //   • Pose: the heading is the chord over a few metres of lane, so cars
 //     ease into bends; they lean out of turns and dip their nose braking.
+//   • Your own car (world/drive.ts) asks ahead() for the car in front and
+//     sits in `obstacle`, so the traffic queues behind it too.
 // =====================================================================
 
 export interface XZ {
@@ -179,6 +181,15 @@ export class TrafficFlow {
 
   readonly lanes: Lane[];
   private rand: () => number;
+  /**
+   * Something else on the road that traffic must queue behind (your own
+   * car while you drive: world/my-car.ts). It counts on a lane only while
+   * it's in that lane and facing along it, so a car parked at the kerb
+   * doesn't block anyone.
+   */
+  obstacle: { x: number; z: number; yaw: number; v: number; len: number } | null = null;
+  /** Where the obstacle is on each lane this frame (NaN = not on it). */
+  private obsS: number[] = [];
 
   constructor(lanes: Lane[], specs: { vMax: number; len: number }[], rand: () => number = Math.random) {
     this.lanes = lanes;
@@ -220,10 +231,13 @@ export class TrafficFlow {
       });
     }
 
+    const obs = this.obstacle;
+    for (let li = 0; li < this.lanes.length; li++) this.obsS[li] = obs ? this.onLane(li, obs) : NaN;
     for (let li = 0; li < this.lanes.length; li++) {
       const l = this.lanes[li];
       const list = l.cars;
       sortLane(list, this.cars);
+      const os = this.obsS[li];
       const n = list.length;
       const green = this.green(l.axis);
       for (let k = 0; k < n; k++) {
@@ -236,6 +250,14 @@ export class TrafficFlow {
           leadBack = ls - lead.len / 2;
           gap = leadBack - (car.s + car.len / 2);
           dv = car.v - lead.v;
+        }
+        // Your car in this lane, ahead of this one: queue behind it like any other.
+        if (obs && !Number.isNaN(os) && os > car.s) {
+          const g = os - obs.len / 2 - (car.s + car.len / 2);
+          if (g > -0.5 && g < gap) {
+            gap = Math.max(0.05, g);
+            dv = car.v - obs.v;
+          }
         }
         // Signals: red = a stopped "car" at the stop line, unless too close to stop.
         if (l.axis) {
@@ -295,6 +317,47 @@ export class TrafficFlow {
         this.respawn(i, view);
       }
     }
+  }
+
+  /** Distance along lane li of something at (x, z) facing yaw, or NaN if it isn't in that lane. */
+  private onLane(li: number, o: { x: number; z: number; yaw: number }): number {
+    const l = this.lanes[li];
+    // Cheap reject on the lane's bounding box first.
+    const p0 = l.pts[0], p1 = l.pts[l.pts.length - 1];
+    if (l.pts.length === 2 && (o.x < Math.min(p0.x, p1.x) - 3 || o.x > Math.max(p0.x, p1.x) + 3 || o.z < Math.min(p0.z, p1.z) - 3 || o.z > Math.max(p0.z, p1.z) + 3)) return NaN;
+    const c = closestS(l, o);
+    if (c.d > 1.4) return NaN;
+    const a = pointAt(l, c.s - 1, this.p0), b = pointAt(l, c.s + 1, this.p1);
+    const dx = b.x - a.x, dz = b.z - a.z;
+    const len = Math.hypot(dx, dz) || 1;
+    return (dx * Math.sin(o.yaw) + dz * Math.cos(o.yaw)) / len > 0.75 ? c.s : NaN;
+  }
+
+  /**
+   * The nearest car ahead of (x, z) going the same way (heading yaw) in
+   * the same lane, within `within` metres: the bumper-to-bumper gap from
+   * a car of half-length `half`, and its speed. For your own car.
+   */
+  ahead(x: number, z: number, yaw: number, within: number, lateral = 1.5, half = 2.3): { gap: number; v: number } | null {
+    const fx = Math.sin(yaw), fz = Math.cos(yaw);
+    let best: { gap: number; v: number } | null = null;
+    for (const c of this.cars) {
+      if (c.lane < 0) continue;
+      const dx = c.x - x, dz = c.z - z;
+      const along = dx * fx + dz * fz;
+      if (along <= 0 || along > within + c.len) continue;
+      if (Math.abs(dx * fz - dz * fx) > lateral) continue; // not in my lane
+      if (Math.cos(c.yaw - yaw) < 0.6) continue; // crossing or oncoming
+      const gap = along - half - c.len / 2;
+      if (!best || gap < best.gap) best = { gap, v: c.v };
+    }
+    return best;
+  }
+
+  /** No traffic within r metres of (x, z)? */
+  clear(x: number, z: number, r: number): boolean {
+    for (const c of this.cars) if (c.lane >= 0 && Math.abs(c.x - x) < r && Math.abs(c.z - z) < r && Math.hypot(c.x - x, c.z - z) < r) return false;
+    return true;
   }
 
   /** Update a car's position, heading, lean and nose dip. */

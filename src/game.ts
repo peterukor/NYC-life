@@ -113,7 +113,8 @@ import { CONNECTION_BY_ID, type ClubDef } from './data/clubs.ts';
 import { ClubScreen } from './world/club-screen.ts';
 import { PATHS } from './data/paths.ts';
 import { DISTRICTS, crossStreets, blockRect } from './world/layout.ts';
-import { findPath, nearestWalkable } from './world/nav.ts';
+import { findPath, isWalkable, nearestWalkable } from './world/nav.ts';
+import { MyCar } from './world/my-car.ts';
 import { SystemRunner, type SystemContext } from './core/systems.ts';
 import './systems/index.ts';
 import { currentTraffic } from './systems/traffic-system.ts';
@@ -650,6 +651,56 @@ export class Game {
       },
       /** Moving cars (positions, headings) and the time one traffic update takes (scripts/qa-traffic.mjs). */
       traffic: () => currentTraffic()?.debug() ?? null,
+      /** Driving QA (scripts/qa-drive.mjs): own a car (default the cheapest) and drive it. */
+      giveCar: (model?: string) => {
+        const v = model ? VEHICLES.get(model) : VEHICLES.all().filter((x) => !x.service && x.price > 0).sort((a, b) => a.price - b.price)[0];
+        if (!v) return null;
+        const uid = `car-qa-${this.state.garage.cars.length}`;
+        this.state.garage.cars.push({ uid, model: v.id, paint: v.paints[0] });
+        this.state.garage.driving = uid;
+        return uid;
+      },
+      /** Stop driving (like Phone → Cars → Park). */
+      parkCar: () => void (this.state.garage.driving = null),
+      myCar: () => ({ ...this.myCar.debug(), personShown: this.player.root.visible }),
+      /** Start (true) or read and stop (false) recording the car's path. */
+      driveTrace: (on: boolean) => {
+        const t = this.myCar.trace;
+        this.myCar.trace = on ? [] : null;
+        return t;
+      },
+      /** Go somewhere the way a tap would (drives when you go by car). */
+      goTo: (x: number, z: number) => {
+        this.headingTo = null;
+        this.walkTo(x, z);
+      },
+      goToPlace: (id: string) => this.walkToPlace(id),
+      /** Signal phase right now ('avenues' | 'streets' | 'all red'). */
+      signal: () => {
+        const f = currentTraffic()?.flow;
+        return f ? (f.green('ave') ? 'avenues' : f.green('st') ? 'streets' : 'all red') : null;
+      },
+      /** Run the game for `sec` seconds in fixed steps without drawing (QA on slow software GL). */
+      advance: (sec: number, step = 1 / 30) => {
+        for (let t = 0; t < sec - 1e-6; t += step) this.frame(step);
+      },
+      /** Set the signal clock (seconds into the cycle: 0 = avenues just went green, 20 = streets). */
+      signalAt: (t: number) => {
+        const f = currentTraffic()?.flow;
+        if (f) f.clock = t;
+      },
+      /** A chase camera behind (back > 0) or ahead of (back < 0) your car at height h. */
+      carCam: (back = 14, h = 5, side = 0) => {
+        const c = this.myCar.ctrl;
+        if (!c) return false;
+        const fx = Math.sin(c.yaw), fz = Math.cos(c.yaw);
+        const { camera, controls } = this.engine;
+        controls.minDistance = 0.5;
+        controls.target.set(c.x + fx * 6, 1, c.z + fz * 6);
+        camera.position.set(c.x - fx * back - fz * side, h, c.z - fz * back + fx * side);
+        controls.update();
+        return true;
+      },
     };
   }
 
@@ -1081,7 +1132,18 @@ export class Game {
   private updatePlayer(dt: number): void {
     const p = this.player.root.position;
     let speed = 0;
-    if (this.path.length) {
+    const inCar = this.driveTick(dt);
+    if (inCar) {
+      speed = this.myCar.personSpeed;
+      this.path = [];
+      const c = this.myCar.hidesPerson ? this.myCar.ctrl : null;
+      if (c && this.city) {
+        // Saved spot: the sidewalk beside the car (a save never puts you in the road).
+        const side = nearestWalkable(this.city.nav, c.x - Math.cos(c.yaw) * 8.5, c.z + Math.sin(c.yaw) * 8.5);
+        this.state.location.x = side.x;
+        this.state.location.z = side.z;
+      }
+    } else if (this.path.length) {
       const wp = this.path[0];
       const dx = wp.x - p.x;
       const dz = wp.z - p.z;
@@ -1090,8 +1152,7 @@ export class Game {
         this.path.shift();
         if (!this.path.length) this.arrived();
       } else {
-        const walk = WALK_SPEED * (this.state.garage.driving ? GARAGE.driveSpeed : 1);
-        const step = Math.min(dist, walk * dt);
+        const step = Math.min(dist, WALK_SPEED * dt);
         p.x += (dx / dist) * step;
         p.z += (dz / dist) * step;
         speed = WALK_SPEED;
@@ -1110,11 +1171,21 @@ export class Game {
     if (!this.followCamera) return;
     const target = this.engine.controls.target;
     const before = target.clone();
-    target.lerp(new THREE.Vector3(p.x, 2, p.z), Math.min(1, dt * 6));
+    const car = this.myCar.hidesPerson ? this.myCar.ctrl : null;
+    if (car) {
+      // Driving: look a little ahead down the road, and ease (no jitter at speed).
+      const ahead = Math.min(9, car.v * 0.45);
+      target.lerp(new THREE.Vector3(p.x + Math.sin(car.yaw) * ahead, 2, p.z + Math.cos(car.yaw) * ahead), 1 - Math.exp(-dt * 4));
+    } else target.lerp(new THREE.Vector3(p.x, 2, p.z), Math.min(1, dt * 6));
     this.engine.camera.position.add(target.clone().sub(before));
   }
 
   private arrived(): void {
+    if (this.carBoardWalk) {
+      this.carBoardWalk = false;
+      if (this.state.garage.driving) this.myCar.board(this.player.root, this.state.garage.driving);
+      return;
+    }
     if (this.talkingTo) {
       const id = this.talkingTo;
       this.talkingTo = null;
@@ -1222,6 +1293,8 @@ export class Game {
 
   private walkTo(x: number, z: number): void {
     if (!this.city) return;
+    if (this.carWalkTo(x, z)) return;
+    this.carBoardWalk = false;
     const p = this.player.root.position;
     const path = findPath(this.city.nav, p.x, p.z, x, z);
     if (!path.length) {
@@ -4484,7 +4557,7 @@ export class Game {
   private carMesh: THREE.Mesh | null = null;
   private carKey = '';
   private syncCar(): void {
-    const car = this.state ? drivingCar(this.state) : null;
+    const car = this.state ? drivingCar(this.state) ?? this.state.garage.cars.find((c) => c.uid === this.myCar.uid) ?? null : null;
     const key = car ? `${car.model}|${car.paint}` : '';
     if (key !== this.carKey) {
       if (this.carMesh) this.carMesh.removeFromParent();
@@ -4497,12 +4570,146 @@ export class Game {
         this.engine.cityScene.add(this.carMesh);
       }
     }
-    this.player.root.visible = !this.carMesh || this.engine.mode !== 'city';
-    if (this.carMesh) {
-      this.carMesh.position.set(this.player.root.position.x, 0, this.player.root.position.z);
-      this.carMesh.rotation.y = this.player.root.rotation.y;
-    }
+    // Where it is, how it leans: world/my-car.ts (updated in updatePlayer).
+    this.myCar.attach(this.carMesh, this.engine.cityScene);
+    if (!this.carMesh) this.myCar.rig.visible = false;
+    this.player.root.visible = !this.myCar.hidesPerson || this.engine.mode !== 'city';
   }
+
+  // ===================================================================
+  // 🚗 Driving on the map (world/drive.ts routes and drives, world/my-car.ts
+  // gets you in and out). state.garage.driving = you go about by car.
+  // ===================================================================
+  private myCar = new MyCar(WALK_SPEED * GARAGE.driveSpeed);
+  /** The last garage.driving seen (undefined = not looked yet). */
+  private lastDriving: string | null | undefined = undefined;
+  /** Where the current drive is going; walkOn = get out and walk the last bit (a door, a person). */
+  private carGoal: { x: number; z: number; walkOn: boolean } | null = null;
+  /** Walking over to your parked car to get in. */
+  private carBoardWalk = false;
+
+  /** Keep the car's road map in step with the loaded area. */
+  private carArea(): void {
+    const city = this.city;
+    if (!city) return;
+    this.myCar.setArea(city.area, DISTRICTS[city.area], (x, z) => isWalkable(city.nav, x, z), (x, z) => nearestWalkable(city.nav, x, z));
+  }
+
+  /** One frame of the car. True while the car moves the player (you're in it, or stepping in / out). */
+  private driveTick(dt: number): boolean {
+    const s = this.state;
+    const mc = this.myCar;
+    if (!s) return false;
+    this.carArea();
+    const want = s.garage.driving && drivingCar(s) ? s.garage.driving : null;
+    if (want !== this.lastDriving) {
+      const first = this.lastDriving === undefined;
+      this.lastDriving = want;
+      const p = this.player.root.position;
+      if (want && first) mc.place(p.x, p.z, want); // loading a save: the car's parked outside
+      else if (want) {
+        // Just picked a car to drive: it pulls up at the kerb and you hop in.
+        this.path = [];
+        this.carGoal = null;
+        this.carBoardWalk = false;
+        mc.board(this.player.root, want);
+      } else if (mc.inCar && !mc.busy && !mc.pullOver()) mc.alight(this.player.root); // "Park": pull over, then get out
+    }
+    const flow = currentTraffic()?.flow;
+    const ev = mc.update(dt, this.player.root, {
+      green: flow ? (axis) => flow.green(axis) : undefined,
+      ahead: flow ? (x, z, yaw, within, lateral) => flow.ahead(x, z, yaw, within, lateral) : undefined,
+      clear: flow ? (x, z, r) => flow.clear(x, z, r) : undefined,
+    });
+    // The traffic queues behind you (it only counts while you're in a lane).
+    if (flow) flow.obstacle = mc.ctrl && mc.rig.visible ? { x: mc.ctrl.x, z: mc.ctrl.z, yaw: mc.ctrl.yaw, v: mc.ctrl.v, len: 4.6 } : null;
+    if (ev === 'boarded') {
+      if (!s.garage.driving) mc.alight(this.player.root); // parked again while stepping in
+      else if (this.carGoal && !mc.driveTo(this.carGoal.walkOn ? this.carAim(this.carGoal).x : this.carGoal.x, this.carGoal.walkOn ? this.carAim(this.carGoal).z : this.carGoal.z)) {
+        toast('No road goes there.', { icon: '🚧', ms: 1600 });
+        this.carGoal = null;
+      }
+    }
+    if (ev === 'parked') {
+      if (!s.garage.driving || this.carGoal?.walkOn) mc.alight(this.player.root);
+      else this.carGoal = null;
+    }
+    if (ev === 'alighted') {
+      const p = this.player.root.position;
+      this.state.location.x = p.x;
+      this.state.location.z = p.z;
+      const g = this.carGoal;
+      this.carGoal = null;
+      if (g?.walkOn) this.walkOnFoot(g.x, g.z);
+    }
+    return mc.inCar || mc.busy;
+  }
+
+  /** Where to drive for a goal: the road in front of the door you're heading to, else the spot itself. */
+  private carAim(g: { x: number; z: number }): { x: number; z: number } {
+    const place = this.headingTo ? PLACE_BY_ID[this.headingTo] : null;
+    if (!place) return g;
+    const door = doorOf(place);
+    return { x: door.x + door.faceX * 10, z: door.z + door.faceZ * 10 };
+  }
+
+  /**
+   * walkTo while you go about by car: drive there instead (getting in
+   * first: walk to the car if it's parked close by, else it pulls up next
+   * to you). A door or a person: park outside, get out, walk the last
+   * bit. Short hops on foot stay on foot. False = just walk.
+   */
+  private carWalkTo(x: number, z: number): boolean {
+    const want = this.state.garage.driving;
+    const mc = this.myCar;
+    if (!want || !drivingCar(this.state) || this.engine.mode !== 'city') return false;
+    const p = this.player.root.position;
+    const walkOn = !!(this.headingTo || this.talkingTo);
+    const far = Math.hypot(x - p.x, z - p.z);
+    if (mc.inCar) {
+      if (mc.busy) {
+        this.carGoal = { x, z, walkOn };
+        return true;
+      }
+      if (walkOn && far < 22) {
+        // Right here: just hop out and walk over.
+        this.carGoal = { x, z, walkOn: true };
+        mc.alight(this.player.root);
+        return true;
+      }
+      const aim = walkOn ? this.carAim({ x, z }) : { x, z };
+      if (!mc.driveTo(aim.x, aim.z)) return false;
+      this.carGoal = { x, z, walkOn };
+      return true;
+    }
+    if (far < 30 || mc.busy) return false; // a few steps: walk
+    this.carGoal = { x, z, walkOn };
+    const c = mc.ctrl;
+    if (c && mc.uid === want && Math.hypot(c.x - p.x, c.z - p.z) < 45) {
+      // Parked close by: walk over to it, then get in.
+      const spot = mc.sidewalkSpot()!;
+      this.walkOnFoot(spot.x, spot.z);
+      this.carBoardWalk = true;
+      return true;
+    }
+    this.path = [];
+    if (mc.board(this.player.root, want)) return true;
+    this.carGoal = null;
+    return false;
+  }
+
+  /** Walk on the sidewalk (never by car). */
+  private walkOnFoot(x: number, z: number): void {
+    if (!this.city) return;
+    const p = this.player.root.position;
+    const path = findPath(this.city.nav, p.x, p.z, x, z);
+    if (!path.length) {
+      const near = nearestWalkable(this.city.nav, x, z);
+      this.path = findPath(this.city.nav, p.x, p.z, near.x, near.z);
+    } else this.path = path;
+    if (this.state.location.placeId) this.state.location.placeId = null;
+  }
+
 
   /** Drive your own car to a place. floorIt = speeding (faster, fun, risky). */
   private driveTo(placeId: string, floorIt: boolean): void {
@@ -4538,6 +4745,10 @@ export class Game {
       const d = doorOf(place);
       this.state.location = { area: place.area, placeId: null, x: d.x, z: d.z };
       this.placePlayerAtLocation();
+      // Your car waits at the kerb right outside (you walk out to it later).
+      this.carArea();
+      this.myCar.place(d.x + d.faceX * 10, d.z + d.faceZ * 10, car.uid);
+      this.lastDriving = car.uid; // not "just got in": you're on foot, the car's parked
       fade(false);
       this.busy = false;
       for (const line of r.lines) toast(line, { tone: r.tone, ms: 5000 });
