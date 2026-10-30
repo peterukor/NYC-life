@@ -391,7 +391,7 @@ void main() {
   base *= mix(0.6, 1.0, smoothstep(0.0, 3.2, vY));
   // Weather: snow settles on anything facing up; rain darkens and cools.
   base = mix(base, vec3(0.97, 0.98, 1.0), min(1.0, uSnow * 1.15) * smoothstep(0.45, 0.8, vUp));
-  base *= mix(vec3(1.0), vec3(0.84, 0.88, 0.95), uWet);
+  base *= mix(vec3(1.0), vec3(0.8, 0.8, 0.82), uWet); // rain darkens, it doesn't turn things blue
   diffuseColor.rgb = base;
   // Half the windows are lit at night. Far away one pixel covers several
   // windows, and picking lit/dark per pixel sparkles like static; blend
@@ -427,9 +427,10 @@ export function groundTextures(): { asphalt: THREE.CanvasTexture; paver: THREE.C
     t.anisotropy = 4;
     return t;
   };
-  // Blue-grey asphalt with soft blotches (painted, not photographic).
+  // Charcoal asphalt with soft blotches (painted, not photographic). Was blue-grey (#6d7586):
+  // from the satellite map the roads read like the river (Peter, 2026-10-30).
   const asphalt = make((ctx, n) => {
-    ctx.fillStyle = '#6d7586';
+    ctx.fillStyle = '#5f6166';
     ctx.fillRect(0, 0, n, n);
     let s = 11;
     for (let i = 0; i < 70; i++) {

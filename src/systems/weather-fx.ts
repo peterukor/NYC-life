@@ -105,7 +105,7 @@ SYSTEMS.add({
     const b = districtBounds(ctx.district, 40);
     flood = new THREE.Mesh(
       new THREE.PlaneGeometry(b.maxX - b.minX, b.maxZ - b.minZ),
-      new THREE.MeshLambertMaterial({ color: '#4aa8dc', transparent: true, opacity: 0, depthWrite: false }),
+      new THREE.MeshLambertMaterial({ color: '#6b8a8c', transparent: true, opacity: 0, depthWrite: false }), // muddy floodwater, not river blue (2026-10-30)
     );
     flood.rotation.x = -Math.PI / 2;
     flood.position.set((b.minX + b.maxX) / 2, 0.12, (b.minZ + b.maxZ) / 2);
@@ -149,7 +149,7 @@ SYSTEMS.add({
     if (flood) {
       flood.visible = cur.flood > 0.01;
       const m = flood.material as THREE.MeshLambertMaterial;
-      m.opacity = cur.flood * 0.72;
+      m.opacity = cur.flood * 0.5;
       flood.position.y = 0.06 + cur.flood * 0.08 + Math.sin(time * 1.3) * 0.01;
     }
     for (const g of groundMats) g.mat.color.copy(g.color).lerp(new THREE.Color('#f4f7fb'), cur.snowGround * 0.75).multiplyScalar(1 - cur.wet * 0.12);

@@ -28,6 +28,12 @@ import { lotsFor, shoreFeatures, shoreKinds, type ShoreKind } from '../world/coa
 import { pondsFor } from '../data/parks.ts';
 import { html, onAct, root } from './dom.ts';
 
+/** Pin colours by kind of place (one colour per kind, light so the emoji reads). */
+const PIN_COLOR: Partial<Record<PlaceDef['type'], string>> = {
+  food: '#ffd6a5', cafe: '#e9d5c0', nightlife: '#e0c3fc', fitness: '#b9fbc0', work: '#bde0fe',
+  shop: '#a0e7e5', fun: '#ffc8dd', park: '#caffbf', plaza: '#fdffb6', station: '#ffffff', home: '#ffffff',
+};
+
 export interface MapOptions {
   /** The area you're in (its borough is focused first). */
   area: AreaId;
@@ -146,8 +152,9 @@ export function openMap(opts: MapOptions): () => void {
     const b = boroughBounds('manhattan');
     // Same closeness as before the island was widened (X_STRETCH): scroll sideways for the rest.
     // …and up to 0.75 of the island's length on screen (Peter, 2026-10-15: "a bit further out", twice;
-    // 0.5 → 0.6 → 0.75). The width fit gets a 60% margin so wide screens pull back too.
-    const sc = Math.max((W() - 16) / ((1.6 * (b.maxX - b.minX)) / X_STRETCH), H() / (0.75 * (b.maxZ - b.minZ)));
+    // 0.5 → 0.6 → 0.75; 2026-10-30: back to 0.6 so the 📢 ad spaces read when the map opens).
+    // The width fit gets a 60% margin so wide screens pull back too.
+    const sc = Math.max((W() - 16) / ((1.6 * (b.maxX - b.minX)) / X_STRETCH), H() / (0.6 * (b.maxZ - b.minZ)));
     return clampView({ sc, ox: W() / 2 - s.location.x * sc, oy: H() / 2 + 20 - s.location.z * sc });
   };
   /** Keep Manhattan on screen: no scrolling off into the water. */
@@ -531,7 +538,7 @@ export function openMap(opts: MapOptions): () => void {
         if (pl.kind === 'island') {
           halo(`🏝️ ${pl.name}`, sx(pl.center.x), sy(pl.center.z) - 4, `900 ${Math.max(9, Math.min(13, 8 * scale + 5))}px ${FONT}`, '#0e7490', 4);
           halo(`FOR RENT · $${islandWeekly(pl.islandPrice ?? 0).toFixed(2)}/wk`, sx(pl.center.x), sy(pl.center.z) + 10, `800 9px ${FONT}`, '#b04a2f', 3);
-        } else if (pl.kind === 'ad' && scale > 0.32) {
+        } else if (pl.kind === 'ad' && scale > 0.22) {
           halo('📢 AD SPACE', sx(pl.center.x), sy(pl.center.z) + 4, `900 ${Math.max(8, Math.min(12, 6 * scale + 5))}px ${FONT}`, '#be185d', 3);
         }
       }
@@ -566,21 +573,30 @@ export function openMap(opts: MapOptions): () => void {
           g.textBaseline = 'alphabetic';
         }
       }
-      // Places (homes and stations always; the rest when zoomed in).
+      // Places (homes and stations always; the rest when zoomed in). Pins are coloured by kind,
+      // and places you can walk into get a gold ring (2026-10-30: easier to read next to the ads).
       const full = hasCityMap(s);
       for (const p of places) {
         if (p.landmark || p.type === 'landmark') continue;
         if (!shown(p)) continue;
         // With the Full City Map places show from further out (and a filter shows its kind at any zoom).
-        const near = scale > (full ? (kind ? 0 : 0.6) : 0.9);
+        const near = scale > (full ? (kind ? 0 : 0.42) : 0.9);
         if (!near && p.type !== 'home' && p.type !== 'station') continue;
         if (p.type === 'home' && p.id !== s.home.placeId && !near) continue;
         const door = doorOf(p);
         const x = sx(door.x), y = sy(door.z);
-        const r = p.id === s.home.placeId ? 12 : 10;
+        const mine = p.id === s.home.placeId;
+        const r = mine ? 14 : 12;
+        const walkIn = p.interior !== 'none';
+        if (walkIn && !mine) {
+          g.beginPath();
+          g.arc(x, y, r + 3, 0, Math.PI * 2);
+          g.fillStyle = '#ffd23f';
+          g.fill();
+        }
         g.beginPath();
         g.arc(x, y, r, 0, Math.PI * 2);
-        g.fillStyle = p.id === s.home.placeId ? '#3a86ff' : isOpen(p, opts.hour) ? '#ffffff' : '#e3e5ec';
+        g.fillStyle = mine ? '#3a86ff' : isOpen(p, opts.hour) ? PIN_COLOR[p.type] ?? '#ffffff' : '#d5d8e0';
         g.fill();
         g.lineWidth = 2;
         g.strokeStyle = '#1c2340';
@@ -590,7 +606,7 @@ export function openMap(opts: MapOptions): () => void {
         g.textBaseline = 'middle';
         g.fillText(p.emoji, x, y + 1);
         g.textBaseline = 'alphabetic';
-        if (scale > (full ? 1.15 : 1.6)) halo(p.name.length > 22 ? `${p.name.slice(0, 21)}…` : p.name, x, y + r + 11, `700 10px ${FONT}`);
+        if (scale > (full ? 0.7 : 1.6)) halo(p.name.length > 22 ? `${p.name.slice(0, 21)}…` : p.name, x, y + r + 12, `800 10px ${FONT}`);
       }
     }
 
