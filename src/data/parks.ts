@@ -2,22 +2,35 @@
 // parks.ts — lakes and ponds in the big parks (3D city and the maps).
 // Real positions; if our park is narrower than the real one, the pond is
 // pulled into the middle of the park.
+//
+// Central Park's water (the Pond, the Lake, Conservatory Water, Turtle
+// Pond, the Reservoir, the Pool, Harlem Meer) comes from its plan
+// (world/central-park-plan.ts) with real outlines (`pts`); the park's
+// landmark draws it, so the city builder skips those.
 // =====================================================================
 
 import type { AreaId } from '../sim/types.ts';
 import { X_STRETCH, project } from '../world/geo-proj.ts';
 import { blockRect, colAt, isPark, rowAt, type DistrictDef } from '../world/layout.ts';
+import { centralParkPlan, type XZ } from '../world/central-park-plan.ts';
 
-/** Size in game metres (rx across, rz along). */
-export const PONDS: { area: AreaId; name: string; at: [number, number]; rx: number; rz: number }[] = [
-  { area: 'manhattan', name: 'The Reservoir', at: [40.7855, -73.9625], rx: 48, rz: 70 },
-  { area: 'manhattan', name: 'The Lake', at: [40.7765, -73.971], rx: 30, rz: 22 },
-  { area: 'manhattan', name: 'Harlem Meer', at: [40.7965, -73.9515], rx: 26, rz: 16 },
-  { area: 'manhattan', name: 'The Pond', at: [40.7665, -73.9745], rx: 16, rz: 10 },
-];
+/** Size in game metres (rx across, rz along). (Central Park's own water is in its plan.) */
+export const PONDS: { area: AreaId; name: string; at: [number, number]; rx: number; rz: number }[] = [];
 
-export function pondsFor(d: DistrictDef): { x: number; z: number; rx: number; rz: number; name: string }[] {
-  const out: { x: number; z: number; rx: number; rz: number; name: string }[] = [];
+export interface Pond {
+  x: number;
+  z: number;
+  rx: number;
+  rz: number;
+  name: string;
+  /** Real outline (Central Park): drawn by its landmark, not as an ellipse. */
+  pts?: XZ[];
+}
+
+export function pondsFor(d: DistrictDef): Pond[] {
+  const out: Pond[] = [];
+  const cp = centralParkPlan(d);
+  if (cp) for (const w of cp.waters) out.push({ x: w.x, z: w.z, rx: w.rx, rz: w.rz, name: w.name, pts: w.pts });
   for (const p of PONDS.filter((k) => k.area === d.id)) {
     const at = project(p.at[0], p.at[1]);
     const r = rowAt(d, at.z);

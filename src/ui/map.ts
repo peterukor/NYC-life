@@ -361,7 +361,9 @@ export function openMap(opts: MapOptions): () => void {
     for (const p of ponds) {
       g.fillStyle = '#6cc0ea';
       g.beginPath();
-      g.ellipse(sx(p.x), sy(p.z), p.rx * scale, p.rz * scale, 0, 0, Math.PI * 2);
+      if (p.pts) p.pts.forEach((q, i) => (i ? g.lineTo(sx(q.x), sy(q.z)) : g.moveTo(sx(q.x), sy(q.z))));
+      else g.ellipse(sx(p.x), sy(p.z), p.rx * scale, p.rz * scale, 0, 0, Math.PI * 2);
+      g.closePath();
       g.fill();
       g.lineWidth = 1.5;
       g.strokeStyle = '#e8dfcc';

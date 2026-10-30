@@ -839,7 +839,7 @@ export class Game {
     this.city?.dispose();
     const q = this.engine.quality;
     performance.mark('area:start');
-    this.city = buildCity(area, { trees: q.trees, shadows: q.shadows, kits: this.kits, detailScale: q.tier === 'low' ? 0.75 : 1 });
+    this.city = buildCity(area, { trees: q.trees, shadows: q.shadows, kits: this.kits, detailScale: q.tier === 'low' ? 0.75 : 1, tier: q.tier });
     this.engine.cityScene.add(this.city.group);
     performance.mark('area:city');
     this.crowd = new Crowd(this.city.nav, area, q.crowd, this.folk ?? undefined, q.tier === 'low' ? 6 : q.tier === 'medium' ? 12 : 20);

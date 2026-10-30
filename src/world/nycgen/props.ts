@@ -16,6 +16,7 @@ import type { CityMeshBuilder } from './builder.ts';
 import type { BuildingPlan } from './buildings.ts';
 import { pickVehicle } from '../../data/vehicles.ts';
 import { vehicleGeometry } from '../vehicle-models.ts';
+import type { TreeKind } from '../central-park-plan.ts';
 
 const GREENS = ['#5cb85c', '#6cc66a', '#4fa857', '#7fd36d', '#3f9d52'];
 // It's autumn in New York for part of the year: a few trees turn.
@@ -35,6 +36,71 @@ export function tree(b: CityMeshBuilder, x: number, z: number, y: number, s: num
 /** A cheap one-ball tree for far away. */
 export function treeSimple(b: CityMeshBuilder, x: number, z: number, y: number, s: number, rng: Rng): void {
   b.blobLow(x, y + 3.3 * s, z, 1.7 * s, 1.5 * s, 1.7 * s, rng.chance(0.12) ? rng.pick(AUTUMN) : rng.pick(GREENS));
+}
+
+/** A park tree with a species and a crown colour (Central Park: world/central-park-plan.ts). */
+export interface ParkTreeSpec {
+  x: number;
+  z: number;
+  y: number;
+  sp: TreeKind;
+  s: number;
+  c: string;
+}
+
+/**
+ * Near version of a park tree: big, puffy, shaped by species. About 90
+ * triangles (pines ~50), all merged into the block's one mesh.
+ */
+export function parkTree(b: CityMeshBuilder, t: ParkTreeSpec): void {
+  const { x, z, y, s, c } = t;
+  const bark = '#6e4a31';
+  const hi = lighten(c, 1.16);
+  switch (t.sp) {
+    case 'pine':
+      b.cyl(x, z, y, y + 1.4 * s, 0.24 * s, 0.18 * s, bark, 5, false);
+      b.cone(x, z, y + 1.0 * s, y + 3.5 * s, 1.65 * s, c, 7);
+      b.cone(x, z, y + 2.4 * s, y + 4.7 * s, 1.25 * s, lighten(c, 1.08), 7);
+      b.cone(x, z, y + 3.6 * s, y + 5.9 * s, 0.85 * s, hi, 7);
+      return;
+    case 'elm': // vase-shaped: a tall trunk and a wide, flat-bottomed crown
+      b.cyl(x, z, y, y + 3.0 * s, 0.3 * s, 0.2 * s, bark, 6, false);
+      b.blob(x, y + 4.3 * s, z, 2.1 * s, 1.35 * s, 2.1 * s, c);
+      b.blobLow(x + 0.35 * s, y + 5.15 * s, z - 0.25 * s, 1.35 * s, 0.85 * s, 1.35 * s, hi);
+      return;
+    case 'cherry': // short, spreading
+      b.cyl(x, z, y, y + 1.5 * s, 0.22 * s, 0.15 * s, '#4a2c2a', 6, false);
+      b.blob(x, y + 2.5 * s, z, 1.95 * s, 1.0 * s, 1.95 * s, c);
+      b.blobLow(x - 0.4 * s, y + 3.2 * s, z + 0.3 * s, 1.15 * s, 0.7 * s, 1.15 * s, hi);
+      return;
+    case 'willow': // a crown with a drooping skirt (by the water)
+      b.cyl(x, z, y, y + 2.6 * s, 0.3 * s, 0.22 * s, bark, 6, false);
+      b.blob(x, y + 3.7 * s, z, 1.7 * s, 1.1 * s, 1.7 * s, hi);
+      b.cyl(x, z, y + 1.1 * s, y + 3.6 * s, 2.05 * s, 1.45 * s, c, 8, false);
+      return;
+    case 'maple':
+      b.cyl(x, z, y, y + 2.3 * s, 0.24 * s, 0.17 * s, bark, 6, false);
+      b.blob(x, y + 3.6 * s, z, 1.6 * s, 1.75 * s, 1.6 * s, c);
+      b.blobLow(x + 0.3 * s, y + 4.9 * s, z + 0.2 * s, 1.0 * s, 0.9 * s, 1.0 * s, hi);
+      return;
+    default: // oak: big and round
+      b.cyl(x, z, y, y + 2.3 * s, 0.3 * s, 0.2 * s, bark, 6, false);
+      b.blob(x, y + 3.6 * s, z, 1.95 * s, 1.55 * s, 1.95 * s, c);
+      b.blobLow(x + 0.65 * s, y + 4.3 * s, z + 0.35 * s, 1.2 * s, 1.0 * s, 1.2 * s, hi);
+  }
+}
+
+/** Far version of a park tree: one faceted ball (or one cone). ~20 triangles. */
+export function parkTreeSimple(b: CityMeshBuilder, t: ParkTreeSpec): void {
+  const { x, z, y, s, c } = t;
+  switch (t.sp) {
+    case 'pine': return b.cone(x, z, y + 1.0 * s, y + 5.9 * s, 1.55 * s, c, 6);
+    case 'elm': return b.blobLow(x, y + 4.4 * s, z, 2.2 * s, 1.5 * s, 2.2 * s, c);
+    case 'cherry': return b.blobLow(x, y + 2.6 * s, z, 2.0 * s, 1.1 * s, 2.0 * s, c);
+    case 'willow': return b.blobLow(x, y + 3.0 * s, z, 2.0 * s, 1.8 * s, 2.0 * s, c);
+    case 'maple': return b.blobLow(x, y + 3.8 * s, z, 1.7 * s, 1.9 * s, 1.7 * s, c);
+    default: return b.blobLow(x, y + 3.7 * s, z, 2.0 * s, 1.7 * s, 2.0 * s, c);
+  }
 }
 
 function lighten(hex: string, k: number): string {

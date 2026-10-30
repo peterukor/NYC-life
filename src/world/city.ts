@@ -46,6 +46,9 @@ import { CityBlocks } from "./nycgen/city-blocks.ts";
 import { groundTextures } from "./nycgen/atlas.ts";
 import { buildCoast, onLand } from "./coast.ts";
 import { pondsFor } from "../data/parks.ts";
+import { centralParkPlan, centralParkTrees, seasonOf } from "./central-park-plan.ts";
+import { nycTime } from "../core/clock.ts";
+import type { QualityTier } from "../render/quality.ts";
 import { corridorsIn, onCorridor } from "./corridors.ts";
 import { plotsIn } from "../data/plots.ts";
 import { buildAdBoards, type AdBoards } from "./ad-blocks.ts";
@@ -173,6 +176,7 @@ export function buildCity(
     shadows?: boolean;
     kits?: Kits;
     /** Shrinks the detailed area on weak phones (1 = normal). */ detailScale?: number;
+    /** Graphics tier (landmarks trim detail on 'low'). */ tier?: QualityTier;
   },
 ): BuiltCity {
   const detailScale = opts.detailScale ?? 1;
@@ -463,6 +467,11 @@ export function buildCity(
 
   // Ponds and lakes in the big parks (data/parks.ts).
   const ponds = pondsFor(d);
+  // Central Park has its own plan (world/central-park-plan.ts): its trees,
+  // benches and water come from there, not from the block-by-block fill.
+  const cp = centralParkPlan(d);
+  const inCentralPark = (x: number, z: number) =>
+    !!cp && x > cp.rect.minX && x < cp.rect.maxX && z > cp.rect.minZ && z < cp.rect.maxZ;
 
   for (let c = 0; c < d.cols; c++) {
     for (let r = 0; r < d.rows; r++) {
@@ -498,6 +507,7 @@ export function buildCity(
           maxZ: ext.maxZ - (S ? 0 : SIDEWALK),
         };
         grassGeo.flat(g0.minX, g0.maxX, g0.minZ, g0.maxZ, 0.26, 4);
+        if (inCentralPark((b.minX + b.maxX) / 2, (b.minZ + b.maxZ) / 2)) continue;
         const n = Math.round(((g0.maxX - g0.minX) * (g0.maxZ - g0.minZ)) / 260);
         for (let i = 0; i < n; i++) {
           const x = rng.range(g0.minX + 3, g0.maxX - 3);
@@ -592,7 +602,8 @@ export function buildCity(
   }
 
   // --------------------------------------------------------- ponds
-  if (ponds.length) {
+  // (Ponds with a real outline are Central Park's: its landmark draws them.)
+  if (ponds.some((p) => !p.pts)) {
     const pondMat = track(
       new THREE.MeshPhongMaterial({
         color: "#4aa8d8",
@@ -602,6 +613,7 @@ export function buildCity(
     );
     const rimMat = track(new THREE.MeshLambertMaterial({ color: "#d8cdb4" }));
     for (const p of ponds) {
+      if (p.pts) continue;
       const rim = new THREE.Mesh(
         track(new THREE.CircleGeometry(1, 28).rotateX(-Math.PI / 2)),
         rimMat,
@@ -624,13 +636,14 @@ export function buildCity(
   /** Props checked against the roads (QA scan). */
   const props: { name: string; rect: Rect }[] = [];
   addHub(d, group, adSlots, track, chunkFor, rng, solids, props);
-  for (const p of ponds)
+  for (const p of ponds.filter((q) => !q.pts))
     solids.push({
       minX: p.x - p.rx * 0.85,
       maxX: p.x + p.rx * 0.85,
       minZ: p.z - p.rz * 0.85,
       maxZ: p.z + p.rz * 0.85,
     }); // no walking on water
+  if (cp) solids.push(...cp.solids); // Central Park's water, cell by cell
 
   // --------------------------------------------------------- merge static meshes
   const paverTex = track(gt.paver.clone());
@@ -689,7 +702,15 @@ export function buildCity(
       ),
     nearHub,
     doors: doorSpots.map((x) => ({ x: x.door.x, z: x.door.z })),
-    parkTrees: trees.map((t) => ({ x: t.x, z: t.z, y: t.y })),
+    parkTrees: [
+      ...trees.map((t) => ({ x: t.x, z: t.z, y: t.y })),
+      // Central Park's trees: species + seasonal colour, kept off the doors.
+      ...(cp && opts.trees
+        ? centralParkTrees(cp, seasonOf(nycTime().dateKey)).filter(
+            (t) => !doorSpots.some((s) => Math.hypot(s.door.x - t.x, s.door.z - t.z) < 6),
+          )
+        : []),
+    ],
     avoid: (x, z) => !!onCorridor(area, x, z, 2),
     cache: opts.shadows ? 40 : 30,
   });
@@ -885,6 +906,7 @@ export function buildCity(
       group,
       track,
       animate: (fn) => animators.push(fn),
+      tier: opts.tier ?? "medium",
     });
   }
 

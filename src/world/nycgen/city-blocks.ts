@@ -25,7 +25,11 @@ import { blockRect, SIDEWALK } from '../layout.ts';
 import { BuildingFades, cityMaterial } from './atlas.ts';
 import { CityMeshBuilder } from './builder.ts';
 import { emitDetailed, emitSimple, planNycBlock, type BuildingPlan } from './buildings.ts';
-import { emitBlockProps, tree, treeSimple } from './props.ts';
+import { emitBlockProps, parkTree, parkTreeSimple, tree, treeSimple, type ParkTreeSpec } from './props.ts';
+
+/** A park tree: a plain one, or a Central Park one with species + colour. */
+export type ParkTreeInput = { x: number; z: number; y: number } | ParkTreeSpec;
+const hasSpecies = (t: ParkTreeInput): t is ParkTreeSpec => 'sp' in t;
 
 interface BlockEntry {
   c: number;
@@ -41,7 +45,7 @@ interface BlockEntry {
   /** Id that switches this block's far stand-in on/off. */
   farId: number;
   near: THREE.Mesh | null;
-  parkTrees: { x: number; z: number; y: number }[];
+  parkTrees: ParkTreeInput[];
   lastUsed: number;
   seed: string;
 }
@@ -53,8 +57,8 @@ export interface CityBlocksOptions {
   skip: (c: number, r: number) => boolean;
   nearHub: (c: number, r: number) => boolean;
   doors: { x: number; z: number }[];
-  /** Trees inside parks (positions decided by city.ts). */
-  parkTrees?: { x: number; z: number; y: number }[];
+  /** Trees inside parks (positions decided by city.ts; Central Park's carry a species and colour). */
+  parkTrees?: ParkTreeInput[];
   /** Points where nothing may be planted (on Broadway or the highway). */
   avoid?: (x: number, z: number) => boolean;
   /** How many detailed blocks to keep built (memory cap). */
@@ -161,7 +165,10 @@ export class CityBlocks {
         const rng = new Rng(`${b.seed}-far`);
         bld.lockBid = b.farId;
         for (const p of b.buildings) emitSimple(bld, p, rng);
-        for (const t of b.parkTrees) treeSimple(bld, t.x, t.z, t.y, 1.3, rng);
+        for (const t of b.parkTrees) {
+          if (hasSpecies(t)) parkTreeSimple(bld, t);
+          else treeSimple(bld, t.x, t.z, t.y, 1.3, rng);
+        }
         emitBlockProps(bld, this.propOptions(b, true), rng);
       }
       const geo = bld.build();
@@ -202,7 +209,10 @@ export class CityBlocks {
     const bld = new CityMeshBuilder();
     const rng = new Rng(`${b.seed}-near`);
     for (const p of b.buildings) emitDetailed(bld, p, rng);
-    for (const t of b.parkTrees) tree(bld, t.x, t.z, t.y, rng.range(1.1, 1.5), rng);
+    for (const t of b.parkTrees) {
+      if (hasSpecies(t)) parkTree(bld, t);
+      else tree(bld, t.x, t.z, t.y, rng.range(1.1, 1.5), rng);
+    }
     emitBlockProps(bld, this.propOptions(b, false), rng);
     const geo = bld.build();
     const mesh = new THREE.Mesh(geo ?? new THREE.BufferGeometry(), this.material);

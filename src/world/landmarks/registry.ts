@@ -21,6 +21,8 @@ export interface LandmarkCtx {
   track: <T extends { dispose(): void }>(x: T) => T;
   /** Run something every frame (e.g. turn a Ferris wheel). */
   animate: (fn: (dt: number) => void) => void;
+  /** Graphics tier: trim detail on 'low' phones. */
+  tier: 'low' | 'medium' | 'high';
 }
 
 export interface LandmarkDef {
