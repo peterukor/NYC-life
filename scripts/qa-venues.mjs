@@ -10,7 +10,7 @@ const page = await browser.newPage();
 await page.setViewport({ width: +(process.env.W ?? 375), height: +(process.env.H ?? 812) });
 const errors = [];
 page.on('pageerror', (e) => errors.push(e.message));
-await page.goto(`http://localhost:4173/?qa=1&class=middle&hour=${process.env.HOUR ?? 21}&quality=${process.env.Q ?? 'medium'}`, { waitUntil: 'load' });
+await page.goto(`http://localhost:${process.env.PORT ?? 4173}/?qa=1&class=middle&hour=${process.env.HOUR ?? 21}&quality=${process.env.Q ?? 'medium'}`, { waitUntil: 'load' });
 await page.evaluate(() => localStorage.clear());
 await page.reload({ waitUntil: 'load' });
 await page.waitForSelector('#ob-year', { timeout: 30000 });
@@ -30,7 +30,7 @@ for (const id of ids) {
   if (process.env.UP) { await page.evaluate(() => window.__nyc.takeStairs()); await wait(3000); }
   if (process.env.WAIT) await wait(+process.env.WAIT);
   if (process.env.DROP) { await page.evaluate(() => window.__nyc.clubDrop()); await wait(+process.env.DROP); }
-  if (process.env.ZOOM) await page.evaluate((z) => window.__nyc.zoomAt(+z, 0, 0), process.env.ZOOM);
+  if (process.env.ZOOM) await page.evaluate((z) => window.__nyc.zoomAt(+z[0], +z[1], +z[2]), [process.env.ZOOM, process.env.ZX ?? 0, process.env.ZY ?? 0]);
   await wait(600);
   const clashes = await page.evaluate(() => window.__nyc.furnitureClashes());
   const blocked = await page.evaluate(() => window.__nyc.blockedUse());

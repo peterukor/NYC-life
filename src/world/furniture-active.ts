@@ -34,6 +34,14 @@ function barX(t: Toy, len: number, x: number, y: number, z: number, r = 0.02, co
 function barZ(t: Toy, len: number, x: number, y: number, z: number, r = 0.02, color = STEEL): void {
   t.add(new THREE.CylinderGeometry(r, r, len, 8).rotateX(Math.PI / 2).translate(x, y, z), color);
 }
+/** A round rod from point a to point b (posts, chains, slanted legs). */
+function rod(t: Toy, a: [number, number, number], b: [number, number, number], r: number, color: string): void {
+  const va = new THREE.Vector3(...a), vb = new THREE.Vector3(...b);
+  const dir = vb.clone().sub(va);
+  const g = new THREE.CylinderGeometry(r, r, dir.length(), 6);
+  g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.normalize()));
+  t.add(g.translate((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2), color);
+}
 /** A little lit console screen. */
 function glowPanel(t: Toy, w: number, h: number, x: number, y: number, z: number, color: string, tilt = 0): void {
   t.add(new THREE.BoxGeometry(w + 0.04, h + 0.04, 0.04).rotateX(tilt).translate(x, y, z), INK);
@@ -301,25 +309,82 @@ export const ACTIVE_TOYS: Record<string, (t: Toy) => void> = {
       t.add(new THREE.BoxGeometry(0.12, 0.32, 0.16).rotateY(-a).translate(x + Math.cos(a + Math.PI / 2) * 0.3, y + 0.2, z + Math.sin(a + Math.PI / 2) * 0.3), horse[i]);
     }
   },
-  /** A playground: a slide tower, swings and a spring rider on soft rubber. */
+  /**
+   * A playground on soft rubber (6 × 4 m): a climbing tower with a roof,
+   * a ladder up the back and a slide down the front; monkey bars out to
+   * the east; an A-frame swing set (one belt seat, one toddler bucket);
+   * a seesaw and a spring rider up front; a timber curb all round.
+   */
   toyPlayground(t) {
-    t.block(6.0, 0.04, 4.0, 0, 0, 0, '#e76f51', 0.05);
-    // Tower and slide.
-    for (const [x, z] of [[-2.4, -1.4], [-1.2, -1.4], [-2.4, -0.2], [-1.2, -0.2]]) t.block(0.1, 1.9, 0.1, x, 0.04, z, '#3a86ff', 0.3);
-    t.block(1.3, 0.08, 1.3, -1.8, 1.1, -0.8, '#ffbe0b', 0.1);
-    t.add(new THREE.ConeGeometry(0.95, 0.7, 4).rotateY(Math.PI / 4).translate(-1.8, 2.3, -0.8), '#ff006e');
-    t.add(new THREE.BoxGeometry(0.6, 0.06, 2.0).rotateX(-0.55).translate(-1.8, 0.62, 0.65), '#06d6a0');
-    // Swings.
-    for (const x of [0.8, 2.8]) t.add(new THREE.CylinderGeometry(0.05, 0.05, 2.2, 6).rotateZ(0.12 * (x < 2 ? 1 : -1)).translate(x, 1.1, -1.2), '#8338ec').add(new THREE.CylinderGeometry(0.05, 0.05, 2.2, 6).rotateZ(0.12 * (x < 2 ? 1 : -1)).translate(x, 1.1, -0.4), '#8338ec');
-    barX(t, 2.1, 1.8, 2.15, -0.8, 0.05, '#8338ec');
-    for (const x of [1.3, 2.3]) {
-      for (const dz of [-0.06, 0.06]) t.add(new THREE.CylinderGeometry(0.008, 0.008, 1.5, 4).translate(x, 1.4, -0.8 + dz), STEEL);
-      t.block(0.42, 0.04, 0.18, x, 0.62, -0.8, INK, 0.3);
+    const POST = '#2a9d8f', DECK = '#e63946', SLIDE = '#ffb703', PANEL = '#3a86ff', CURB = '#8a5a34';
+    // Ground: rubber tiles, a blue patch under the swings, timber curb.
+    t.block(6.0, 0.05, 4.0, 0, 0, 0, '#d0684a', 0.04);
+    t.block(2.4, 0.012, 2.0, 1.85, 0.05, -1.0, '#4f7cac', 0.04);
+    for (const z of [-1.94, 1.94]) t.block(6.0, 0.16, 0.12, 0, 0, z, CURB, 0.04);
+    for (const x of [-2.94, 2.94]) t.block(0.12, 0.16, 4.0, x, 0, 0, CURB, 0.04);
+
+    // The tower: four posts, a deck, side panels and a pointy roof.
+    const [x0, x1, z0, z1] = [-2.5, -1.3, -1.5, -0.3];
+    for (const [x, z] of [[x0, z0], [x1, z0], [x0, z1], [x1, z1]]) t.cyl(0.07, 0.07, 2.6, x, 0.05, z, POST, 8);
+    t.block(1.3, 0.1, 1.3, -1.9, 1.1, -0.9, DECK, 0.03);
+    t.block(1.2, 0.5, 0.05, -1.9, 1.25, z0, PANEL, 0.05); // back panel
+    for (const z of [-1.2, -0.6]) t.block(0.05, 0.5, 0.3, x0, 1.25, z, PANEL, 0.05); // west panel, gap for the ladder
+    t.add(new THREE.ConeGeometry(1.05, 0.8, 4).rotateY(Math.PI / 4).translate(-1.9, 3.05, -0.9), DECK);
+    t.sphere(0.09, -1.9, 3.5, -0.9, SLIDE);
+    // Ladder up the west side.
+    for (const z of [-1.05, -0.75]) rod(t, [-2.95, 0.05, z], [-2.52, 1.2, z], 0.035, POST);
+    for (let i = 1; i <= 4; i++) { const f = i / 5; barZ(t, 0.3, -2.95 + 0.43 * f, 0.05 + 1.15 * f, -0.9, 0.025, STEEL); }
+    // The slide: a chute off the front of the deck, a flat run-out at the bottom.
+    const chute = (len: number, y: number, z: number, ang: number, w: number, h: number, c: string) =>
+      t.add(new THREE.BoxGeometry(w, h, len).rotateX(ang).translate(-1.9, y, z), c);
+    chute(2.0, 0.66, 0.45, 0.6, 0.56, 0.05, SLIDE);
+    for (const dx of [-0.29, 0.29]) t.add(new THREE.BoxGeometry(0.05, 0.16, 2.0).rotateX(0.6).translate(-1.9 + dx, 0.74, 0.43), SLIDE);
+    chute(0.5, 0.15, 1.5, 0, 0.56, 0.05, SLIDE);
+    for (const dx of [-0.29, 0.29]) t.block(0.05, 0.12, 0.5, -1.9 + dx, 0.15, 1.5, SLIDE, 0.02);
+    t.block(0.06, 0.15, 0.06, -1.9, 0, 1.6, STEEL, 0.02);
+    for (const dx of [-0.33, 0.33]) rod(t, [-1.9 + dx, 1.2, -0.3], [-1.9 + dx, 1.7, -0.3], 0.03, STEEL); // grab bars at the top
+
+    // Monkey bars from the tower to a little ladder post.
+    for (const z of [-1.15, -0.65]) {
+      barX(t, 1.75, -0.45, 1.85, z, 0.035, PANEL);
+      t.cyl(0.06, 0.06, 1.85, 0.4, 0.05, z, POST, 8);
     }
-    // A spring rider and a sandbox.
-    t.cyl(0.05, 0.05, 0.4, 1.6, 0.04, 1.2, STEEL, 6);
-    t.add(new THREE.SphereGeometry(0.28, 10, 8).scale(0.7, 0.6, 1.2).translate(1.6, 0.6, 1.2), '#ffbe0b');
-    t.block(1.6, 0.18, 1.2, -0.2, 0.04, 1.2, '#8a5a34', 0.1).block(1.4, 0.04, 1.0, -0.2, 0.16, 1.2, '#f2cc8f', 0.2);
+    for (let i = 0; i < 7; i++) barZ(t, 0.5, -1.1 + i * 0.25, 1.85, -0.9, 0.025, STEEL);
+    for (let i = 1; i <= 3; i++) barZ(t, 0.5, 0.4, i * 0.45, -0.9, 0.025, STEEL);
+
+    // Swing set: two A-frames, a beam, a belt seat and a toddler bucket.
+    const sz = -1.0, top = 2.15;
+    for (const x of [0.85, 2.85]) for (const dz of [-0.75, 0.75]) rod(t, [x, 0.05, sz + dz], [x, top, sz], 0.05, POST);
+    barX(t, 2.1, 1.85, top, sz, 0.06, POST);
+    const swing = (x: number, bucket: boolean) => {
+      const seatY = bucket ? 0.7 : 0.55;
+      for (const dx of [-0.2, 0.2]) rod(t, [x + dx, top, sz], [x + dx, seatY + 0.06, sz], 0.012, STEEL);
+      if (bucket) {
+        t.block(0.4, 0.28, 0.32, x, seatY - 0.12, sz, DECK, 0.1);
+        t.block(0.28, 0.1, 0.2, x, seatY + 0.07, sz, '#1b1d22', 0.05);
+      } else t.add(new THREE.BoxGeometry(0.46, 0.04, 0.18).translate(x, seatY, sz), '#1b1d22');
+    };
+    swing(1.4, false);
+    swing(2.3, true);
+
+    // A seesaw: a red pivot, a tilted plank, handles and seats.
+    const sx = 1.5, szz = 1.15, tilt = 0.17;
+    t.add(new THREE.CylinderGeometry(0.14, 0.14, 0.3, 3).rotateZ(Math.PI / 2).rotateX(Math.PI / 2).translate(sx, 0.17, szz), DECK);
+    t.add(new THREE.BoxGeometry(2.3, 0.06, 0.24).rotateZ(tilt).translate(sx, 0.32, szz), SLIDE);
+    for (const s of [-1, 1]) {
+      const hx = sx + s * 0.75, hy = 0.32 + s * 0.75 * Math.tan(tilt);
+      t.add(new THREE.BoxGeometry(0.3, 0.05, 0.26).rotateZ(tilt).translate(sx + s * 1.0, 0.36 + s * 1.0 * Math.tan(tilt), szz), PANEL);
+      rod(t, [hx, hy, szz - 0.09], [hx, hy + 0.28, szz - 0.09], 0.02, STEEL);
+      rod(t, [hx, hy, szz + 0.09], [hx, hy + 0.28, szz + 0.09], 0.02, STEEL);
+      barZ(t, 0.22, hx, hy + 0.28, szz, 0.022, STEEL);
+    }
+
+    // A spring rider (a yellow duck on a coil).
+    for (let i = 0; i < 5; i++) t.add(new THREE.TorusGeometry(0.08, 0.016, 5, 10).rotateX(Math.PI / 2).translate(-0.3, 0.1 + i * 0.07, 1.2), STEEL);
+    t.add(new THREE.SphereGeometry(0.26, 10, 8).scale(0.75, 0.65, 1.15).translate(-0.3, 0.6, 1.2), SLIDE);
+    t.sphere(0.15, -0.3, 0.85, 1.42, SLIDE);
+    t.add(new THREE.ConeGeometry(0.06, 0.14, 6).rotateX(Math.PI / 2).translate(-0.3, 0.83, 1.6), '#fb8500');
+    barX(t, 0.36, -0.3, 0.86, 1.3, 0.02, DECK);
   },
   /** A ball field: an infield diamond on the grass, bases, a pitcher's mound (walk over it). */
   toyBallField(t) {
