@@ -10,7 +10,8 @@ import { newLife } from '../src/sim/state.ts';
 const life = () => newLife({ name: 'Jack', birthYear: 1995, origin: 'hustler', spawnClass: 'rich', look: {} as never, traits: [] } as never);
 
 test('uptown places: real, resolved, mostly Midtown and north, with known actions', () => {
-  assert.ok(UPTOWN_PLACES.length >= 15);
+  // Peter cut the menu-only fun spots (2026-10-30); a few uptown places remain.
+  assert.ok(UPTOWN_PLACES.length >= 3);
   for (const p of UPTOWN_PLACES) {
     const r = PLACE_BY_ID[p.id];
     assert.ok(r, p.id);
@@ -51,11 +52,11 @@ test('a twist pays out and moves mood', () => {
 test('🗺️ Full City Map: far places hidden until you buy it', () => {
   const s = life();
   s.money = 100_000;
-  const far = PLACE_BY_ID.tortureMuseum;
+  const far = PLACE_BY_ID.storageAuction;
   const me = { x: 0, z: 0 };
   assert.equal(placeOnMap(s, far, me), false);
   assert.equal(placeOnMap(s, PLACE_BY_ID[s.home.placeId], me), true, 'home always shows');
-  s.stats.placesVisited.push('tortureMuseum');
+  s.stats.placesVisited.push('storageAuction');
   assert.equal(placeOnMap(s, far, me), true, 'been there: shows');
   s.stats.placesVisited.pop();
   assert.equal(buyCityMap(s), null);

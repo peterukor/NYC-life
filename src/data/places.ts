@@ -161,7 +161,7 @@ const RAW: RawPlace[] = [
     blurb: 'Lawns, a lake with rowboats, buskers and the whole city taking a breath.',
     // A walkable park inside (data/venues.ts → park): benches, the lawn, a duck pond, the fountain.
     at: [40.7712, -73.9742], hours: [6, 1], interior: 'park', color: '#2e8b57',
-    actions: ['picnic', 'jog', 'rowboat', 'playMinigolf', 'peopleWatch', 'busk', 'halalCart', 'publicRestroom'],
+    actions: ['picnic', 'jog', 'rowboat', 'playMinigolf', 'bikeRace', 'peopleWatch', 'busk', 'halalCart', 'publicRestroom'],
     landmark: { description: 'The 843-acre park in the middle of Manhattan, designed by Olmsted and Vaux.', officialSite: 'https://www.centralparknyc.org/', siteLabel: 'centralparknyc.org' },
   },
   {
@@ -386,12 +386,6 @@ const RAW: RawPlace[] = [
     blurb: 'Free fishing on the Hudson. Rods to borrow, a bucket, and a morning derby: biggest fish by 11 AM wins cash.',
     at: [40.7635, -73.9982], hours: [5, 22], interior: 'pier', color: '#3a86ff',
     actions: ['goFishing', 'fishDerby'],
-  },
-  {
-    id: 'bikeLoop', area: 'manhattan', name: 'Central Park Bike Loop', emoji: '🚴', type: 'fun',
-    blurb: 'Grab a Citi Bike at Columbus Circle and race the six-mile loop. Racers line up every hour. Watch the corners.',
-    at: [40.7678, -73.9813], hours: [6, 22], interior: 'none', color: '#2a9d8f',
-    actions: ['bikeRace'],
   },
   // More clubs, one per level (data/clubs.ts has the door policy and what makes each bigger).
   {

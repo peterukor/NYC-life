@@ -16,7 +16,7 @@ test('the fun places exist, with their actions', () => {
   assert.deepEqual(PLACE_BY_ID.chessHouse.actions, ['playChess']);
   assert.ok(PLACE_BY_ID.artParlor.actions.includes('paintArt'));
   assert.ok(PLACE_BY_ID.pier84.actions.includes('goFishing'));
-  assert.ok(PLACE_BY_ID.bikeLoop.actions.includes('bikeRace'));
+  assert.ok(PLACE_BY_ID.centralPark.actions.includes('bikeRace')); // the Bike Loop moved into the park (2026-10-30)
 });
 
 test('art: more effort = better; likes climb over hours; a collector offers; selling pays', () => {

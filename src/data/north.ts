@@ -103,22 +103,10 @@ export const NORTH_ODD: OddActivity[] = [
 export const NORTH_PLACES: RawPlace[] = [
   // ---------- Harlem ----------
   {
-    id: 'apollyon', area: 'manhattan', name: 'The Apollyon Theater', emoji: '🎭', type: 'nightlife',
-    blurb: 'Famous stage, tougher crowd. Wednesday is Amateur Night: they cheer like church and boo like a stadium.',
-    at: [40.8100, -73.9500], hours: [18, 24], interior: 'none', color: '#c1121f',
-    actions: ['amateurNight'],
-  },
-  {
     id: 'lenoxLounge', area: 'manhattan', name: 'Lenox Lounge Revival', emoji: '🎷', type: 'nightlife',
     blurb: 'Red booths, low light, a house band that has played every night since forever. Ask nicely and they might let you sit in.',
     at: [40.8083, -73.9440], hours: [18, 4], interior: 'bar', color: '#9d0208',
     actions: ['jazzSet', 'happyHour', 'jazzSitIn'],
-  },
-  {
-    id: 'unoKicks', area: 'manhattan', name: 'Uptown Kicks on 125th', emoji: '👟', type: 'shop',
-    blurb: 'Sneakers, fitted caps and the strongest opinions on 125th Street. The guy behind the counter remembers your shoe size forever.',
-    at: [40.8093, -73.9480], hours: [10, 21], interior: 'none', color: '#ff7f11',
-    actions: ['windowShop'], sells: ['plain', 'premium'],
   },
   {
     id: 'grantsTomb', area: 'manhattan', name: 'General Grant National Memorial', emoji: '🏛️', type: 'landmark',
@@ -127,37 +115,7 @@ export const NORTH_PLACES: RawPlace[] = [
     actions: ['grantsTombQuiz', 'peopleWatch'],
     landmark: { description: 'The tomb of President Ulysses S. Grant and his wife Julia, finished in 1897 in Riverside Park, run by the National Park Service.', officialSite: 'https://www.nps.gov/gegr/', siteLabel: 'nps.gov' },
   },
-  {
-    id: 'gradLibrary', area: 'manhattan', name: 'Morningside Grad Library', emoji: '📚', type: 'fun',
-    blurb: 'Big columns, bigger student debt. If you walk in like you belong, nobody checks. Probably.',
-    at: [40.8075, -73.9626], hours: [8, 23], interior: 'none', color: '#1d3a8a',
-    actions: ['sneakIntoLecture'],
-  },
-  {
-    id: 'spinCity', area: 'manhattan', name: 'Spin City Laundromat', emoji: '🧺', type: 'fun',
-    blurb: 'Twenty dryers, one working change machine and the best soap opera on Amsterdam Avenue (on the TV and off it).',
-    at: [40.8213, -73.9493], hours: [6, 23], interior: 'none', color: '#3a86ff',
-    actions: ['laundromatDrama'],
-  },
-  {
-    id: 'dominoTable', area: 'manhattan', name: 'Sugar Hill Dominoes Table', emoji: '🁫', type: 'fun',
-    blurb: 'A folding table, four milk crates and the most serious game on the block. Bring cash. Bring humility.',
-    at: [40.8270, -73.9430], hours: [10, 23], interior: 'none', color: '#023047',
-    actions: ['dominoes'],
-  },
   // ---------- East Harlem ----------
-  {
-    id: 'muralWalk', area: 'manhattan', name: 'El Barrio Mural Walk', emoji: '🎨', type: 'fun',
-    blurb: 'Block after block of murals: heroes, history, a giant coquí. Someone is always painting a new one.',
-    at: [40.7952, -73.9418], interior: 'none', color: '#e76f51',
-    actions: ['muralWalk'],
-  },
-  {
-    id: 'laMarqueta', area: 'manhattan', name: 'La Marqueta Market', emoji: '🛒', type: 'shop',
-    blurb: 'Under the Park Avenue tracks: mangoes, cuchifritos, live music on weekends. Haggling is a sport here.',
-    at: [40.7981, -73.9440], hours: [8, 19], interior: 'none', color: '#f4a261',
-    actions: ['marketHaggle', 'mofongo'],
-  },
   // ---------- Hamilton Heights / Washington Heights ----------
   {
     id: 'panaderia', area: 'manhattan', name: 'Panadería Doña Rosa', emoji: '🥐', type: 'cafe',
@@ -166,23 +124,11 @@ export const NORTH_PLACES: RawPlace[] = [
     actions: ['pastelito', 'tresLeches', 'latte'],
   },
   {
-    id: 'blowoutSalon', area: 'manhattan', name: 'Blowout Bar Dominicana', emoji: '💇', type: 'fun',
-    blurb: 'The best blowouts in the city and the best information network in the hemisphere. Book ahead. Then wait anyway.',
-    at: [40.8478, -73.9352], hours: [8, 20], interior: 'none', color: '#ff4fa3',
-    actions: ['blowout'],
-  },
-  {
     id: 'littleRedLighthouse', area: 'manhattan', name: 'Little Red Lighthouse', emoji: '🗼', type: 'landmark',
     blurb: 'A tiny red lighthouse under the great grey bridge. It has its own children’s book. It’s doing fine.',
     at: [40.8501, -73.9469], interior: 'none', color: '#d00000',
     actions: ['bridgeView', 'peopleWatch'],
     landmark: { description: 'Jeffrey’s Hook Lighthouse (1921), the little red lighthouse under the George Washington Bridge in Fort Washington Park.', officialSite: 'https://www.nycgovparks.org/parks/fort-washington-park', siteLabel: 'nycgovparks.org' },
-  },
-  {
-    id: 'gwBridge', area: 'manhattan', name: 'GW Bridge Walkway', emoji: '🌉', type: 'plaza',
-    blurb: 'The world’s busiest bridge, and a walkway with a view of everything. Windy. Very windy. Hold your hat.',
-    at: [40.8517, -73.9518], interior: 'none', color: '#6c757d',
-    actions: ['bridgeWalk', 'bridgeView'],
   },
   {
     id: 'highBridge', area: 'manhattan', name: 'The High Bridge', emoji: '🌉', type: 'landmark',
@@ -198,11 +144,5 @@ export const NORTH_PLACES: RawPlace[] = [
     at: [40.8649, -73.9319], hours: [10, 17], interior: 'none', color: '#6b4423',
     actions: ['peopleWatch', 'picnic'],
     landmark: { description: 'The Metropolitan Museum of Art’s branch for medieval art and architecture, in Fort Tryon Park, home of the Unicorn Tapestries.', officialSite: 'https://www.metmuseum.org/plan-your-visit/met-cloisters', siteLabel: 'metmuseum.org' },
-  },
-  {
-    id: 'canoeClub', area: 'manhattan', name: 'Inwood Canoe Club Dock', emoji: '🛶', type: 'fun',
-    blurb: 'The oldest canoe club in the city, at the top of the island where two rivers fight. Free paddles for the brave.',
-    at: [40.8700, -73.9195], hours: [8, 19], interior: 'none', color: '#219ebc',
-    actions: ['kayakRiver'],
   },
 ];

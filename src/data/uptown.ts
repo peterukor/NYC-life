@@ -151,79 +151,13 @@ const UPTOWN_ODD: OddActivity[] = [
 /** The places (all Manhattan, Midtown and north). */
 export const UPTOWN_PLACES: RawPlace[] = [
   // ---------- Midtown / central ----------
-  {
-    id: 'eternalRest', area: 'manhattan', name: 'Eternal Rest Showroom', emoji: '⚰️', type: 'fun',
-    blurb: 'Caskets, urns and “pre-need planning”. Free coffee. They really, really want you to lie down in something.',
-    at: [40.7479, -73.9790], hours: [10, 19], interior: 'none', color: '#4a4e69',
-    actions: ['coffinNap', 'planFuneral'],
-  },
-  {
-    id: 'rageRoom', area: 'manhattan', name: 'The Rage Room on 33rd', emoji: '💥', type: 'fun',
-    blurb: 'Goggles, a bat and a pile of things that deserve it. Printers are the bestseller. Nobody asks why.',
-    at: [40.7498, -73.9945], hours: [12, 24], interior: 'none', color: '#e63946',
-    actions: ['smashPrinter', 'smashWedding'],
-  },
-  {
-    id: 'openOfficeEscape', area: 'manhattan', name: 'Escape the Open Office', emoji: '🧩', type: 'fun',
-    blurb: 'An escape room built like a real Midtown office. Rated “too real” by 4,000 people who work in one.',
-    at: [40.7547, -73.9752], hours: [11, 23], interior: 'none', color: '#3a86ff',
-    actions: ['escapeOffice'],
-  },
-  {
-    id: 'heartbreakKaraoke', area: 'manhattan', name: 'Heartbreak Karaoke', emoji: '🎤', type: 'nightlife',
-    blurb: 'Koreatown, third floor, private rooms. Only sad songs after 10. Tissues are free; the soju isn’t.',
-    at: [40.7478, -73.9868], hours: [17, 4], interior: 'none', color: '#ff4fa3',
-    actions: ['sadKaraoke'],
-  },
-  {
-    id: 'lostFound', area: 'manhattan', name: 'Grand Central Lost & Found Sale', emoji: '🧳', type: 'shop',
-    blurb: 'Every umbrella this city ever forgot, plus mystery boxes of things nobody came back for.',
-    at: [40.7527, -73.9772], hours: [8, 20], interior: 'none', color: '#b08d2e',
-    actions: ['lostFoundBox'],
-  },
-  {
-    id: 'tramScream', area: 'manhattan', name: 'Roosevelt Island Tram', emoji: '🚡', type: 'fun',
-    blurb: 'A red cable car over the East River. Locals use it for commuting. And, recently, for screaming.',
-    at: [40.7612, -73.9643], hours: [6, 2], interior: 'none', color: '#d62828',
-    actions: ['tramScream'],
-  },
-  {
-    id: 'madameDoom', area: 'manhattan', name: 'Madame Doom, Pessimistic Psychic', emoji: '🔮', type: 'fun',
-    blurb: 'Lexington Ave, behind a beaded curtain. Never wrong, never cheerful. Cash or Venmo.',
-    at: [40.7688, -73.9620], hours: [12, 23], interior: 'none', color: '#6d597a',
-    actions: ['doomFortune'],
-  },
   // ---------- Upper West Side ----------
-  {
-    id: 'badDecisions', area: 'manhattan', name: 'Museum of Bad Decisions', emoji: '🏛️', type: 'fun',
-    blurb: 'Three floors of things people wish they hadn’t done. Interactive. Very interactive. Gift shop on the way out.',
-    at: [40.7826, -73.9740], hours: [10, 18], interior: 'none', color: '#9b2226',
-    actions: ['badDecisionsTour'],
-  },
-  {
-    id: 'ratTour', area: 'manhattan', name: 'Upper West Side Rat Tour', emoji: '🐀', type: 'fun',
-    blurb: 'A nightly walking tour of the city’s most successful residents. Meets by the subway stairs. Wear closed shoes.',
-    at: [40.7870, -73.9770], hours: [19, 3], interior: 'none', color: '#6c757d',
-    actions: ['ratTour'],
-  },
   // ---------- Harlem / East Harlem ----------
   {
     id: 'clinicalTrial', area: 'manhattan', name: 'Uptown Paid Research Center', emoji: '🧪', type: 'work',
     blurb: 'Studies that pay cash for your time (and your blood pressure). Side effects listed in very small print.',
     at: [40.7905, -73.9530], hours: [8, 18], interior: 'office', color: '#2a9d8f',
     actions: ['clinicalTrial'],
-  },
-  {
-    id: 'debateBarber', area: 'manhattan', name: 'Lenox Cuts & Debates', emoji: '💈', type: 'fun',
-    blurb: 'Fresh cuts, louder opinions. The wait is two hours, but the arguments are free and the regulars never lose.',
-    at: [40.8085, -73.9455], hours: [9, 21], interior: 'none', color: '#d62828',
-    actions: ['goatDebate'],
-  },
-  {
-    id: 'hauntedBrownstone', area: 'manhattan', name: 'Strivers’ Row Haunted Open House', emoji: '👻', type: 'fun',
-    blurb: 'A gorgeous brownstone floor-through, below market rent. The listing says “quiet neighbours”. They’re dead.',
-    at: [40.8180, -73.9440], hours: [11, 22], interior: 'none', color: '#3d405b',
-    actions: ['hauntedOpenHouse'],
   },
   {
     id: 'harlemSoul', area: 'manhattan', name: 'Miss Dee’s Soul Kitchen', emoji: '🍗', type: 'food',
@@ -237,12 +171,6 @@ export const UPTOWN_PLACES: RawPlace[] = [
     blurb: 'Abandoned units, sold blind, cash only. Most are junk. One had a parking spot in it. People still talk about it.',
     at: [40.8490, -73.9365], hours: [10, 19], interior: 'shop', color: '#f4a261',
     actions: ['storageAuction'],
-  },
-  {
-    id: 'tortureMuseum', area: 'manhattan', name: 'Medieval Mistakes Museum', emoji: '🪵', type: 'fun',
-    blurb: 'Stocks, a pillory and a “dungeon experience” in a church basement. Run by a very cheerful man named Brian.',
-    at: [40.8650, -73.9290], hours: [10, 18], interior: 'none', color: '#6b4423',
-    actions: ['stocksSelfie'],
   },
 ];
 
