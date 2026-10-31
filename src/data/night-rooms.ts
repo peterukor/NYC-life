@@ -1,0 +1,310 @@
+// =====================================================================
+// night-rooms.ts — the five Manhattan nights out, rebuilt (Peter,
+// 2026-10-31: "go for it"): The Basement Comedy Club, The Stoop, Lenox
+// Lounge Revival, Pixel Palace and Empire Casino. Each one its own room,
+// different from the other venues of its kind (Canal Street Arcade's
+// blacklight, the Bowery Card Club's warehouse).
+//
+// Place → layout in data/venues.ts WORKPLACE_LAYOUT_FOR. New keys on
+// purpose: data/venue-looks.ts dresses old layouts by id. Laid out with
+// clash checks against real footprints (/tmp/claude-0/plans/night.py,
+// not in the repo). Pieces: world/furniture-night.ts; the comic, the
+// band, the karaoke singer and the seated crowds: world/venue-life.ts
+// SHOW. Gambling is game money only.
+// =====================================================================
+
+import type { HomeLayout } from './homes.ts';
+
+const H = Math.PI / 2;
+const PI = Math.PI;
+
+export const NIGHT_ROOMS: Record<string, HomeLayout> = {
+  // 🎙️ THE BASEMENT COMEDY CLUB (Midtown, rebuilt 2026-10-31): down a steep flight of stairs, a low
+  // brick cellar. The stage is a black riser against red brick with one mic, one stool and a glass
+  // of water. Little tables packed in rows facing it (two-drink minimum), a bar down the side,
+  // headshots of every comic who ever bombed here, the open mic sign-up, and the green room.
+  // A comic is always on; the crowd laughs (venue-life SHOW).
+  comedy2: {
+    id: 'comedy2', name: 'The Basement Comedy Club', width: 16, depth: 12, wallColor: '#3a2340', zoomable: true, shaped: true, door: { x: 5.5, z: 6 },
+    windows: { xs: [], w: 0, h: 0, y: 0 }, mood: 'bar', version: 1,
+    signs: [{ text: 'The Basement', color: '#ff3b3b', x: -1.5, y: 2.6, z: -5.72, rot: 0, size: 0.6, font: 'script' }, { text: 'TWO DRINK MINIMUM', color: '#ffae42', x: -7.86, y: 2.35, z: -2.4, rot: Math.PI / 2, size: 0.28, font: 'block' }, { text: 'LIVE COMEDY', color: '#ff5fa2', x: 7.86, y: 2.4, z: 2.2, rot: -Math.PI / 2, size: 0.4, font: 'block' }],
+    life: { visitors: 8, calm: true, pops: ['😂', '🍺', '👏', '🤣', '🙄', '🍷'], fx: ['haze'], runner: { from: 'bar', to: ['row00', 'row01', 'row02', 'row03', 'row10', 'row11', 'row12', 'row13'], carry: ['🍺', '🍷', '🥃'] } },
+    workers: [{ x: 7.3, z: -1.6, rot: -1.5707963267948966 }, { x: 7.3, z: -0.4, rot: -1.5707963267948966 }, { x: 5.5, z: 5.2, rot: 3.141592653589793 }, { x: 1.4, z: -3.6, rot: 0 }, { x: 2.6, z: 1.0, rot: 0 }, { x: -6.6, z: -4.2, rot: 0 }],
+    rooms: [
+      { label: 'Showroom', rect: [-8, -6, 8, 6], floor: '#222222', style: { floor: 'walnut', wall: 'brick' } },
+      { label: 'Bar', rect: [4, -6, 8, 6], floor: '#222222', style: { floor: 'concrete', wall: 'brick' } },
+    ],
+    walls: [
+    ],
+    furniture: [
+      { uid: 'stage', item: 'comedyStage', x: -1.5, z: -4.885, rot: 0 },
+      { uid: 'green', item: 'greenRoom', x: -6.6, z: -5.3, rot: 0 },
+      { uid: 'signup', item: 'micSignup', x: 1.2, z: -5.664, rot: 0 },
+      { uid: 'row00', item: 'comedyTables', x: -4.3, z: -2.6, rot: 0 },
+      { uid: 'row01', item: 'comedyTables', x: -4.3, z: -1.0, rot: 0 },
+      { uid: 'row02', item: 'comedyTables', x: -4.3, z: 0.6, rot: 0 },
+      { uid: 'row03', item: 'comedyTables', x: -4.3, z: 2.2, rot: 0 },
+      { uid: 'row10', item: 'comedyTables', x: -0.7, z: -2.6, rot: 0 },
+      { uid: 'row11', item: 'comedyTables', x: -0.7, z: -1.0, rot: 0 },
+      { uid: 'row12', item: 'comedyTables', x: -0.7, z: 0.6, rot: 0 },
+      { uid: 'row13', item: 'comedyTables', x: -0.7, z: 2.2, rot: 0 },
+      { uid: 'booth1', item: 'booth', x: -7.065, z: 0.6, rot: H },
+      { uid: 'booth2', item: 'booth', x: -7.065, z: 2.7, rot: H },
+      { uid: 'backbar', item: 'bottleShelf', x: 7.73, z: -1.6, rot: -H },
+      { uid: 'bar', item: 'barTop', x: 5.9, z: -1.6, rot: -H },
+      { uid: 'stairs', item: 'cellarStairs', x: 7.3, z: 4.68, rot: 0 },
+      { uid: 'trash', item: 'trashTall', x: 4.0, z: 5.4, rot: 0 },
+      { uid: 'comics1', item: 'galleryWall', x: -7.875, z: -2.4, rot: H },
+      { uid: 'comics2', item: 'galleryWall', x: -7.875, z: 4.6, rot: H },
+      { uid: 'posters', item: 'posters', x: 7.873, z: 3.4, rot: -H },
+      { uid: 'sc1', item: 'sconce', x: -7.77, z: -0.9, rot: H },
+      { uid: 'sc2', item: 'sconce', x: -7.77, z: 1.65, rot: H },
+      { uid: 'spot0', item: 'spotLight', x: -2.6, z: -3.7, rot: 0, lc: '#fff1d6' },
+      { uid: 'spot1', item: 'spotLight', x: -1.5, z: -3.7, rot: 0, lc: '#fff1d6' },
+      { uid: 'spot2', item: 'spotLight', x: -0.4, z: -3.7, rot: 0, lc: '#fff1d6' },
+      { uid: 'bulbs0', item: 'edisonCluster', x: 6.2, z: -2.8, rot: 0 },
+      { uid: 'bulbs1', item: 'edisonCluster', x: 6.2, z: -0.4, rot: 0 },
+      { uid: 'lamp0', item: 'cubeLantern', x: -4.3, z: -0.2, rot: 0 },
+      { uid: 'lamp1', item: 'cubeLantern', x: -0.7, z: -0.2, rot: 0 },
+      { uid: 'lamp2', item: 'cubeLantern', x: -4.3, z: 2.9, rot: 0 },
+      { uid: 'lamp3', item: 'cubeLantern', x: -0.7, z: 2.9, rot: 0 },
+    ],
+  },
+  // 🍸 THE STOOP (East Village, rebuilt 2026-10-31): the neighbourhood bar, named for the brownstone
+  // stoop next door where half the bar ends up by midnight. Out front: the stoop, a specials board,
+  // a bench and a streetlamp. Inside: exposed brick, a long bar under bare bulbs, the jukebox, a
+  // karaoke corner with a mirror ball (someone is always singing), a pool table, red booths, Biscuit
+  // the bar dog and the cat who runs the place. Out back: a fire pit and fairy lights in the ivy.
+  // (The Bartender job works here.)
+  stoop2: {
+    id: 'stoop2', name: 'The Stoop', width: 20, depth: 14, wallColor: '#8a3b2a', zoomable: true, shaped: true, door: { x: -6, z: 7 },
+    windows: { xs: [], w: 0, h: 0, y: 0 }, mood: 'bar', version: 1,
+    signs: [{ text: 'The Stoop', color: '#7bd88f', x: -9.86, y: 2.3, z: -4.4, rot: Math.PI / 2, size: 0.8, font: 'script' }, { text: 'KARAOKE', color: '#ff5fa2', x: 1.75, y: 2.62, z: -6.86, rot: 0, size: 0.35, font: 'block' }, { text: 'OPEN', color: '#ff3b3b', x: -2.9, y: 2.45, z: 3.14, rot: 0, size: 0.35, font: 'block' }],
+    life: { visitors: 14, pops: ['🍸', '🍺', '😂', '🐶', '🎤', '🔥'], fx: ['notes'], runner: { from: 'bar', to: ['booth1', 'booth2', 'ht1', 'ht2', 'yt0', 'yt1'], carry: ['🍸', '🍺', '🍹'] } },
+    workers: [{ x: -6.2, z: -6.4, rot: 0 }, { x: -4.8, z: -6.4, rot: 0 }, { x: -6, z: 6.2, rot: 3.141592653589793 }, { x: -2.9, z: 2.2, rot: 3.141592653589793 }, { x: 6.6, z: -0.8, rot: 3.141592653589793 }, { x: -1.0, z: 4.6, rot: 0 }],
+    rooms: [
+      { label: 'Bar', rect: [-10, -7, 3, 3], floor: '#222222', style: { floor: 'oak', wall: 'brick' } },
+      { label: 'Sidewalk', rect: [-10, 3, 3, 7], floor: '#222222', style: { floor: 'concrete', wall: 'brick' } },
+      { label: 'Backyard', rect: [3, -7, 10, 7], floor: '#222222', style: { floor: 'paving', wall: 'hedge' } },
+    ],
+    walls: [
+      { a: [-10, 3], b: [3, 3], gaps: [[6.2, 7.8]] },
+      { a: [3, -7], b: [3, 3], gaps: [[5.4, 7.2]] },
+      { a: [3, 3], b: [3, 7] },
+    ],
+    furniture: [
+      { uid: 'stoop', item: 'brownstoneStoop', x: -7.6, z: 4.35, rot: 0 },
+      { uid: 'specials', item: 'chalkboardSign', x: -4.6, z: 4.0, rot: PI },
+      { uid: 'bench', item: 'parkBench', x: -0.4, z: 6.35, rot: PI },
+      { uid: 'lamp', item: 'streetLamp', x: 2.3, z: 6.3, rot: 0 },
+      { uid: 'planter', item: 'palmPot', x: 2.4, z: 3.7, rot: 0 },
+      { uid: 'backbar', item: 'bottleShelf', x: -5.6, z: -6.73, rot: 0 },
+      { uid: 'bar', item: 'barTop', x: -5.6, z: -5.2, rot: 0 },
+      { uid: 'juke', item: 'jukebox', x: -1.8, z: -6.628, rot: 0 },
+      { uid: 'karaoke', item: 'karaokeCorner', x: 1.75, z: -5.94, rot: 0 },
+      { uid: 'booth1', item: 'booth', x: -9.065, z: -2.4, rot: H },
+      { uid: 'booth2', item: 'booth', x: -9.065, z: -0.2, rot: H },
+      { uid: 'dog', item: 'barDog', x: -8.9, z: 1.9, rot: 0 },
+      { uid: 'cat', item: 'catBed', x: -0.6, z: 2.45, rot: PI },
+      { uid: 'pool', item: 'poolTable', x: -4.4, z: -1.0, rot: 0 },
+      { uid: 'poolLight', item: 'cubeLantern', x: -4.4, z: -1.0, rot: 0 },
+      { uid: 'ht1', item: 'highTop', x: -1.0, z: 1.6, rot: 0 },
+      { uid: 'ht2', item: 'highTop', x: 0.9, z: -2.4, rot: 0 },
+      { uid: 'posters', item: 'posters', x: -9.873, z: 1.9, rot: H },
+      { uid: 'bulbs0', item: 'edisonCluster', x: -7.2, z: -4.2, rot: 0 },
+      { uid: 'bulbs1', item: 'edisonCluster', x: -5.6, z: -4.2, rot: 0 },
+      { uid: 'bulbs2', item: 'edisonCluster', x: -4.0, z: -4.2, rot: 0 },
+      { uid: 'fire', item: 'firePit', x: 6.6, z: -3.4, rot: 0 },
+      { uid: 'yt0', item: 'pedestalTable', x: 5.2, z: 2.0, rot: 0 },
+      { uid: 'yc0a', item: 'slatChair', x: 4.25, z: 2.0, rot: H },
+      { uid: 'yc0b', item: 'slatChair', x: 6.15, z: 2.0, rot: -H },
+      { uid: 'yt1', item: 'pedestalTable', x: 7.9, z: 5.0, rot: 0 },
+      { uid: 'yc1a', item: 'slatChair', x: 6.95, z: 5.0, rot: H },
+      { uid: 'yc1b', item: 'slatChair', x: 8.85, z: 5.0, rot: -H },
+      { uid: 'fairy1', item: 'fairyLights', x: 6.5, z: -6.872, rot: 0 },
+      { uid: 'fairy2', item: 'fairyLights', x: 9.872, z: -2.0, rot: -H },
+      { uid: 'fairy3', item: 'fairyLights', x: 9.872, z: 3.6, rot: -H },
+      { uid: 'lan0', item: 'paperLantern', x: 4.6, z: -0.2, rot: 0, lc: '#fff1d6' },
+      { uid: 'lan1', item: 'paperLantern', x: 8.4, z: -0.2, rot: 0, lc: '#ffd36b' },
+      { uid: 'lan2', item: 'paperLantern', x: 4.6, z: 4.6, rot: 0, lc: '#fff1d6' },
+      { uid: 'lan3', item: 'paperLantern', x: 8.4, z: 2.6, rot: 0, lc: '#ffd36b' },
+      { uid: 'tree0', item: 'oliveTree', x: 9.2, z: -6.2, rot: 0 },
+      { uid: 'tree1', item: 'oliveTree', x: 3.9, z: 6.2, rot: 0 },
+      { uid: 'tree2', item: 'palmPot', x: 9.3, z: 1.6, rot: 0 },
+    ],
+  },
+  // 🎷 LENOX LOUNGE REVIVAL (Harlem, rebuilt 2026-10-31): after the real Lenox Lounge on Lenox Ave,
+  // where Billie Holiday sang. Up front, the art deco bar: black lacquer and gold flutes, a smoky
+  // mirror with a gold sunburst, half-moon red leather booths. Through the arches, the Zebra Room:
+  // zebra-striped walls, oxblood carpet, little tables with fringed lamps turned to the bandstand
+  // (a gold deco shell, upright bass, drums, a sax on its stand) and the baby grand. The house band
+  // is always on (venue-life SHOW); ask nicely and they let you sit in.
+  lenox2: {
+    id: 'lenox2', name: 'Lenox Lounge Revival', width: 20, depth: 14, wallColor: '#3a0c13', zoomable: true, shaped: true, door: { x: -6, z: 7 },
+    windows: { xs: [], w: 0, h: 0, y: 0 }, mood: 'cozy', version: 1,
+    signs: [{ text: 'Lenox Lounge', color: '#ff3b3b', x: -9.86, y: 2.35, z: -4.6, rot: Math.PI / 2, size: 0.75, font: 'script' }, { text: 'ZEBRA ROOM', color: '#fff1d6', x: 5.6, y: 2.55, z: -6.86, rot: 0, size: 0.35, font: 'block' }],
+    life: { visitors: 12, calm: true, pops: ['🎷', '🍸', '😍', '👏', '🎶', '🥃'], fx: ['notes', 'haze'], runner: { from: 'bar', to: ['booth0', 'booth1', 'booth2', 'bt0', 'bt1', 'zt00', 'zt01', 'zt02', 'zt03', 'zt04'], carry: ['🍸', '🥃', '🍷'] } },
+    workers: [{ x: -5.4, z: -6.0, rot: 0 }, { x: -3.8, z: -6.0, rot: 0 }, { x: -6, z: 6.2, rot: 3.141592653589793 }, { x: 0.2, z: 3.2, rot: 0 }, { x: 4.1, z: 1.8, rot: -1.5707963267948966 }, { x: -6.8, z: 1.4, rot: 0 }],
+    rooms: [
+      { label: 'Bar', rect: [-10, -7, 1, 7], floor: '#222222', style: { floor: 'checker', wall: 'geo:#3a0c13' } },
+      { label: 'Zebra Room', rect: [1, -7, 10, 7], floor: '#222222', style: { floor: 'carpet:#5e1520', wall: 'zebra:#141414' } },
+    ],
+    walls: [
+      { a: [1, -7], b: [1, 7], gaps: [[3.0, 5.6], [9.6, 11.6]] },
+    ],
+    furniture: [
+      { uid: 'backbar', item: 'decoBackBar', x: -4.6, z: -6.638, rot: 0 },
+      { uid: 'bar', item: 'decoBar', x: -4.6, z: -4.75, rot: 0 },
+      { uid: 'booth0', item: 'decoBooth', x: -9.293, z: -2.4, rot: H },
+      { uid: 'booth1', item: 'decoBooth', x: -9.293, z: 0.1, rot: H },
+      { uid: 'booth2', item: 'decoBooth', x: -9.293, z: 2.6, rot: H },
+      { uid: 'bt0', item: 'loungeTable', x: -4.4, z: -0.6, rot: 0 },
+      { uid: 'bt1', item: 'loungeTable', x: -3.2, z: 2.4, rot: 0 },
+      { uid: 'col0', item: 'decoColumn', x: 0.2, z: -5.4, rot: 0 },
+      { uid: 'col1', item: 'decoColumn', x: 0.2, z: 0.0, rot: 0 },
+      { uid: 'coats', item: 'coatRack', x: -9.5, z: 6.4, rot: 0 },
+      { uid: 'sc1', item: 'sconce', x: -9.77, z: -1.15, rot: H },
+      { uid: 'sc2', item: 'sconce', x: -9.77, z: 1.35, rot: H },
+      { uid: 'sc3', item: 'sconce', x: -9.77, z: 3.9, rot: H },
+      { uid: 'chand0', item: 'tulipChandelier', x: -4.6, z: -2.4, rot: 0 },
+      { uid: 'chand1', item: 'tulipChandelier', x: -3.8, z: 1.4, rot: 0 },
+      { uid: 'palm', item: 'palmPot', x: -1.2, z: 6.2, rot: 0 },
+      { uid: 'band', item: 'jazzStand', x: 8.823, z: -2.2, rot: -H },
+      { uid: 'piano', item: 'grandPiano', x: 8.684, z: 2.0, rot: -H },
+      { uid: 'zt00', item: 'loungeTable', x: 2.9, z: -5.4, rot: -H },
+      { uid: 'zt01', item: 'loungeTable', x: 2.9, z: -3.0, rot: -H },
+      { uid: 'zt02', item: 'loungeTable', x: 2.9, z: -0.6, rot: -H },
+      { uid: 'zt03', item: 'loungeTable', x: 2.9, z: 1.8, rot: -H },
+      { uid: 'zt04', item: 'loungeTable', x: 2.9, z: 4.6, rot: -H },
+      { uid: 'zt10', item: 'loungeTable', x: 5.3, z: -5.4, rot: -H },
+      { uid: 'zt11', item: 'loungeTable', x: 5.3, z: -3.0, rot: -H },
+      { uid: 'zt12', item: 'loungeTable', x: 5.3, z: -0.6, rot: -H },
+      { uid: 'zt13', item: 'loungeTable', x: 5.3, z: 1.8, rot: -H },
+      { uid: 'sc4', item: 'sconce', x: 9.77, z: 4.6, rot: -H },
+      { uid: 'sc5', item: 'sconce', x: 3.4, z: -6.77, rot: 0 },
+      { uid: 'sc6', item: 'sconce', x: 7.6, z: -6.77, rot: 0 },
+      { uid: 'spot0', item: 'spotLight', x: 7.8, z: -3.2, rot: 0, lc: '#ffb766' },
+      { uid: 'spot1', item: 'spotLight', x: 7.8, z: -1.2, rot: 0, lc: '#ffb766' },
+      { uid: 'chand2', item: 'crystalChandelier', x: 5.0, z: 0.0, rot: 0 },
+    ],
+  },
+  // 🕹️ PIXEL PALACE (Times Square, rebuilt 2026-10-31): bright and loud like the square outside. A
+  // pixel-tile floor with lit squares, jumbotron screens on the back wall, the Prize Tower in the
+  // middle (three tiers of plush, and a giant plush pigeon on top that nobody has ever won) under a
+  // light rig. Cabinet pods round it, Hoop Shot lanes, a pinball row, a claw alley, the Beat Street
+  // stage under a light arch, a wall of cabinets, axe lanes and air hockey.
+  arcade4: {
+    id: 'arcade4', name: 'Pixel Palace', width: 26, depth: 18, wallColor: '#0b0b14', zoomable: true, shaped: true, door: { x: 0, z: 9 },
+    windows: { xs: [], w: 0, h: 0, y: 0 }, mood: 'arcade', version: 1,
+    signs: [{ text: 'PIXEL PALACE', color: '#ff4fa3', x: 0, y: 2.62, z: -8.86, rot: 0, size: 0.6, font: 'block' }, { text: 'TIMES SQ', color: '#ffd23f', x: 12.86, y: 2.4, z: 3.0, rot: -Math.PI / 2, size: 0.6, font: 'block' }, { text: 'HIGH SCORES', color: '#36c5f0', x: -12.86, y: 2.45, z: -1.2, rot: Math.PI / 2, size: 0.45, font: 'block' }],
+    screens: [{ x: -7.2, y: 1.85, z: -8.88, rot: 0, w: 3.0, h: 0.8, kind: 'game' }, { x: 6.2, y: 1.85, z: -8.88, rot: 0, w: 3.0, h: 0.8, kind: 'galaxy' }, { x: 12.88, y: 2.05, z: 6.0, rot: -Math.PI / 2, w: 3.2, h: 1.2, kind: 'waves' }],
+    life: { visitors: 22, pops: ['🕹️', '🏆', '🎟️', '😤', '🔥', '👾', '🐦'], fx: ['neon'] },
+    workers: [{ x: 0, z: 0.6, rot: 3.141592653589793 }, { x: 0, z: 8.2, rot: 3.141592653589793 }, { x: 11.4, z: -2.0, rot: -1.5707963267948966 }, { x: -1.6, z: -6.0, rot: 0 }, { x: -9.0, z: 3.8, rot: 1.5707963267948966 }, { x: 6.0, z: 3.4, rot: 0 }],
+    rooms: [
+      { label: 'Arcade', rect: [-13, -9, 13, 9], floor: '#222222', style: { floor: 'pixel', wall: 'paint:#0b0b14' } },
+      { label: 'Prize tower', rect: [-3.5, -4.5, 3.5, 2.5], floor: '#222222', style: { floor: 'glossBlack', wall: 'paint:#0b0b14' } },
+    ],
+    walls: [
+    ],
+    furniture: [
+      { uid: 'hoops1', item: 'cabHoops', x: -12.4, z: -8.09, rot: 0 },
+      { uid: 'hoops2', item: 'cabHoops', x: -11.38, z: -8.09, rot: 0 },
+      { uid: 'hoops3', item: 'cabHoops', x: -10.36, z: -8.09, rot: 0 },
+      { uid: 'pin1', item: 'pinballMachine', x: -8.64, z: -8.197, rot: 0 },
+      { uid: 'pin2', item: 'pinballMachine', x: -7.8, z: -8.197, rot: 0 },
+      { uid: 'pin3', item: 'pinballMachine', x: -6.96, z: -8.197, rot: 0 },
+      { uid: 'pin4', item: 'pinballMachine', x: -6.12, z: -8.197, rot: 0 },
+      { uid: 'beats', item: 'beatStage', x: 0, z: -7.778, rot: 0 },
+      { uid: 'claw1', item: 'clawMachine', x: 3.85, z: -8.44, rot: 0 },
+      { uid: 'claw2', item: 'clawMachine', x: 4.85, z: -8.44, rot: 0 },
+      { uid: 'claw3', item: 'clawMachine', x: 5.85, z: -8.44, rot: 0 },
+      { uid: 'claw4', item: 'clawMachine', x: 6.85, z: -8.44, rot: 0 },
+      { uid: 'prizes', item: 'prizeTower', x: 0, z: -1.0, rot: 0 },
+      { uid: 'rig', item: 'trussRing', x: 0, z: -1.0, rot: 0 },
+      { uid: 'podRetro', item: 'arcadePodRetro', x: -6.4, z: -2.6, rot: 0 },
+      { uid: 'podCity', item: 'arcadePodCity', x: 6.4, z: -2.6, rot: 0 },
+      { uid: 'podRetro2', item: 'arcadePodRetro', x: -5.0, z: 3.6, rot: 0 },
+      { uid: 'podCity2', item: 'arcadePodCity', x: 9.6, z: 1.0, rot: 0 },
+      { uid: 'skee1', item: 'skeeBall', x: -4.4, z: 7.69, rot: PI },
+      { uid: 'skee2', item: 'skeeBall', x: -3.5, z: 7.69, rot: PI },
+      { uid: 'skee3', item: 'skeeBall', x: -2.6, z: 7.69, rot: PI },
+      { uid: 'cabSnake', item: 'cabSnake', x: 12.472, z: -7.58, rot: -H },
+      { uid: 'cabPigeons', item: 'cabPigeons', x: 12.472, z: -6.64, rot: -H },
+      { uid: 'cabDash', item: 'cabDash', x: 12.472, z: -5.7, rot: -H },
+      { uid: 'cabBreakout', item: 'cabBreakout', x: 12.472, z: -4.76, rot: -H },
+      { uid: 'cabRooftop', item: 'cabRooftop', x: 12.472, z: -3.82, rot: -H },
+      { uid: 'cabSnake2', item: 'cabSnake', x: 12.472, z: -2.88, rot: -H },
+      { uid: 'axe1', item: 'axeLane', x: -10.79, z: 2.4, rot: H },
+      { uid: 'axe2', item: 'axeLane', x: -10.79, z: 5.0, rot: H },
+      { uid: 'hockey1', item: 'airHockeyTable', x: 4.4, z: 5.0, rot: H },
+      { uid: 'hockey2', item: 'airHockeyTable', x: 7.6, z: 5.0, rot: H },
+      { uid: 'ht1', item: 'highTop', x: 11.4, z: 6.0, rot: 0 },
+      { uid: 'ht2', item: 'highTop', x: 11.4, z: 7.8, rot: 0 },
+      { uid: 'mascot', item: 'pixelPigeonNeon', x: -12.86, z: -4.4, rot: H },
+      { uid: 'ring0', item: 'ringPendant', x: -6.4, z: -2.6, rot: 0, lc: '#ff4fa3' },
+      { uid: 'ring1', item: 'ringPendant', x: 6.4, z: -2.6, rot: 0, lc: '#36c5f0' },
+      { uid: 'ring2', item: 'ringPendant', x: -5.0, z: 3.6, rot: 0, lc: '#ffd23f' },
+    ],
+  },
+  // 🎰 EMPIRE CASINO (Midtown, rebuilt 2026-10-31): an art deco lobby gone all in. Black-and-gold
+  // fan wallpaper, midnight carpet, gold fluted columns, and in a black marble pit the Empire spire,
+  // a gold model of the Empire State with its crown lit. Roulette, blackjack, craps and the Big Six
+  // round the spire, slot carousels (six slots round a jackpot crown), the Rocket on the back wall,
+  // a video poker bar, poker tables, and a white-marble high-limit room for baccarat. Game money only.
+  casino5: {
+    id: 'casino5', name: 'Empire Casino', width: 28, depth: 20, wallColor: '#121014', zoomable: true, shaped: true, door: { x: 0, z: 10 },
+    windows: { xs: [], w: 0, h: 0, y: 0 }, mood: 'casino', version: 1,
+    signs: [{ text: 'EMPIRE', color: '#ffd36b', x: -4.6, y: 2.6, z: -9.86, rot: 0, size: 0.75, font: 'block' }, { text: 'High limit', color: '#ffd36b', x: 6.86, y: 2.45, z: -6.2, rot: -Math.PI / 2, size: 0.55, font: 'script' }, { text: 'JACKPOTS', color: '#ff3b3b', x: -13.86, y: 2.45, z: -5.4, rot: Math.PI / 2, size: 0.45, font: 'block' }],
+    life: { visitors: 26, pops: ['🎰', '💰', '🃏', '😱', '🍸', '🤑', '🎲'], fx: ['neon', 'confetti'] },
+    workers: [{ x: -4.2, z: -5.2, rot: 0 }, { x: 2.2, z: -5.2, rot: 0 }, { x: 0, z: 9.2, rot: 3.141592653589793 }, { x: 10.6, z: 8.4, rot: 3.141592653589793 }, { x: 10.6, z: -9.0, rot: 0 }, { x: -5.6, z: 1.2, rot: -1.5707963267948966 }],
+    rooms: [
+      { label: 'Casino floor', rect: [-14, -10, 14, 10], floor: '#222222', style: { floor: 'casinoCarpet:#1f2a5c', wall: 'geo:#121014' } },
+      { label: 'The pit', rect: [-7, -6, 5, 4], floor: '#222222', style: { floor: 'marbleBlack', wall: 'geo:#121014' } },
+      { label: 'High limit', rect: [7, -10, 14, -2], floor: '#222222', style: { floor: 'marble', wall: 'damask:#1d1a12' } },
+    ],
+    walls: [
+      { a: [7, -10], b: [7, -2], gaps: [[4.6, 6.4]] },
+      { a: [7, -2], b: [14, -2] },
+    ],
+    furniture: [
+      { uid: 'spire', item: 'empireSpire', x: -1.0, z: -1.0, rot: 0 },
+      { uid: 'roulette', item: 'rouletteTable', x: -4.2, z: -4.4, rot: 0 },
+      { uid: 'roulette2', item: 'rouletteTable', x: 2.2, z: -4.4, rot: 0 },
+      { uid: 'bj0', item: 'blackjackTable', x: -4.4, z: 2.6, rot: PI },
+      { uid: 'bj1', item: 'blackjackTable', x: 2.4, z: 2.6, rot: PI },
+      { uid: 'craps', item: 'crapsTable', x: -5.6, z: -1.0, rot: H },
+      { uid: 'bigsix', item: 'bigSixWheel', x: 3.4, z: -1.0, rot: -H },
+      { uid: 'carousel0', item: 'slotCarousel', x: -11.9, z: -7.2, rot: 0 },
+      { uid: 'carousel1', item: 'slotCarousel', x: -8.7, z: -7.2, rot: 0 },
+      { uid: 'carousel2', item: 'slotCarousel', x: -11.9, z: -3.6, rot: 0 },
+      { uid: 'carousel3', item: 'slotCarousel', x: -8.7, z: -3.6, rot: 0 },
+      { uid: 'carousel4', item: 'slotCarousel', x: 9.6, z: 1.4, rot: 0 },
+      { uid: 'carousel5', item: 'slotCarousel', x: 9.6, z: 5.6, rot: 0 },
+      { uid: 'slotMachine', item: 'slotMachine', x: -5.98, z: -9.543, rot: 0 },
+      { uid: 'slotMachine2', item: 'slotMachine', x: -5.06, z: -9.543, rot: 0 },
+      { uid: 'slotMachine3', item: 'slotMachine', x: -4.14, z: -9.543, rot: 0 },
+      { uid: 'slotMachine4', item: 'slotMachine', x: -3.22, z: -9.543, rot: 0 },
+      { uid: 'slotMachine5', item: 'slotMachine', x: -2.3, z: -9.543, rot: 0 },
+      { uid: 'rocket', item: 'rocketScreen', x: 3.6, z: -9.465, rot: 0 },
+      { uid: 'vpbar', item: 'videoPokerBar', x: -10.4, z: 2.4, rot: 0 },
+      { uid: 'poker1', item: 'pokerTable', x: -4.4, z: 6.6, rot: 0 },
+      { uid: 'poker2', item: 'pokerTable', x: 3.4, z: 6.6, rot: 0 },
+      { uid: 'bacc1', item: 'baccaratTable', x: 10.6, z: -7.8, rot: 0 },
+      { uid: 'bacc2', item: 'baccaratTable', x: 10.6, z: -4.4, rot: 0 },
+      { uid: 'cashier', item: 'cashierCage', x: 10.6, z: 9.515, rot: PI },
+      { uid: 'col0', item: 'decoColumn', x: -7.6, z: -5.6, rot: 0 },
+      { uid: 'col1', item: 'decoColumn', x: 5.8, z: -5.6, rot: 0 },
+      { uid: 'col2', item: 'decoColumn', x: -7.6, z: 4.0, rot: 0 },
+      { uid: 'col3', item: 'decoColumn', x: 5.8, z: 4.0, rot: 0 },
+      { uid: 'col4', item: 'decoColumn', x: 6.4, z: -6.6, rot: 0 },
+      { uid: 'col5', item: 'decoColumn', x: 6.4, z: -2.6, rot: 0 },
+      { uid: 'ht1', item: 'highTop', x: -11.4, z: 6.6, rot: 0 },
+      { uid: 'palm0', item: 'palmPot', x: -2.4, z: 9.3, rot: 0 },
+      { uid: 'palm1', item: 'palmPot', x: 2.4, z: 9.3, rot: 0 },
+      { uid: 'chand0', item: 'crystalChandelier', x: -4.2, z: -3.4, rot: 0 },
+      { uid: 'chand1', item: 'crystalChandelier', x: 2.2, z: -3.4, rot: 0 },
+      { uid: 'chand2', item: 'crystalChandelier', x: -1.0, z: 2.4, rot: 0 },
+      { uid: 'chand3', item: 'crystalChandelier', x: 10.6, z: -6.1, rot: 0 },
+    ],
+  },
+};

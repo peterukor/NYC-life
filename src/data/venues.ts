@@ -18,6 +18,7 @@ import { CLUB_ROOMS } from './club-rooms.ts';
 import { FUN_ROOMS } from './fun-rooms.ts';
 import { ACTIVE_ROOMS } from './active-rooms.ts';
 import { TOWN_ROOMS } from './town-rooms.ts';
+import { NIGHT_ROOMS } from './night-rooms.ts';
 
 const PI = Math.PI;
 const H = PI / 2;
@@ -130,20 +131,6 @@ export const VENUE_LAYOUTS: Record<string, HomeLayout> = {
       { uid: 'books', item: 'bookcaseWide', x: 4.8, z: -4.6, rot: 0 },
       { uid: 'p1', item: 'plant', x: -7, z: -4.5, rot: 0 },
       { uid: 'p2', item: 'plant', x: 2.6, z: 4.4, rot: 0 },
-    ],
-  },
-  comedy: {
-    id: 'comedy', name: 'Comedy club', width: 14, depth: 10, wallColor: '#3a2340',
-    rooms: [{ label: 'Club', rect: [-7, -5, 7, 5], floor: '#2a1f26' }, { label: 'Stage', rect: [-3, -5, 3, -2.5], floor: '#7b2cbf' }],
-    walls: [],
-    furniture: [
-      { uid: 'counter', item: 'barCounter', x: 4.6, z: 3.6, rot: PI },
-      { uid: 'spk1', item: 'stageSpeaker', x: -3.4, z: -4.2, rot: 0 },
-      { uid: 'spk2', item: 'stageSpeaker', x: 3.4, z: -4.2, rot: 0 },
-      { uid: 't1', item: 'cafeTable', x: -4, z: 0.4, rot: 0 },
-      { uid: 't2', item: 'cafeTable', x: 0, z: 0.4, rot: 0 },
-      { uid: 't3', item: 'cafeTable', x: 4, z: 0.4, rot: 0 },
-      { uid: 't4', item: 'cafeTable', x: -2, z: 3.0, rot: 0 },
     ],
   },
 };
@@ -321,12 +308,12 @@ export const WORKPLACE_LAYOUTS: Record<string, HomeLayout> = {
 };
 
 // The five clubs (data/club-rooms.ts).
-Object.assign(WORKPLACE_LAYOUTS, CLUB_ROOMS, FUN_ROOMS, ACTIVE_ROOMS, TOWN_ROOMS);
+Object.assign(WORKPLACE_LAYOUTS, CLUB_ROOMS, FUN_ROOMS, ACTIVE_ROOMS, TOWN_ROOMS, NIGHT_ROOMS);
 
 /** Each workplace's own room, by place id (wins over the shared venue plans). */
 export const WORKPLACE_LAYOUT_FOR: Record<string, string> = {
   barrioDeli: 'deli2',
-  theStoop: 'stoopBar',
+  theStoop: 'stoop2',
   ironGym: 'gym',
   flexFulton: 'gym2',
   pulseLic: 'gym3',
@@ -343,16 +330,16 @@ export const WORKPLACE_LAYOUT_FOR: Record<string, string> = {
   precinct: 'precinct2',
   // Entertainment (no jobs here yet; NPC staff fill the spots).
   warehouseRave: 'club5',
-  pixelPalace: 'arcade',
+  pixelPalace: 'arcade4',
   kingsArcade: 'arcade2',
   hubArcade: 'arcade3',
-  empireCasino: 'casino',
+  empireCasino: 'casino5',
   astoriaRoyale: 'casino2',
   navyYardClub: 'casino3',
   luckyStar: 'casino4',
   diveBar: 'bar1',
   beerGarden: 'bar2',
-  lenoxLounge: 'bar3',
+  lenoxLounge: 'lenox2',
   centralPark: 'park',
   // Rebuilt 2026-10-28 (data/town-rooms.ts).
   sliceJoint: 'slice',
@@ -367,9 +354,11 @@ export const WORKPLACE_LAYOUT_FOR: Record<string, string> = {
   homeGoods: 'homeStore',
   hkLanes: 'lanes',
   unionSqCinema: 'cinema',
+  // Rebuilt 2026-10-31 (data/night-rooms.ts): the comedy club, plus The Stoop, Lenox Lounge, Pixel Palace and Empire Casino above.
+  comedyCellar: 'comedy2',
 };
 
-export const VENUE_LAYOUT_FOR: Partial<Record<InteriorKind, string>> = { furniture: 'furniture', cafe: 'cafe', bodega: 'bodega', pizza: 'pizza', bar: 'bar', office: 'office', comedy: 'comedy' };
+export const VENUE_LAYOUT_FOR: Partial<Record<InteriorKind, string>> = { furniture: 'furniture', cafe: 'cafe', bodega: 'bodega', pizza: 'pizza', bar: 'bar', office: 'office' };
 
 // Bigger, livelier, lit for what they are (data/venue-looks.ts, 2026-10-27).
 for (const l of [...Object.values(VENUE_LAYOUTS), ...Object.values(WORKPLACE_LAYOUTS)]) dressVenue(l);

@@ -108,14 +108,6 @@ export const VENUE_LOOKS: Record<string, Look> = {
     tint: { sofa: { a: '#1f3b4d' } },
     add: [at('modernSofa', 6.6, 2.4, PI), at('squareCoffee', 6.6, 1.0), at('palmPot', 4.9, 5.7), at('snakePlant', -8.9, -3.4), hang('flushLight', -5.5, 0.5), hang('flushLight', -1.5, 0.5), hang('flushLight', 2.5, 0.5), hang('flushLight', -5.5, 4), hang('flushLight', 2.5, 4), at('palmPot', -8.9, 5.6), at('monstera', 8.9, -5.7), left('artTriptych', -1.8, 9.375)],
   },
-  // 🎤 Comedy club (17.5 × 12.5): the black brick wall, a real stage, red neon, candles on every table.
-  comedy: {
-    scale: 1.25, mood: 'bar',
-    rooms: [{ floor: 'walnut', wall: 'darkBrick' }, { floor: 'parquet', wall: 'darkBrick' }],
-    swap: { counter: ['ledBar', 5.8, 4.5, Math.PI], t1: ['loungeSet', -5.0, 0.5, 0], t2: ['loungeSet', 0, 0.5, 0], t3: ['loungeSet', 5.0, 0.5, 0], t4: ['loungeSet', -2.5, 3.8, 0] },
-    add: [at('liveStage', 0, -4.7, 0), at('loungeSet', 1.2, 3.8, 0), at('loungeSet', -6.2, 3.8, 0), hang('spotLight', 0, -4.2, '#fff1d6'), hang('spotLight', -1.2, -4.0, '#fff1d6'), hang('spotLight', 1.2, -4.0, '#fff1d6'), left('ledStripLow', 0, 8.75, { lc: RED }), right('ledStripLow', -1.5, 8.75, { lc: RED })],
-    signs: [neonBack('Comedy', RED, 0, 2.3, 6.25, 0.65, 'script'), neonLeft('LIVE TONIGHT', AMBER, -1.5, 2.1, 8.75, 0.32)],
-  },
 
   // 🥪 Deli & grill (19.2 × 14.4)
   deliGrill: {
