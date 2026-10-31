@@ -7,7 +7,7 @@ const browser = await puppeteer.launch({ executablePath: '/opt/pw-browsers/chrom
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const page = await browser.newPage();
 await page.setViewport({ width: 375, height: 812 });
-await page.goto('http://localhost:4173/?qa=1&class=rich&hour=12&quality=low', { waitUntil: 'load' });
+await page.goto(`http://localhost:${process.env.PORT ?? 4173}/?qa=1&class=rich&hour=12&quality=low`, { waitUntil: 'load' });
 await page.evaluate(() => localStorage.clear());
 await page.reload({ waitUntil: 'load' });
 await page.waitForSelector('#ob-year', { timeout: 30000 });

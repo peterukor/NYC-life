@@ -5,7 +5,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const page = await browser.newPage();
 await page.setViewport({ width: 375, height: 812 });
 const errors = []; page.on('pageerror', (e) => errors.push(e.message));
-await page.goto('http://localhost:4173/?qa=1&class=middle&hour=21&quality=low', { waitUntil: 'load' });
+await page.goto(`http://localhost:${process.env.PORT ?? 4173}/?qa=1&class=middle&hour=${process.env.HOUR ?? 21}&quality=low`, { waitUntil: 'load' });
 await page.evaluate(() => localStorage.clear()); await page.reload({ waitUntil: 'load' });
 await page.waitForSelector('#ob-year'); await page.select('#ob-year','1995'); await page.type('#ob-name','Jack');
 await page.$eval('#ob-go', (el) => el.click()); await page.waitForSelector('#ob-start'); await page.$eval('#ob-start', (el) => el.click());
