@@ -24,6 +24,7 @@ import { FUN_ON_WALL, FUN_TOYS } from './furniture-fun.ts';
 import { DECO_HANG, DECO_ON_WALL, DECO_TOYS } from './furniture-deco.ts';
 import { ACTIVE_ON_WALL, ACTIVE_TOYS } from './furniture-active.ts';
 import { TOWN_ON_WALL, TOWN_TOYS } from './furniture-town.ts';
+import { NIGHT_ON_WALL, NIGHT_TOYS } from './furniture-night.ts';
 
 // ---- a cosy, slightly worn palette
 const WOOD = '#a8743f';
@@ -511,10 +512,10 @@ const LUX: Record<string, (t: Toy) => void> = {
     }
   },
 };
-Object.assign(TOYS, LUX, WORK_TOYS, FUN_TOYS, DECO_TOYS, ACTIVE_TOYS, TOWN_TOYS);
+Object.assign(TOYS, LUX, WORK_TOYS, FUN_TOYS, DECO_TOYS, ACTIVE_TOYS, TOWN_TOYS, NIGHT_TOYS);
 
 /** Pieces that hang on a wall (or from the ceiling): centred on their footprint but kept at their height. */
-const ON_WALL = new Set(['toyPosters', 'toyWindowAC', 'toyArtwork', ...WORK_ON_WALL, ...FUN_ON_WALL, ...ACTIVE_ON_WALL, ...TOWN_ON_WALL, ...DECO_ON_WALL, ...DECO_HANG]);
+const ON_WALL = new Set(['toyPosters', 'toyWindowAC', 'toyArtwork', ...WORK_ON_WALL, ...FUN_ON_WALL, ...ACTIVE_ON_WALL, ...TOWN_ON_WALL, ...NIGHT_ON_WALL, ...DECO_ON_WALL, ...DECO_HANG]);
 
 /** Build one toy piece (centred on its footprint, on y = 0). */
 function buildToy(name: string): THREE.BufferGeometry {

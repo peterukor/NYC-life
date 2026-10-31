@@ -488,6 +488,28 @@ function asphalt(): Drawn {
   };
 }
 
+/**
+ * Pixel Palace's floor (2026-10-31): glossy black 30 cm tiles, a few of
+ * them lit in arcade colours, like a giant game screen switched on.
+ */
+function pixelTiles(): Drawn {
+  const N = RES;
+  const lit: RGB[] = [rgb('#ff4fa3'), rgb('#36c5f0'), rgb('#ffd23f'), rgb('#7bd88f'), rgb('#9b5cff')];
+  const per = 8;
+  return {
+    size: [2.4, 2.4],
+    canvas: pixels(N, N, (u, v) => {
+      const cx = Math.floor(u * per), cy = Math.floor(v * per);
+      const fx = u * per - cx, fy = v * per - cy;
+      const k = hash(cx, cy, 77);
+      let c: RGB = k > 0.86 ? scale(lit[Math.floor(hash(cx, cy, 78) * lit.length)], 0.85) : [26 + k * 10, 24 + k * 8, 34 + k * 12];
+      const sheen = Math.pow(Math.max(0, 1 - Math.abs(fx - fy) * 2.5), 5) * 0.18;
+      c = c.map((x) => Math.min(255, x + sheen * 120)) as RGB;
+      return mix([10, 10, 14], c, inTile(fx, fy, 0.05));
+    }),
+  };
+}
+
 function drawFloor(id: string, color?: string): Drawn {
   switch (id) {
     case 'oak': case 'ash': case 'walnut': return planks(...WOODS[id]);
@@ -511,6 +533,7 @@ function drawFloor(id: string, color?: string): Drawn {
     case 'rubber': return rubber();
     case 'grass': return grass();
     case 'asphalt': return asphalt();
+    case 'pixel': return pixelTiles();
     default: return planks(...WOODS.oak);
   }
 }
@@ -737,6 +760,23 @@ function hedge(): Drawn {
 }
 
 /** A rooftop's glass railing: pale glass panels between steel posts, a steel cap on top. */
+/** The Lenox Lounge's Zebra Room (2026-10-31): wavy stripes on cream, the stripe colour tints. */
+function zebra(col: string): Drawn {
+  const N = RES;
+  const ink = rgb(col), cream = rgb('#efe6d2');
+  return {
+    size: [1.2, 1.2],
+    canvas: pixels(N, N, (u, v) => {
+      // Stripes run up the wall and wander side to side; some fork and thin out.
+      const w = u * 7 + Math.sin(v * Math.PI * 2 * 2 + u * 3) * 0.35 + Math.sin(v * Math.PI * 2 * 3 + 1.7) * 0.18;
+      const f = w - Math.floor(w);
+      const thick = 0.42 + 0.12 * Math.sin(v * Math.PI * 2 + Math.floor(w) * 1.3);
+      const edge = Math.min(1, Math.max(0, (Math.abs(f - 0.5) - thick / 2) * 40));
+      return mix(ink, scale(cream, 0.95 + fbm(u * 8, v * 8, 8, 2, 4) * 0.08), edge);
+    }),
+  };
+}
+
 function glassRail(): Drawn {
   const N = Math.min(RES, 256);
   const glass = rgb('#cfe3ee'), post = rgb('#8a939e');
@@ -769,6 +809,7 @@ function drawWall(id: string, color?: string): Drawn {
     case 'darkBrick': return brick(false, true);
     case 'acoustic': return acoustic(color ?? '#2b2d42');
     case 'hedge': return hedge();
+    case 'zebra': return zebra(color ?? '#141414');
     default: return paint(color ?? '#efe6da');
   }
 }

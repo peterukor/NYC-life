@@ -433,6 +433,36 @@ FURNITURE.add(
   { id: 'lawn', name: 'The lawn', emoji: '🌤️', price: 0, parts: [{ model: 'toyLawn' }], actions: ['lieOnGrass', 'picnic', 'frisbee'], flat: true, fixed: true },
   { id: 'chessTable', name: 'Chess table', emoji: '♟️', price: 0, parts: [{ model: 'toyChessTable' }], actions: ['chess'], fixed: true },
   { id: 'fountain', name: 'Fountain', emoji: '⛲', price: 0, parts: [{ model: 'toyFountain' }], actions: ['fountainWish', 'photoSelfie'], fixed: true },
+  // 🌙 The five Manhattan nights out, rebuilt 2026-10-31 (world/furniture-night.ts, rooms in data/night-rooms.ts).
+  // 🎙️ The Basement Comedy Club
+  { id: 'comedyStage', name: 'The stage', emoji: '🎙️', price: 0, parts: [{ model: 'toyComedyStage' }], actions: ['watchComedy', 'openMic'], fixed: true, pulse: 'steady' },
+  { id: 'comedyTables', name: 'Show tables', emoji: '🍻', price: 0, parts: [{ model: 'toyComedyTables' }], actions: ['watchComedy', 'happyHour', 'dateHere'], fixed: true, pulse: 'breathe' },
+  { id: 'micSignup', name: 'Open mic sign-up', emoji: '📋', price: 0, parts: [{ model: 'toyMicSignup' }], actions: ['openMic'], fixed: true, pulse: 'steady' },
+  { id: 'cellarStairs', name: 'Stairs to the street', emoji: '🪜', price: 0, parts: [{ model: 'toyCellarStairs' }], actions: [], fixed: true },
+  { id: 'greenRoom', name: 'Green room', emoji: '🫣', price: 0, parts: [{ model: 'toyGreenRoom' }], actions: ['openMic'], fixed: true, pulse: 'steady' },
+  // 🍸 The Stoop
+  { id: 'brownstoneStoop', name: 'The stoop', emoji: '🏠', price: 0, parts: [{ model: 'toyBrownstoneStoop' }], actions: ['happyHour', 'dateHere'], fixed: true, pulse: 'steady' },
+  { id: 'karaokeCorner', name: 'Karaoke corner', emoji: '🎤', price: 0, parts: [{ model: 'toyKaraokeCorner' }], actions: ['karaoke'], fixed: true, pulse: 'breathe' },
+  { id: 'firePit', name: 'Fire pit', emoji: '🔥', price: 0, parts: [{ model: 'toyFirePit' }], actions: ['happyHour', 'dateHere'], fixed: true, pulse: 'breathe' },
+  { id: 'barDog', name: 'Biscuit, the bar dog', emoji: '🐶', price: 0, parts: [{ model: 'toyBarDog' }], actions: ['petDogs'], fixed: true },
+  { id: 'chalkboardSign', name: 'Specials board', emoji: '🪧', price: 0, parts: [{ model: 'toyChalkboard' }], actions: [], fixed: true },
+  // 🎷 Lenox Lounge Revival
+  { id: 'decoBar', name: 'The bar', emoji: '🍸', price: 0, parts: [{ model: 'toyDecoBar' }], actions: [], placeActions: true, fixed: true, pulse: 'steady' },
+  { id: 'decoBackBar', name: 'Back bar', emoji: '🍾', price: 0, parts: [{ model: 'toyDecoBackBar' }], actions: [], fixed: true, pulse: 'steady' },
+  { id: 'jazzStand', name: 'The bandstand', emoji: '🎷', price: 0, parts: [{ model: 'toyJazzStand' }], actions: ['jazzSet', 'jazzSitIn'], fixed: true, pulse: 'steady' },
+  { id: 'decoBooth', name: 'Red booth', emoji: '🛋️', price: 0, parts: [{ model: 'toyDecoBooth' }], actions: ['happyHour', 'dateHere'], fixed: true, pulse: 'breathe' },
+  { id: 'loungeTable', name: 'Table by the band', emoji: '🍷', price: 0, parts: [{ model: 'toyLoungeTable' }], actions: ['jazzSet', 'happyHour', 'dateHere'], fixed: true, pulse: 'breathe' },
+  // 🕹️ Pixel Palace
+  { id: 'arcadePodRetro', name: 'Retro pod', emoji: '👾', price: 0, parts: [{ model: 'toyArcadePodRetro' }], actions: ['playSnake', 'playPigeons', 'playDash', 'playBreakout'], fixed: true, pulse: 'breathe' },
+  { id: 'arcadePodCity', name: 'City pod', emoji: '🌃', price: 0, parts: [{ model: 'toyArcadePodCity' }], actions: ['playRooftop', 'playStack', 'playDash', 'playSnake'], fixed: true, pulse: 'breathe' },
+  { id: 'prizeTower', name: 'Prize tower', emoji: '🎟️', price: 0, parts: [{ model: 'toyPrizeTower' }], actions: ['prizeCounter'], fixed: true, pulse: 'chase' },
+  { id: 'beatStage', name: 'Beat Street stage', emoji: '🎵', price: 0, parts: [{ model: 'toyBeatStage' }], actions: ['playBeats'], fixed: true, pulse: 'disco' },
+  { id: 'pixelPigeonNeon', name: 'Neon pigeon', emoji: '💡', price: 0, parts: [{ model: 'toyPixelPigeonNeon', y: 1.0 }], actions: [], wall: true, fixed: true, pulse: 'breathe' },
+  // 🎰 Empire Casino
+  { id: 'empireSpire', name: 'The Empire spire', emoji: '🏢', price: 0, parts: [{ model: 'toyEmpireSpire' }], actions: ['photoSelfie'], fixed: true, pulse: 'steady' },
+  { id: 'slotCarousel', name: 'Slot carousel', emoji: '🎰', price: 0, parts: [{ model: 'toySlotCarousel' }], actions: ['playSlots'], fixed: true, pulse: 'chase' },
+  { id: 'videoPokerBar', name: 'Video poker bar', emoji: '🃏', price: 0, parts: [{ model: 'toyVideoPokerBar' }], actions: ['playVideoPoker', 'happyHour'], fixed: true, pulse: 'breathe' },
+  { id: 'decoColumn', name: 'Gold column', emoji: '🏛️', price: 0, parts: [{ model: 'toyDecoColumn' }], actions: [], fixed: true, pulse: 'steady' },
   // 🛋️ club section
   { id: 'sectionSofa', name: 'VIP section', emoji: '🛋️', price: 0, parts: [{ model: 'toySectionSofa' }], actions: ['getSection', 'bottleService'], fixed: true },
   { id: 'wardrobeWall', name: 'Walk-in wardrobe', emoji: '👔', price: 900_000, parts: [{ model: 'toyWardrobeWall' }], actions: [], opens: 'closet', quality: 'luxury' },

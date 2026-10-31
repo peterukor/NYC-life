@@ -55,6 +55,7 @@ export const FLOORS: SurfaceStyle[] = [
   { id: 'rubber', name: 'Gym rubber', emoji: '🏋️', price: 4_000 },
   { id: 'grass', name: 'Grass', emoji: '🌱', price: 2_000, venueOnly: true },
   { id: 'asphalt', name: 'Asphalt', emoji: '🛣️', price: 1_000, venueOnly: true },
+  { id: 'pixel', name: 'Pixel tiles', emoji: '👾', price: 8_000, venueOnly: true },
 ];
 
 export const WALLS: SurfaceStyle[] = [
@@ -75,6 +76,7 @@ export const WALLS: SurfaceStyle[] = [
   { id: 'acoustic', name: 'Acoustic foam', emoji: '🎙️', price: 20_000, tint: true, color: '#2b2d42' },
   { id: 'hedge', name: 'Hedge', emoji: '🌳', price: 10_000, venueOnly: true },
   { id: 'glassRail', name: 'Glass railing', emoji: '🪟', price: 30_000, venueOnly: true },
+  { id: 'zebra', name: 'Zebra stripes', emoji: '🦓', price: 30_000, venueOnly: true, tint: true, color: '#141414' },
 ];
 
 /** Paint and fabric colours: soft neutrals, rich darks, and a few loud ones. */

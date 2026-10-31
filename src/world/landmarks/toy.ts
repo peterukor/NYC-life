@@ -45,6 +45,21 @@ export class Toy {
     return this;
   }
 
+  /**
+   * Add everything built in another toy, moved by `place` (turn and shift
+   * a sub-assembly: a cabinet in a ring, a chair round a fire pit). Keeps
+   * its colours and colour slots.
+   */
+  addToy(other: Toy, place: (g: THREE.BufferGeometry) => void): this {
+    other.parts.forEach((g, i) => {
+      const c = g.clone();
+      place(c);
+      this.parts.push(c);
+      this.slots.push(other.slots[i]);
+    });
+    return this;
+  }
+
   /** A soft-edged block centred at (x, y0 + h/2, z), sitting on height y0. */
   block(w: number, h: number, d: number, x: number, y0: number, z: number, color: THREE.ColorRepresentation, radius = 0.12): this {
     const r = Math.min(radius * Math.min(w, h, d), Math.min(w, h, d) / 2 - 0.01);

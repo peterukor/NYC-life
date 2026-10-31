@@ -26,6 +26,36 @@ const CLOTHES = ['#1d3557', '#e63946', '#2a9d8f', '#f4a261', '#264653', '#111111
 const HAIR = ['#111111', '#2b1b10', '#5a3825', '#a0522d', '#d4a017', '#b3b3b3'];
 const SPEED = 1.15;
 
+/** A spot on a piece, in its own frame: where, which way (radians, 0 = the piece's front), how high, doing what. */
+type ShowSpot = { x: number; z: number; a: number; y: number; pose: FolkAnim };
+/** Seat tops sit this far above where a sitting person's root goes (game.ts SEAT_DROP). */
+const SIT = (seatTop: number) => seatTop - 0.18;
+const FIRE_SEATS: ShowSpot[] = [0, 1, 2, 3].map((i) => {
+  const a = Math.PI / 4 + (i * Math.PI) / 2;
+  return { x: Math.sin(a) * 1.3, z: Math.cos(a) * 1.3, a: a + Math.PI, y: SIT(0.42), pose: 'sit' as const };
+});
+/**
+ * 🎭 Who's on (spots are in the built piece's frame, i.e. after toy recentring;
+ * pieces from world/furniture-night.ts): the cast work
+ * the piece, seats are filled at random (`fill`), `pops` float over the
+ * seated crowd now and then (laughs, cheers), `notes` (x, z) sends music
+ * notes up from the piece, `outfit` dresses the cast (top, bottom).
+ */
+const SHOW: Record<string, { cast: ShowSpot[]; seats?: ShowSpot[]; fill?: number; pops?: string[]; every?: number; notes?: [number, number]; outfit?: [string, string] }> = {
+  comedyStage: { cast: [{ x: 0.1, z: 0.06, a: 0, y: 0.32, pose: 'talk' }], pops: ['😂', '🤣', '😂', '👏', '😭'], every: 2.4, outfit: ['#1d1f24', '#3d405b'] },
+  comedyTables: { cast: [], seats: [-0.95, 0, 0.95].flatMap((tx) => [-0.24, 0.24].map((dx) => ({ x: tx + dx, z: 0.22, a: Math.PI, y: SIT(0.47), pose: 'sit' as const }))), fill: 0.38 },
+  jazzStand: {
+    cast: [
+      { x: -0.8, z: -0.41, a: -0.5, y: 0.3, pose: 'idle' },
+      { x: 0.35, z: 0.36, a: 0, y: 0.3, pose: 'talk' },
+      { x: 1.0, z: -0.94, a: 0, y: SIT(0.83), pose: 'sit' },
+    ],
+    pops: ['👏', '🎶', '😍', '🙌'], every: 4, notes: [0, -0.16], outfit: ['#111111', '#111111'],
+  },
+  karaokeCorner: { cast: [{ x: 0, z: -0.1, a: 0, y: 0.18, pose: 'dance' }], pops: ['🎤', '😂', '🙉', '👏'], every: 3.5, notes: [0, 0] },
+  firePit: { cast: [], seats: FIRE_SEATS, fill: 0.6 },
+};
+
 interface Target {
   /** Where to stand, and what to face. */
   at: { x: number; z: number };
@@ -106,6 +136,9 @@ export class VenueLife {
   private time = 0;
   /** 💃 Club dancers on the pole stages (NPC only: players can't get up there). */
   private readonly poleDancers: { avatar: Avatar; c: THREE.Vector3; top: number; a: number; t: number; cycle: number; mode: string }[] = [];
+  /** 🎙️ Comics, 🎷 the band, 🎤 karaoke singers and the seated crowd (SHOW). */
+  private readonly cast: { avatar: Avatar; pose: FolkAnim; at: THREE.Vector3 }[] = [];
+  private readonly laughs: { at: THREE.Vector3; pops: string[]; every: number; t: number; crowd: THREE.Vector3[] }[] = [];
   /** 🟩 Laser fans from the DJ end of the room. */
   private readonly lasers: { mesh: THREE.Mesh; phase: number; mat: THREE.MeshBasicMaterial }[] = [];
   /** 🌫️ Haze drifting low over the floor. */
@@ -132,6 +165,7 @@ export class VenueLife {
     this.findTargets();
     for (let i = 0; i < visitorCount; i++) this.addVisitor(i);
     this.addPoleDancers();
+    this.addShow();
     this.addEffects();
     this.addRunner();
   }
@@ -230,7 +264,7 @@ export class VenueLife {
       const pose: FolkAnim | null =
         info.item === 'punchingBag' ? 'jab'
         : tags.includes('eat') || tags.includes('drink') ? 'eat'
-        : tags.includes('nightlife') ? (this.rand() < 0.5 ? 'dance' : 'talk')
+        : tags.includes('nightlife') ? (this.layout.life?.calm ? (this.rand() < 0.5 ? 'eat' : 'talk') : this.rand() < 0.5 ? 'dance' : 'talk')
         : tags.includes('fitness') ? (this.rand() < 0.5 ? 'push' : 'crouch')
         : tags.includes('shop') ? 'interact'
         : null;
@@ -276,6 +310,60 @@ export class VenueLife {
     return t;
   }
 
+
+  /**
+   * 🎙️🎷🎤 The show (night rooms, 2026-10-31): a comic at the mic, the house
+   * band on the bandstand, someone murdering a ballad at karaoke, and people
+   * sat at the comedy tables and round the fire pit. Spots are in the
+   * piece's own frame (SHOW), so they follow it wherever it stands.
+   */
+  private addShow(): void {
+    const up = new THREE.Vector3(0, 1, 0);
+    for (const o of this.home.objects) {
+      const info = this.home.pieceInfo(o.id);
+      const show = info && SHOW[info.item];
+      if (!info || !show) continue;
+      const world = (x: number, z: number, y: number) => new THREE.Vector3(x, 0, z).applyAxisAngle(up, info.rot).add(new THREE.Vector3(info.x, y, info.z));
+      const crowd: THREE.Vector3[] = [];
+      const spots = [...show.cast.map((c) => ({ ...c, seat: false })), ...(show.seats ?? []).filter(() => this.rand() < (show.fill ?? 0.7)).map((c) => ({ ...c, seat: true }))];
+      for (const sp of spots) {
+        const dressed = !sp.seat && show.outfit;
+        const avatar = makeAvatar({
+          body: this.rand() < 0.5 ? 'm' : 'f',
+          skin: SKINS[Math.floor(this.rand() * SKINS.length)],
+          top: dressed ? show.outfit![0] : CLOTHES[Math.floor(this.rand() * CLOTHES.length)],
+          bottom: dressed ? show.outfit![1] : CLOTHES[Math.floor(this.rand() * CLOTHES.length)],
+          hair: HAIR[Math.floor(this.rand() * HAIR.length)],
+        });
+        const at = world(sp.x, sp.z, sp.y);
+        avatar.root.position.copy(at);
+        avatar.root.rotation.y = info.rot + sp.a;
+        avatar.setAction(sp.pose);
+        if (sp.pose === 'sit') avatar.setHold(1);
+        this.home.scene.add(avatar.root);
+        this.cast.push({ avatar, pose: sp.pose, at });
+        if (sp.seat) crowd.push(at.clone().setY(at.y + 1.55));
+      }
+      if (show.pops) this.laughs.push({ at: world(show.cast[0]?.x ?? 0, show.cast[0]?.z ?? 0, 2.1), pops: show.pops, every: show.every ?? 2.5, t: this.rand() * 2, crowd });
+      if (show.notes) this.emitters.push({ at: world(show.notes[0], show.notes[1], 1.7), kind: 'notes', every: 0.7, t: 0 });
+    }
+    // Laughs and cheers come from the seats in the room, not just this piece's.
+    const seats = this.laughs.flatMap((l) => l.crowd);
+    for (const l of this.laughs) if (!l.crowd.length) l.crowd.push(...seats);
+  }
+
+  private updateShow(dt: number): void {
+    for (const c of this.cast) c.avatar.animate(0, dt);
+    for (const l of this.laughs) {
+      l.t -= dt;
+      if (l.t > 0) continue;
+      l.t = l.every * (0.6 + this.rand() * 0.8);
+      // A ripple through the crowd: two or three people react at once.
+      const n = l.crowd.length ? 1 + Math.floor(this.rand() * 3) : 0;
+      for (let k = 0; k < n; k++) this.float(l.pops[Math.floor(this.rand() * l.pops.length)], l.crowd[Math.floor(this.rand() * l.crowd.length)].clone(), { life: 1.6, vy: 0.4, size: 0.42 });
+      if (!n) this.float(l.pops[Math.floor(this.rand() * l.pops.length)], l.at.clone(), { life: 1.6, vy: 0.4, size: 0.42 });
+    }
+  }
 
   /** 💃 A dancer on every pole stage: they circle the pole, spin up it and slide down, on a loop. */
   private addPoleDancers(): void {
@@ -600,6 +688,7 @@ export class VenueLife {
     }
     if (this.discoBall) this.discoBall.rotation.y += dt * 0.8;
     this.updatePoleDancers(dt);
+    this.updateShow(dt);
     for (const l of this.lasers) {
       const t = this.time * 0.9 + l.phase;
       l.mesh.rotation.set(-0.75 - Math.sin(t * 0.7) * 0.35, 0, Math.sin(t) * 0.8);
@@ -667,7 +756,7 @@ export class VenueLife {
       this.runner.avatar.dispose();
       this.runner = null;
     }
-    for (const v of [...this.visitors, ...this.poleDancers]) {
+    for (const v of [...this.visitors, ...this.poleDancers, ...this.cast]) {
       v.avatar.root.removeFromParent();
       v.avatar.dispose();
     }
@@ -677,6 +766,8 @@ export class VenueLife {
     }
     this.bits.length = 0;
     this.poleDancers.length = 0;
+    this.cast.length = 0;
+    this.laughs.length = 0;
     for (const f of this.floats) {
       f.sprite.removeFromParent();
       (f.sprite.material as THREE.SpriteMaterial).dispose();

@@ -84,6 +84,8 @@ export interface HomeLayout {
     fx: ('club' | 'steam' | 'notes' | 'flicker' | 'neon' | 'ducks' | 'splash' | 'lasers' | 'haze' | 'co2' | 'confetti')[];
     /** Club lasers' colours (default green, red and cyan). */
     laserColors?: string[];
+    /** Listening rooms (comedy, jazz): visitors talk and drink instead of dancing. */
+    calm?: boolean;
     /** A waiter who carries drinks from `from` (a piece uid) to the `to` tables (world/venue-life.ts). */
     runner?: { from: string; to: string[]; carry: string[] };
   };
