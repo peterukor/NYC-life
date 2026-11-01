@@ -8,7 +8,7 @@ const page = await browser.newPage();
 await page.setViewport({ width: 375, height: 812, deviceScaleFactor: 1, hasTouch: false });
 const errors = [];
 page.on('pageerror', (e) => errors.push(e.message));
-await page.goto(`http://localhost:4173/?qa=1&class=${cls}&hour=11&quality=medium`, { waitUntil: 'load' });
+await page.goto(`http://localhost:${process.env.PORT ?? 4173}/?qa=1&class=${cls}&hour=11&quality=medium`, { waitUntil: 'load' });
 await page.evaluate(() => localStorage.clear());
 await page.reload({ waitUntil: 'load' });
 await page.waitForSelector('#ob-year', { timeout: 30000 });
@@ -22,7 +22,7 @@ await page.evaluate(() => { window.__nyc.state().money = 5_000_000; });
 const home = await page.evaluate(() => window.__nyc.state().home.placeId);
 await page.evaluate((h) => window.__nyc.enterPlace(h), home);
 await wait(5000);
-const shot = (n) => page.screenshot({ path: `test-results/flow-${n}.png` });
+const shot = (n) => page.screenshot({ path: `${process.env.OUT ?? 'test-results'}/flow-${n}.png` });
 const tapWorld = async (x, y, z) => {
   const p = await page.evaluate((x, y, z) => { const v = window.__nyc.floorScreen(x, z); return v; }, x, y, z);
   await page.mouse.click(p.x, p.y - (y ? 40 : 0));

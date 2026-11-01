@@ -11,7 +11,7 @@ await page.setViewport({ width: W, height: H, deviceScaleFactor: 1 });
 const errors = [];
 page.on('pageerror', (e) => errors.push(e.message));
 page.on('console', (m) => m.type() === 'error' && errors.push('console: ' + m.text()));
-await page.goto(`http://localhost:4173/?qa=1&class=${cls}&hour=${process.env.HOUR ?? 11}&quality=${process.env.Q ?? 'medium'}`, { waitUntil: 'load' });
+await page.goto(`http://localhost:${process.env.PORT ?? 4173}/?qa=1&class=${cls}&hour=${process.env.HOUR ?? 11}&quality=${process.env.Q ?? 'medium'}`, { waitUntil: 'load' });
 await page.evaluate(() => localStorage.clear());
 await page.reload({ waitUntil: 'load' });
 await page.waitForSelector('#ob-year', { timeout: 30000 });
