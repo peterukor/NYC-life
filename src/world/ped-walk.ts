@@ -39,6 +39,9 @@ export interface PedPoint {
 /** Grid cell classes. */
 export const PED = { blocked: 0, walk: 1, crossX: 2, crossZ: 3 } as const;
 
+/** Grid cells whose centre is closer than this to the asphalt aren't walked (routes keep off the kerb line). */
+const KERB = 0.4;
+
 /** The painted zebra band, metres out from the kerb (city.ts). */
 export const ZEBRA = { from: 0.6, to: 3.2, mid: 1.9 } as const;
 
@@ -161,7 +164,8 @@ export function buildPedGrid(nav: NavGrid, d: DistrictDef): PedGrid {
     if (kind !== 'water') blocks.push({ b: blockRect(d, c, r), park: kind === 'park' });
   }
   for (const { b } of blocks) each(pad(b), (i) => (ground[i] = 1));
-  for (const { b } of blocks) each(b, (i) => (ground[i] = 0));
+  // Cells right on the kerb line count as road (KERB): routes run a little in from the edge.
+  for (const { b } of blocks) each({ minX: b.minX + KERB, maxX: b.maxX - KERB, minZ: b.minZ + KERB, maxZ: b.maxZ - KERB }, (i) => (ground[i] = 0));
   for (const { b, park } of blocks) if (park) each(pad(b), (i, x, z) => {
     if (ground[i] === 1 && inParkGap(d, x, z)) ground[i] = 0;
   });
@@ -179,7 +183,10 @@ export function buildPedGrid(nav: NavGrid, d: DistrictDef): PedGrid {
     band({ minX: ax + hx - 1e-6, maxX: ax + hx + SIDEWALK, minZ: sz - hz - 0.5, maxZ: sz + hz + 0.5 }, 4);
     band({ minX: ax - hx - SIDEWALK, maxX: ax - hx + 1e-6, minZ: sz - hz - 0.5, maxZ: sz + hz + 0.5 }, 4);
   }
-  for (const st of streetStubs(d)) each(stubRect(st), (i) => (ground[i] = 2));
+  for (const st of streetStubs(d)) {
+    const r = stubRect(st);
+    each({ minX: r.minX - KERB, maxX: r.maxX + KERB, minZ: r.minZ - KERB, maxZ: r.maxZ + KERB }, (i) => (ground[i] = 2));
+  }
   for (const cor of corridorsIn(d.id)) {
     const hw = cor.width / 2 + (cor.highway ? 1 : 0);
     const n = cor.pts.length;

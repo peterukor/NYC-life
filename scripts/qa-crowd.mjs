@@ -68,6 +68,8 @@ for (const name of spots) {
       const people = window.__nyc.crowd() ?? [];
       const cars = (window.__nyc.traffic()?.cars ?? []).filter((c) => c.lane >= 0 && c.v > 0.5);
       let hit = 0;
+      const hits = [];
+      const signal = window.__nyc.signal();
       for (const p of people) {
         if (p.on === 'walk') continue;
         for (const c of cars) {
@@ -75,14 +77,16 @@ for (const name of spots) {
           const fx = Math.sin(c.h), fz = Math.cos(c.h);
           if (Math.abs(dx * fx + dz * fz) < 3 && Math.abs(dx * fz - dz * fx) < 1.6) {
             hit++;
+            hits.push({ x: +p.x.toFixed(1), z: +p.z.toFixed(1), on: p.on, crossing: p.crossing, car: [c.x, c.z, c.h, c.v], signal });
             break;
           }
         }
       }
-      return { people, hit, signal: window.__nyc.signal() };
+      return { people, hit, hits, signal };
     });
     tot.samples++;
     tot.hit += r.hit;
+    if (process.env.HITS) for (const h of r.hits) console.log('  hit', JSON.stringify(h));
     for (const p of r.people) {
       tot.n++;
       if (p.on === 'road') {

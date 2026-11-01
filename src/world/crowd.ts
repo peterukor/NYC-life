@@ -463,7 +463,7 @@ export class Crowd {
     const out: { x: number; z: number; moving: boolean; crossing: boolean; waiting: boolean }[] = [];
     for (const a of this.agents) {
       if (!a.active || a.insideUntil > this.time) continue;
-      out.push({ x: +a.x.toFixed(2), z: +a.z.toFixed(2), moving: a.moving, crossing: a.crossing, waiting: a.waiting });
+      out.push({ x: a.x, z: a.z, moving: a.moving, crossing: a.crossing, waiting: a.waiting });
     }
     return out;
   }
