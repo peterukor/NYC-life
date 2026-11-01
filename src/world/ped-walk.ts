@@ -18,7 +18,11 @@
 // painted crosswalk: a kerb spot to wait at, and the far kerb, tagged with
 // the signal group that has to be green to set off (traffic-flow.ts:
 // crossing an avenue goes with the streets' green, crossing a street with
-// the avenues').
+// the avenues'). Crosswalks the traffic doesn't actually stop at (lanes only
+// run along each road's longest stretch) are shut once the traffic is known
+// (closeUnsignalled). stepWalker walks a route: waits at the kerb until the
+// walk phase has time left to get over (and no car is stuck on the paint),
+// then goes straight across without stopping.
 // =====================================================================
 
 import { blockRect, colAt, inParkGap, onRoad, rowAt, SIDEWALK, streetStubs, stubRect, type DistrictDef, type Rect } from './layout.ts';
@@ -440,11 +444,13 @@ export function pedPath(g: PedGrid, fx: number, fz: number, tx: number, tz: numb
   // Scratch arrays live with the grid; a stamp per search marks what's
   // been touched, so nothing is cleared or allocated per route.
   const sc = scratch(g);
+  // Stamps: 2·gen = opened in this search, 2·gen + 1 = closed.
   const gen = ++sc.gen;
-  const { gScore, came, seen, heap } = sc;
+  const OPEN = gen * 2, SHUT = gen * 2 + 1;
+  const { gScore, came, mark, heap } = sc;
   heap.clear();
-  const open = (i: number) => seen[i] === gen;
-  seen[start] = gen;
+  const open = (i: number) => mark[i] === OPEN;
+  mark[start] = OPEN;
   gScore[start] = 0;
   came[start] = -1;
   heap.push(start, 0);
@@ -460,19 +466,19 @@ export function pedPath(g: PedGrid, fx: number, fz: number, tx: number, tz: numb
       found = true;
       break;
     }
-    if (closedAt(sc, cur, gen)) continue;
-    closeAt(sc, cur, gen);
+    if (mark[cur] === SHUT) continue;
+    mark[cur] = SHUT;
     const cc = cur % g.cols, cr = Math.floor(cur / g.cols);
     for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
       if (!dc && !dr) continue;
       const nc = cc + dc, nr = cr + dr;
       if (nc < 1 || nr < 1 || nc >= g.cols - 1 || nr >= g.rows - 1) continue;
       const ni = nr * g.cols + nc;
-      if (closedAt(sc, ni, gen) || !canStep(g, cur, ni, dc, dr)) continue;
+      if (mark[ni] === SHUT || !canStep(g, cur, ni, dc, dr)) continue;
       // Crossing costs a little extra: people stay on their side unless the route needs it.
       const cost = gScore[cur] + (dc && dr ? 1.414 : 1) + (g.cls[ni] !== PED.walk && g.cls[cur] === PED.walk ? 3 : 0);
       if (!open(ni) || cost < gScore[ni]) {
-        if (!open(ni)) seen[ni] = gen;
+        mark[ni] = OPEN;
         gScore[ni] = cost;
         came[ni] = cur;
         heap.push(ni, cost + h(ni));
@@ -582,8 +588,9 @@ export function stepWalker(w: Walker, dt: number, signals?: PedSignals | null): 
       return 'waiting';
     }
   }
-  // The far kerb counts only once actually there (it's close to the asphalt).
-  if (dist < (wp.need ? 1e-3 : 0.6)) {
+  // Both kerbs of a crossing count only once actually there, so the walk
+  // over is straight down the paint (and the far one is close to the asphalt).
+  if (dist < (wp.need || w.path[1]?.need ? 1e-3 : 0.6)) {
     w.path.shift();
     w.crossing = false;
     return 'reached';
@@ -601,9 +608,8 @@ interface Scratch {
   gen: number;
   gScore: Float32Array;
   came: Int32Array;
-  /** Search stamp per cell: gen = opened this search; closed = in `shut`. */
-  seen: Uint32Array;
-  shut: Uint32Array;
+  /** Search stamp per cell (see pedPath). */
+  mark: Uint32Array;
   heap: MinHeap;
 }
 const scratches = new WeakMap<PedGrid, Scratch>();
@@ -611,13 +617,11 @@ function scratch(g: PedGrid): Scratch {
   let s = scratches.get(g);
   if (!s) {
     const N = g.cols * g.rows;
-    s = { gen: 0, gScore: new Float32Array(N), came: new Int32Array(N), seen: new Uint32Array(N), shut: new Uint32Array(N), heap: new MinHeap() };
+    s = { gen: 0, gScore: new Float32Array(N), came: new Int32Array(N), mark: new Uint32Array(N), heap: new MinHeap() };
     scratches.set(g, s);
   }
   return s;
 }
-const closedAt = (s: Scratch, i: number, gen: number) => s.shut[i] === gen;
-const closeAt = (s: Scratch, i: number, gen: number) => void (s.shut[i] = gen);
 
 /** Small binary heap for A*'s open list. */
 class MinHeap {

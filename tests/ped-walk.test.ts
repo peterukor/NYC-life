@@ -196,6 +196,8 @@ test('spawned and steered pedestrians stay off asphalt except at crosswalks, on 
       assert.notEqual(s, 'road', `walker on the road at ${w.x.toFixed(2)}, ${w.z.toFixed(2)}`);
       if (s === 'crosswalk') {
         onCross++;
+        // Straight over: on the line from the near kerb to the far one.
+        if (w.crossing) assert.ok(Math.abs(w.x - w.path[0].x) < 0.01 || Math.abs(w.z - w.path[0].z) < 0.01, `crossing on the slant at ${w.x}, ${w.z} to ${JSON.stringify(w.path.slice(0, 2))}`);
         assert.ok(w.crossing || res === 'reached', 'on a crosswalk without crossing');
         assert.notEqual(res, 'waiting', 'stopped on the road');
         // The traffic it crosses has a red: avenues only cross on the streets' green or the all-red.

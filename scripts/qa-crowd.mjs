@@ -60,7 +60,7 @@ for (const name of spots) {
   await page.evaluate((p) => window.__nyc.streetCam(p.x + 38, 42, p.z + 38, p.x, 0, p.z), at);
   // Let the crowd re-spawn around it.
   await page.evaluate(() => window.__nyc.advance(8));
-  const tot = { n: 0, road: 0, crosswalk: 0, stillRoad: 0, waiting: 0, hit: 0, samples: 0 };
+  const tot = { n: 0, road: 0, crosswalk: 0, stillRoad: 0, waiting: 0, moving: 0, hit: 0, samples: 0 };
   const where = [];
   let lastPeople = [];
   for (let t = 0; t < SECS; t++) {
@@ -98,11 +98,12 @@ for (const name of spots) {
       }
       if (p.on === 'crosswalk') tot.crosswalk++;
       if (p.waiting) tot.waiting++;
+      if (p.moving) tot.moving++;
     }
   }
   if (process.env.DUMP) writeFileSync(`${dir}/${out}-${name}-people.json`, JSON.stringify(lastPeople));
   const pct = (k) => ((100 * tot[k]) / Math.max(1, tot.n)).toFixed(2) + '%';
-  report[name] = { people: +(tot.n / tot.samples).toFixed(1), onRoad: pct('road'), standingInRoad: pct('stillRoad'), onCrosswalk: pct('crosswalk'), waitingAtKerb: pct('waiting'), carOverPerson: tot.hit, roadSpots: where.slice(0, 12) };
+  report[name] = { people: +(tot.n / tot.samples).toFixed(1), walking: pct('moving'), onRoad: pct('road'), standingInRoad: pct('stillRoad'), onCrosswalk: pct('crosswalk'), waitingAtKerb: pct('waiting'), carOverPerson: tot.hit, roadSpots: where.slice(0, 12) };
   console.log(name, JSON.stringify({ ...report[name], roadSpots: undefined }));
   // Shots: from above at an angle, and a street-level look along the sidewalk.
   const me = at;
