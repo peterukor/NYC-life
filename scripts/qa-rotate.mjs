@@ -41,7 +41,7 @@ for (const id of ids) {
         await page.$eval(`.room-rotate [data-rot="${dir}"]`, (el) => el.click());
         at = (at + (dir === 'right' ? 45 : -45) + 360) % 360;
       }
-      await wait(snap ? 2500 : 9000);
+      await wait(snap ? 6000 : 9000);
     } else if (snap) {
       await page.evaluate((r) => window.__nyc.setSwing(r), (a * Math.PI) / 180);
       await wait(1200);
@@ -65,6 +65,15 @@ for (const id of ids) {
       return { rotate: m, overlaps: hits.map((h) => h.el) };
     });
     console.log(id, 'buttons', JSON.stringify(boxes));
+    // An action sheet over them (they must not peek through), and the turn kept after it closes.
+    const objId = await page.evaluate(() => window.__nyc.objectWith('sleep') ?? null);
+    const any = objId ?? (await page.evaluate(() => (window.__nyc.homeItems() ?? [])[0]?.uid ?? null));
+    if (any && (await page.evaluate((u) => window.__nyc.openObject(u), any))) {
+      await wait(2500);
+      await page.screenshot({ path: `${out}/${tag}-${id}-sheet.png` });
+      console.log(`${out}/${tag}-${id}-sheet.png`);
+    }
+    console.log(id, 'turn', await page.evaluate(() => window.__nyc.turn()));
   }
 }
 console.log(errors.length ? `ERRORS ${JSON.stringify(errors.slice(0, 5))}` : 'no page errors');

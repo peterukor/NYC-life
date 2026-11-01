@@ -36,6 +36,10 @@ export interface Avatar {
   setAction: (name: FolkAnim | null) => void;
   /** Hold a clip still at a fraction of its length (a pose), or null to let it play. */
   setHold: (at: number | null) => void;
+  /** Lying down: legs straight and together (until the next setAction). */
+  setLying?: (on: boolean) => void;
+  /** The body's box around `root` in its current pose (null until the real body has loaded). */
+  bounds?: () => THREE.Box3 | null;
   debug?: () => unknown;
   dispose: () => void;
 }
@@ -57,10 +61,12 @@ export function makeAvatar(given: Look): Avatar {
   let current = look;
   let action: FolkAnim | null = null;
   let holdAt: number | null = null;
+  let lying = false;
 
   loadFolk()
     .then((kit: FolkKit) => {
       actor = new Actor(kit, folkLookOf(current));
+      actor.setLying(lying);
       root.add(actor.root);
       simple.root.visible = false;
     })
@@ -87,9 +93,22 @@ export function makeAvatar(given: Look): Avatar {
     setAction(name) {
       action = name;
       holdAt = null;
+      lying = false;
+      actor?.setLying(false);
+    },
+    setLying(on) {
+      lying = on;
+      actor?.setLying(on);
     },
     setHold(at) {
       holdAt = at;
+    },
+    bounds() {
+      if (!actor) return null;
+      // Put the wanted pose on first, so the box is the pose's.
+      if (action && holdAt !== null) actor.hold(action, holdAt);
+      else if (action) actor.play(action, 0);
+      return actor.bounds();
     },
     debug: () => ({ action, holdAt, actor: actor?.debug() ?? null }),
     dispose() {

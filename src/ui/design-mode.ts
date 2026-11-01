@@ -89,8 +89,8 @@ export class DesignMode {
     this.el = html(`
       <div class="design" role="dialog" aria-label="Design your home">
         <div class="design-cam">
-          <button class="cam-btn" data-cam="left" aria-label="Swing the view left">⟲</button>
-          <button class="cam-btn" data-cam="right" aria-label="Swing the view right">⟳</button>
+          <button class="cam-btn" data-cam="left" aria-label="Turn the room anticlockwise">⟲</button>
+          <button class="cam-btn" data-cam="right" aria-label="Turn the room clockwise">⟳</button>
           <button class="cam-btn" data-cam="top" aria-label="Look from above">⬇️</button>
           <button class="cam-btn" data-cam="night" aria-label="See it at night">🌙</button>
         </div>
@@ -111,8 +111,9 @@ export class DesignMode {
       b.addEventListener('click', () => {
         sfx.tap();
         const k = b.dataset.cam;
-        if (k === 'left') host.view.rotate(Math.PI / 4);
-        else if (k === 'right') host.view.rotate(-Math.PI / 4);
+        // ⟲ turns the room anticlockwise on screen, ⟳ clockwise (like the ↺ ↻ buttons in the HUD).
+        if (k === 'left') host.view.rotate(-Math.PI / 4);
+        else if (k === 'right') host.view.rotate(Math.PI / 4);
         else if (k === 'top') {
           host.view.setTop(!host.view.isTop);
           b.classList.toggle('on', host.view.isTop);

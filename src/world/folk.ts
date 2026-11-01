@@ -53,6 +53,9 @@ export type FolkAnim = (typeof FOLK_CLIPS)[number];
 /** Kept for older callers: game name → clip name (they are the same now). */
 export const FOLK_ANIM = Object.fromEntries(FOLK_CLIPS.map((c) => [c, c])) as Record<FolkAnim, FolkAnim>;
 
+/** Bones held straight while lying down (Actor.setLying). */
+const LIE_STRAIGHT = /^(Body|Hips|UpperLeg[LR]|LowerLeg[LR]|Foot[LR])$/;
+
 /** Clips that play once and hold their last pose. */
 const ONCE = new Set<FolkAnim>(['sit', 'stand', 'pickup', 'interact', 'punch', 'jab', 'hit', 'knockback', 'yes', 'jump', 'roll', 'die', 'lay', 'throw', 'open', 'kick']);
 
@@ -195,6 +198,11 @@ export class Actor {
   private current: FolkAnim | null = null;
   private body: Body | null = null;
   private shapeKey = '';
+  /** Each bone's rest turn (the rig as modelled: legs straight, together). */
+  private rest = new Map<THREE.Object3D, THREE.Quaternion>();
+  /** Lying down: these bones keep their rest turn whatever the clip does (see setLying). */
+  private straight: THREE.Object3D[] = [];
+  private lying = false;
 
   constructor(
     private kit: FolkKit,
@@ -217,6 +225,13 @@ export class Actor {
       this.body = kit.body;
       this.rig = cloneSkinned(bodyKit.rig);
       this.root.add(this.rig);
+      this.rest.clear();
+      this.straight = [];
+      this.rig.traverse((b) => {
+        if (!(b as THREE.Bone).isBone) return;
+        this.rest.set(b, b.quaternion.clone());
+        if (LIE_STRAIGHT.test(b.name)) this.straight.push(b);
+      });
       this.mixer = new THREE.AnimationMixer(this.rig);
       this.shapeKey = '';
       this.mesh?.geometry.dispose();
@@ -284,6 +299,21 @@ export class Actor {
 
   update(dt: number): void {
     this.mixer?.update(dt);
+    if (this.lying) this.straighten();
+  }
+
+  /**
+   * Lying on a bed: hips and legs straight and together (the idle clip
+   * stands with one foot forward, so a body laid flat had a knee in the air
+   * and a foot through the mattress). The arms keep the clip's pose.
+   */
+  setLying(on: boolean): void {
+    this.lying = on;
+    if (on) this.straighten();
+  }
+
+  private straighten(): void {
+    for (const b of this.straight) b.quaternion.copy(this.rest.get(b)!);
   }
 
   /** What's playing (for QA). */
@@ -302,6 +332,21 @@ export class Actor {
     if (!action) return;
     action.time = action.getClip().duration * at;
     action.paused = true;
+  }
+
+  /**
+   * The body's box in this.root's space, in the pose it's in right now
+   * (skinned: arms and hair included). For laying people on beds.
+   */
+  bounds(): THREE.Box3 | null {
+    if (!this.mesh) return null;
+    this.mixer?.update(0);
+    if (this.lying) this.straighten();
+    this.root.updateMatrixWorld(true);
+    this.mesh.computeBoundingBox();
+    const box = this.mesh.boundingBox!.clone();
+    const toRoot = new THREE.Matrix4().copy(this.root.matrixWorld).invert().multiply(this.mesh.matrixWorld);
+    return box.applyMatrix4(toRoot);
   }
 
   set visible(v: boolean) {

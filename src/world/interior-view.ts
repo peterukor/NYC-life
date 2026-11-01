@@ -61,9 +61,39 @@ export class InteriorView {
     this.apply();
   }
 
+  /** The swing a room opens at (long homes on a tall phone open a quarter turn round). */
+  private openSwing = 0;
+
   /** Swing the view round by `step` radians (it glides there). */
   rotate(step: number): void {
     this.azTarget += step;
+  }
+
+  /** How far the view is swung from where the room opened (radians, where it's gliding to). */
+  get turn(): number {
+    return this.azTarget - this.openSwing;
+  }
+
+  /** Swing to `rad` from the opening view: glide there, or jump (`snap`). */
+  setTurn(rad: number, snap = false): void {
+    this.azTarget = this.openSwing + rad;
+    if (snap) {
+      this.azimuth = this.azTarget;
+      this.apply();
+    }
+  }
+
+  /** Follow a two-finger twist: turn by `rad` straight away (no glide). */
+  twistBy(rad: number): void {
+    this.azimuth += rad;
+    this.azTarget = this.azimuth;
+    this.apply();
+  }
+
+  /** After a twist: glide on to the nearest 45° step. */
+  settle(): void {
+    const step = Math.PI / 4;
+    this.azTarget = this.openSwing + Math.round((this.azTarget - this.openSwing) / step) * step;
   }
 
   /** Top view on or off (glides). */
@@ -102,7 +132,7 @@ export class InteriorView {
       this.pan.set(0, 0);
       this.resetSwing();
       // Long homes on a tall phone: look along the long side so it fills the screen.
-      this.azimuth = this.azTarget = swing;
+      this.azimuth = this.azTarget = this.openSwing = swing;
     }
     this.apply();
   }

@@ -128,6 +128,8 @@ export interface HomeInterior extends Interior {
   highlight: (uid: string | null) => void;
   /** Homes: you can move furniture. Venues (shops, bars): you can't. */
   movable: boolean;
+  /** Hide ceiling pieces within `r` of (x, z) — over someone lying in bed — or show them all again (null). */
+  clearOver: (x: number | null, z?: number, r?: number) => void;
   // ---- the Lagos Life bits
   /** The home's floors, walls and lights as they are now (save this). */
   style: HomeStyle;
@@ -782,6 +784,8 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
       m.rotation.y = p.rot ?? 0;
       m.castShadow = shadows && !def.flat && !def.hang;
       m.receiveShadow = shadows;
+      // Hidden with its cut-away wall: not tappable either.
+      m.userData.pickFilter = () => g.visible;
       g.add(m);
     }
     if (def.tv && !tvScreen) {
@@ -790,6 +794,7 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
       const [sw, sh, sx, sy, sz] = def.screen ?? (big ? [1.15, 0.62, 0, 1.1, 0.16] : [0.5, 0.34, -0.05, 0.3, 0.29]);
       const screen = new THREE.Mesh(t(new THREE.PlaneGeometry(sw, sh)), tvScreen);
       screen.position.set(sx, sy, sz);
+      screen.userData.pickFilter = () => g.visible;
       g.add(screen);
     }
     scene.add(g);
@@ -801,6 +806,96 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
     paint(it);
   };
   for (const it of items) buildPiece(it);
+
+  // ---------------------------------------------------------------- things hung on walls drop with them
+  /** Is this wall face cut down for the current view? (The same rule as the cutaway shader.) */
+  const faceCut = (f: Face): boolean => {
+    if (CUT.uNoCut.value > 0.5) return false;
+    if (CUT.uCutAll.value > 0.5) return true;
+    const v = CUT.uView.value;
+    // Outer faces point into the room; the shader tests the wall's outward normal.
+    const facing = (f.outer ? -1 : 1) * (f.nx * v.x + f.nz * v.y);
+    return f.outer ? facing > 0.3 : Math.abs(facing) > 0.5;
+  };
+  /**
+   * The wall face something hangs on: (x, z) near the face, `nx, nz` the way
+   * it faces (into the room). Null when it isn't against a wall.
+   */
+  const faceBehind = (x: number, z: number, nx: number, nz: number): Face | null => {
+    let best: Face | null = null, bd = 0.9;
+    for (const f of faces) {
+      if (f.nx * nx + f.nz * nz < 0.9) continue;
+      // How far in front of the face, and is it within the face's span?
+      const d = (x - f.ax) * f.nx + (z - f.az) * f.nz;
+      if (d < -0.25 || d > bd) continue;
+      const along = Math.abs(f.nz) > 0.5 ? x : z;
+      const lo = Math.min(Math.abs(f.nz) > 0.5 ? f.ax : f.az, Math.abs(f.nz) > 0.5 ? f.bx : f.bz);
+      const hi = Math.max(Math.abs(f.nz) > 0.5 ? f.ax : f.az, Math.abs(f.nz) > 0.5 ? f.bx : f.bz);
+      if (along < lo - 0.2 || along > hi + 0.2) continue;
+      best = f;
+      bd = d;
+    }
+    return best;
+  };
+  /**
+   * Neon signs, video walls and the venue name board: when the camera swings
+   * round and their wall drops, they go too (they used to float in the air).
+   */
+  const hungDeco: { objs: THREE.Object3D[]; face: Face | null; y: number }[] = [];
+  const hangOnWall = (objs: THREE.Object3D[], x: number, z: number, rot: number, y: number) => {
+    const nx = Math.sin(rot), nz = Math.cos(rot);
+    hungDeco.push({ objs, face: faceBehind(x, z, nx, nz), y });
+  };
+  /** Wall pieces (art, wall TVs, sconces, shelves…) hidden because their wall is down. */
+  const hiddenOnWall = new Set<string>();
+  /** Ceiling pieces (pendants, chandeliers, fans) hidden over someone lying in bed (clearOver). */
+  const hiddenOver = new Set<string>();
+  const hiddenPiece = (uid: string) => hiddenOnWall.has(uid) || hiddenOver.has(uid);
+  /**
+   * Hide what hangs from the ceiling within `r` of a spot (null = show it all
+   * again): a pendant over the pillow hid the sleeper's head from the
+   * room's camera (Peter, 2026-11-01).
+   */
+  const clearOver = (x: number | null, z = 0, r = 1.4) => {
+    const before = [...hiddenOver].join();
+    hiddenOver.clear();
+    if (x !== null) {
+      for (const it of items) {
+        if (kindOf(it.item) !== 'ceiling') continue;
+        const c = pieceBox(it.item).getCenter(new THREE.Vector3()).applyAxisAngle(new THREE.Vector3(0, 1, 0), it.rot);
+        if (Math.hypot(it.x + c.x - x, it.z + c.z - z) < r) hiddenOver.add(it.uid);
+      }
+    }
+    for (const it of items) {
+      const g = groups.get(it.uid);
+      if (g && kindOf(it.item) === 'ceiling') g.visible = !hiddenOver.has(it.uid);
+    }
+    if ([...hiddenOver].join() !== before) applyLights(clock);
+  };
+  const ledgeOf = (f: Face) => Math.min(f.outer ? LOW_WALL : INNER_LOW, wallH);
+  const updateHung = () => {
+    for (const h of hungDeco) {
+      const show = !h.face || !faceCut(h.face) || h.y < ledgeOf(h.face);
+      for (const o of h.objs) o.visible = show;
+    }
+    let changed = false;
+    for (const it of items) {
+      if (kindOf(it.item) !== 'wall') continue;
+      const g = groups.get(it.uid);
+      if (!g) continue;
+      const f = faceBehind(it.x, it.z, Math.sin(it.rot), Math.cos(it.rot));
+      // Hide it when its wall is cut below the piece's middle (a low shelf under the ledge stays).
+      const box = pieceBox(it.item);
+      const mid = groupY(it) + (box.isEmpty() ? 1.2 : (box.min.y + box.max.y) / 2);
+      const hide = !!f && faceCut(f) && mid > ledgeOf(f);
+      if (hide === hiddenOnWall.has(it.uid)) continue;
+      changed = true;
+      if (hide) hiddenOnWall.add(it.uid);
+      else hiddenOnWall.delete(it.uid);
+      g.visible = !hide;
+    }
+    if (changed) applyLights(clock);
+  };
 
   // ---------------------------------------------------------------- lamps: pools, washes, halos, real lights
   const glowTex = t(glowTexture());
@@ -866,7 +961,8 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
     for (const g of glows) {
       const flick = g.light.kind === 'fire' ? 0.82 + Math.sin(time * 11 + g.pos.x * 7) * 0.08 + Math.sin(time * 23 + g.pos.z) * 0.06 : 1;
       const pw = g.light.power * k * flick;
-      g.halo.visible = on;
+      g.halo.visible = on && !hiddenPiece(g.it.uid);
+      if (!g.halo.visible) continue; // its wall is cut away: no glow in mid-air
       const hs = (g.light.kind === 'strip' ? 0.9 : g.light.kind === 'table' || g.light.kind === 'fire' ? 0.45 : 0.75) * (0.6 + g.light.power * 0.4);
       g.halo.scale.set(hs, hs, hs);
       g.halo.material.opacity = 1;
@@ -1048,6 +1144,7 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
     glow.rotation.y = sg.rot;
     glow.scale.set(1.5, 2.6, 1);
     scene.add(glow);
+    hangOnWall([m, glow], sg.x, sg.z, sg.rot, sg.y);
   }
 
   // ---------------------------------------------------------------- video walls (animated colour, cheap: all in the shader)
@@ -1101,6 +1198,7 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
     spill.position.set(sc.x + n.x * 1.1, 0.02, sc.z + n.z * 1.1);
     spill.rotation.y = sc.rot;
     scene.add(spill);
+    hangOnWall([m], sc.x, sc.z, sc.rot, sc.y);
   }
 
   // ---------------------------------------------------------------- venues: a name sign, staff, a few locals
@@ -1108,7 +1206,10 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
     const sign = new THREE.Mesh(t(new THREE.PlaneGeometry(6, 1.1)), cutaway(t(new THREE.MeshBasicMaterial({ map: t(signTexture(place.name, place.color)) }))));
     sign.geometry.setAttribute('aWall', new THREE.Float32BufferAttribute(new Array(sign.geometry.getAttribute('position').count).fill([0, -1, 3]).flat(), 3));
     sign.position.set(0, wallH - 0.55, -hd + WALL_T / 2 + 0.03);
-    if (wallH > 2 && !layout.screens?.length && !layout.signs?.length) scene.add(sign);
+    if (wallH > 2 && !layout.screens?.length && !layout.signs?.length) {
+      scene.add(sign);
+      hangOnWall([sign], 0, sign.position.z, 0, sign.position.y);
+    }
     const counter = items.find((i) => FURNITURE.get(i.item)?.placeActions);
     const people: { x: number; z: number; ry: number }[] = [];
     if (counter) people.push({ x: counter.x + 0.6, z: counter.z - 1.0, ry: 0 });
@@ -1186,14 +1287,11 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
   // ---------------------------------------------------------------- picking walls and floors
   const pickSurface: HomeInterior['pickSurface'] = (ray) => {
     let best: { d: number; hit: ReturnType<HomeInterior['pickSurface']> } | null = null;
-    const v = CUT.uView.value;
     for (const f of faces) {
       const n = new THREE.Vector3(f.nx, 0, f.nz);
       if (n.dot(ray.direction) >= 0) continue; // facing away
       // Skip walls that are cut down (the same rule as the shader), above the ledge.
-      const out = f.outer ? n.clone().negate() : n;
-      const facing = out.x * v.x + out.z * v.y;
-      const cut = CUT.uNoCut.value < 0.5 && (CUT.uCutAll.value > 0.5 || (f.outer ? facing > 0.3 : Math.abs(facing) > 0.5));
+      const cut = faceCut(f);
       const top = cut ? Math.min(f.outer ? LOW_WALL : INNER_LOW, wallH) : wallH;
       const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(n, new THREE.Vector3(f.ax, 0, f.az));
       const p = ray.intersectPlane(plane, new THREE.Vector3());
@@ -1393,11 +1491,13 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
       lightsDirty = true;
     },
     pickSurface,
+    clearOver,
     setView(dx, dz, mode = 'cutaway') {
       const l = Math.hypot(dx, dz) || 1;
       CUT.uView.value.set(dx / l, dz / l);
       CUT.uCutAll.value = mode === 'top' ? 1 : 0;
       CUT.uNoCut.value = mode === 'walls-up' ? 1 : 0;
+      updateHung();
     },
     setLights(mode) {
       lightMode = mode;

@@ -27,6 +27,8 @@ export interface HudHandlers {
   onVolume?: () => void;
   /** Speak loud (ui/people-ui.ts). */
   onSpeak?: () => void;
+  /** Inside: swing the view round the room, 45° a tap (+1 = the room turns clockwise). */
+  onRotate?: (dir: 1 | -1) => void;
 }
 
 export interface Where {
@@ -67,6 +69,10 @@ export class Hud {
         <div class="goal" data-goal hidden></div>
         <div class="bullets" data-needs aria-label="Needs"></div>
         <button class="speak-btn" data-speak aria-label="Speak loud">💬</button>
+        <div class="room-rotate" data-rotate hidden>
+          <button data-rot="left" aria-label="Turn the room anticlockwise">↺</button>
+          <button data-rot="right" aria-label="Turn the room clockwise">↻</button>
+        </div>
         <button class="work-btn" data-work hidden><span class="work-ico" aria-hidden="true">💼</span><span data-work-label>Go to work</span></button>
         <nav class="dock" aria-label="Main">
           <button data-nav="here"><span class="dock-ico" aria-hidden="true">📍</span><span>Here</span></button>
@@ -84,9 +90,10 @@ export class Hud {
     this.el.querySelector('[data-vol]')!.addEventListener('click', () => this.h.onVolume?.());
     this.el.querySelector('[data-work]')!.addEventListener('click', () => this.h.onWork());
     this.el.querySelector('[data-speak]')!.addEventListener('click', () => this.h.onSpeak?.());
+    this.el.querySelectorAll<HTMLElement>('[data-rot]').forEach((b) => b.addEventListener('click', () => this.h.onRotate?.(b.dataset.rot === 'right' ? 1 : -1)));
     // The HUD wrapper must not block taps on the 3D city; only its controls take touches.
     this.el.style.pointerEvents = 'none';
-    this.el.querySelectorAll<HTMLElement>('.metrocard, .bullets, .dock, .work-btn, .speak-btn').forEach((x) => (x.style.pointerEvents = 'auto'));
+    this.el.querySelectorAll<HTMLElement>('.metrocard, .bullets, .dock, .work-btn, .speak-btn, .room-rotate').forEach((x) => (x.style.pointerEvents = 'auto'));
   }
 
   update(s: GameState, where: Where, opts: { inside: boolean; atHome?: boolean; canWork: boolean; workLabel: string; goal: { title: string; hint: string } | null }): void {
@@ -124,6 +131,7 @@ export class Hud {
     (this.el.querySelector('[data-nav="here"]') as HTMLElement).hidden = opts.inside;
     (this.el.querySelector('[data-nav="places"]') as HTMLElement).hidden = opts.inside;
     (this.el.querySelector('[data-speak]') as HTMLElement).hidden = opts.inside;
+    (this.el.querySelector('[data-rotate]') as HTMLElement).hidden = !opts.inside || !this.h.onRotate;
     const goal = this.el.querySelector<HTMLElement>('[data-goal]')!;
     goal.hidden = !opts.goal;
     if (opts.goal) goal.innerHTML = `<span class="goal-pin" aria-hidden="true">★</span><span><b>${esc(opts.goal.title)}</b>${opts.goal.hint ? `<small>${esc(opts.goal.hint)}</small>` : ''}</span>`;

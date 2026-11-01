@@ -162,7 +162,13 @@ import { openPhone } from './ui/phone.ts';
 
 
 /** The sit-down clip lowers the hips about this far: stand this much below a seat's top. */
+import { bedSpot, DEFAULT_BODY, liePose, sampleBed } from './world/bed-pose.ts';
+
 const SEAT_DROP = 0.18;
+/** InteriorView's swing turns the room clockwise on screen for a positive angle. */
+const TURN_SIGN = 1;
+/** A two-finger twist must pass this (radians, ~17°) before the room turns, so a pinch doesn't wobble it. */
+const TWIST_START = 0.3;
 
 export class Game {
   private engine: Engine;
@@ -202,6 +208,8 @@ export class Game {
   private interiorCamera = new THREE.PerspectiveCamera(48, 1, 0.1, 200);
   /** Zoom and pan inside the big homes. */
   private view = new InteriorView(this.interiorCamera);
+  /** How far you turned the view in each place (this session only): going back shows it the way you left it. */
+  private turns = new Map<string, number>();
   /** The closet mirror's view (see openClosetMirror). */
   private mirrorCamera = new THREE.PerspectiveCamera(40, 1, 0.05, 60);
   /** Home furniture models (loaded at boot; null = use the simple room). */
@@ -215,6 +223,12 @@ export class Game {
   /** A finger dragging the held piece (move mode). */
   /** Using a piece of furniture right now: the progress bar and how you're posed. */
   private doing: { bar: ReturnType<typeof progressBar>; uid?: string; standX: number; standZ: number } | null = null;
+  /** Getting into or out of bed: the body glides between standing and lying (world/bed-pose.ts). */
+  private bedMove: { t: number; dur: number; p0: THREE.Vector3; p1: THREE.Vector3; q0: THREE.Quaternion; q1: THREE.Quaternion; lift: number; done: () => void } | null = null;
+  /** QA: stretch the get-in / get-out glide so slow screenshots catch it. */
+  private bedGlideSlow = 1;
+  /** On a bunk, which deck you sleep on (the top one: from the room's camera the bottom deck is hidden under it). */
+  private bunkDeck: 'top' | 'bottom' = 'top';
   private indoor: { points: { x: number; z: number }[]; then?: () => void; face?: THREE.Vector3 } | null = null;
   private drag: { id: number; dx: number; dz: number; moved: boolean; sx: number; sy: number } | null = null;
 
@@ -245,6 +259,15 @@ export class Game {
       const home = this.interior as HomeInterior | null;
       if (home && 'setView' in home) home.setView(x, z, mode);
     };
+    // Computers: Q / E turn the room too (when nothing else is open and you're not typing).
+    window.addEventListener('keydown', (e) => {
+      const k = e.key.toLowerCase();
+      if ((k !== 'q' && k !== 'e') || e.ctrlKey || e.metaKey || e.altKey || this.engine.mode !== 'interior') return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+      if (this.overlayClose || document.querySelector('#ui .sheet.open, #ui .mg-wrap, #ui .design')) return;
+      this.turnRoom(k === 'e' ? 1 : -1);
+    });
     // Re-frame rooms when the phone rotates or the window changes size.
     window.addEventListener('resize', () => {
       if (this.engine.mode === 'interior') this.fitInteriorCamera(true);
@@ -457,6 +480,60 @@ export class Game {
       setHomeStyle: (st: unknown) => (this.interior as HomeInterior).setStyle(st as never),
       previewHour: (h: number | null) => (this.interior as HomeInterior).previewHour(h),
       swing: (rad: number) => this.view.rotate(rad),
+      /** Jump to a turn from the opening view (radians, no glide). */
+      setSwing: (rad: number) => this.view.setTurn(rad, true),
+      /** Tap the ↺ (-1) / ↻ (+1) button's action. */
+      turnRoom: (dir: 1 | -1) => this.turnRoom(dir),
+      turn: () => +this.view.turn.toFixed(3),
+      /** Use a piece at home straight away (QA: sleep in a bed). Returns the activity's error, or null. */
+      useNow: (uid: string, actionId: string) => {
+        const obj = this.interior?.objects.find((o) => o.id === uid);
+        if (!obj) return 'no such piece';
+        this.player.root.position.copy(obj.stand);
+        this.useFurniture(uid, actionId);
+        return this.doing ? null : 'did not start';
+      },
+      /** A bed's measured rays and what bed-pose makes of them (QA, and data for tests/bed-pose). */
+      bedSamples: (uid: string, lineX = 0, deck: 'top' | 'bottom' = 'top') => {
+        const home = this.interior as HomeInterior | null;
+        const info = home && 'pieceInfo' in home ? home.pieceInfo(uid) : null;
+        const obj = home?.objects.find((o) => o.id === uid);
+        if (!info || !obj) return null;
+        const local = (lx: number, lz: number) => new THREE.Vector3(lx, 0, lz).applyAxisAngle(new THREE.Vector3(0, 1, 0), info.rot).add(new THREE.Vector3(info.x, 0, info.z));
+        const samples = sampleBed(obj.mesh, info.fp.minZ - 0.05, info.fp.maxZ + 0.05, lineX, local).map((x) => ({ z: +x.z.toFixed(3), tops: x.tops.map((t) => +t.toFixed(3)) }));
+        return { item: info.item, fp: info.fp, samples, spot: bedSpot(samples, deck), body: (() => { const b = this.player.bounds?.(); return b ? [b.min.x, b.min.y, b.min.z, b.max.x, b.max.y, b.max.z].map((v) => +v.toFixed(3)) : null; })() };
+      },
+      /** Stretch the glide into and out of bed (QA screenshots on a slow renderer). */
+      bedGlideSlow: (k: number) => { this.bedGlideSlow = Math.max(1, k); },
+      /** Which bunk deck you sleep on next ('top' | 'bottom'). */
+      bunkLevel: (deck: 'top' | 'bottom') => { this.bunkDeck = deck; },
+      /** A piece's spot, turn and footprint (QA). */
+      pieceFootprint: (uid: string) => (this.interior && 'pieceInfo' in this.interior ? (this.interior as HomeInterior).pieceInfo(uid) : null),
+      /** The player's head and feet in the world (QA: is the sleeper on the bed?). */
+      bodyEnds: () => {
+        this.player.root.updateMatrixWorld(true);
+        const head = new THREE.Vector3(), foot = new THREE.Vector3();
+        let hb: THREE.Object3D | null = null, fb: THREE.Object3D | null = null;
+        this.player.root.traverse((o) => {
+          if (!hb && /head/i.test(o.name) && (o as THREE.Bone).isBone) hb = o;
+          if (!fb && /foot|toe/i.test(o.name) && (o as THREE.Bone).isBone) fb = o;
+        });
+        if (hb) (hb as THREE.Object3D).getWorldPosition(head);
+        if (fb) (fb as THREE.Object3D).getWorldPosition(foot);
+        const r = (v: THREE.Vector3) => ({ x: +v.x.toFixed(2), y: +v.y.toFixed(2), z: +v.z.toFixed(2) });
+        return { head: r(head), foot: r(foot), root: r(this.player.root.position), rot: { x: +this.player.root.rotation.x.toFixed(2), y: +this.player.root.rotation.y.toFixed(2), order: this.player.root.rotation.order } };
+      },
+      /** Close-up camera on a point: `dist` away, `az` round (0 = from +z), `el` up (radians). Drops the walls facing it (until the view next moves). */
+      camOn: (tx: number, ty: number, tz: number, dist: number, az: number, el: number) => {
+        const cam = this.interiorCamera;
+        this.view.zoom = 1; // no follow-pan pulling the camera back
+        const dx = Math.sin(az) * Math.cos(el), dz = Math.cos(az) * Math.cos(el);
+        cam.position.set(tx + dx * dist, ty + Math.sin(el) * dist, tz + dz * dist);
+        cam.lookAt(tx, ty, tz);
+        cam.updateMatrixWorld();
+        const home = this.interior as HomeInterior | null;
+        if (home && 'setView' in home) home.setView(dx, dz, 'cutaway');
+      },
       topView: (on: boolean) => this.view.setTop(on),
       addPiece: (item: string, x: number, z: number) => (this.interior as HomeInterior).addPiece(item, x, z),
       setFinish: (uid: string, f: Record<string, string>) => (this.interior as HomeInterior).setFinish(uid, f),
@@ -790,6 +867,7 @@ export class Game {
         openSpeak(this.peopleHost());
       },
       onVolume: () => this.toggleMuteAll(),
+      onRotate: (dir) => this.turnRoom(dir),
       onMenu: () => {
         if (this.busy) return;
         sfx.tap();
@@ -1027,6 +1105,7 @@ export class Game {
       this.interior.update(dt);
       this.buddy?.update(dt);
       this.player.animate(this.walkIndoors(dt), dt);
+      this.tickBedMove(dt);
       // Zoomed in: keep yourself in view while you walk somewhere.
       if (this.indoor || this.doing) this.view.follow(this.player.root.position, dt);
       this.view.tick(dt);
@@ -1113,6 +1192,8 @@ export class Game {
 
   /** Walk somewhere indoors (around the furniture). Homes walk; other rooms jump straight there. */
   private walkInside(x: number, z: number, then?: () => void, face?: THREE.Vector3): void {
+    // Getting out of bed: be on your feet first, then walk from there.
+    this.finishBedMove();
     const home = this.interior as HomeInterior | null;
     const p = this.player.root.position;
     const pts = home && 'walkPath' in home ? home.walkPath(p.x, p.z, x, z) : [{ x, z }];
@@ -2594,6 +2675,7 @@ export class Game {
       this.design?.close();
       this.interior?.dispose();
       this.stopMoving(false);
+      this.finishBedMove();
       // A workplace has its own room; other venues share their kind's plan.
       const venue = WORKPLACE_LAYOUTS[WORKPLACE_LAYOUT_FOR[place.id] ?? ''] ?? VENUE_LAYOUTS[VENUE_LAYOUT_FOR[place.interior] ?? ''];
       if (place.interior === 'apartment' && this.furniture) {
@@ -2678,7 +2760,7 @@ export class Game {
       this.interior.scene.add(this.player.root);
       this.player.root.position.copy(this.interior.spawn);
       this.player.root.rotation.set(0, Math.PI, 0);
-      this.fitInteriorCamera();
+      this.fitInteriorCamera(false, place.id);
       this.engine.altScene = this.interior.scene;
       this.engine.altCamera = this.interiorCamera;
       this.setMode('interior');
@@ -2719,7 +2801,7 @@ export class Game {
    * width, so the camera backs off (and widens its lens) until the room
    * fits side to side, looking down at a Sims-like angle.
    */
-  private fitInteriorCamera(keep = false): void {
+  private fitInteriorCamera(keep = false, placeId?: string): void {
     const cam = this.interiorCamera;
     const el = this.engine.renderer.domElement;
     const aspect = el.clientWidth / Math.max(1, el.clientHeight);
@@ -2737,6 +2819,30 @@ export class Game {
     // Pinch to zoom and drag to pan, in every room, on top of the whole-room framing.
     const layout = this.interior && 'layout' in this.interior ? (this.interior as HomeInterior).layout : null;
     this.view.frame(new THREE.Vector3(0, 0.4, layout0 ? 0 : -0.5), new THREE.Vector3(0, dist * 0.8, dist * 0.68), (layout?.width ?? 12) / 2, (layout?.depth ?? 10) / 2, true, keep, swing, this.startZoomFor(layout, aspect)); // every room can zoom (Peter, 2026-10-14)
+    // A place you turned earlier opens the way you left it; anywhere new opens at its usual corner.
+    const turned = !keep && placeId ? this.turns.get(placeId) : undefined;
+    if (turned) this.view.setTurn(turned, true);
+  }
+
+  /**
+   * Turn the room 45° (the ↺ ↻ buttons, Peter 2026-11-01: "turn locations
+   * around"). +1 turns the room clockwise on screen. The walls nearest the
+   * camera drop as it swings (InteriorView.onView → setView).
+   */
+  private turnRoom(dir: 1 | -1): void {
+    if (this.engine.mode !== 'interior' || this.engine.altCamera !== this.interiorCamera || this.busy) return;
+    sfx.tap();
+    this.view.rotate(dir * TURN_SIGN * (Math.PI / 4));
+    this.rememberTurn();
+  }
+
+  private rememberTurn(): void {
+    const id = this.state.location.placeId;
+    if (!id) return;
+    // Keep it in one turn (−180°..180°) so the next glide takes the short way.
+    const t = Math.atan2(Math.sin(this.view.turn), Math.cos(this.view.turn));
+    if (Math.abs(t) < 1e-3) this.turns.delete(id);
+    else this.turns.set(id, Math.round(t / (Math.PI / 4)) * (Math.PI / 4));
   }
 
   /** Big homes open zoomed in on a phone held upright (pinch out to see the whole place). */
@@ -2766,8 +2872,15 @@ export class Game {
       return [((x - r.left) / r.width) * 2 - 1, -((y - r.top) / r.height) * 2 + 1] as const;
     };
     const active = () => this.engine.mode === 'interior' && this.view.enabled && this.engine.altCamera === this.interiorCamera;
+    // Two-finger twist turns the room (follows the fingers, then settles on a 45° step).
+    const twist = { acc: 0, on: false };
     el.addEventListener('pointerdown', (e) => {
-      if (active()) pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (!active()) return;
+      pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (pts.size === 2) {
+        twist.acc = 0;
+        twist.on = false;
+      }
     });
     el.addEventListener('pointermove', (e) => {
       const prev = pts.get(e.pointerId);
@@ -2787,6 +2900,17 @@ export class Game {
         const after = Math.hypot(e.clientX - o.x, e.clientY - o.y);
         const [mx, my] = ndc((e.clientX + o.x) / 2, (e.clientY + o.y) / 2);
         if (before > 10) this.view.zoomAt(after / before, mx, my);
+        // Twist: how far the line between the fingers turned (clockwise on screen is +).
+        if (before > 40 && after > 40) {
+          let da = Math.atan2(e.clientY - o.y, e.clientX - o.x) - Math.atan2(prev.y - o.y, prev.x - o.x);
+          da = Math.atan2(Math.sin(da), Math.cos(da));
+          twist.acc += da;
+          if (twist.on) this.view.twistBy(da * TURN_SIGN);
+          else if (Math.abs(twist.acc) > TWIST_START) {
+            twist.on = true;
+            this.view.twistBy(twist.acc * TURN_SIGN);
+          }
+        }
         // ...and pan by half the finger's move (the midpoint moves half as far).
         const [ax, ay] = ndc((prev.x + o.x) / 2, (prev.y + o.y) / 2);
         this.view.dragBy(ax, ay, mx, my);
@@ -2798,13 +2922,24 @@ export class Game {
       pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
     });
     const up = (e: PointerEvent) => {
-      pts.delete(e.pointerId);
+      const had = pts.delete(e.pointerId);
       this.gestureStart.delete(e.pointerId);
+      if (had && twist.on && pts.size < 2) {
+        twist.on = false;
+        this.view.settle();
+        this.rememberTurn();
+      }
     };
     // Releases anywhere count (over a button, outside the window).
     window.addEventListener('pointerup', up);
     window.addEventListener('pointercancel', up);
-    window.addEventListener('blur', () => pts.clear());
+    window.addEventListener('blur', () => {
+      pts.clear();
+      if (twist.on) {
+        twist.on = false;
+        this.view.settle();
+      }
+    });
     el.addEventListener('wheel', (e) => {
       if (!active()) return;
       e.preventDefault();
@@ -2884,6 +3019,7 @@ export class Game {
     sfx.door();
     this.design?.close();
     this.stopDoing();
+    this.finishBedMove();
     this.indoor = null;
     this.stopMoving(true);
     const placeId = this.state.location.placeId;
@@ -3067,6 +3203,7 @@ export class Game {
       },
       onClose: () => {
         this.design = null;
+        this.rememberTurn(); // the design menu's ⟲ ⟳ turn the room too
         this.view.setLift(0, 1, 1);
         this.stopMoving(true);
         this.hud.setVisible(true);
@@ -3246,11 +3383,38 @@ export class Game {
     const cz = (fp.minZ + fp.maxZ) / 2, depth = fp.maxZ - fp.minZ;
     root.rotation.set(0, 0, 0, 'XYZ');
     if (use === 'lie') {
-      // On your back, head on the pillow (the back of the bed), feet towards the foot.
-      const p = local(0, cz + depth * 0.22);
-      root.position.set(p.x, surface(local(0, cz)) + 0.08, p.z);
-      root.rotation.set(-Math.PI / 2, info.rot, 0, 'YXZ');
+      // On your back, head on the pillow just inside the headboard, back on the duvet (world/bed-pose.ts).
       this.player.setAction('idle');
+      this.player.setHold(0); // lie still: the standing idle's first frame, arms by your sides…
+      this.player.setLying?.(true); // …legs straight and together
+      const box = this.player.bounds?.() ?? null;
+      const body = box ? { length: box.max.y - Math.min(0, box.min.y), back: Math.max(0.08, -box.min.z), side: (box.min.x + box.max.x) / 2 } : DEFAULT_BODY;
+      // A wide bed: sleep on the side nearer the middle of the room (on a pillow, not in the gap between two).
+      const width = fp.maxX - fp.minX;
+      let lineX = (fp.minX + fp.maxX) / 2;
+      if (width > 1.4) {
+        const a = lineX - width / 4, b = lineX + width / 4;
+        lineX = local(a, cz).lengthSq() < local(b, cz).lengthSq() ? a : b;
+      }
+      const spot = bedSpot(sampleBed(obj.mesh, fp.minZ - 0.05, fp.maxZ + 0.05, lineX, local), this.bunkDeck);
+      const pose = spot ? liePose(spot, body, lineX) : liePose({ surface: surface(local(lineX, cz)), pillow: surface(local(lineX, cz)), headZ: fp.minZ + 0.25, footZ: fp.maxZ, headSign: -1, levels: 1 }, body, lineX);
+      const at = local(pose.x, pose.z).setY(pose.y);
+      const lying = new THREE.Quaternion().setFromEuler(new THREE.Euler(pose.pitch, info.rot + pose.yaw, 0, 'YXZ'));
+      // Get in: glide from where you stand onto the bed and lie back (a hop up for a top bunk).
+      const from = obj.stand.clone();
+      const start = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, Math.atan2(info.x - from.x, info.z - from.z), 0, 'XYZ'));
+      this.bedMove = {
+        t: 0, dur: 0.75, p0: from, p1: at, q0: start, q1: lying, lift: 0.18 + Math.max(0, pose.y - 0.8) * 0.25,
+        done: () => {
+          root.position.copy(at);
+          root.rotation.set(pose.pitch, info.rot + pose.yaw, 0, 'YXZ');
+        },
+      };
+      root.position.copy(from);
+      root.quaternion.copy(start);
+      // Nothing hanging from the ceiling in front of your face (a pendant over the pillow hid the head).
+      const head = local(pose.x, spot ? spot.headZ - spot.headSign * 0.25 : fp.minZ + 0.4);
+      home.clearOver(head.x, head.z);
     } else if (use === 'sitOn' || use === 'sitAt') {
       // Couches and toilets: sit facing out. Desks: sit on the chair, facing the desk.
       const p = use === 'sitAt' ? local(0, fp.maxZ - 0.22) : local(0, cz + depth * 0.12);
@@ -3329,12 +3493,54 @@ export class Game {
     this.refreshHud(true);
   }
 
-  /** Get up: back on your feet where you started. */
+  /** Get up: back on your feet where you started (out of bed, a short glide off it). */
   private unpose(d: { standX: number; standZ: number }): void {
     const root = this.player.root;
-    root.rotation.set(0, root.rotation.order === 'YXZ' ? root.rotation.y : root.rotation.y, 0, 'XYZ');
-    root.position.set(d.standX, 0, d.standZ);
-    this.player.setAction(null);
+    const lying = Math.abs(root.rotation.x) > 0.5 || !!this.bedMove;
+    // Still getting in: finish that first so the glide out starts from the bed.
+    this.finishBedMove();
+    const yaw = root.rotation.y;
+    const standing = new THREE.Vector3(d.standX, 0, d.standZ);
+    const done = () => {
+      root.rotation.set(0, yaw, 0, 'XYZ');
+      root.position.copy(standing);
+      this.player.setAction(null);
+      const home = this.interior as HomeInterior | null;
+      if (home && 'clearOver' in home) home.clearOver(null);
+    };
+    if (!lying) return done();
+    // Sit up and step off, facing out of the bed.
+    const away = Math.atan2(d.standX - root.position.x, d.standZ - root.position.z);
+    const end = () => {
+      done();
+      root.rotation.y = away;
+    };
+    this.bedMove = { t: 0, dur: 0.55, p0: root.position.clone(), p1: standing, q0: root.quaternion.clone(), q1: new THREE.Quaternion().setFromEuler(new THREE.Euler(0, away, 0, 'XYZ')), lift: 0.12, done: end };
+  }
+
+  /** Skip to the end of a glide into or out of bed. */
+  private finishBedMove(): void {
+    const m = this.bedMove;
+    this.bedMove = null;
+    m?.done();
+  }
+
+  /** Every frame: the glide into or out of bed. Walking off cuts it short. */
+  private tickBedMove(dt: number): void {
+    const m = this.bedMove;
+    if (!m) return;
+    m.t += dt;
+    const k = Math.min(1, m.t / (m.dur * this.bedGlideSlow));
+    if (k < 1) {
+      const e = k < 0.5 ? 2 * k * k : 1 - (-2 * k + 2) ** 2 / 2;
+      const root = this.player.root;
+      root.position.lerpVectors(m.p0, m.p1, e);
+      root.position.y += Math.sin(Math.PI * k) * m.lift;
+      root.quaternion.slerpQuaternions(m.q0, m.q1, e);
+      return;
+    }
+    this.bedMove = null;
+    m.done();
   }
 
   private async runAction(actionId: string, _el?: HTMLElement): Promise<void> {
