@@ -45,8 +45,11 @@ const lvl = (s: GameState, k: SkillKey) => Math.floor(s.skills[k]);
 
 const LIST: ActionDef[] = [
   // ---------- Home objects ----------
-  { id: 'sleep', label: 'Sleep it off', emoji: '😴', seconds: 18, needs: { energy: 70, hunger: -6, bladder: -10 }, tags: ['rest'] },
-  { id: 'nap', label: 'Power nap', emoji: '💤', seconds: 8, needs: { energy: 25 }, tags: ['rest'] },
+  // A full night's sleep: empty to full in ~1½ real minutes on a basic bed (Peter, 2026-11-01:
+  // 1–2 minutes; cheap beds ~1 min 50, luxury ~1 min 10). It doesn't skip the clock: ~65 game minutes pass.
+  { id: 'sleep', label: 'Sleep it off', emoji: '😴', seconds: 90, needs: { energy: 100, hunger: -6, bladder: -10 }, tags: ['rest'] },
+  // Same rest per second as sleeping, just shorter (it used to be 3× quicker than a full sleep).
+  { id: 'nap', label: 'Power nap', emoji: '💤', seconds: 22, needs: { energy: 25 }, tags: ['rest'] },
   { id: 'snack', label: 'Grab a snack', emoji: '🥪', seconds: 4, needs: { hunger: 22 }, tags: ['eat'] },
   { id: 'cookPasta', label: 'Cook pasta', emoji: '🍝', seconds: 12, needs: { hunger: 55, fun: 4 }, skill: { key: 'cooking', gain: 0.6 }, tags: ['eat', 'cook'] },
   { id: 'cookFancy', label: 'Cook a date-night dinner', emoji: '🥘', seconds: 16, needs: { hunger: 70, fun: 10 }, skill: { key: 'cooking', gain: 0.9 }, requires: { skill: 'cooking', level: 2 }, tags: ['eat', 'cook'] },

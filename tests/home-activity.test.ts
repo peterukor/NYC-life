@@ -28,19 +28,20 @@ test('needs fill in as you go; stopping halfway keeps about half', () => {
   const t0 = s.activity!.startedAt;
   tickActivity(s, t0 + s.activity!.seconds * 500);
   const mid = s.needs.energy;
-  assert.ok(Math.abs(mid - (20 + 35)) < 0.5, `half the energy: ${mid}`);
+  const full = ACTIONS.sleep.needs!.energy!;
+  assert.ok(Math.abs(mid - (20 + full / 2)) < 0.5, `half the energy: ${mid}`);
   // Stop now (ticks to "now", which is ~0s after start in this test, so nothing more).
   s.activity!.startedAt = t0 - s.activity!.seconds * 500; // pretend half the time passed
   stopActivity(s);
   assert.equal(s.activity, null);
-  assert.ok(Math.abs(s.needs.energy - 55) < 1);
+  assert.ok(Math.abs(s.needs.energy - (20 + full / 2)) < 1);
 });
 
 test('finishing gives the rest, plus a cheap piece’s downside when it rolls', () => {
   const s = life();
   beginActivity(s, 'sleep', { item: 'twinBed' });
   const res = completeActivity(s, () => 0)!;
-  assert.ok(Math.abs(s.needs.energy - Math.min(100, 20 + 70 * CHEAP)) < 0.5);
+  assert.ok(Math.abs(s.needs.energy - Math.min(100, 20 + ACTIONS.sleep.needs!.energy! * CHEAP)) < 0.5);
   assert.equal(res.quirk?.label.includes('stiff'), true);
   assert.ok(s.moodlets.some((m) => m.id === 'stiffBack'));
   assert.equal(s.activity, null);

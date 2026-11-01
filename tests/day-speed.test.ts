@@ -75,8 +75,10 @@ test('the market keeps ticking on the balance clock (same prices as before the s
 
 // ----------------------------------------------------------------- needs
 
-test('each need empties in its target real minutes (NEED_EMPTY_AFTER), not sooner', () => {
-  assert.deepEqual({ ...NEED_EMPTY_AFTER }, { hunger: 90, energy: 150, fun: 120, social: 180, hygiene: 180, bladder: 60 });
+test('each need empties in Peter\'s target (NEED_EMPTY_AFTER, game days of 33 real minutes), not sooner', () => {
+  // Peter, 2026-11-01 (final): hunger 1.5 game days, energy 1.5, fun 2, social 2, hygiene 3, bladder 1.5.
+  const realMinutes = { hunger: 49.5, energy: 49.5, fun: 66, social: 66, hygiene: 99, bladder: 49.5 };
+  for (const k of NEED_KEYS) assert.ok(Math.abs(NEED_EMPTY_AFTER[k] - realMinutes[k]) < 1e-9, `${k}: ${NEED_EMPTY_AFTER[k]} real min`);
   for (const k of NEED_KEYS) {
     const target = NEED_EMPTY_AFTER[k];
     const s = fresh();
@@ -95,11 +97,11 @@ test('need drain runs on real time while playing (frame-by-frame advanceTo)', ()
   s.lastTick = start;
   s.stats.dayKey = balanceDay(start);
   for (const k of NEED_KEYS) s.needs[k] = 100;
-  // 30 real minutes in 2-second frames.
-  for (let t = start; t <= start + 30 * MIN; t += 2000) advanceTo(s, t);
+  // 20 real minutes in 2-second frames.
+  for (let t = start; t <= start + 20 * MIN; t += 2000) advanceTo(s, t);
   // Weather can nudge a need ±50%, so check with that much slack.
   for (const k of NEED_KEYS) {
-    const expect = 100 - (30 / NEED_EMPTY_AFTER[k]) * 100;
+    const expect = 100 - (20 / NEED_EMPTY_AFTER[k]) * 100;
     assert.ok(Math.abs(s.needs[k] - expect) <= (100 - expect) * 0.5 + 0.5, `${k}: ${s.needs[k].toFixed(1)} vs ~${expect.toFixed(1)}`);
   }
 });
@@ -124,7 +126,7 @@ test('a night away drains needs about as much as before the retune (not to zero)
   s.home.rentDueDay = balanceDay(now);
   for (const k of NEED_KEYS) s.needs[k] = 100;
   advanceTo(s, now);
-  // Before: 8 h × 0.35 × 9 = 25 hunger. Now: 8 h × 0.05 × 66.7 ≈ 27.
+  // Before: 8 h × 0.35 × 9 = 25 hunger. Now: 8 h × 0.03 × 121 ≈ 29.
   assert.ok(s.needs.hunger > 60 && s.needs.hunger < 85, `hunger ${s.needs.hunger}`);
   for (const k of NEED_KEYS) assert.ok(s.needs[k] > 40, `${k} ${s.needs[k]}`);
 });
@@ -308,4 +310,26 @@ test('the morning derby pays prize money once per balance day; a second podium i
   const before = s.money;
   settleDerby(s, at('2066-01-09'), now + 210 * MIN);
   assert.equal(s.money, before + DERBY_PRIZES[0]);
+});
+
+// ----------------------------------------------------------------- sleep
+
+test('a full night\'s sleep (energy 0 → 100) takes about 1–2 real minutes and skips no clock time', async () => {
+  const { activitySeconds, beginActivity, completeActivity } = await import('../src/sim/home-activity.ts');
+  const { ACTIONS } = await import('../src/data/actions.ts');
+  for (const bed of ['twinBed', 'bedSingle', 'bedDouble', 'kingBed']) {
+    const sec = activitySeconds(ACTIONS.sleep, bed);
+    assert.ok(sec >= 60 && sec <= 120, `${bed}: ${sec} s`);
+  }
+  // On a basic bed, from empty, sleeping fills you up even with energy draining meanwhile.
+  const s = fresh();
+  s.needs.energy = 0;
+  assert.ok(beginActivity(s, 'sleep', { item: 'bedSingle' }).ok);
+  const sec = s.activity!.seconds;
+  decayNeeds(s, sec / 3600); // what the real seconds asleep drain
+  completeActivity(s, () => 0.99);
+  assert.ok(s.needs.energy >= 90, `energy after sleeping: ${s.needs.energy}`);
+  // Naps rest at about the sleep rate, not faster (no nap spam).
+  const rate = (id: string) => ACTIONS[id].needs!.energy! / ACTIONS[id].seconds;
+  assert.ok(rate('nap') <= rate('sleep') * 1.2);
 });

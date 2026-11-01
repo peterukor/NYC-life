@@ -51,21 +51,22 @@ export const MIN_AGE = 21;
 export const GAME_DAY = GAME_DAY_REAL_MINUTES;
 
 /**
- * NEED DRAIN TARGETS — the one table to tune (Peter, 2026-11-01).
- * How many REAL minutes each need takes to drain from full (100) to
- * empty (0) while you play, before weather. To set them in game days
- * instead, write e.g. `hunger: 1.5 * GAME_DAY`.
- * Bladder "fills up", which we model as the meter going down like the
- * others so that every bar in the UI means "higher is better".
+ * NEED DRAIN TARGETS — the one table to tune (Peter, 2026-11-01, final).
+ * How long each need takes to drain from full (100) to empty (0) while
+ * you play, before weather, in REAL minutes. Peter set them in GAME days
+ * (`1.5 * GAME_DAY` = 1.5 game days = 49.5 real minutes), so they follow
+ * GAME_DAY_REAL_MINUTES if the day length changes; plain numbers are real
+ * minutes. Bladder "fills up", which we model as the meter going down
+ * like the others so that every bar in the UI means "higher is better".
  */
-export const NEED_EMPTY_AFTER = {
-  hunger: 90,
-  energy: 150,
-  fun: 120,
-  social: 180,
-  hygiene: 180,
-  bladder: 60,
-} as const;
+export const NEED_EMPTY_AFTER: Record<'hunger' | 'energy' | 'fun' | 'social' | 'hygiene' | 'bladder', number> = {
+  hunger: 1.5 * GAME_DAY, // 49.5 real min
+  energy: 1.5 * GAME_DAY, // 49.5 real min
+  fun: 2 * GAME_DAY, // 66 real min
+  social: 2 * GAME_DAY, // 66 real min
+  hygiene: 3 * GAME_DAY, // 99 real min
+  bladder: 1.5 * GAME_DAY, // 49.5 real min
+};
 
 /**
  * Points each need LOSES per REAL hour of play, worked out from
@@ -81,12 +82,12 @@ export const OFFLINE_CATCHUP_MAX_HOURS = 12;
 
 /**
  * While away (a gap of 15+ minutes), needs drain at this share of the play
- * rate: your Sim is assumed to be sleeping or idle. 0.05 keeps the drain
+ * rate: your Sim is assumed to be sleeping or idle. 0.03 keeps the drain
  * per real hour away about where it was before the 2026-11-01 retune
- * (old 0.35 × old rates ≈ 0.05 × new rates): a night away costs roughly
- * a third of hunger, not everything.
+ * (old 0.35 × 9 hunger an hour ≈ 0.03 × 121): a night away (8 h) costs
+ * about a third of hunger, not everything.
  */
-export const OFFLINE_DECAY_MULTIPLIER = 0.05;
+export const OFFLINE_DECAY_MULTIPLIER = 0.03;
 
 /** Below this value a need counts as "low" and starts hurting your mood. */
 export const NEED_LOW = 25;
