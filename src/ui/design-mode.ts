@@ -3,8 +3,9 @@
 // level house customisation is a must… wow me").
 //
 // A panel along the bottom with tabs:
-//   🛋️ Buy      every piece by category, with a little 3D picture: tap to
-//               buy, it appears in the room and you drag it into place
+//   🛋️ Buy      every piece by category, with a little 3D picture: tap one
+//               to see it up close (what it does, size, price), try it in
+//               the room for free, and only "Buy & place" takes the money
 //   🎨 Walls    paint or paper a whole room, or one accent wall (tap it)
 //   🟫 Floors   planks, chevron, marble, terrazzo, tiles, carpet… per room
 //   💡 Lights   lamps on after dark / always / off, and see it at night
@@ -28,6 +29,7 @@ import type { InteriorView } from '../world/interior-view.ts';
 import { swatchURL } from '../render/home-surfaces.ts';
 import { cancelThumbs, furnitureThumb } from '../render/furniture-thumbs.ts';
 import { sfx } from './audio.ts';
+import { pieceFacts, sizeLine } from '../sim/furniture-info.ts';
 
 export interface DesignHost {
   home: () => HomeInterior | null;
@@ -37,8 +39,12 @@ export interface DesignHost {
   pay: (cents: number, what: string) => boolean;
   /** Save the home's furniture and style. */
   save: () => void;
-  /** Buy a piece and bring it into the room (then you drag it into place). */
+  /** Pay for a piece and bring it into the room (then you drag it into place). Only the preview's confirm calls this. */
   buyAndPlace: (item: string) => void;
+  /** Bring a piece in see-through and unpaid to try it; the move bar's "Buy & place" pays, ✕ takes it away. */
+  tryPiece: (item: string) => void;
+  /** A piece's footprint and height in metres (for the preview's size line). */
+  footprint: (item: string) => { minX: number; maxX: number; minZ: number; maxZ: number; h: number } | null;
   /** Pick a piece up to move it. */
   move: (uid: string) => void;
   /** Put a piece away into storage. */
@@ -82,6 +88,8 @@ export class DesignMode {
   private piece: string | null = null;
   private night = false;
   private hidden = false;
+  /** The preview card over the panel (a piece you tapped in Buy, not bought yet). */
+  private previewEl: HTMLElement | null = null;
 
   constructor(private host: DesignHost) {
     const home = host.home();
@@ -100,12 +108,18 @@ export class DesignMode {
             <button class="design-done" data-done aria-label="Done designing">✓</button>
           </div>
           <div class="design-body"></div>
+          <div class="buy-preview-slot"></div>
         </section>
       </div>`);
     this.body = this.el.querySelector('.design-body')!;
     root().appendChild(this.el);
     requestAnimationFrame(() => this.el.classList.add('open'));
-    this.el.querySelectorAll<HTMLElement>('[data-tab]').forEach((b) => b.addEventListener('click', () => this.show(b.dataset.tab as Tab)));
+    this.el.querySelectorAll<HTMLElement>('[data-tab]').forEach((b) =>
+      b.addEventListener('click', () => {
+        this.closePreview();
+        this.show(b.dataset.tab as Tab);
+      }),
+    );
     this.el.querySelector('[data-done]')!.addEventListener('click', () => this.close());
     this.el.querySelectorAll<HTMLElement>('[data-cam]').forEach((b) =>
       b.addEventListener('click', () => {
@@ -153,6 +167,7 @@ export class DesignMode {
       this.render();
       return true;
     }
+    if (this.previewEl) return true; // the preview card is up: finish with it first
     const uid = this.host.pieceAt(x, y);
     if (uid) {
       sfx.tap();
@@ -164,6 +179,7 @@ export class DesignMode {
   }
 
   close(): void {
+    this.closePreview();
     cancelThumbs();
     this.host.home()?.previewHour(null);
     this.host.view.setTop(false);
@@ -185,6 +201,7 @@ export class DesignMode {
     const home = this.host.home();
     if (!home) return;
     const b = this.body;
+    const chipScroll = b.querySelector<HTMLElement>('.chips')?.scrollLeft ?? 0;
     if (this.tab === 'buy') b.innerHTML = this.buyHtml();
     else if (this.tab === 'walls') b.innerHTML = this.wallsHtml(home);
     else if (this.tab === 'floors') b.innerHTML = this.floorsHtml(home);
@@ -193,7 +210,27 @@ export class DesignMode {
     else if (this.tab === 'storage') b.innerHTML = this.storageHtml();
     else b.innerHTML = this.pieceHtml(home);
     this.wire(home);
-    // Little 3D pictures, drawn as they're needed.
+    // Keep the category row where it was, and the chosen chip fully in view.
+    const row = b.querySelector<HTMLElement>('.chips');
+    if (row) {
+      row.scrollLeft = chipScroll;
+      this.chipIntoView(row);
+    }
+    this.thumbs(b);
+  }
+
+  /** Scroll the category row so the chosen chip is fully in view (with a little of its neighbours). */
+  private chipIntoView(row: HTMLElement): void {
+    const on = row.querySelector<HTMLElement>('[aria-selected="true"]');
+    if (!on) return;
+    const pad = 28;
+    const l = on.offsetLeft - row.offsetLeft, r = l + on.offsetWidth;
+    if (l - pad < row.scrollLeft) row.scrollLeft = Math.max(0, l - pad);
+    else if (r + pad > row.scrollLeft + row.clientWidth) row.scrollLeft = r + pad - row.clientWidth;
+  }
+
+  /** Little 3D pictures, drawn as they're needed. */
+  private thumbs(b: HTMLElement): void {
     b.querySelectorAll<HTMLImageElement>('img[data-thumb]').forEach((img) => {
       void furnitureThumb(img.dataset.thumb!).then((url) => {
         if (url && img.isConnected) {
@@ -215,6 +252,71 @@ export class DesignMode {
           <span class="nm">${esc(d.name)}</span>
           <span class="pr">${money(d.price)}${d.quality && d.quality !== 'basic' ? ` · ${FURNITURE_QUALITY[d.quality].label}` : ''}</span>
         </button>`).join('')}</div>`;
+  }
+
+  // ------------------------------------------------------------------ preview (look before you pay)
+
+  /** Tapping a piece in Buy opens this: a big picture and what it does. Nothing is charged until "Buy & place". */
+  private openPreview(id: string): void {
+    const d = FURNITURE.get(id);
+    if (!d) return;
+    this.closePreview();
+    sfx.tap();
+    const cash = this.host.cash();
+    const short = d.price - cash;
+    const f = pieceFacts(d);
+    const fp = this.host.footprint(id);
+    const tag = (t: string) => `<span class="pv-tag">${t}</span>`;
+    const el = html(`
+      <div class="buy-preview" role="dialog" aria-label="${esc(d.name)}">
+        <button class="pv-x" data-pv="cancel" aria-label="Cancel">✕</button>
+        <div class="pv-top">
+          <span class="pv-thumb"><img data-thumb="${d.id}" alt=""><i aria-hidden="true">${d.emoji}</i></span>
+          <div class="pv-head">
+            <b class="pv-name"><span aria-hidden="true">${d.emoji}</span> ${esc(d.name)}</b>
+            <span class="pv-price">${money(d.price)}</span>
+            <span class="pv-tags">${f.quality ? tag(esc(f.quality.label)) : ''}${fp ? tag(`📐 ${sizeLine(fp)}`) : ''}</span>
+            ${d.pitch ? `<span class="pv-pitch">${esc(d.pitch)}</span>` : ''}
+          </div>
+        </div>
+        <ul class="pv-facts">
+          ${f.does.map((x) => `<li>${esc(x)}</li>`).join('')}
+          ${f.effects.map((x) => `<li class="fx">${esc(x)}</li>`).join('')}
+          ${!f.does.length && !d.light ? '<li class="dim">🖼️ Decoration: makes the place feel like yours</li>' : ''}
+          ${f.quality && !f.effects.length && f.does.length ? `<li class="dim">${esc(f.quality.label)}: ${esc(f.quality.line)}</li>` : ''}
+          <li class="dim">📍 ${esc(f.placement)}</li>
+        </ul>
+        <div class="pv-acts">
+          <button class="btn" data-pv="try" aria-label="Try it in the room first, free">👻 Try it</button>
+          <button class="btn primary" data-pv="buy"${short > 0 ? ' aria-disabled="true"' : ''}>${short > 0 ? `Need ${money(short)} more` : `Buy &amp; place — ${money(d.price)}`}</button>
+        </div>
+        <p class="pv-note">${short > 0 ? `You have ${money(cash)}. Trying it is free.` : 'Trying it is free. You only pay when you tap Buy &amp; place.'}</p>
+      </div>`);
+    this.el.querySelector('.buy-preview-slot')!.appendChild(el);
+    this.previewEl = el;
+    this.thumbs(el);
+    requestAnimationFrame(() => el.classList.add('open'));
+    el.querySelector('[data-pv="cancel"]')!.addEventListener('click', () => {
+      sfx.tap();
+      this.closePreview();
+    });
+    el.querySelector('[data-pv="try"]')!.addEventListener('click', () => {
+      this.closePreview();
+      this.host.tryPiece(id);
+    });
+    el.querySelector('[data-pv="buy"]')!.addEventListener('click', () => {
+      if (this.host.cash() < d.price) {
+        toast(`You need ${money(d.price - this.host.cash())} more`, { icon: '💸', tone: 'bad', ms: 2400 });
+        return;
+      }
+      this.closePreview();
+      this.host.buyAndPlace(id);
+    });
+  }
+
+  private closePreview(): void {
+    this.previewEl?.remove();
+    this.previewEl = null;
   }
 
   /** Who the Walls / Floors tab is changing, in words. */
@@ -301,7 +403,7 @@ export class DesignMode {
       this.cat = el.dataset.cat as Category;
       this.render();
     });
-    on('[data-buy]', (el) => this.host.buyAndPlace(el.dataset.buy!));
+    on('[data-buy]', (el) => this.openPreview(el.dataset.buy!));
     on('[data-stored]', (el) => this.host.placeStored(el.dataset.stored!));
     on('[data-whole]', () => {
       this.wallKey = null;

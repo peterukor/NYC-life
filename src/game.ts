@@ -87,6 +87,7 @@ import { receiveOrders } from './sim/kitchen.ts';
 import { cookActionId, eatActionId, mealOfAction } from './data/groceries.ts';
 import { openFurnitureShop } from './ui/furniture-shop.ts';
 import { beginActivity, completeActivity, stopActivity, tickActivity, activityProgress } from './sim/home-activity.ts';
+import { confirmBuy } from './sim/furniture-info.ts';
 import { abandonShift, careerBand, finishDeliShift, menuFor, payBand, REAL_SHIFT_ORDERS, startDeliShift } from './sim/shift.ts';
 import { autoSeconds, playDeliShift, shiftIntro, showPayslip } from './ui/deli-shift.ts';
 import { openCloset } from './ui/closet.ts';
@@ -218,7 +219,8 @@ export class Game {
   /** Home furniture loads after the city is up (boot); this is that load. */
   private furnitureLoad: Promise<unknown> | null = null;
   /** The furniture piece being moved in move mode (home only). */
-  private moving: { uid: string; bar: HTMLElement } | null = null;
+  /** The piece in move mode; `buy` = a piece you're trying before you buy it (design mode's preview, unpaid). */
+  private moving: { uid: string; bar: HTMLElement; buy?: { item: string; price: number } } | null = null;
   /** The home design menu (ui/design-mode.ts), while it's open. */
   private design: DesignMode | null = null;
   /** A finger dragging the held piece (move mode). */
@@ -473,7 +475,7 @@ export class Game {
       anim: (name: FolkAnim | null) => this.player.setAction(name),
       /** Furniture QA: start move mode, list clashing pieces, where a piece is on screen. */
       moveFurniture: (uid: string) => this.startMoving(uid),
-      doneMoving: (keep: boolean) => this.stopMoving(keep),
+      doneMoving: (keep: boolean) => (keep && this.moving?.buy ? this.buyTried() : this.stopMoving(keep)),
       furnitureClashes: () => (this.interior && 'clashes' in this.interior ? (this.interior as HomeInterior).clashes() : null),
       footprints: (ids: string[]) => (this.interior && 'footprintOf' in this.interior ? Object.fromEntries(ids.map((i) => [i, (this.interior as HomeInterior).footprintOf(i)])) : null),
       furnitureAt: (uid: string) => (this.interior && 'items' in this.interior ? (this.interior as HomeInterior).items.find((i) => i.uid === uid) ?? null : null),
@@ -494,6 +496,8 @@ export class Game {
       resetCam: () => this.fitInteriorCamera(),
       storageSheet: () => this.openStorage(),
       design: () => this.openDesign(),
+      furniturePrice: (id: string) => FURNITURE.get(id)?.price ?? null,
+      storeFurniture: (uid: string) => this.storeFurniture(uid),
       designOpen: () => !!this.design,
       homeStyle: () => (this.interior && 'setStyle' in this.interior ? structuredClone((this.interior as HomeInterior).style) : null),
       setHomeStyle: (st: unknown) => (this.interior as HomeInterior).setStyle(st as never),
@@ -2550,13 +2554,16 @@ export class Game {
    * should go), turn it, then Done. A green shade on the floor = it fits,
    * red = it doesn't; let go on red and it slides back to where it was.
    */
-  private startMoving(uid: string): void {
+  private startMoving(uid: string, buy?: { item: string; price: number }): void {
     const home = this.interior as HomeInterior | null;
     if (!home || !('floors' in home)) return;
     this.stopMoving(false);
     this.stopDoing();
     this.indoor = null;
-    const bar = html(`<div class="move-bar"><span>Drag it, or tap the floor</span><button class="btn" data-mv="turn" aria-label="Turn">↻</button><button class="btn" data-mv="cancel" aria-label="Cancel">✕</button><button class="btn primary" data-mv="done">✓ Done</button></div>`);
+    // Trying a piece before buying it: see-through, and Done becomes the (only) place you pay.
+    const bar = buy
+      ? html(`<div class="move-bar try"><span>👻 Trying it<small>not bought yet</small></span><button class="btn" data-mv="turn" aria-label="Turn">↻</button><button class="btn" data-mv="cancel" aria-label="Cancel, no charge">✕</button><button class="btn primary" data-mv="done">Buy &amp; place — ${money(buy.price)}</button></div>`)
+      : html(`<div class="move-bar"><span>Drag it, or tap the floor</span><button class="btn" data-mv="turn" aria-label="Turn">↻</button><button class="btn" data-mv="cancel" aria-label="Cancel">✕</button><button class="btn primary" data-mv="done">✓ Done</button></div>`);
     root().appendChild(bar);
     bar.querySelector('[data-mv="turn"]')!.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -2568,12 +2575,31 @@ export class Game {
     });
     bar.querySelector('[data-mv="done"]')!.addEventListener('click', (e) => {
       e.stopPropagation();
-      this.stopMoving(true);
+      if (buy) this.buyTried();
+      else this.stopMoving(true);
     });
     home.highlight(uid);
     home.beginMove(uid);
-    this.moving = { uid, bar };
+    if (buy) home.ghost(uid);
+    this.moving = { uid, bar, buy };
     this.design?.suspend(true);
+  }
+
+  /** Design mode: pay for the piece you were trying and keep it where it is. */
+  private buyTried(): void {
+    const m = this.moving;
+    if (!m?.buy) return;
+    const r = confirmBuy(this.state.money, m.buy.price);
+    if (!r.ok) {
+      toast(`You need ${money(r.short)} more`, { icon: '💸', tone: 'bad', ms: 2400 });
+      return;
+    }
+    this.state.money = r.cash;
+    (this.interior as HomeInterior).ghost(null);
+    m.buy = undefined; // paid: from here on it's an ordinary piece
+    sfx.cash();
+    this.refreshHud(true);
+    this.stopMoving(true);
   }
 
   /** Where a screen point lands on the floor (y = 0) through the interior camera. */
@@ -2628,10 +2654,18 @@ export class Game {
     this.design?.suspend(false);
     const home = this.interior as HomeInterior | null;
     const uid = this.moving.uid;
+    const unpaid = !!this.moving.buy;
     this.moving = null;
     this.drag = null;
     if (!home || !('items' in home)) return;
     home.highlight?.(null);
+    if (unpaid) {
+      // A piece you were only trying (not bought): it goes, nothing charged. Only buyTried keeps one.
+      home.endMove(uid, true);
+      home.ghost(null);
+      home.removePiece(uid);
+      return;
+    }
     home.endMove(uid, !keep);
     // Don't leave yourself standing inside the furniture you just moved.
     const p = this.player.root.position;
@@ -3113,7 +3147,9 @@ export class Game {
     const home = this.interior as HomeInterior | null;
     const placeId = this.state.location.placeId;
     if (home && 'items' in home && placeId) {
-      this.state.homes[this.homeKey(placeId)] = home.items.map((i) => ({ ...i }));
+      // Never save a piece you're only trying (not paid for).
+      const trying = this.moving?.buy ? this.moving.uid : null;
+      this.state.homes[this.homeKey(placeId)] = home.items.filter((i) => i.uid !== trying).map((i) => ({ ...i }));
       if (home.movable) (this.state.homeStyles ??= {})[this.homeKey(placeId)] = structuredClone(home.style);
     }
     this.save();
@@ -3182,18 +3218,32 @@ export class Game {
         const def = FURNITURE.get(item);
         const h = this.interior as HomeInterior;
         if (!def) return;
-        if (this.state.money < def.price) return toast(`You need ${money(def.price - this.state.money)} more`, { icon: '💸', tone: 'bad', ms: 2400 });
+        // Only the preview card's "Buy & place" button gets here (a tap on a card just previews it).
+        const ok = confirmBuy(this.state.money, def.price);
+        if (!ok.ok) return toast(`You need ${money(ok.short)} more`, { icon: '💸', tone: 'bad', ms: 2400 });
         // Bring it in where you're looking (the middle of the screen).
         const r = this.engine.renderer.domElement.getBoundingClientRect();
         const at = this.floorPoint(r.left + r.width / 2, r.top + r.height * 0.4) ?? this.player.root.position.clone();
         const uid = h.addPiece(item, at.x, at.z);
         if (!uid) return toast('No room for that. Move or put something away first', { icon: '📦', tone: 'bad', ms: 2600 });
-        this.state.money -= def.price;
+        this.state.money = ok.cash;
         sfx.cash();
         this.refreshHud(true);
         this.saveHomeLayout();
         this.startMoving(uid);
       },
+      tryPiece: (item) => {
+        // Bring it in unpaid and see-through; the move bar's "Buy & place" pays (buyTried), ✕ takes it away.
+        const def = FURNITURE.get(item);
+        const h = this.interior as HomeInterior;
+        if (!def) return;
+        const r = this.engine.renderer.domElement.getBoundingClientRect();
+        const at = this.floorPoint(r.left + r.width / 2, r.top + r.height * 0.4) ?? this.player.root.position.clone();
+        const uid = h.addPiece(item, at.x, at.z);
+        if (!uid) return toast('No room for that. Move or put something away first', { icon: '📦', tone: 'bad', ms: 2600 });
+        this.startMoving(uid, { item, price: def.price });
+      },
+      footprint: (item) => (this.interior as HomeInterior).footprintOf(item),
       move: (uid) => this.startMoving(uid),
       store: (uid) => this.storeFurniture(uid),
       placeStored: (item) => {

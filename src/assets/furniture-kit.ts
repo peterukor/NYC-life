@@ -42,6 +42,8 @@ export interface Finish {
   held?: string;
   /** Animated glow: 1 disco (tiles flash), 2 breathe, 3 chase (lights run along it). */
   pulse?: number;
+  /** See-through: a piece you're trying in the room before you buy it (design mode). */
+  ghost?: boolean;
 }
 
 /** Shared clock for animated glows (home-interior.ts advances it). */
@@ -75,6 +77,12 @@ function slotMaterial(f: Finish): THREE.MeshLambertMaterial {
     uTime: FURNITURE_TIME,
   };
   m.userData.uniforms = u;
+  if (f.ghost) {
+    // Same shader, just see-through (a preview you haven't paid for).
+    m.transparent = true;
+    m.opacity = 0.55;
+    m.depthWrite = false;
+  }
   m.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, u);
     shader.vertexShader = shader.vertexShader
@@ -156,7 +164,7 @@ export function loadFurnitureKit(): Promise<FurnitureKit | null> {
         material: plain,
         uniqueMaterial: (f) => slotMaterial(f),
         materialFor: (f) => {
-          const key = `${f.a ?? ''}|${f.b ?? ''}|${(f.glow ?? 0).toFixed(2)}|${f.glow ? f.glowColor ?? '' : ''}|${f.held ?? ''}|${f.pulse ?? 0}`;
+          const key = `${f.a ?? ''}|${f.b ?? ''}|${(f.glow ?? 0).toFixed(2)}|${f.glow ? f.glowColor ?? '' : ''}|${f.held ?? ''}|${f.pulse ?? 0}${f.ghost ? '|g' : ''}`;
           let m = cache.get(key);
           if (!m) cache.set(key, (m = slotMaterial(f)));
           return m;

@@ -126,6 +126,8 @@ export interface HomeInterior extends Interior {
   clashes: () => { uid: string; why: string }[];
   /** Glow the piece being moved (null = none). */
   highlight: (uid: string | null) => void;
+  /** Draw a piece see-through (one you're trying before you buy it), or none (null). */
+  ghost: (uid: string | null) => void;
   /** Homes: you can move furniture. Venues (shops, bars): you can't. */
   movable: boolean;
   /** Hide ceiling pieces within `r` of (x, z) — over someone lying in bed — or show them all again (null). */
@@ -719,6 +721,7 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
   /** A part's material: its colours (piece's choice, else the piece's default, else the model's), lit or not. */
   let heldUid: string | null = null;
   let heldOk = true;
+  let ghostUid: string | null = null;
   const finishFor = (it: HomeItem, model: string): Finish => {
     const def = FURNITURE.get(it.item);
     const info = MODELS_INFO[model];
@@ -735,6 +738,7 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
       f.glowColor = it.lc ?? def.light.color ?? '#ffd29a';
     }
     if (it.uid === heldUid) f.held = heldOk ? '#1f7a3e' : '#9b1c22';
+    if (it.uid === ghostUid) f.ghost = true;
     return f;
   };
   const paint = (it: HomeItem) => {
@@ -1471,6 +1475,14 @@ export function buildHome(place: PlaceDef, layout: HomeLayout, arrangement: Home
     highlight(uid) {
       litUid = uid;
       ring.visible = !!uid;
+    },
+    ghost(uid) {
+      const before = ghostUid;
+      ghostUid = uid;
+      for (const id of new Set([before, uid])) {
+        const it = id && items.find((i) => i.uid === id);
+        if (it) paint(it);
+      }
     },
     setStyle(next) {
       style = structuredClone(next);

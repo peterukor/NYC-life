@@ -39,8 +39,10 @@ async function boot(W, H) {
   const home = await page.evaluate(() => window.__nyc.state().home.placeId);
   await page.evaluate((h) => window.__nyc.enterPlace(h), home);
   await wait(4000);
+  // Random events and new-player tips would cover the shots: hide them (QA only).
+  await page.addStyleTag({ content: '.modal-wrap, .hint-tip { display: none !important; }' });
   await page.evaluate(() => window.__nyc.design());
-  await wait(1200);
+  await wait(2000); // the panel springs up
   return { page, errors };
 }
 
@@ -128,9 +130,27 @@ async function flow(page, W, H) {
   }
   const info = await page.$eval('.buy-preview', (el) => el.textContent.replace(/\s+/g, ' ').trim());
   console.log('  preview:', info.slice(0, 260));
-  check(/Chandelier/.test(info) && /\$/.test(info) && /Buy & place/.test(info), `${W}x${H} preview shows name, price and Buy & place`);
+  check(/chandelier/i.test(info) && /\$/.test(info) && /Buy & place/.test(info), `${W}x${H} preview shows name, price and Buy & place`);
   check(price == null || info.includes(`$${(price / 100).toLocaleString('en-US')}`), `${W}x${H} preview price matches the catalogue (${price})`);
   check(!!(await page.$('.buy-preview img.ready, .buy-preview img[data-thumb]')), `${W}x${H} preview has a big picture`);
+  // A bed too: its card says how fast you sleep on it.
+  {
+    await page.$eval('.buy-preview [data-pv="cancel"]', (b) => b.click());
+    await page.$eval('[data-cat="beds"]', (b) => b.click());
+    await wait(500);
+    const bed = await page.$$eval('[data-buy]', (bs) => bs.at(-1).dataset.buy);
+    await page.$eval(`[data-buy="${bed}"]`, (b) => b.click());
+    await wait(1500);
+    const txt = await page.$eval('.buy-preview', (el) => el.textContent.replace(/\s+/g, ' '));
+    console.log('  bed preview:', txt.slice(0, 240));
+    check(/Full sleep in/.test(txt) && (await cash()) === m0, `${W}x${H} bed preview (${bed}) shows sleep speed, no charge`);
+    await page.screenshot({ path: `${OUT}/${tag}-1b-preview-bed.png` });
+    await page.$eval('.buy-preview [data-pv="cancel"]', (b) => b.click());
+    await page.$eval('[data-cat="lights"]', (b) => b.click());
+    await wait(500);
+    await page.$eval(`[data-buy="${id}"]`, (b) => b.click());
+    await wait(500);
+  }
   // Cancel: nothing charged, nothing left in the room.
   await page.$eval('.buy-preview [data-pv="cancel"]', (b) => b.click());
   await wait(600);
@@ -140,7 +160,7 @@ async function flow(page, W, H) {
   await page.$eval(`[data-buy="${id}"]`, (b) => b.click());
   await wait(800);
   const tryBtn = await page.$('.buy-preview [data-pv="try"]');
-  check(!!tryBtn, `${W}x${H} preview has "Try it in the room"`);
+  check(!!tryBtn, `${W}x${H} preview has a free "Try it" (ghost in the room)`);
   if (tryBtn) {
     await tryBtn.click();
     await wait(1200);
