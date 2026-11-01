@@ -217,6 +217,19 @@ export class TrafficFlow {
     return axis === 'ave' ? t < SIGNAL.green : t >= SIGNAL.green + SIGNAL.allRed && t < CYCLE - SIGNAL.allRed;
   }
 
+  /**
+   * Seconds of green left for this signal group (0 while it's red; Infinity
+   * for lanes without signals). Read-only: pedestrians (world/crowd.ts) only
+   * set off across a road with time left to reach the far kerb.
+   */
+  greenLeft(axis: Axis): number {
+    if (!axis) return Infinity;
+    const t = this.clock % CYCLE;
+    if (axis === 'ave') return t < SIGNAL.green ? SIGNAL.green - t : 0;
+    const from = SIGNAL.green + SIGNAL.allRed, to = CYCLE - SIGNAL.allRed;
+    return t >= from && t < to ? to - t : 0;
+  }
+
   step(dt: number, view: FlowView = {}): void {
     dt = Math.min(dt, 0.1);
     if (dt <= 0) return;

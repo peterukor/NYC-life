@@ -49,6 +49,7 @@ import { loadFolk, type FolkAnim, type FolkKit } from './world/folk.ts';
 import { kitNight, loadKits, type Kits } from './assets/kit.ts';
 import { buildCity, setNightGlow, type BuiltCity } from './world/city.ts';
 import { Crowd } from './world/crowd.ts';
+import { surfaceAt } from './world/ped-walk.ts';
 import { buildInterior, type Interior } from './world/interior.ts';
 import { buildHome, type HomeInterior } from './world/home-interior.ts';
 import { loadFurnitureKit, type FurnitureKit } from './assets/furniture-kit.ts';
@@ -752,6 +753,12 @@ export class Game {
         this.walkTo(x, z);
       },
       goToPlace: (id: string) => this.walkToPlace(id),
+      /** The street crowd and what each one stands on (scripts/qa-crowd.mjs). */
+      crowd: () => {
+        if (!this.crowd || !this.city) return null;
+        const d = DISTRICTS[this.city.area];
+        return this.crowd.debug().map((a) => ({ ...a, on: surfaceAt(d, a.x, a.z) }));
+      },
       /** Signal phase right now ('avenues' | 'streets' | 'all red'). */
       signal: () => {
         const f = currentTraffic()?.flow;
@@ -1093,7 +1100,8 @@ export class Game {
       const hb = blockRect(DISTRICTS[this.city.area], hub.c, hub.r);
       const hubX = (hb.minX + hb.maxX) / 2;
       const hubZ = (hb.minZ + hb.maxZ) / 2;
-      this.crowd?.update(dt, this.engine.controls.target, t.hour, (x, z) => (Math.hypot(x - hubX, z - hubZ) < 160 ? 1.5 : 1));
+      const flow = currentTraffic()?.flow;
+      this.crowd?.update(dt, this.engine.controls.target, t.hour, (x, z) => (Math.hypot(x - hubX, z - hubZ) < 160 ? 1.5 : 1), flow);
       this.systems.update(dt, this.systemContext());
       this.ads?.update(dt, this.engine.camera);
       // Door rings gently pulse so you notice them.
@@ -4824,7 +4832,13 @@ export class Game {
     const flow = currentTraffic()?.flow;
     const ev = mc.update(dt, this.player.root, {
       green: flow ? (axis) => flow.green(axis) : undefined,
-      ahead: flow ? (x, z, yaw, within, lateral) => flow.ahead(x, z, yaw, within, lateral) : undefined,
+      // Cars in your lane, and anyone on a crosswalk in front of you (you
+      // only turn across one while they have the walk sign).
+      ahead: (x, z, yaw, within, lateral) => {
+        const car = flow ? flow.ahead(x, z, yaw, within, lateral) : null;
+        const ped = this.crowd?.ahead(x, z, yaw, Math.min(within, 20)) ?? null;
+        return ped && (!car || ped.gap < car.gap) ? ped : car;
+      },
       clear: flow ? (x, z, r) => flow.clear(x, z, r) : undefined,
     });
     // The traffic queues behind you (it only counts while you're in a lane).

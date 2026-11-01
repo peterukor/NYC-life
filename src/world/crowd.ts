@@ -15,6 +15,14 @@
 //   quietly re-spawned on a sidewalk near the camera, so the street
 //   always looks busy where you are looking. Everyone is drawn with
 //   instancing: two draw calls for the whole crowd.
+//
+// WHERE THEY WALK (world/ped-walk.ts)
+//   On sidewalks, plazas and in parks, never down the road. They cross
+//   only on the painted crosswalks at signalled corners: they wait at the
+//   kerb until their walk phase has time left to get across (crossing an
+//   avenue goes with the streets' green, a street with the avenues'), then
+//   walk straight over and never stop half way. They (re)spawn, linger,
+//   chat and wait only on the sidewalk.
 // =====================================================================
 
 import { hashString } from '../core/rng.ts';
@@ -23,10 +31,11 @@ import { CROWD_RADIUS } from '../core/constants.ts';
 import { weightedIndex } from '../core/rng.ts';
 import { doorOf, placesIn } from '../data/places.ts';
 import { blockRect, DISTRICTS, SIDEWALK } from './layout.ts';
+import { buildPedGrid, nearestStand, pedPath, pedStandable, sameIsland, stepWalker, type PedGrid, type PedPoint, type PedSignals } from './ped-walk.ts';
 import { CROWD_DENSITY, NEXT_STOP, PERSONALITIES, timeBias, type PersonalityDef, type Stop } from '../data/crowd-brain.ts';
 import type { AreaId } from '../sim/types.ts';
 import { crowdGeometries, OUTFIT_COLORS, SKIN_TONES } from './avatar.ts';
-import { findPath, nearestWalkable, isWalkable, type NavGrid } from './nav.ts';
+import type { NavGrid } from './nav.ts';
 import { blobShadowTexture } from '../render/textures.ts';
 import { Actor, type FolkKit, type FolkLook } from './folk.ts';
 
@@ -43,7 +52,11 @@ interface Agent {
   z: number;
   heading: number;
   speed: number;
-  path: { x: number; z: number }[];
+  path: PedPoint[];
+  /** On the road right now, crossing to path[0] (never stops until the far kerb). */
+  crossing: boolean;
+  /** At the kerb, waiting for the walk phase. */
+  waiting: boolean;
   last: Stop;
   personality: PersonalityDef;
   waitUntil: number;
@@ -82,8 +95,11 @@ export class Crowd {
   /** Picks someone you already know to bump into again (set by game.ts). */
   familiar: ((taken: Set<string>) => string | null) | null = null;
   private v = new THREE.Vector3();
+  /** Where pedestrians may walk (sidewalks, crosswalks). */
+  readonly ped: PedGrid;
 
-  constructor(private nav: NavGrid, private area: AreaId, private max: number, folk?: FolkKit, animated = 12) {
+  constructor(nav: NavGrid, private area: AreaId, private max: number, folk?: FolkKit, animated = 12) {
+    this.ped = buildPedGrid(nav, DISTRICTS[area]);
     const { clothes, skin } = crowdGeometries();
     const clothesMat = new THREE.MeshLambertMaterial({ vertexColors: true });
     const skinMat = new THREE.MeshLambertMaterial();
@@ -128,9 +144,14 @@ export class Crowd {
     // Where NPCs can go: every door in the area, grouped by place type,
     // plus "wander" points on random sidewalks.
     this.targets = { home: [], work: [], cafe: [], food: [], nightlife: [], fitness: [], park: [], plaza: [], landmark: [], station: [], shop: [], fun: [], wander: [] };
+    // Every target is moved onto the sidewalk (a door's own spot usually is).
+    const add = (list: { x: number; z: number }[], x: number, z: number) => {
+      const p = nearestStand(this.ped, x, z);
+      if (p && Math.hypot(p.x - x, p.z - z) < 12) list.push(p);
+    };
     for (const p of placesIn(area)) {
       const d = doorOf(p);
-      this.targets[p.type].push({ x: d.x, z: d.z });
+      add(this.targets[p.type], d.x, d.z);
     }
     // NPC homes: front doors along residential blocks. People heading
     // "home" walk to one and disappear inside (their home is on that block).
@@ -140,20 +161,21 @@ export class Crowd {
         if (dist.kind(c, r) !== 'buildings' || dist.zone(c, r) === 'tall') continue;
         const b = blockRect(dist, c, r);
         for (let x = b.minX + 8; x < b.maxX - 8; x += 16) {
-          this.targets.home.push({ x, z: b.minZ + SIDEWALK - 0.8 }, { x: x + 6, z: b.maxZ - SIDEWALK + 0.8 });
+          add(this.targets.home, x, b.minZ + SIDEWALK - 0.8);
+          add(this.targets.home, x + 6, b.maxZ - SIDEWALK + 0.8);
         }
       }
     }
     for (let i = 0; i < 60; i++) {
       const x = nav.minX + Math.random() * nav.cols * 3;
       const z = nav.minZ + Math.random() * nav.rows * 3;
-      if (isWalkable(nav, x, z)) this.targets.wander.push({ x, z });
+      if (pedStandable(this.ped, x, z)) this.targets.wander.push({ x, z });
     }
     const types = PERSONALITIES.all();
     const shares = types.map((t) => t.share);
     for (let i = 0; i < max; i++) {
       const p = types[Math.max(0, weightedIndex(shares))];
-      this.agents.push({ x: 0, z: 0, heading: 0, speed: p.speed[0] + Math.random() * (p.speed[1] - p.speed[0]), path: [], last: 'wander', personality: p, waitUntil: 0, phase: Math.random() * 10, active: false, look: i, actor: null, moving: false, insideUntil: 0, personId: '' });
+      this.agents.push({ x: 0, z: 0, heading: 0, speed: p.speed[0] + Math.random() * (p.speed[1] - p.speed[0]), path: [], crossing: false, waiting: false, last: 'wander', personality: p, waitUntil: 0, phase: Math.random() * 10, active: false, look: i, actor: null, moving: false, insideUntil: 0, personId: '' });
     }
   }
 
@@ -179,13 +201,17 @@ export class Crowd {
     for (let tries = 0; tries < 12; tries++) {
       const ang = Math.random() * Math.PI * 2;
       const r = CROWD_RADIUS * (0.3 + Math.random() * 0.65);
-      const p = nearestWalkable(this.nav, focus.x + Math.cos(ang) * r, focus.z + Math.sin(ang) * r);
-      // nearestWalkable hands back the point itself when there's no ground
-      // nearby (camera over the river): never put anyone on the water.
-      if (isWalkable(this.nav, p.x, p.z) && Math.hypot(p.x - focus.x, p.z - focus.z) < CROWD_RADIUS) {
-        a.x = p.x + (Math.random() - 0.5) * 2;
-        a.z = p.z + (Math.random() - 0.5) * 2;
+      // On a sidewalk (or plaza, park…): never on the road or the water.
+      const p = nearestStand(this.ped, focus.x + Math.cos(ang) * r, focus.z + Math.sin(ang) * r);
+      if (p && Math.hypot(p.x - focus.x, p.z - focus.z) < CROWD_RADIUS) {
+        const jx = p.x + (Math.random() - 0.5) * 2;
+        const jz = p.z + (Math.random() - 0.5) * 2;
+        const ok = pedStandable(this.ped, jx, jz);
+        a.x = ok ? jx : p.x;
+        a.z = ok ? jz : p.z;
         a.path = [];
+        a.crossing = false;
+        a.waiting = false;
         a.waitUntil = 0;
         return;
       }
@@ -194,7 +220,8 @@ export class Crowd {
     a.insideUntil = this.time + 3;
   }
 
-  update(dt: number, focus: THREE.Vector3, hour: number, hubBoost: (x: number, z: number) => number): void {
+  /** `signals`: the traffic lights (none = no traffic, cross any time). */
+  update(dt: number, focus: THREE.Vector3, hour: number, hubBoost: (x: number, z: number) => number, signals?: PedSignals | null): void {
     this.time += dt;
     this.pathBudget = 3; // A* runs are spread out: at most 3 new routes per frame
     const wanted = Math.max(8, Math.round(this.max * crowdDensity(hour) * hubBoost(focus.x, focus.z)));
@@ -230,6 +257,7 @@ export class Crowd {
       if (dx0 * dx0 + dz0 * dz0 > R2) this.spawnNear(a, focus);
 
       let moving = false;
+      a.waiting = false;
       if (a.path.length === 0) {
         if (this.time > a.waitUntil && this.pathBudget > 0) {
           this.pathBudget--;
@@ -238,32 +266,32 @@ export class Crowd {
           const t = list[Math.floor(Math.random() * list.length)];
           // Prefer nearby targets so people don't all march off-screen.
           const jitter = { x: t.x + (Math.random() - 0.5) * 6, z: t.z + (Math.random() - 0.5) * 6 };
-          const far = Math.hypot(jitter.x - a.x, jitter.z - a.z) > CROWD_RADIUS;
-          const dest = far ? this.targets.wander[Math.floor(Math.random() * this.targets.wander.length)] ?? jitter : jitter;
-          a.path = findPath(this.nav, a.x, a.z, dest.x, dest.z);
+          let far = Math.hypot(jitter.x - a.x, jitter.z - a.z) > CROWD_RADIUS || !sameIsland(this.ped, a.x, a.z, t.x, t.z);
+          let dest: { x: number; z: number } | undefined = jitter;
+          if (far) {
+            // Somewhere to wander instead, on this side of Broadway / the river.
+            dest = undefined;
+            for (let k = 0; k < 4 && !dest; k++) {
+              const ang = Math.random() * Math.PI * 2;
+              const r = 25 + Math.random() * 100;
+              const w = nearestStand(this.ped, a.x + Math.cos(ang) * r, a.z + Math.sin(ang) * r);
+              if (w && sameIsland(this.ped, a.x, a.z, w.x, w.z)) dest = w;
+            }
+            far = true;
+          }
+          if (dest) a.path = pedPath(this.ped, a.x, a.z, dest.x, dest.z);
+          // Nowhere to go from here: look around a bit and try again.
+          if (!a.path.length) a.waitUntil = this.time + 1 + Math.random() * 2;
           a.last = far ? 'wander' : stop;
         }
       } else {
-        const wp = a.path[0];
-        const dx = wp.x - a.x;
-        const dz = wp.z - a.z;
-        const dist = Math.hypot(dx, dz);
-        if (dist < 0.6) {
-          a.path.shift();
+        const r = stepWalker(a, dt, signals);
+        moving = r === 'moving';
+        if (r === 'reached' && a.path.length === 0) {
           // Arrived: hang around a bit (look at screens, wait for a friend).
-          if (a.path.length === 0) a.waitUntil = this.time + a.personality.linger[0] + Math.random() * (a.personality.linger[1] - a.personality.linger[0]) * (a.last === 'plaza' ? 2 : 1);
+          a.waitUntil = Math.max(a.waitUntil, this.time + a.personality.linger[0] + Math.random() * (a.personality.linger[1] - a.personality.linger[0]) * (a.last === 'plaza' ? 2 : 1));
           // Got home: step inside and vanish for a while.
-          if (a.path.length === 0 && a.last === 'home') a.insideUntil = this.time + 25 + Math.random() * 50;
-        } else {
-          const step = Math.min(dist, a.speed * dt * 1.4);
-          a.x += (dx / dist) * step;
-          a.z += (dz / dist) * step;
-          const target = Math.atan2(dx, dz);
-          let diff = target - a.heading;
-          while (diff > Math.PI) diff -= Math.PI * 2;
-          while (diff < -Math.PI) diff += Math.PI * 2;
-          a.heading += diff * Math.min(1, dt * 8);
-          moving = true;
+          if (a.last === 'home') a.insideUntil = this.time + 25 + Math.random() * 50;
         }
       }
 
@@ -370,8 +398,13 @@ export class Crowd {
   hold(personId: string, seconds: number, fx: number, fz: number): void {
     const a = this.agents.find((x) => x.personId === personId);
     if (!a) return;
-    a.path = [];
     a.waitUntil = this.time + seconds;
+    // Half way over the road: finish crossing first, then stop.
+    if (a.crossing) {
+      a.path = a.path.slice(0, 1);
+      return;
+    }
+    a.path = [];
     a.heading = Math.atan2(fx - a.x, fz - a.z);
   }
 
@@ -396,9 +429,43 @@ export class Crowd {
   approach(personId: string, x: number, z: number): void {
     const a = this.agents.find((p) => p.personId === personId);
     if (a) {
-      a.path = findPath(this.nav, a.x, a.z, x, z);
+      // Along the sidewalks and over at the crossings like anyone else (and
+      // if they're on the road right now, across to the far kerb first).
+      const from = a.crossing ? a.path[0] : a;
+      const rest = pedPath(this.ped, from.x, from.z, x, z);
+      a.path = a.crossing ? [a.path[0], ...rest] : rest;
       a.waitUntil = this.time + 6;
     }
+  }
+
+  /**
+   * The nearest person on the road ahead of a car at (x, z) heading yaw,
+   * within `within` m and `lateral` m of its line: the gap from the car's
+   * front (half-length `half`). Your own car brakes for them (game.ts).
+   */
+  ahead(x: number, z: number, yaw: number, within: number, lateral = 2.2, half = 2.3): { gap: number; v: number } | null {
+    const fx = Math.sin(yaw), fz = Math.cos(yaw);
+    let best: { gap: number; v: number } | null = null;
+    for (const a of this.agents) {
+      if (!a.active || !a.crossing || a.insideUntil > this.time) continue;
+      const dx = a.x - x, dz = a.z - z;
+      const along = dx * fx + dz * fz;
+      if (along <= 0 || along > within + half) continue;
+      if (Math.abs(dx * fz - dz * fx) > lateral) continue;
+      const gap = along - half - 0.4;
+      if (!best || gap < best.gap) best = { gap, v: 0 };
+    }
+    return best;
+  }
+
+  /** QA (scripts/qa-crowd.mjs): everyone on the street right now. */
+  debug(): { x: number; z: number; moving: boolean; crossing: boolean; waiting: boolean }[] {
+    const out: { x: number; z: number; moving: boolean; crossing: boolean; waiting: boolean }[] = [];
+    for (const a of this.agents) {
+      if (!a.active || a.insideUntil > this.time) continue;
+      out.push({ x: +a.x.toFixed(2), z: +a.z.toFixed(2), moving: a.moving, crossing: a.crossing, waiting: a.waiting });
+    }
+    return out;
   }
 
   dispose(): void {
