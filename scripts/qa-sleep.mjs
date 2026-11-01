@@ -1,7 +1,7 @@
 // QA: lie down in every home's beds and screenshot it close and in the game's own view.
 // PORT=4181 HOMES=shelter,hkStudio,sharedApt,wburgLoft,uesApt,penthouse OUT=/tmp/claude-0/sleep TAG=after node scripts/qa-sleep.mjs
 // Prints where the head and feet end up against the bed's footprint (numbers to check the pose).
-// TRANSITION=1 also shoots getting in and out (a few frames each).
+// TRANSITION=1 shoots getting in and straight back out instead (FRAMES, FRAME_MS, SLOW: the glide slowed for the slow renderer).
 import puppeteer from 'puppeteer-core';
 import { mkdirSync } from 'node:fs';
 const homes = (process.env.HOMES ?? 'shelter,hkStudio,sharedApt,wburgLoft,uesApt,penthouse').split(',');
@@ -56,6 +56,17 @@ for (const id of homes) {
           await page.screenshot({ path: `${out}/${tag}-${id}-${b.item}${lvl}-in${k}.png` });
           await wait(+(process.env.FRAME_MS ?? 900));
         }
+        // …and straight back out (before the nap is over), same camera.
+        await wait(1500);
+        await page.evaluate(() => window.__nyc.stopDoing());
+        for (let k = 0; k < +(process.env.FRAMES ?? 4); k++) {
+          await page.screenshot({ path: `${out}/${tag}-${id}-${b.item}${lvl}-out${k}.png` });
+          await wait(+(process.env.FRAME_MS ?? 900));
+        }
+        await page.evaluate(() => window.__nyc.bedGlideSlow(1));
+        await page.evaluate(() => window.__nyc.resetCam());
+        await wait(800);
+        continue;
       }
       await wait(2500);
       const ends = await page.evaluate(() => window.__nyc.bodyEnds());
@@ -78,18 +89,7 @@ for (const id of homes) {
       await wait(+(process.env.SETTLE ?? 3500));
       await page.screenshot({ path: `${out}/${tag}-${id}-${b.item}${lvl}-foot.png` });
       void p;
-      if (process.env.TRANSITION) {
-        await page.evaluate((a) => window.__nyc.camOn(a[0], a[1], a[2], 4.2, a[3] + Math.PI / 2, 0.55), [hx, hy - 0.3, hz, b.rot]);
-        await wait(2500);
-      }
       await page.evaluate(() => window.__nyc.stopDoing());
-      if (process.env.TRANSITION) {
-        for (let k = 0; k < +(process.env.FRAMES ?? 4); k++) {
-          await page.screenshot({ path: `${out}/${tag}-${id}-${b.item}${lvl}-out${k}.png` });
-          await wait(+(process.env.FRAME_MS ?? 900));
-        }
-      }
-      await page.evaluate(() => window.__nyc.bedGlideSlow(1));
       await page.evaluate(() => window.__nyc.resetCam());
       await wait(800);
     }

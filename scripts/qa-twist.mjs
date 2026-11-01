@@ -63,5 +63,16 @@ await page.tap('canvas', { offset: { x: 200, y: 450 } }).catch(async () => { awa
 await wait(4000);
 const after = await page.evaluate(() => window.__nyc.playerPos());
 out.push(['tap walks', JSON.stringify([before, after]), Math.hypot(after.x - before.x, after.z - before.z) > 0.3]);
+// A new place opens at its usual corner; going back shows the turn you left it at (this session).
+await page.keyboard.press('e');
+const here = await state();
+await page.evaluate(() => window.__nyc.enterPlace('diveBar'));
+await wait(3500);
+const there = await state();
+out.push(['new place opens unturned', deg(there.turn), deg(there.turn) === 0]);
+await page.evaluate((id) => window.__nyc.enterPlace(id), process.env.ID ?? 'hkStudio');
+await wait(3500);
+const back = await state();
+out.push(['back again: as you left it', `${deg(here.turn)} → ${deg(back.turn)}`, deg(back.turn) === deg(here.turn)]);
 for (const o of out) console.log(o[2] ? 'ok  ' : 'FAIL', o[0], o[1]);
 await browser.close();
