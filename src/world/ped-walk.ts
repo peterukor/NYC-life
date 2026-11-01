@@ -29,6 +29,7 @@ import { blockRect, colAt, inParkGap, onRoad, rowAt, SIDEWALK, streetStubs, stub
 import { corridorsIn, distToCorridor } from './corridors.ts';
 import { CELL, type NavGrid } from './nav.ts';
 import { onLand } from './geo-proj.ts';
+import { SIGNAL } from './traffic-flow.ts';
 
 export type SignalAxis = 'ave' | 'st';
 export type Surface = 'walk' | 'road' | 'crosswalk';
@@ -557,6 +558,9 @@ export interface Walker {
   waiting: boolean;
 }
 
+/** Seconds into their green before people step off the kerb. */
+export const WALK_DELAY = 2;
+
 /** The crowd walks at 1.4× the personality speed (crowd.ts, crowd-brain.ts). */
 export const STRIDE = 1.4;
 
@@ -577,9 +581,11 @@ export function stepWalker(w: Walker, dt: number, signals?: PedSignals | null): 
   w.waiting = false;
   if (wp.need && !w.crossing) {
     const left = signals ? signals.greenLeft(wp.need) : Infinity;
+    // Not in the first moments of the green: a car that was too close to
+    // stop when its light changed may still be coming through the far side.
     // The all-red after the green (traffic-flow.ts SIGNAL.allRed, 3 s) is a
     // little extra: finishing in its first second and a half is still safe.
-    if (left + 1.5 >= dist / pace + 0.5 && (!signals || lineClearOfCars(signals, w.x, w.z, wp, dist))) w.crossing = true;
+    if ((!signals || left <= SIGNAL.green - WALK_DELAY) && left + 1.5 >= dist / pace + 0.5 && (!signals || lineClearOfCars(signals, w.x, w.z, wp, dist))) w.crossing = true;
     else {
       w.waiting = true;
       let diff = Math.atan2(dx, dz) - w.heading;

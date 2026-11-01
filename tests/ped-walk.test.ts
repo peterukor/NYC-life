@@ -7,7 +7,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { avenueX, DISTRICTS, inParkGap, onRoad, streetZ, type DistrictDef } from '../src/world/layout.ts';
 import { buildNavGrid } from '../src/world/nav.ts';
-import { asphaltAt, buildPedGrid, closeUnsignalled, crosswalkAt, nearestStand, PED, pedPath, pedStandable, stepWalker, surfaceAt, type PedPoint, type Walker } from '../src/world/ped-walk.ts';
+import { asphaltAt, buildPedGrid, closeUnsignalled, crosswalkAt, nearestStand, PED, pedPath, pedStandable, stepWalker, surfaceAt, WALK_DELAY, type PedPoint, type Walker } from '../src/world/ped-walk.ts';
 import { addStopLines, polyLane, SIGNAL, TrafficFlow, type Axis, type Lane } from '../src/world/traffic-flow.ts';
 import { doorOf, PLACE_BY_ID } from '../src/data/places.ts';
 
@@ -231,7 +231,8 @@ test('a pedestrian waits at the kerb for the walk phase, then crosses in one go'
     stepWalker(w, 0.1, flow);
     t += 0.1;
   }
-  assert.ok(t >= SIGNAL.green + SIGNAL.allRed - 0.2 && t < SIGNAL.green + SIGNAL.allRed + 0.5, `set off at ${t.toFixed(1)} s`);
+  // A moment into the streets' green (WALK_DELAY), not before.
+  assert.ok(t >= SIGNAL.green + SIGNAL.allRed + WALK_DELAY - 0.2 && t < SIGNAL.green + SIGNAL.allRed + WALK_DELAY + 0.5, `set off at ${t.toFixed(1)} s`);
   let steps = 0;
   while (w.crossing) {
     flow.step(0.1);
