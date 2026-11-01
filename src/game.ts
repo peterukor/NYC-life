@@ -279,7 +279,25 @@ export class Game {
 
   /** Lets scripts/qa-smoke.mjs drive the game without tapping 3D objects by pixel. */
   private exposeTestHooks(): void {
+    // 💵 Test money (Peter, 2026-11-01): ?qa&cash=1000000 adds that many dollars once the game is running.
+    const giveMoney = (dollars: number) => {
+      if (!(dollars > 0)) return;
+      changeMoney(this.state, Math.round(dollars * 100), '💵 Test money');
+      this.save();
+      this.refreshHud(true);
+      toast(`💵 Test money: +$${dollars.toLocaleString()}`, { icon: '🧪', tone: 'good' });
+      // Drop ?cash from the address so a reload doesn't pay out again.
+      const u = new URL(location.href);
+      u.searchParams.delete('cash');
+      history.replaceState(null, '', u);
+    };
+    const cash = Number(new URLSearchParams(location.search).get('cash'));
+    if (cash > 0) {
+      const wait = () => (this.started ? giveMoney(cash) : window.setTimeout(wait, 500));
+      wait();
+    }
     (window as unknown as Record<string, unknown>).__nyc = {
+      giveMoney,
       state: () => this.state,
       mode: () => this.engine.mode,
       openObject: (id: string) => {
