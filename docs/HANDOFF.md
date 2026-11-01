@@ -521,6 +521,7 @@ Peter's plan: redo the people, NPCs and every location with the Quaternius/Kenne
 ### Casino table games + pool (2026-10-28)
 - `ui/casino-games.ts` (+ `sim/casino-games.ts`): Hold'em vs NPC regulars, craps, baccarat, Big Six, scratchers, keno, Plinko, Jacks or Better video poker. Wired in game.ts (`playPoker`…`playVideoPoker`).
 - `ui/pool.ts` (+ `sim/pool.ts`): 8-ball / 9-ball vs AI. Bars = friendly rack vs Sal; casinos (Navy Yard, Lucky Star) = staked vs Hustler Vinnie.
+- Pool controls (Peter, 2026-11-01: "move around to set the direction, then a meter at the side that you can drag for power"): drag anywhere on the table turns the cue round the cue ball like a dial (damped within 14 in for fine nudges; a quick tap points it at the spot; aiming never shoots, aim stays when you lift). A pull-down power meter sits right of the table (`.pool-meter`): the cue draws back with it, let go to shoot, under 4% cancels; keyboard on the meter: ↑↓ power, ←→ aim (Shift = fine), Enter shoots. Ball in hand: drag the cue ball to move it, elsewhere to aim. Maths in `ui/pool-controls.ts` (tests/pool-controls.test.ts). Physics, rules, AI and stakes unchanged. No left-handed swap yet.
 - `scripts/qa-games.mjs` opens every new game and screenshots it (test-results/game-*.png).
 - To tune later: poker regulars' strength, pool ball size on phones, AI think-pause on slow phones.
 

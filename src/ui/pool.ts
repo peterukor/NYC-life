@@ -5,11 +5,14 @@
 // draws the table and handles touch.
 //
 // Controls (touch first, the mouse works the same):
-//   • Drag back from the cue ball: the line shows where it goes, the ghost
-//     ball shows the contact, the stick and meter show the power. Let go
-//     to shoot; let go near the ball to cancel.
+//   • Aim: drag anywhere on the table and the cue turns round the cue ball
+//     like a dial (damped close to the ball for fine nudges); tap to point
+//     it straight at a spot. The line and ghost ball show the shot, and the
+//     aim stays put when you lift. Aiming never shoots.
+//   • Power: pull the meter beside the table down; the cue draws back with
+//     it. Let go to shoot; let go near zero to cancel.
 //   • Tap or drag the spin ball for follow (top) or draw (bottom).
-//   • Ball in hand: drag the cue ball itself to move it.
+//   • Ball in hand: drag the cue ball itself to move it; drag elsewhere to aim.
 // Stakes go through sim/casino.ts (stake on the rack, a win pays 1.95×:
 // the house keeps 2.5% of the pot). In-game money only.
 // =====================================================================
@@ -19,6 +22,7 @@ import { esc, money } from '../core/format.ts';
 import { payout, stake } from '../sim/casino.ts';
 import { aimRay, aiPlan, ball as ballOf, ballsLeft, cueBall, endShot, FOOT, freeSpot, HEAD_Y, L, legalTargets, moving, newGame, placeCue, POCKETS, R, step, strike, W, type Mode, type PoolEvent, type PoolGame, type Seat, type Shot, type ShotResult } from '../sim/pool.ts';
 import { sfx } from './audio.ts';
+import { aimDrag, meterPower, meterRelease } from './pool-controls.ts';
 import { rain, type CasinoHost } from './casino.ts';
 import { openModal, toast } from './dom.ts';
 import { buzz, Fx, shakeEl } from './juice.ts';
@@ -37,7 +41,8 @@ let lastMode: Mode = '8';
 
 const RAIL = 3.4; // rail width drawn around the playing surface (inches)
 const TW = W + RAIL * 2, TH = L + RAIL * 2;
-const PULL = 30; // inches of drag for full power
+const METER_W = 56; // css px for the power meter beside the table
+const METER_GAP = 8;
 const STEP = 1 / 120;
 const TAU = Math.PI * 2;
 const BALL_COL = ['#f4f1e6', '#f2c200', '#1f4fd1', '#d6262b', '#5b2a86', '#f07f13', '#137a3a', '#7d1a1a', '#151515'];
@@ -107,7 +112,7 @@ export function openPool(host: CasinoHost, opts: PoolOpts = {}): void {
       </div>`}
       ${opts.stake ? `<div class="chips" role="radiogroup" aria-label="Stake">${CHIPS.map((c) => `<button class="chip${c === lastBet ? ' on' : ''}" data-chip="${c}" role="radio" aria-checked="${c === lastBet}">${money(c).replace('.00', '')}</button>`).join('')}</div>
       <p class="pool-help">Winner takes the pot: a win pays ${POOL_PAYS}× your stake.</p>` : ''}
-      <p class="pool-help">Drag back from the cue ball to aim, let go to shoot.</p>
+      <p class="pool-help">Drag on the table to aim. Pull the meter beside it down for power, let go to shoot.</p>
       <button class="btn primary block cas-go" data-start>Rack ’em</button>
     </div>`;
     body.onclick = (e) => {
@@ -152,7 +157,13 @@ export function openPool(host: CasinoHost, opts: PoolOpts = {}): void {
         <div class="pp-mid"></div>
         <div class="pp" data-seat="1"><span class="pp-name">${esc(foe.name)}</span><span class="pp-grp"></span><span class="pp-balls"></span></div>
       </div>
-      <div class="pool-stage"><canvas class="pool-cv" role="img" aria-label="Pool table. Drag back from the cue ball to aim and shoot."></canvas><div class="pool-end" hidden></div></div>
+      <div class="pool-stage"><canvas class="pool-cv" role="img" aria-label="Pool table. Drag to aim the cue."></canvas>
+        <div class="pool-meter off" role="slider" tabindex="0" aria-orientation="vertical" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="Shot power. Pull down, let go to shoot. Arrow keys: up and down for power, left and right to aim, Enter to shoot.">
+          <span class="pm-val">0%</span>
+          <span class="pm-track"><span class="pm-fill"></span><span class="pm-knob"><i></i></span></span>
+          <small class="pm-hint">Pull ↓</small>
+        </div>
+        <div class="pool-end" hidden></div></div>
       <div class="pool-bar">
         <p class="cas-msg pool-msg" aria-live="polite"></p>
         <button class="pool-spin" aria-label="Spin: centre ball"><span class="pool-spin-ball"><i></i></span><small>Centre</small></button>
@@ -165,6 +176,9 @@ export function openPool(host: CasinoHost, opts: PoolOpts = {}): void {
     const msgEl = q('.pool-msg');
     const spinBtn = q('.pool-spin');
     const endEl = q('.pool-end');
+    const meter = q('.pool-meter');
+    const meterTrack = q('.pm-track');
+    const meterVal = q('.pm-val');
     const name = (seat: Seat) => (seat === 0 ? 'You' : foe.name);
 
     let dead = false;
@@ -181,7 +195,12 @@ export function openPool(host: CasinoHost, opts: PoolOpts = {}): void {
     const aim = { angle: -Math.PI / 2, power: 0, show: false, who: 0 as Seat };
     let strikeT = 0;
     let pending: Shot | null = null;
-    let drag: { kind: 'place' | 'aim'; start: number; ox: number; oy: number; id: number } | null = null;
+    // A finger on the table: moving the cue ball, or turning the aim (lastAng is
+    // the finger's angle round the cue ball; cx/cy/t0 tell a tap from a drag).
+    let drag: { kind: 'place' | 'aim'; ox: number; oy: number; id: number; lastAng: number | null; cx: number; cy: number; t0: number; moved: boolean } | null = null;
+    // A finger on the power meter.
+    let pull: { id: number; y0: number; track: number } | null = null;
+    let meterShown = -1;
     let ghost: { x: number; y: number } | null = null; // where an illegal placement would go
     let lastNotch = 0;
     const drops: { id: number; x: number; y: number; px: number; py: number; t: number }[] = [];
@@ -206,7 +225,7 @@ export function openPool(host: CasinoHost, opts: PoolOpts = {}): void {
       cv.style.height = '10px';
       const overhead = m.el.offsetHeight - stage.offsetHeight;
       const availH = Math.max(240, window.innerHeight - 30 - overhead);
-      const availW = Math.max(200, body.clientWidth);
+      const availW = Math.max(200, body.clientWidth - METER_W - METER_GAP);
       S = Math.min(availW / TW, availH / TH);
       cssW = TW * S;
       cssH = TH * S;
@@ -215,6 +234,7 @@ export function openPool(host: CasinoHost, opts: PoolOpts = {}): void {
       cv.height = Math.round(cssH * dpr);
       cv.style.width = `${cssW}px`;
       cv.style.height = `${cssH}px`;
+      meter.style.height = `${cssH}px`;
       fx = new Fx(cssW, cssH);
       bg = drawTable(mode, S, dpr);
     };
@@ -236,17 +256,27 @@ export function openPool(host: CasinoHost, opts: PoolOpts = {}): void {
     // ----------------------------------------------------------- the turns
     const yourTurn = (lead = '') => {
       phase = 'aim';
-      aim.show = false;
       aim.who = 0;
+      aim.power = 0;
+      pull = null;
       if (g.ballInHand && !cueBall(g).on) {
         const p = freeSpot(g, W / 2, g.kitchen ? HEAD_Y + 10 : L * 0.72);
         placeCue(g, p.x, p.y);
         syncVis(0);
       }
+      // Start the cue pointing at the nearest ball you can play.
+      const c = cueBall(g);
+      let best = Infinity;
+      for (const id of legalTargets(g)) {
+        const b = ballOf(g, id);
+        const d = Math.hypot(b.x - c.x, b.y - c.y);
+        if (b.on && d < best) ((best = d), (aim.angle = Math.atan2(b.y - c.y, b.x - c.x)));
+      }
+      aim.show = true;
       renderPlayers();
       const tip = g.ballInHand
-        ? `${g.breakShot ? 'Your break. ' : 'Ball in hand. '}Drag the cue ball to move it${g.kitchen ? ' (behind the line)' : ''}; drag back from beside it to aim.`
-        : 'Drag back from the cue ball to aim. Let go to shoot.';
+        ? `${g.breakShot ? 'Your break. ' : 'Ball in hand. '}Drag the cue ball to move it${g.kitchen ? ' (behind the line)' : ''}; drag elsewhere to aim. Pull the meter to shoot.`
+        : 'Drag on the table to aim. Pull the meter down, let go to shoot.';
       say(`${lead ? `${lead} ` : ''}<span class="pool-tip">${tip}</span>`);
     };
 
@@ -287,6 +317,9 @@ export function openPool(host: CasinoHost, opts: PoolOpts = {}): void {
     };
 
     const shoot = (shot: Shot) => {
+      drag = null;
+      pull = null;
+      ghost = null;
       pending = shot;
       strikeT = 0;
       phase = 'strike';
@@ -445,45 +478,46 @@ export function openPool(host: CasinoHost, opts: PoolOpts = {}): void {
         syncVis(0);
       } else ghost = { x, y };
     };
-    const aimAt = (x: number, y: number) => {
-      const c = cueBall(g);
-      const dx = c.x - x, dy = c.y - y;
-      const d = Math.hypot(dx, dy);
-      if (d > 0.6) aim.angle = Math.atan2(dy, dx);
-      aim.power = clamp((d - drag!.start) / PULL, 0, 1);
-      const notch = Math.floor(aim.power * 4);
-      if (notch !== lastNotch) {
-        if (notch > lastNotch) (sfx.tick(), buzz(4));
-        lastNotch = notch;
-      }
-    };
-    const down = (e: PointerEvent) => {
-      if (phase !== 'aim' || g.turn !== 0 || drag) return;
-      e.preventDefault();
-      const p = toTable(e);
-      const c = cueBall(g);
+    const canAim = () => phase === 'aim' && g.turn === 0 && cueBall(g).on;
+    const capture = (el: HTMLElement, id: number) => {
       try {
-        cv.setPointerCapture(e.pointerId);
+        el.setPointerCapture(id);
       } catch {
         // Fine without capture.
       }
-      if (g.ballInHand && Math.hypot(p.x - c.x, p.y - c.y) < 3) {
-        drag = { kind: 'place', start: 0, ox: c.x - p.x, oy: c.y - p.y, id: e.pointerId };
+    };
+    // Turning the aim: the finger's turn round the cue ball, damped up close.
+    const turnTo = (x: number, y: number) => {
+      const c = cueBall(g);
+      const d = Math.hypot(x - c.x, y - c.y);
+      if (d < R) return; // right on the ball: no sensible angle
+      const a = Math.atan2(y - c.y, x - c.x);
+      if (drag!.lastAng !== null) aim.angle = aimDrag(aim.angle, drag!.lastAng, a, d);
+      drag!.lastAng = a;
+    };
+    const down = (e: PointerEvent) => {
+      if (!canAim() || drag) return;
+      e.preventDefault();
+      const p = toTable(e);
+      const c = cueBall(g);
+      capture(cv, e.pointerId);
+      const base = { id: e.pointerId, lastAng: null, cx: e.clientX, cy: e.clientY, t0: performance.now(), moved: false };
+      if (g.ballInHand && !pull && Math.hypot(p.x - c.x, p.y - c.y) < 4) {
+        drag = { kind: 'place', ox: c.x - p.x, oy: c.y - p.y, ...base };
         sfx.tap();
         return;
       }
-      drag = { kind: 'aim', start: Math.hypot(p.x - c.x, p.y - c.y), ox: 0, oy: 0, id: e.pointerId };
-      lastNotch = 0;
+      drag = { kind: 'aim', ox: 0, oy: 0, ...base };
       aim.who = 0;
-      aim.power = 0;
       aim.show = true;
-      aimAt(p.x, p.y);
+      turnTo(p.x, p.y);
     };
     const move = (e: PointerEvent) => {
       if (!drag || e.pointerId !== drag.id) return;
+      if (Math.hypot(e.clientX - drag.cx, e.clientY - drag.cy) > 6) drag.moved = true;
       const p = toTable(e);
       if (drag.kind === 'place') tryPlace(p.x + drag.ox, p.y + drag.oy);
-      else aimAt(p.x, p.y);
+      else if (drag.moved) turnTo(p.x, p.y);
     };
     const up = (e: PointerEvent) => {
       if (!drag || e.pointerId !== drag.id) return;
@@ -491,10 +525,14 @@ export function openPool(host: CasinoHost, opts: PoolOpts = {}): void {
       drag = null;
       ghost = null;
       if (d.kind === 'place') return void sfx.tap();
-      if (e.type === 'pointerup' && aim.power >= 0.03 && phase === 'aim') shoot({ angle: aim.angle, power: aim.power, spin });
-      else {
-        aim.show = false;
-        aim.power = 0;
+      // A quick tap points the cue straight at the spot. Aiming never shoots.
+      if (e.type === 'pointerup' && !d.moved && performance.now() - d.t0 < 350 && canAim()) {
+        const p = toTable(e);
+        const c = cueBall(g);
+        if (Math.hypot(p.x - c.x, p.y - c.y) > R * 1.5) {
+          aim.angle = Math.atan2(p.y - c.y, p.x - c.x);
+          sfx.tick();
+        }
       }
     };
     cv.addEventListener('pointerdown', down);
@@ -502,6 +540,68 @@ export function openPool(host: CasinoHost, opts: PoolOpts = {}): void {
     cv.addEventListener('pointerup', up);
     cv.addEventListener('pointercancel', up);
     cv.addEventListener('contextmenu', (e) => e.preventDefault());
+
+    // The power meter: pull down to draw the cue back, let go to shoot.
+    const setPower = (v: number) => {
+      aim.power = v;
+      const notch = Math.floor(v * 4);
+      if (notch !== lastNotch) {
+        if (notch > lastNotch) (sfx.tick(), buzz(4));
+        lastNotch = notch;
+      }
+    };
+    const release = (ok: boolean) => {
+      pull = null;
+      meter.classList.remove('live');
+      if (ok && canAim() && meterRelease(aim.power) === 'shoot') return shoot({ angle: aim.angle, power: aim.power, spin });
+      aim.power = 0; // too soft (or cancelled): no shot
+      lastNotch = 0;
+    };
+    meter.addEventListener('pointerdown', (e) => {
+      if (!canAim() || pull || drag?.kind === 'place') return;
+      e.preventDefault();
+      capture(meter, e.pointerId);
+      const r = meterTrack.getBoundingClientRect();
+      const knob = meter.querySelector<HTMLElement>('.pm-knob')!.offsetHeight;
+      pull = { id: e.pointerId, y0: e.clientY, track: Math.max(40, r.height - knob) };
+      lastNotch = 0;
+      aim.who = 0;
+      aim.show = true;
+      setPower(0);
+      meter.classList.add('live');
+      meter.focus({ preventScroll: true });
+    });
+    meter.addEventListener('pointermove', (e) => {
+      if (!pull || e.pointerId !== pull.id) return;
+      setPower(meterPower(e.clientY - pull.y0, pull.track));
+    });
+    meter.addEventListener('pointerup', (e) => pull && e.pointerId === pull.id && release(true));
+    meter.addEventListener('pointercancel', (e) => pull && e.pointerId === pull.id && release(false));
+    meter.addEventListener('contextmenu', (e) => e.preventDefault());
+    meter.addEventListener('keydown', (e) => {
+      if (!canAim() || pull) return;
+      const fine = e.shiftKey ? 0.002 : 0.01;
+      const k = e.key;
+      if (k === 'ArrowDown') setPower(Math.min(1, aim.power + 0.05));
+      else if (k === 'ArrowUp') setPower(Math.max(0, aim.power - 0.05));
+      else if (k === 'ArrowLeft') aim.angle -= fine;
+      else if (k === 'ArrowRight') aim.angle += fine;
+      else if (k === 'Enter' || k === ' ') release(true);
+      else if (k === 'Escape') release(false);
+      else return;
+      aim.show = true;
+      e.preventDefault();
+    });
+    const showMeter = () => {
+      const live = canAim() || phase === 'strike' || (phase === 'ai' && aim.show);
+      meter.classList.toggle('off', !canAim());
+      const v = live ? Math.round(aim.power * 100) / 100 : 0;
+      if (v === meterShown) return;
+      meterShown = v;
+      meter.style.setProperty('--p', String(v));
+      meterVal.textContent = `${Math.round(v * 100)}%`;
+      meter.setAttribute('aria-valuenow', String(Math.round(v * 100)));
+    };
 
     const setSpin = (v: number) => {
       spin = Math.abs(v) < 0.15 ? 0 : clamp(v, -1, 1);
@@ -675,35 +775,6 @@ export function openPool(host: CasinoHost, opts: PoolOpts = {}): void {
         drawStick(ctx, c.x, c.y, aim.angle, 0.5 + aim.power * 12);
       }
       ctx.restore();
-      // Power meter on the right rail.
-      if (aim.show && (phase === 'aim' || phase === 'ai' || phase === 'strike') && (aim.power > 0 || drag?.kind === 'aim')) {
-        const x = cssW - RAIL * S * 0.72, w = RAIL * S * 0.44;
-        const y0 = py(L * 0.2), h = py(L * 0.8) - y0;
-        ctx.fillStyle = 'rgba(0,0,0,.55)';
-        ctx.beginPath();
-        ctx.roundRect(x, y0, w, h, w / 2);
-        ctx.fill();
-        const f = aim.power;
-        const grad = ctx.createLinearGradient(0, y0 + h, 0, y0);
-        grad.addColorStop(0, '#36c46b');
-        grad.addColorStop(0.6, '#ffd23f');
-        grad.addColorStop(1, '#ff4f4f');
-        ctx.fillStyle = grad;
-        ctx.beginPath();
-        ctx.roundRect(x, y0 + h * (1 - f), w, h * f, w / 2);
-        ctx.fill();
-        if (f > 0.02) {
-          ctx.font = `900 ${Math.max(10, S * 2.2)}px "Lilita One", system-ui, sans-serif`;
-          ctx.textAlign = 'right';
-          ctx.textBaseline = 'middle';
-          ctx.lineWidth = 3;
-          ctx.strokeStyle = 'rgba(0,0,0,.6)';
-          const ty = y0 + h * (1 - f);
-          ctx.strokeText(`${Math.round(f * 100)}%`, x - 4, ty);
-          ctx.fillStyle = '#fff';
-          ctx.fillText(`${Math.round(f * 100)}%`, x - 4, ty);
-        }
-      }
     };
 
     const frame = () => {
@@ -714,6 +785,7 @@ export function openPool(host: CasinoHost, opts: PoolOpts = {}): void {
       update(dt);
       draw();
       fx.end(ctx);
+      showMeter();
     };
 
     const onResize = () => fit();
