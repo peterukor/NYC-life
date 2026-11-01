@@ -18,7 +18,7 @@
 //             best friend in one afternoon.
 // =====================================================================
 
-import { nowMs, nycTime } from '../core/clock.ts';
+import { balanceDay, nowMs } from '../core/clock.ts';
 import { Rng } from '../core/rng.ts';
 import { adjustLikes, moodToday, personOf, remember, type Memory } from './people.ts';
 import type { AreaId, GameState } from './types.ts';
@@ -120,10 +120,10 @@ export function friendProgress(m: Memory): { level: number; next: number | null;
   return { level: m.level, next: lvl + 1, fraction: Math.max(0, Math.min(1, (m.likes - lo) / (hi - lo))) };
 }
 
-/** Most friendship you can build with one person in one game day (hangouts and treats). */
+/** Most friendship you can build with one person in one balance day (3 h 23 min real; hangouts and treats). */
 export const DAILY_BOND_CAP = 18;
 
-function bondToday(m: Memory, day = nycTime().dateKey): { day: string; n: number } {
+function bondToday(m: Memory, day = balanceDay()): { day: string; n: number } {
   if (!m.bond || m.bond.day !== day) m.bond = { day, n: 0 };
   return m.bond;
 }
@@ -224,10 +224,10 @@ export function doTogether(s: GameState, personId: string, a: SharedActivity, ti
   return { bond, line, taste };
 }
 
-/** Pick up the tab for them: helps once a game day, a little. Money isn't a personality. */
+/** Pick up the tab for them: helps once a balance day, a little. Money isn't a personality. */
 export function treat(s: GameState, personId: string, area: AreaId, now = nowMs()): { bond: number; line: string } {
   const m = remember(s, personId, area, now);
-  const day = nycTime(now).dateKey;
+  const day = balanceDay(now);
   if (m.treated === day) return { bond: 0, line: '“You already got the last one. I’m good, for real.”' };
   m.treated = day;
   const bond = addBond(m, 2);

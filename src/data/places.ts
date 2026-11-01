@@ -83,9 +83,10 @@ const RAW: RawPlace[] = [
     at: [40.766, -73.9925], interior: 'apartment', actions: [], color: '#5b7c99', rent: 0,
   },
   {
+    // Open 24 hours: no `hours` (Peter, 2026-11-01: a game day is 33 real minutes now).
     id: 'sliceJoint', area: 'manhattan', name: 'Slice of Ninth', emoji: '🍕', type: 'food',
     blurb: 'Dollar-and-a-half slices, paper plates, zero chairs. Perfect.',
-    at: [40.7588, -73.993], hours: [10, 4], interior: 'pizza', color: '#d6402f',
+    at: [40.7588, -73.993], interior: 'pizza', color: '#d6402f',
     actions: ['dollarSlice', 'fullPie', 'foldDebate'],
   },
   {
@@ -108,9 +109,10 @@ const RAW: RawPlace[] = [
     actions: ['watchComedy', 'openMic'],
   },
   {
+    // Open 24 hours: no `hours` (Peter, 2026-11-01: a game day is 33 real minutes now).
     id: 'ironGym', area: 'manhattan', name: 'Iron Hell’s Kitchen', emoji: '🏋️', type: 'fitness',
     blurb: 'The neighbourhood gym: free weights, a turf lane, a spin room and a front desk that knows your name.',
-    at: [40.765, -73.9965], hours: [5, 23], interior: 'gym', color: '#2b2d42',
+    at: [40.765, -73.9965], interior: 'gym', color: '#2b2d42',
     actions: ['gymSession', 'spinClass', 'gymShower'],
   },
   {
@@ -204,8 +206,8 @@ const RAW: RawPlace[] = [
   },
   {
     id: 'statueOfLiberty', area: 'manhattan', name: 'Statue of Liberty', emoji: '🗽', type: 'landmark',
-    blurb: 'Lady Liberty, out in the harbor. Wave from the pier, or squint at her torch at night.',
-    at: [40.7033, -74.017], model: [40.6892, -74.0445], interior: 'none', color: '#7fcdb4',
+    blurb: 'Lady Liberty, out in the harbor. Ferries to the island run 9 AM to 4 PM; after that, wave from the pier.',
+    at: [40.7033, -74.017], model: [40.6892, -74.0445], hours: [9, 16], interior: 'none', color: '#7fcdb4',
     actions: ['photoSelfie'],
     landmark: { description: 'The 1886 copper statue on Liberty Island in New York Harbor, a gift from France.', officialSite: 'https://www.nps.gov/stli/', siteLabel: 'nps.gov/stli' },
   },
@@ -224,9 +226,10 @@ const RAW: RawPlace[] = [
   },
   {
     // Entertainment (Peter, 2026-10-14): five cabinets and a prize counter (ui/arcade.ts).
+    // Open 24 hours: no `hours` (Peter, 2026-11-01: a game day is 33 real minutes now).
     id: 'pixelPalace', area: 'manhattan', name: 'Pixel Palace Arcade', emoji: '🕹️', type: 'nightlife',
     blurb: 'Times Square neon: Snake, Hoop Shot, Beat Street, pinball, air hockey, a claw machine that’s definitely rigged and a prize wall of plush pigeons.',
-    at: [40.7593, -73.9873], hours: [10, 2], interior: 'arcade', color: '#ff4fa3',
+    at: [40.7593, -73.9873], interior: 'arcade', color: '#ff4fa3',
     actions: ['playSnake', 'playHoops', 'playPigeons', 'playBeats', 'playPinball', 'playBreakout', 'playAirhockey', 'playClaw', 'prizeCounter'],
   },
   {
@@ -244,9 +247,10 @@ const RAW: RawPlace[] = [
     actions: ['playSkeeball', 'playPinball', 'playHoops', 'playDash', 'playStack', 'playRooftop', 'playAirhockey', 'playClaw', 'prizeCounter'],
   },
   {
+    // Open 24 hours: no `hours` (Peter, 2026-11-01: a game day is 33 real minutes now).
     id: 'hubArcade', area: 'manhattan', name: 'Canal Street Arcade', emoji: '🕹️', type: 'nightlife',
     blurb: 'Down a Chinatown stairwell off Canal Street: retro cabinets under blacklight, Beat Street battles, Brooklyn Breakout, Rooftop Jump, skee-ball and a dance pad crowd.',
-    at: [40.7181, -73.9990], hours: [11, 2], interior: 'arcade', color: '#7bd8ff',
+    at: [40.7181, -73.9990], interior: 'arcade', color: '#7bd8ff',
     actions: ['playBeats', 'playSnake', 'playRooftop', 'playBreakout', 'playPigeons', 'playSkeeball', 'playDash', 'playClaw', 'prizeCounter'],
   },
   {
@@ -330,9 +334,10 @@ const RAW: RawPlace[] = [
   },
   {
     // The starter job (Peter, 2026-10-13): a deli round the corner from the walk-up.
+    // Open 24 hours: no `hours` (Peter, 2026-11-01: a game day is 33 real minutes now).
     id: 'barrioDeli', area: 'manhattan', name: 'El Barrio Deli & Grill', emoji: '🏪', type: 'food',
     blurb: 'Chopped cheese, café con leche and the whole block’s gossip. Always hiring for the counter.',
-    at: [40.7968, -73.9402], hours: [6, 23], interior: 'bodega', color: '#d9480f',
+    at: [40.7968, -73.9402], interior: 'bodega', color: '#d9480f',
     actions: ['choppedCheese', 'bodegaCoffee', 'baconEggCheese', 'petBodegaCat', 'lottoTicket', 'gistWithOwner'],
   },
   // Eating out (Peter, 2026-10-28: "3 local restaurants, 1 mid tier and 1 high tier").
@@ -363,9 +368,10 @@ const RAW: RawPlace[] = [
   },
   {
     // Night Dancer's club (Peter, 2026-10-13). Kept PG-13: shows, tips and the odd rowdy customer.
+    // Open 24 hours: no `hours` (Peter, 2026-11-01: a game day is 33 real minutes now).
     id: 'velvetRoom', area: 'manhattan', name: 'The Velvet Room', emoji: '🌙', type: 'nightlife',
-    blurb: 'Purple lights, a mirrored stage, a DJ who only plays bangers. Doors at 8 PM.',
-    at: [40.7562, -73.9895], hours: [20, 4], interior: 'club', color: '#7b2cbf',
+    blurb: 'Purple lights, a mirrored stage, a DJ who only plays bangers. The doors never close.',
+    at: [40.7562, -73.9895], interior: 'club', color: '#7b2cbf',
     actions: ['getSection', 'bottleService', 'dancefloor', 'happyHour', 'mingle'],
   },
   // Fun things to do in person (Peter, 2026-10-15): chess, art, fishing, cycling.

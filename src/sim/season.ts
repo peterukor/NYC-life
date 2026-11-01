@@ -10,12 +10,12 @@
 // the city's regulars (seeded per season; with multiplayer, real
 // players). When a season ends the top 3 are paid: $2,000 / $1,000 / $500.
 //
-// DAILY CHALLENGES: three per game day (≈ every 3.4 real hours), each with
+// DAILY CHALLENGES: three per BALANCE day (core/clock.ts, every 3 h 23 min real), each with
 // cash + points; all three = a bonus. STREAK: come back on consecutive
 // REAL days and the welcome-back gift grows (up to 7 days).
 // =====================================================================
 
-import { nowMs, nycTime } from '../core/clock.ts';
+import { balanceDay, nowMs } from '../core/clock.ts';
 import { Rng } from '../core/rng.ts';
 import { changeMoney } from './economy.ts';
 import { addMoodlet } from './needs.ts';
@@ -183,7 +183,7 @@ export interface DailyState {
 }
 
 /** Today's three challenges (seeded by the date: everyone gets the same three). */
-export function daily(s: GameState, day = nycTime().dateKey): DailyState {
+export function daily(s: GameState, day = balanceDay()): DailyState {
   const d = s.daily;
   if (d && d.day === day) return d;
   const r = new Rng(`daily-${day}`);

@@ -11,6 +11,7 @@ import { doorOf, PLACE_BY_ID } from '../data/places.ts';
 import { newGarageState } from './garage.ts';
 import { newGangState } from './gangs.ts';
 import { SAVE_KEY, SAVE_VERSION } from '../core/constants.ts';
+import { balanceDay } from '../core/clock.ts';
 import { STARTER_ITEMS } from '../data/wardrobe.ts';
 import { newPathsState } from './paths.ts';
 import { newBusinessState } from './business.ts';
@@ -57,8 +58,8 @@ export function deleteGame(): void {
   storage()?.removeItem(SAVE_KEY);
 }
 
-/** Upgrade older save formats to the current one. Returns null if it's unusable. */
-function migrate(data: GameState): GameState | null {
+/** Upgrade older save formats to the current one. Returns null if it's unusable. Exported for tests. */
+export function migrate(data: GameState): GameState | null {
   if (!data || typeof data !== 'object' || typeof data.version !== 'number') return null;
   if (data.version > SAVE_VERSION) return null; // a save from a newer build; don't risk corrupting it
   // v1 is the first format. Future: if (data.version === 1) { …; data.version = 2; }
@@ -130,5 +131,29 @@ function migrate(data: GameState): GameState | null {
     const l = data.profile.look;
     data.wardrobe = [...new Set([...STARTER_ITEMS(), ...[l.hairStyle, l.topId, l.bottomId, l.shoesId, l.hatId, l.extraId].filter((x): x is string => !!x)])];
   }
+  clampBalanceKeys(data);
   return data;
+}
+
+const DATE_KEY = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * 2026-11-01, the 33-minute game day: rent, loans, shifts, debt, crews and
+ * tenants count BALANCE days (core/clock.ts), whose keys are exactly the
+ * game-day keys saves held before, so old saves need no conversion and a
+ * week away still charges one rent per real day, not six. This only
+ * repairs keys that can't be right: missing, malformed, or in the future
+ * (e.g. written on the new fast game calendar, years ahead). They become
+ * today, so nothing fires in a burst and nothing waits for decades.
+ * (Far-past keys are capped where they're used: sim/life.ts MAX_CATCHUP_WEEKS.)
+ */
+export function clampBalanceKeys(data: GameState, today = balanceDay()): void {
+  const fix = (key: string | undefined): string => (key && DATE_KEY.test(key) && key <= today ? key : today);
+  if (data.home) data.home.rentDueDay = fix(data.home.rentDueDay);
+  if (data.loan) data.loan.lastPaidDay = fix(data.loan.lastPaidDay);
+  if (data.stats && data.stats.dayKey && data.stats.dayKey > today) data.stats.dayKey = today;
+  if (data.job && data.job.dayKey > today) data.job.dayKey = today;
+  if (data.debt) data.debt.since = fix(data.debt.since);
+  if (data.gang?.lastActive && data.gang.lastActive > today) data.gang.lastActive = today;
+  for (const o of data.owned ?? []) o.lastRent = fix(o.lastRent);
 }

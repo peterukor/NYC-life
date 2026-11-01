@@ -111,7 +111,7 @@ export const NORTH_PLACES: RawPlace[] = [
   {
     id: 'grantsTomb', area: 'manhattan', name: 'General Grant National Memorial', emoji: '🏛️', type: 'landmark',
     blurb: 'The biggest mausoleum in North America, over the Hudson. Ask the old joke. The rangers have heard it. They love it anyway.',
-    at: [40.8133, -73.9631], interior: 'none', color: '#d6d3cb',
+    at: [40.8133, -73.9631], hours: [9, 17], interior: 'none', color: '#d6d3cb',
     actions: ['grantsTombQuiz', 'peopleWatch'],
     landmark: { description: 'The tomb of President Ulysses S. Grant and his wife Julia, finished in 1897 in Riverside Park, run by the National Park Service.', officialSite: 'https://www.nps.gov/gegr/', siteLabel: 'nps.gov' },
   },

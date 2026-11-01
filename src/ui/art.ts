@@ -20,7 +20,7 @@
 
 import './art.css';
 import { esc, money } from '../core/format.ts';
-import { nycTime } from '../core/clock.ts';
+import { balanceDay, nycTime } from '../core/clock.ts';
 import { Rng } from '../core/rng.ts';
 import { ART, artOf, artPrompt, declineArt, floodMask, galleryWall, likesNow, mayReoffer, pickEncoding, pressureFeel, sellArt, showOfWeek, Smoother, submitArt, type Pt } from '../sim/art.ts';
 import type { GameState } from '../sim/types.ts';
@@ -770,7 +770,7 @@ export function openGallery(host: ArtHost): void {
 
   const render = () => {
     offerSig = sigNow();
-    const show = showOfWeek(s, day);
+    const show = showOfWeek(s, balanceDay()); // a show "week" is 7 balance days ≈ one real day
     const wall = galleryWall(s, day);
     const offers = artOf(s).filter((a) => a.offer && !a.sold);
     const medal = ['🥇', '🥈', '🥉'];

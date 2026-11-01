@@ -103,7 +103,7 @@ export function openGymGame(host: CasinoHost, id: string): void {
       <h3>${esc(game.name)}</h3>
       <p>${esc(game.howTo)}</p>
       <div class="gg-chips"><span>🏆 Best ${best}</span><span>⏱️ ~${game.seconds} s</span><span>💪 Fitness ${s.skills.fitness.toFixed(1)}</span></div>
-      ${done >= GYM_FRESH_SESSIONS ? `<p class="gg-warn">You’ve trained ${done} times today. Your muscles are cooked: gains are smaller until tomorrow.</p>` : ''}
+      ${done >= GYM_FRESH_SESSIONS ? `<p class="gg-warn">You’ve trained ${done} times today. Your muscles are cooked: gains are smaller for a few hours.</p>` : ''}
       <button class="btn primary block" data-go>▶️ Start</button>
     </div>`;
     over.hidden = false;
@@ -174,7 +174,7 @@ export function openGymGame(host: CasinoHost, id: string): void {
         <span class="gg-gain">+${r.gain.toFixed(2)} 💪 fitness</span>
         ${r.pump ? '<span class="gg-pump">💪 The pump is real</span>' : ''}
       </div>
-      ${r.tired ? '<p class="gg-warn">Muscles are cooked from today: smaller gains until tomorrow.</p>' : ''}
+      ${r.tired ? '<p class="gg-warn">Muscles are cooked from today: smaller gains for a few hours.</p>' : ''}
       <div class="gg-btns"><button class="btn primary" data-again>🔁 Again</button><button class="btn ghost" data-close>Done</button></div>
     </div>`;
     over.hidden = false;

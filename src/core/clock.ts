@@ -2,8 +2,8 @@
 // clock.ts — the game clock.
 //
 // GAME TIME (the default): one in-game day lasts GAME_DAY_REAL_MINUTES
-// real minutes (3 h 23 min), so a day in New York turns about 7 times in
-// one real day. The game clock is worked out from the real time, so it
+// real minutes (33), so a day in New York turns about 44 times in one
+// real day. The game clock is worked out from the real time, so it
 // is the same for every player, wherever they live: when it's 8:15 AM
 // rush hour for you, it's rush hour for everyone.
 //
@@ -13,12 +13,20 @@
 // For testing you can shift the clock with a URL like `?clock=+6h` or
 // `?clock=-90m` (real hours/minutes). This only affects your browser.
 //
-// Everything that cares about "what time is it in the game" calls
-// nycTime(); needs and money keep counting in real time, so balance
-// numbers in constants.ts are per real hour.
+// Everything that cares about "what time is it in the game" (the sun,
+// opening hours, day/night, the hiring board, weather) calls nycTime().
+//
+// THE BALANCE CLOCK: balanceTime() / balanceDay() run the same way but at
+// the OLD speed (BALANCE_DAY_REAL_MINUTES = 203, 3 h 23 min a day). Rent,
+// loans, shift caps, business days, debt, crews, daily challenges, the
+// stock market and other "per day" money and caps count balance days, so
+// they keep the same pace per REAL hour whatever speed the visible clock
+// runs at. Its date keys are the very keys saves held before the
+// 2026-11-01 speed-up, so old saves carry straight on. Needs, moodlets
+// and the season count plain real time.
 // =====================================================================
 
-import { GAME_DAY_REAL_MINUTES, GAME_TIME_ZONE } from './constants.ts';
+import { BALANCE_DAY_REAL_MINUTES, GAME_DAY_REAL_MINUTES, GAME_TIME_ZONE } from './constants.ts';
 
 export interface NycTime {
   /** 0-23 */
@@ -36,8 +44,11 @@ export interface NycTime {
 let offsetMs = 0;
 let realClock = false;
 
-/** How much faster game time runs than real time (≈ 7.09). */
+/** How much faster game time runs than real time (≈ 43.6: 43.6 game minutes per real minute). */
 export const GAME_SPEED = 1440 / GAME_DAY_REAL_MINUTES;
+
+/** How much faster the balance clock runs than real time (≈ 7.09, the old game speed). */
+export const BALANCE_SPEED = 1440 / BALANCE_DAY_REAL_MINUTES;
 
 /**
  * The real moment the game clock was set to midnight, Jan 1 2026 (NYC).
@@ -54,6 +65,16 @@ export function setRealClock(on: boolean): void {
 /** Real milliseconds that pass during `gameMinutes` of game time. */
 export function gameMinutesToRealMs(gameMinutes: number): number {
   return realClock ? gameMinutes * 60_000 : (gameMinutes * 60_000) / GAME_SPEED;
+}
+
+/**
+ * Real milliseconds in `minutes` of BALANCE time (old game minutes: 1 440
+ * a balance day, 3 h 23 min real). For cooldowns and sentences that should
+ * keep their real-time length: jail, licence points, the cops' chase
+ * cooldown, Rideshare Black rep.
+ */
+export function balanceMinutesToRealMs(minutes: number): number {
+  return realClock ? minutes * 60_000 : (minutes * 60_000) / BALANCE_SPEED;
 }
 
 /** Read a test offset like ?clock=+6h from the page address. */
@@ -98,21 +119,24 @@ const formatter = new Intl.DateTimeFormat('en-US', {
 const WEEKDAY_BY_UTC = [0, 1, 2, 3, 4, 5, 6];
 
 /** Break a moment in time into the game's New York hour/minute/day. */
+/** A clock running `speed` times faster than real time from the shared epoch. */
+function clockAt(ms: number, speed: number): NycTime {
+  // Game time is kept as a "wall clock" in UTC fields: no daylight-saving jumps.
+  const g = new Date(GAME_EPOCH + (ms - REAL_EPOCH) * speed);
+  const hour = g.getUTCHours();
+  const minute = g.getUTCMinutes();
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return {
+    hour,
+    minute,
+    weekday: WEEKDAY_BY_UTC[g.getUTCDay()],
+    dateKey: `${g.getUTCFullYear()}-${pad(g.getUTCMonth() + 1)}-${pad(g.getUTCDate())}`,
+    hourFloat: hour + minute / 60 + g.getUTCSeconds() / 3600,
+  };
+}
+
 export function nycTime(ms = nowMs()): NycTime {
-  if (!realClock) {
-    // Game time is kept as a "wall clock" in UTC fields: no daylight-saving jumps.
-    const g = new Date(GAME_EPOCH + (ms - REAL_EPOCH) * GAME_SPEED);
-    const hour = g.getUTCHours();
-    const minute = g.getUTCMinutes();
-    const pad = (n: number) => String(n).padStart(2, '0');
-    return {
-      hour,
-      minute,
-      weekday: WEEKDAY_BY_UTC[g.getUTCDay()],
-      dateKey: `${g.getUTCFullYear()}-${pad(g.getUTCMonth() + 1)}-${pad(g.getUTCDate())}`,
-      hourFloat: hour + minute / 60 + g.getUTCSeconds() / 3600,
-    };
-  }
+  if (!realClock) return clockAt(ms, GAME_SPEED);
   const parts: Record<string, string> = {};
   for (const p of formatter.formatToParts(new Date(ms))) parts[p.type] = p.value;
   const hour = Number(parts.hour) % 24;
@@ -124,6 +148,26 @@ export function nycTime(ms = nowMs()): NycTime {
     dateKey: `${parts.year}-${parts.month}-${parts.day}`,
     hourFloat: hour + minute / 60,
   };
+}
+
+/**
+ * The BALANCE clock (see the top of this file): the old 3 h 23 min day.
+ * Use it for anything that should keep its pace per real hour.
+ * With `?clockmode=real` it is the real New York clock, like nycTime().
+ */
+export function balanceTime(ms = nowMs()): NycTime {
+  return realClock ? nycTime(ms) : clockAt(ms, BALANCE_SPEED);
+}
+
+/** Today's balance-day key ("YYYY-MM-DD" on the balance calendar). */
+export function balanceDay(ms = nowMs()): string {
+  return balanceTime(ms).dateKey;
+}
+
+/** Real milliseconds until the next balance day starts (for "come back in …" text). */
+export function msToNextBalanceDay(ms = nowMs()): number {
+  const t = balanceTime(ms);
+  return Math.max(0, balanceMinutesToRealMs((24 - t.hourFloat) * 60));
 }
 
 /** "8:05 PM" style label for the HUD. */

@@ -14,17 +14,17 @@
 // 🧘 yoga       keep the balance dot centred through three poses.
 //
 // A session builds fitness by how well it went (quality 0..1). After
-// four sessions in one in-game day the gains shrink: your legs are cooked.
+// four sessions in one BALANCE day (3 h 23 min real, core/clock.ts) the gains shrink: your legs are cooked.
 // =====================================================================
 
-import { nowMs, nycTime } from '../core/clock.ts';
+import { balanceDay, nowMs } from '../core/clock.ts';
 import { addMoodlet, applyNeeds } from './needs.ts';
 import { skillGainMultiplier } from './state.ts';
 import type { GameState } from './types.ts';
 
 /** Saved on GameState (optional, so old saves load fine). */
 export interface GymState {
-  /** In-game day (NYC date key) the count below belongs to. */
+  /** Balance day (core/clock.ts balanceDay) the count below belongs to. */
   day: string;
   /** Sessions finished that day. */
   today: number;
@@ -74,10 +74,10 @@ function gymOf(s: GameState): GymState {
   return g;
 }
 
-/** Sessions already done on the in-game day of `now`. */
+/** Sessions already done on the balance day of `now`. */
 export function gymSessionsToday(s: GameState, now = nowMs()): number {
   const g = s.gym;
-  return g && g.day === nycTime(now).dateKey ? g.today : 0;
+  return g && g.day === balanceDay(now) ? g.today : 0;
 }
 
 export const gymBest = (s: GameState, id: string): number => s.gym?.best?.[id] ?? 0;
@@ -110,7 +110,7 @@ export interface GymResult {
 /** A finished round: fitness, needs, the pump, and a personal best. */
 export function finishGymGame(s: GameState, id: string, score: number, quality: number, now = nowMs()): GymResult {
   const g = gymOf(s);
-  const day = nycTime(now).dateKey;
+  const day = balanceDay(now);
   if (g.day !== day) {
     g.day = day;
     g.today = 0;

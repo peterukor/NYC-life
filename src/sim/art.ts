@@ -18,7 +18,7 @@
 // TO TUNE: ART.
 // =====================================================================
 
-import { nowMs, nycTime } from '../core/clock.ts';
+import { balanceDay, nowMs, nycTime } from '../core/clock.ts';
 import { Rng } from '../core/rng.ts';
 import { changeMoney } from './economy.ts';
 import { addMoodlet } from './needs.ts';
@@ -173,7 +173,7 @@ export function artTick(s: GameState, now = nowMs()): string[] {
       out.push(`💌 ${a.buyer} wants “${a.title}” for $${Math.round(a.offer / 100).toLocaleString('en-US')}. See the gallery wall.`);
     }
   }
-  const day = nycTime(now).dateKey;
+  const day = balanceDay(now);
   const show = showOfWeek(s, day, now);
   if (show.mine && show.id) {
     const a = artOf(s).find((x) => x.id === show.id);
@@ -238,7 +238,7 @@ export function galleryWall(s: GameState, dayKey: string, now = nowMs()): WallPi
   return [...mine, ...theirs].sort((a, b) => b.likes - a.likes);
 }
 
-/** "w42": weeks since Monday 5 Jan 2026 (game days). */
+/** "w42": weeks since Monday 5 Jan 2026. Fed BALANCE day keys, so a week is ~a real day. */
 export function weekKey(dayKey: string): string {
   const [y, m, d] = dayKey.split('-').map(Number);
   const days = Math.floor((Date.UTC(y, m - 1, d) - Date.UTC(2026, 0, 5)) / 86_400_000);
@@ -260,7 +260,7 @@ export function showOfWeek(s: GameState, dayKey: string, now = nowMs()): WallPie
   if (won) return { title: won.title, artist: s.profile.name, likes: likesNow(won, now), mine: true, img: won.img, id: won.id, week };
   let best: Artwork | null = null;
   for (const a of artOf(s)) {
-    if (a.sold || weekKey(nycTime(a.at).dateKey) !== week) continue;
+    if (a.sold || weekKey(balanceDay(a.at)) !== week) continue;
     if (!best || likesNow(a, now) > likesNow(best, now)) best = a;
   }
   if (best && likesNow(best, now) >= house.likes) return { title: best.title, artist: s.profile.name, likes: likesNow(best, now), mine: true, img: best.img, id: best.id, week };

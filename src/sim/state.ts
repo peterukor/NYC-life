@@ -5,7 +5,7 @@
 import { newGarageState } from './garage.ts';
 import { newGangState } from './gangs.ts';
 import { HUSTLER_LOAN, SAVE_VERSION } from '../core/constants.ts';
-import { nowMs, nycTime } from '../core/clock.ts';
+import { balanceDay, nowMs } from '../core/clock.ts';
 import { doorOf, PLACE_BY_ID } from '../data/places.ts';
 import { starterWardrobe, type SpawnClass } from '../data/wardrobe.ts';
 import { newPathsState } from './paths.ts';
@@ -106,7 +106,7 @@ export const TRAITS: Record<string, { label: string; emoji: string; desc: string
 
 export function newLife(opts: NewLifeOptions): GameState {
   const now = nowMs();
-  const today = nycTime(now).dateKey;
+  const today = balanceDay(now);
   const spawnClass: SpawnClass = opts.spawnClass ?? (opts.origin === 'trustFund' ? 'rich' : 'poor');
   const cls = CLASSES[spawnClass];
   const home = PLACE_BY_ID[cls.homeId] ?? PLACE_BY_ID.hkStudio;

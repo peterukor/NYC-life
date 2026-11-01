@@ -223,7 +223,7 @@ PHONE_APPS.add({
         <p class="sub">Earn points: win fights, escape the cops, win at chess, catch fish, race the loop, play games, hang art, pop bottles, work shifts, explore, and finish daily challenges.</p>
         <h3 style="margin:14px 0 6px">✅ Today’s challenges ${d.done.length}/${d.picks.length}</h3>
         ${d.picks.map((id) => { const c = CHALLENGES.find((x) => x.id === id)!; const n = Math.min(c.need, d.progress[id] ?? 0); const done = d.done.includes(id); return `<div class="list-item"><div style="font-size:24px">${done ? '✅' : c.emoji}</div><div class="grow"><div class="title">${esc(c.label)}</div><div class="sub">${done ? 'Done!' : `${n}/${c.need}`} · ${money(c.cash)} + ${POINTS.challenge} 🏆</div></div></div>`; }).join('')}
-        <p class="sub">All three: +${money(50_000)} bonus. New challenges every game day.</p>
+        <p class="sub">All three: +${money(50_000)} bonus. New challenges every 3 h 23 min.</p>
         <h3 style="margin:14px 0 6px">🔥 Streak: ${s.streak?.days ?? 0} day${(s.streak?.days ?? 0) === 1 ? '' : 's'}</h3>
         <p class="sub">Come back every day: the welcome-back gift grows for 7 days.</p>
         <h3 style="margin:14px 0 6px">📒 Your records</h3>

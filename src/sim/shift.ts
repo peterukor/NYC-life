@@ -1,7 +1,7 @@
 // =====================================================================
 // shift.ts — hands-on shifts for every job (Peter, 2026-10-14).
 //
-// Two ways to work a shift (up to 6 shifts per game day):
+// Two ways to work a shift (up to 6 shifts per balance day, 3 h 23 min real):
 //  ⏩ Auto: 30 real seconds, and you have to stay in the game. Pays the
 //     lowest wage (about $30 at the first rung). A convenience only: no
 //     performance, skill or rep, and it doesn't count toward a raise.

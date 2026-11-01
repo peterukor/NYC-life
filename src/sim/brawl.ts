@@ -20,7 +20,7 @@
 // TO TUNE: FIGHT and CHASE below.
 // =====================================================================
 
-import { gameMinutesToRealMs, nowMs } from '../core/clock.ts';
+import { balanceMinutesToRealMs, nowMs } from '../core/clock.ts';
 import { money } from '../core/format.ts';
 import { addDebt } from './debt.ts';
 import { chargeBill } from './economy.ts';
@@ -52,7 +52,7 @@ export const CHASE = {
   /** Hits (bumping into stuff) before you're caught. */
   hits: 3,
   /** At most one chase per this many game minutes. */
-  cooldownGameMinutes: 180,
+  cooldownGameMinutes: 180, // BALANCE minutes (old game minutes): ~25 real minutes
   /** Street rep for getting away, per heat. */
   escapeRepPerHeat: 4,
 };
@@ -170,7 +170,7 @@ export function chaseSetup(s: GameState, heat: number): ChaseSetup {
 
 /** Can the cops chase you right now? (Not more than once every few game hours.) */
 export function chaseReady(s: GameState): boolean {
-  return nowMs() - (s.stats.lastChase ?? 0) >= gameMinutesToRealMs(CHASE.cooldownGameMinutes);
+  return nowMs() - (s.stats.lastChase ?? 0) >= balanceMinutesToRealMs(CHASE.cooldownGameMinutes);
 }
 
 export function markChase(s: GameState): void {

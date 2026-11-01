@@ -130,7 +130,7 @@ test('auto pays exactly the lowest wage and never raises performance; a great pl
   assert.ok(slip.rep[0]?.kind === 'street' && slip.rep[0].points > 0, 'bodega shifts give street rep');
 });
 
-test('six shifts a game day', () => {
+test('six shifts a balance day (3 h 23 min real, not a 33-minute game day)', () => {
   const s = life();
   for (let i = 0; i < 6; i++) {
     s.needs.energy = 100;
@@ -138,7 +138,7 @@ test('six shifts a game day', () => {
     assert.ok(r.ok, `shift ${i + 1}`);
     finishDeliShift(s, r.session.id, { orders: [], picks: {}, skipped: true });
   }
-  assert.match(shiftBlocker(s) ?? '', /6 shifts a day/);
+  assert.match(shiftBlocker(s) ?? '', /6 shifts.*Back on the rota in \d/);
 });
 
 test('office jobs give corporate rep', () => {

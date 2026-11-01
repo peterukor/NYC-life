@@ -19,13 +19,26 @@ export const SAVE_VERSION = 1;
 export const GAME_TIME_ZONE = 'America/New_York';
 
 /**
- * How long one in-game day lasts in REAL minutes. 203 = 3 h 23 min, so
- * the game day turns about 7 times in one real day. Change this one
- * number to speed the world up or slow it down (1440 = real time).
- * Everyone shares the same game clock: it's worked out from the real
- * time, so all players see the same hour.
+ * How long one in-game day lasts in REAL minutes (Peter, 2026-11-01: 33).
+ * The sun, the clock and opening hours run on this: the game day turns
+ * about 44 times in one real day. Everyone shares the same game clock:
+ * it's worked out from the real time, so all players see the same hour.
+ * (It was 203 = 3 h 23 min until 2026-11-01.)
  */
-export const GAME_DAY_REAL_MINUTES = 203;
+export const GAME_DAY_REAL_MINUTES = 33;
+
+/**
+ * The BALANCE DAY, in real minutes: the old game day (3 h 23 min).
+ * Money, caps and cooldowns that should keep the same pace per REAL hour
+ * whatever speed the visible clock runs at count in balance days:
+ * rent and loans (7 balance days ≈ one real day), shifts per day,
+ * business days, debt collectors, crew turf, daily challenges, the stock
+ * market, jail time, licence points, the friendship cap… core/clock.ts
+ * `balanceTime()` / `balanceDay()`. Its date keys are exactly the ones
+ * saves written before 2026-11-01 hold, so old saves carry on without a
+ * burst of catch-up days. See BALANCE NOTES in docs/HANDOFF.md.
+ */
+export const BALANCE_DAY_REAL_MINUTES = 203;
 
 /** Minimum age to play, matching the Terms of Use draft. */
 export const MIN_AGE = 21;
@@ -34,25 +47,46 @@ export const MIN_AGE = 21;
 // Needs (0 = empty/bad, 100 = full/good)
 // ---------------------------------------------------------------------
 
+/** One game day in real minutes, for writing need targets in game days (e.g. `1.5 * GAME_DAY`). */
+export const GAME_DAY = GAME_DAY_REAL_MINUTES;
+
 /**
- * How many points each need LOSES per real hour while you go about your day.
- * Bladder "fills up", which we model as the meter going down like the others
- * so that every bar in the UI means "higher is better".
+ * NEED DRAIN TARGETS — the one table to tune (Peter, 2026-11-01).
+ * How many REAL minutes each need takes to drain from full (100) to
+ * empty (0) while you play, before weather. To set them in game days
+ * instead, write e.g. `hunger: 1.5 * GAME_DAY`.
+ * Bladder "fills up", which we model as the meter going down like the
+ * others so that every bar in the UI means "higher is better".
  */
-export const NEED_DECAY_PER_HOUR = {
-  hunger: 9,
-  energy: 6,
-  fun: 7,
-  social: 5,
-  hygiene: 5,
-  bladder: 12,
+export const NEED_EMPTY_AFTER = {
+  hunger: 90,
+  energy: 150,
+  fun: 120,
+  social: 180,
+  hygiene: 180,
+  bladder: 60,
 } as const;
+
+/**
+ * Points each need LOSES per REAL hour of play, worked out from
+ * NEED_EMPTY_AFTER (100 points over that many minutes). Don't edit these:
+ * edit the table above. (sim/needs.ts decayNeeds is fed real hours.)
+ */
+export const NEED_DECAY_PER_HOUR: Record<keyof typeof NEED_EMPTY_AFTER, number> = Object.fromEntries(
+  Object.entries(NEED_EMPTY_AFTER).map(([k, min]) => [k, 6000 / min]),
+) as Record<keyof typeof NEED_EMPTY_AFTER, number>;
 
 /** When we load a save after time away, simulate at most this many hours. */
 export const OFFLINE_CATCHUP_MAX_HOURS = 12;
 
-/** While away, needs drain slower (your Sim is assumed to be sleeping/idle). */
-export const OFFLINE_DECAY_MULTIPLIER = 0.35;
+/**
+ * While away (a gap of 15+ minutes), needs drain at this share of the play
+ * rate: your Sim is assumed to be sleeping or idle. 0.05 keeps the drain
+ * per real hour away about where it was before the 2026-11-01 retune
+ * (old 0.35 × old rates ≈ 0.05 × new rates): a night away costs roughly
+ * a third of hunger, not everything.
+ */
+export const OFFLINE_DECAY_MULTIPLIER = 0.05;
 
 /** Below this value a need counts as "low" and starts hurting your mood. */
 export const NEED_LOW = 25;
@@ -79,18 +113,18 @@ export const SUBWAY_FARE = 290;
  */
 export const TRAVEL_SECONDS = { trainAd: 6, trainScene: 4, walkAd: 11, walkScene: 4, walkLive: 15, ride: 5 } as const;
 
-/** Rideshare Black: street rep per ride, at most once per this many game minutes. */
+/** Rideshare Black: street rep per ride, at most once per this many BALANCE minutes (≈ 17 real minutes). */
 export const BLACK_CAR_REP = { points: 3, everyGameMinutes: 120 } as const;
 
 /** Rideshare pricing: base fare + per 100 metres, times surge. */
 export const RIDESHARE = { base: 450, per100m: 35, minFare: 800, luxuryMultiplier: 2.4 } as const;
 
 /**
- * Rent is charged every 7 GAME days. With the fast clock (1 game day =
- * GAME_DAY_REAL_MINUTES) that is about once per REAL day, so these are
- * balanced as "what a day of real play should cover" (BALANCE NOTES in
- * docs/HANDOFF.md): an entry-level job (~$90 a shift, 4 shifts per game
- * day) covers a shared room after one short session and a studio after
+ * Rent is charged every 7 BALANCE days (BALANCE_DAY_REAL_MINUTES, the old
+ * 3 h 23 min game day), which is about once per REAL day whatever speed
+ * the visible clock runs at. So these are balanced as "what a day of real
+ * play should cover" (BALANCE NOTES in docs/HANDOFF.md): an entry-level
+ * job (~$90 a shift, 6 shifts per balance day) covers a shared room after one short session and a studio after
  * two; the loft is a mid-career goal. The real numbers live on each home
  * place in data/places.ts (`rent`); these are the reference values.
  */
@@ -113,10 +147,14 @@ export const MAX_SINGLE_TRANSACTION = 500_000_000; // $5,000,000 (businesses and
 /** A shift is a short real-time task, like Lagos Life's "1-hour shifts". */
 export const SHIFT_SECONDS = 20;
 
-/** How long a shift reads on the game clock (the timer "skips" these hours). */
+/** How long a shift reads on the shift screen's own clock (cosmetic: the city clock doesn't skip). */
 export const SHIFT_GAME_HOURS = 4;
 
-/** Shifts per GAME day (Peter, 2026-10-14: six). About 7 game days pass per real day. */
+/**
+ * Shifts per BALANCE day (Peter, 2026-10-14: six per old game day). Counted
+ * per balance day (3 h 23 min real), not per 33-minute game day, so the
+ * real-time cap stays at 6 shifts per ~3.4 real hours.
+ */
 export const MAX_SHIFTS_PER_DAY = 6;
 
 /** Shifts can only start between these New York hours. */

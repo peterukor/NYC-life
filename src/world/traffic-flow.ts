@@ -230,6 +230,27 @@ export class TrafficFlow {
     return t >= from && t < to ? to - t : 0;
   }
 
+  /**
+   * Do all the cars that drive past (x, z) stop at a signal first? True
+   * where no grid lane passes within `reach` m, or each one that does has a
+   * stop line up to `before` m back (its own stop line, or the one before
+   * the crossing it has just come through). Not every crossing has one:
+   * lanes only run along each road's longest stretch. Read-only;
+   * pedestrians only use crosswalks the traffic stops for (world/ped-walk.ts).
+   */
+  signalled(x: number, z: number, reach = 2.6, before = 30): boolean {
+    const p = { x, z };
+    for (const l of this.lanes) {
+      if (!l.axis || l.pts.length !== 2) continue;
+      const a = l.pts[0], b = l.pts[1];
+      if (x < Math.min(a.x, b.x) - reach || x > Math.max(a.x, b.x) + reach || z < Math.min(a.z, b.z) - reach || z > Math.max(a.z, b.z) + reach) continue;
+      const c = closestS(l, p);
+      if (c.d > reach) continue;
+      if (!l.stops.some((st) => c.s >= st && c.s - st < before)) return false;
+    }
+    return true;
+  }
+
   step(dt: number, view: FlowView = {}): void {
     dt = Math.min(dt, 0.1);
     if (dt <= 0) return;

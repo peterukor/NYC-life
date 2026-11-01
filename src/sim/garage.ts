@@ -21,7 +21,7 @@
 // TO TUNE: change GARAGE. To add a car: data/vehicles.ts.
 // =====================================================================
 
-import { gameMinutesToRealMs, nowMs } from '../core/clock.ts';
+import { balanceMinutesToRealMs, nowMs } from '../core/clock.ts';
 import { carsForSale, RARITY_INFO, VEHICLES } from '../data/vehicles.ts';
 import { CLOTHES, tierOf } from '../data/wardrobe.ts';
 import { chargeBill, changeMoney } from './economy.ts';
@@ -43,9 +43,9 @@ export const GARAGE = {
   ticketOdds: 0.22,
   /** Points that suspend your licence, and for how long (game days). */
   suspendAt: 11,
-  suspendDays: 3,
+  suspendDays: 3, // BALANCE days (3 h 23 min real each): ~10 real hours
   /** One point fades away every this many game days. */
-  pointFadeDays: 2,
+  pointFadeDays: 2, // BALANCE days: a point fades every ~6.8 real hours
   /** Chance of a crash when flooring it on a wet day. */
   wetCrashOdds: 0.07,
   /** Driving while suspended: chance per trip of being pulled over. */
@@ -80,7 +80,7 @@ export function licenceSuspended(s: GameState): boolean {
 /** Let points fade with time (call now and then; cheap). */
 export function fadePoints(s: GameState): void {
   const l = s.garage.licence;
-  const step = gameMinutesToRealMs(GARAGE.pointFadeDays * 24 * 60);
+  const step = balanceMinutesToRealMs(GARAGE.pointFadeDays * 24 * 60); // balance days: same real pace as before
   if (!l.lastFade) l.lastFade = nowMs();
   while (l.points > 0 && nowMs() - l.lastFade >= step) {
     l.points--;
@@ -157,9 +157,9 @@ export function driveTrip(s: GameState, floorIt: boolean, weather: string): Trip
       out.tone = 'bad';
       out.lines.push(`🚨 Pulled over! Speeding ticket: $${GARAGE.ticketFine / 100} and ${GARAGE.ticketPoints} points (${l.points}/${GARAGE.suspendAt}).`);
       if (l.points >= GARAGE.suspendAt) {
-        l.suspendedUntil = nowMs() + gameMinutesToRealMs(GARAGE.suspendDays * 24 * 60);
+        l.suspendedUntil = nowMs() + balanceMinutesToRealMs(GARAGE.suspendDays * 24 * 60);
         l.points = 0;
-        out.lines.push(`🪪 Licence SUSPENDED for ${GARAGE.suspendDays} days. Driving now could get you arrested.`);
+        out.lines.push(`🪪 Licence SUSPENDED for about ${Math.round(balanceMinutesToRealMs(GARAGE.suspendDays * 24 * 60) / 3_600_000)} hours. Driving now could get you arrested.`);
       }
     } else out.lines.push('🏎️ You flew across town. What a rush!');
   }

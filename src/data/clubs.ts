@@ -20,7 +20,12 @@
 
 export interface ClubDef {
   placeId: string;
-  /** Open round the clock (the after-hours clubs): anyone gets in, no ladder. */
+  /**
+   * The after-hours clubs, off the ladder: anyone gets in, no ladder rung.
+   * (Whether a club is OPEN is its place's `hours` in data/places.ts: The
+   * Velvet Room is a ladder club with no hours, so it never closes but
+   * keeps its door; Peter, 2026-11-01.)
+   */
   allDay?: boolean;
   tier: 1 | 2 | 3 | 4;
   /** What kind of night it is, in a few words. */
@@ -55,7 +60,7 @@ export const CLUBS: ClubDef[] = [
     regulars: ['Marco from the deli', 'Tiff', 'Big Steve', 'Jaz'], regularSpend: [5_000, 40_000],
   },
   {
-    placeId: 'velvetRoom', tier: 2, label: 'Midtown club · bottle service',
+    placeId: 'velvetRoom', tier: 2, label: 'Midtown club · bottle service · open 24/7',
     door: { rank: 1, cool: 15 }, cover: 2_500, show: 1.4, rep: 1.4, dropEvery: 110,
     djs: ['DJ Velvet', 'DJ Purple Rain', 'DJ Midnight Express'],
     connectChance: 0.3, screen: '#9b5de5',

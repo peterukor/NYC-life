@@ -24,7 +24,7 @@
 // are paid (settleDerby). Fishing is in person only.
 // =====================================================================
 
-import { nycTime, type NycTime } from '../core/clock.ts';
+import { balanceDay, nowMs, nycTime, type NycTime } from '../core/clock.ts';
 import { Rng } from '../core/rng.ts';
 import { changeMoney } from './economy.ts';
 import { addMoodlet, applyNeeds } from './needs.ts';
@@ -96,6 +96,13 @@ export interface FishingRecord {
   caught: number;
   /** This morning's derby: date and your best (lb). */
   derby: { day: string; lb: number; paid: boolean } | null;
+  /**
+   * Balance day (core/clock.ts) of your last derby prize. A derby runs every
+   * game morning (every 33 real minutes), but prize money is paid once per
+   * balance day (3 h 23 min real), the pace it had before the 2026-11-01
+   * speed-up. A second podium in the same stretch still earns rep.
+   */
+  prizeDay?: string;
   /** 📖 The journal: how many of each you've landed and the heaviest (added 2026-10-28; old saves lack it). */
   species?: Record<string, { n: number; lb: number }>;
 }
@@ -446,7 +453,7 @@ export function landTreasure(s: GameState, rand = Math.random): string {
 }
 
 /** After 11 AM: pay this morning's derby if you placed. Returns a line or null. */
-export function settleDerby(s: GameState, t: NycTime = nycTime()): string | null {
+export function settleDerby(s: GameState, t: NycTime = nycTime(), now = nowMs()): string | null {
   const rec = fishingOf(s);
   const d = rec.derby;
   if (!d || d.paid || (d.day === t.dateKey && t.hour < 11)) return null;
@@ -455,6 +462,12 @@ export function settleDerby(s: GameState, t: NycTime = nycTime()): string | null
   const place = board.findIndex((x) => x.you);
   if (place < 0) return null;
   if (place > 2) return `🎣 Derby result: you were ${place + 1}th. ${board[0].name.replace(/ \(.*\)$/, '')} won with ${board[0].lb} lb.`;
+  const today = balanceDay(now);
+  if (rec.prizeDay === today) {
+    changeRep(s, 'street', [12, 6, 3][place]);
+    return `🎣 Pier 84 derby: ${['1st 🥇', '2nd 🥈', '3rd 🥉'][place]} again! The pier pays one prize every few hours, so it's bragging rights (and rep) this time.`;
+  }
+  rec.prizeDay = today;
   changeMoney(s, DERBY_PRIZES[place], `🎣 Pier 84 derby: ${['1st', '2nd', '3rd'][place]} place`);
   changeRep(s, 'street', [12, 6, 3][place]);
   return `🎣 Pier 84 derby: you came ${['1st 🥇', '2nd 🥈', '3rd 🥉'][place]}! +$${DERBY_PRIZES[place] / 100}.`;

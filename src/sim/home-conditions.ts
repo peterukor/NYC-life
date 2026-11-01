@@ -14,7 +14,7 @@
 import { layoutForPlace } from '../data/homes.ts';
 import { PLACE_BY_ID } from '../data/places.ts';
 import type { ActionDef } from '../data/actions.ts';
-import { nycTime } from '../core/clock.ts';
+import { balanceDay } from '../core/clock.ts';
 import { addMoodlet } from './needs.ts';
 import type { GameState } from './types.ts';
 
@@ -49,12 +49,12 @@ export function nightNoise(s: GameState, placeId: string | null | undefined, a: 
   return m;
 }
 
-/** Walking into your home: the housekeeper's been (once a day). Returns the moodlet, or null. */
+/** Walking into your home: the housekeeper's been (once a balance day, 3 h 23 min real). Returns the moodlet, or null. */
 export function arriveHome(s: GameState, placeId: string): { id: string; label: string; emoji: string; value: number } | null {
   if (placeId !== s.home.placeId) return null;
   const c = conditionsAt(placeId);
   if (!c?.housekeeper) return null;
-  const day = nycTime().dateKey;
+  const day = balanceDay();
   if (s.home.cleanedDay === day) return null;
   s.home.cleanedDay = day;
   const m = { id: 'spotless', label: 'The housekeeper’s been. Spotless.', emoji: '✨', value: 4, minutes: 120 };

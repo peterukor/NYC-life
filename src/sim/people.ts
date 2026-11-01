@@ -25,7 +25,7 @@
 // TO ADD QUIRKS: add to QUIRKS. To change names: NAMES.
 // =====================================================================
 
-import { nycTime } from '../core/clock.ts';
+import { balanceDay, nycTime } from '../core/clock.ts';
 import { Rng } from '../core/rng.ts';
 import type { AreaId, GameState } from './types.ts';
 
@@ -157,7 +157,7 @@ export interface Memory {
   log?: { at: number; emoji: string; text: string }[];
   /** Friendship built today (capped: sim/friends.ts → DAILY_BOND_CAP). */
   bond?: { day: string; n: number };
-  /** The game day you last picked up their tab. */
+  /** The balance day (core/clock.ts) you last picked up their tab. */
   treated?: string;
 }
 
@@ -181,7 +181,7 @@ export function remember(s: GameState, id: string, area: AreaId, now: number): M
     }
   }
   m.seen = now;
-  const day = nycTime().dateKey;
+  const day = balanceDay();
   if (m.today.day !== day) m.today = { day, acts: {} };
   return m;
 }

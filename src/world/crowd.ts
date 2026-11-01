@@ -31,7 +31,7 @@ import { CROWD_RADIUS } from '../core/constants.ts';
 import { weightedIndex } from '../core/rng.ts';
 import { doorOf, placesIn } from '../data/places.ts';
 import { blockRect, DISTRICTS, SIDEWALK } from './layout.ts';
-import { buildPedGrid, nearestStand, pedPath, pedStandable, sameIsland, stepWalker, type PedGrid, type PedPoint, type PedSignals } from './ped-walk.ts';
+import { buildPedGrid, closeUnsignalled, nearestStand, pedPath, pedStandable, sameIsland, stepWalker, type PedGrid, type PedPoint, type PedSignals } from './ped-walk.ts';
 import { CROWD_DENSITY, NEXT_STOP, PERSONALITIES, timeBias, type PersonalityDef, type Stop } from '../data/crowd-brain.ts';
 import type { AreaId } from '../sim/types.ts';
 import { crowdGeometries, OUTFIT_COLORS, SKIN_TONES } from './avatar.ts';
@@ -223,6 +223,11 @@ export class Crowd {
   /** `signals`: the traffic lights (none = no traffic, cross any time). */
   update(dt: number, focus: THREE.Vector3, hour: number, hubBoost: (x: number, z: number) => number, signals?: PedSignals | null): void {
     this.time += dt;
+    // First sight of the traffic: shut the crosswalks it doesn't stop at.
+    if (signals?.signalled && this.ped.unsignalled === undefined) {
+      this.ped.unsignalled = closeUnsignalled(this.ped, (x, z) => signals.signalled!(x, z));
+      for (const a of this.agents) if (!a.crossing) a.path = [];
+    }
     this.pathBudget = 3; // A* runs are spread out: at most 3 new routes per frame
     const wanted = Math.max(8, Math.round(this.max * crowdDensity(hour) * hubBoost(focus.x, focus.z)));
     const R2 = (CROWD_RADIUS * 1.15) ** 2;

@@ -1,7 +1,9 @@
 // =====================================================================
 // market.ts — the stock market: prices, buying, selling, net worth.
 //
-// PRICES are the same for every player: each game day, each stock moves
+// PRICES are the same for every player: each BALANCE day (core/clock.ts,
+// the old 3 h 23 min game day, so the market keeps its real-time pace
+// and old prices carry on unchanged), each stock moves
 // by a random amount picked from the date with a seeded generator, plus
 // its trend, plus the whole market's mood. The whole market's mood has
 // slow booms and busts (a seam for the recession system: when the
@@ -11,7 +13,7 @@
 // TRADING costs a small fee, and all money moves through economy.ts.
 // =====================================================================
 
-import { nycTime } from '../core/clock.ts';
+import { balanceDay, balanceTime } from '../core/clock.ts';
 import { Rng } from '../core/rng.ts';
 import { STOCKS, type StockDef } from '../data/stocks.ts';
 import { BUSINESS_TYPES } from '../data/businesses.ts';
@@ -26,8 +28,8 @@ export const TRADE_FEE = { flat: 100, rate: 0.005 } as const;
 
 const DAY0 = Date.UTC(2026, 0, 1);
 
-/** Game day number (days since Jan 1 2026 on the game calendar). */
-export function marketDay(dateKey = nycTime().dateKey): number {
+/** Market day number (days since Jan 1 2026 on the balance calendar). */
+export function marketDay(dateKey = balanceDay()): number {
   const d = Date.UTC(+dateKey.slice(0, 4), +dateKey.slice(5, 7) - 1, +dateKey.slice(8, 10));
   return Math.max(0, Math.round((d - DAY0) / 86_400_000));
 }
@@ -46,8 +48,8 @@ export function marketMood(day: number): number {
   return Math.sin(day / 58) * 0.0011 + Math.sin(day / 17 + 1.3) * 0.0004;
 }
 
-/** Game hour of the market (24 a game day; a game day is about 3 h 23 min real). */
-export function marketTick(t = nycTime()): number {
+/** Market hour (24 a balance day; a balance day is 3 h 23 min real). */
+export function marketTick(t = balanceTime()): number {
   return marketDay(t.dateKey) * 24 + t.hour;
 }
 

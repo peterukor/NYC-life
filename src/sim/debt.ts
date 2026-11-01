@@ -5,7 +5,7 @@
 // hospital, and hospitals send bills. If cash + bank can't cover a bill,
 // whatever is left over goes to COLLECTIONS (state.debt). From then on:
 //
-//   • every new game day, collections grab up to DEBT.dailyGrab of what
+//   • every new balance day (3 h 23 min real), collections grab up to DEBT.dailyGrab of what
 //     you owe from your cash, then your bank (so debt slowly pays itself
 //     off if you keep earning), plus a little interest if you can't pay;
 //   • you can pay it off yourself any time (Phone → Bank);
@@ -17,7 +17,7 @@
 // TO TUNE: change the numbers in DEBT. Nothing else needs editing.
 // =====================================================================
 
-import { nycTime } from '../core/clock.ts';
+import { balanceDay } from '../core/clock.ts';
 import { PLACE_BY_ID } from '../data/places.ts';
 import { chargeBill, changeMoney } from './economy.ts';
 import { newBusinessState } from './business.ts';
@@ -26,7 +26,7 @@ import { postNews } from './news.ts';
 import type { GameState } from './types.ts';
 
 export const DEBT = {
-  /** Share of what you owe that collections try to take each game day. */
+  /** Share of what you owe that collections try to take each balance day. */
   dailyGrab: 0.15,
   /** Interest added each day you can't pay anything (0.01 = 1%). */
   dailyInterest: 0.01,
@@ -48,10 +48,10 @@ export interface DebtState {
 export function addDebt(s: GameState, cents: number): void {
   if (cents <= 0) return;
   if (s.debt) s.debt.owed += cents;
-  else s.debt = { owed: cents, since: nycTime().dateKey };
+  else s.debt = { owed: cents, since: balanceDay() };
 }
 
-/** Called once per new game day from life.ts. Returns a note for the morning summary. */
+/** Called once per new balance day from life.ts. Returns a note for the morning summary. */
 export function runCollections(s: GameState): string | null {
   if (!s.debt || s.debt.owed <= 0) return null;
   const want = Math.max(100, Math.round(s.debt.owed * DEBT.dailyGrab));
@@ -83,7 +83,7 @@ export function bankruptcyBlocker(s: GameState): string | null {
   if (!s.debt || s.debt.owed <= 0) return 'You have no debt to wipe.';
   const last = s.record?.lastBankruptcy;
   if (last) {
-    const days = (Date.parse(nycTime().dateKey) - Date.parse(last)) / 86_400_000;
+    const days = (Date.parse(balanceDay()) - Date.parse(last)) / 86_400_000;
     if (days < DEBT.cooldownDays) return `You filed recently. Wait ${Math.ceil(DEBT.cooldownDays - days)} more days.`;
   }
   return null;
@@ -110,7 +110,7 @@ export function fileBankruptcy(s: GameState): string | null {
   if (s.garage) s.garage.driving = null;
   changeMoney(s, DEBT.freshStartCash, 'Fresh start');
 
-  const today = nycTime().dateKey;
+  const today = balanceDay();
   s.home = { area: shelter.area, placeId: shelter.id, weeklyRent: 0, rentDueDay: today };
   s.record = { ...(s.record ?? { bankruptcies: 0 }), bankruptcies: (s.record?.bankruptcies ?? 0) + 1, lastBankruptcy: today };
   addMoodlet(s, { id: 'freshStart', label: 'Starting over', emoji: '🌱', value: -10, minutes: 60 * 48 });

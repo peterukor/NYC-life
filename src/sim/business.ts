@@ -1,7 +1,7 @@
 // =====================================================================
 // business.ts — owning businesses, hiring staff, taxes and audits.
 //
-// EACH GAME DAY (handled in life.ts → rollDays):
+// EACH BALANCE DAY (3 h 23 min real, core/clock.ts; handled in life.ts → rollDays):
 //   revenue = type.revenue × staff quality × market mood × a little luck
 //   profit  = revenue − upkeep − wages
 //   tax     = TAX.rate of profit (heavy, like the real thing)
@@ -113,7 +113,7 @@ export function businessValue(s: GameState): number {
   return s.business.owned.reduce((sum, b) => sum + Math.round((BUSINESS_TYPES.get(b.type)?.price ?? 0) * 0.8), 0);
 }
 
-/** Run one game day for every business. Returns a short note (or null). */
+/** Run one balance day (3 h 23 min real) for every business. Returns a short note (or null). */
 export function runBusinessDay(s: GameState, dateKey: string): string | null {
   if (!s.business.owned.length) return null;
   const r = new Rng(`biz-${dateKey}-${s.createdAt}`);
@@ -142,7 +142,7 @@ export function runBusinessDay(s: GameState, dateKey: string): string | null {
     const pay = Math.min(-net, s.money);
     if (pay > 0) changeMoney(s, -pay, 'Business losses');
   }
-  let note = `🏪 Your businesses ${net >= 0 ? 'made' : 'lost'} ${money(Math.abs(net))} yesterday (tax ${money(totalTax)}).`;
+  let note = `🏪 Your businesses ${net >= 0 ? 'made' : 'lost'} ${money(Math.abs(net))} in the last few hours (tax ${money(totalTax)}).`;
   // The audit.
   if (s.business.fraud && s.business.dodged > 0 && r.next() < TAX.auditChance) {
     const bill = s.business.dodged * TAX.penalty;

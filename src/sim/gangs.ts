@@ -13,12 +13,12 @@
 //   • Members (Soldier rank and up) can take a rival block they're
 //     standing on: a fight against that crew. Win and the block is yours.
 //   • A crew can NEVER lose its base block, so no crew ever drops to
-//     zero. Crews also counter-raid on their own (once a game day).
+//     zero. Crews also counter-raid on their own (once a balance day, 3 h 23 min real).
 //
 // RANKS, REP AND THE NPC BOSSES
 //   • Single-player, every crew is run by NPCs. (On the server: when all
 //     human members leave a crew, NPCs fill it.) The NPC bosses expect
-//     you to show up: go quiet for a few game days, or let your crew lose
+//     you to show up: go quiet for a few balance days, or let your crew lose
 //     ground, and they can BUMP YOU DOWN a rank — which costs a big chunk
 //     (40%) of your street rep.
 //   • Street rep (Life Path → Crime) sets your PERKS: how fast you get
@@ -29,7 +29,7 @@
 // lat/lon). TO TUNE: GANG numbers.
 // =====================================================================
 
-import { nycTime } from '../core/clock.ts';
+import { balanceDay } from '../core/clock.ts';
 import { Registry } from '../core/registry.ts';
 import { blockAt, blockRect, colAt, DISTRICTS, rowAt, type DistrictDef } from '../world/layout.ts';
 import { project, unproject } from '../world/geo-proj.ts';
@@ -92,7 +92,7 @@ export interface GangState {
   respect: Record<string, number>;
   /** Blocks that changed hands: turfKey() → crew id. */
   turf?: Record<string, string>;
-  /** Last game day you did something for your crew. */
+  /** Last balance day (core/clock.ts) you did something for your crew. */
   lastActive?: string;
 }
 
@@ -200,7 +200,7 @@ export function joinBlocker(s: GameState, crewId: string): string | null {
 }
 
 export function markActive(s: GameState): void {
-  s.gang.lastActive = nycTime().dateKey;
+  s.gang.lastActive = balanceDay();
 }
 
 export function joinCrew(s: GameState, crewId: string): string | null {
@@ -359,7 +359,7 @@ export function doMission(s: GameState, id: string, area: AreaId, x: number, z: 
 }
 
 // ---------------------------------------------------------------------
-// Once per game day: NPC crews raid, NPC bosses judge you
+// Once per balance day: NPC crews raid, NPC bosses judge you
 // ---------------------------------------------------------------------
 
 export function runGangDay(s: GameState, today: string): string | null {

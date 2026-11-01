@@ -1,6 +1,7 @@
 // =====================================================================
 // life.ts — what happens as time passes: needs drain, moods wear off,
-// a new day starts at New York midnight, and weekly bills come due.
+// a new BALANCE day starts (old 3 h 23 min day: shifts, businesses,
+// crews), weekly bills come due, and each game day gets its news.
 // =====================================================================
 
 import { collectRents } from './realestate.ts';
@@ -8,7 +9,7 @@ import { PLACE_BY_ID } from '../data/places.ts';
 import { runCollections } from './debt.ts';
 import { runGangDay } from './gangs.ts';
 import { bus } from '../core/bus.ts';
-import { daysBetween, nowMs, nycTime } from '../core/clock.ts';
+import { balanceDay, daysBetween, nowMs, nycTime } from '../core/clock.ts';
 import { OFFLINE_CATCHUP_MAX_HOURS, OFFLINE_DECAY_MULTIPLIER } from '../core/constants.ts';
 import { money } from '../core/format.ts';
 import { chargeBill } from './economy.ts';
@@ -54,9 +55,28 @@ export function advanceTo(state: GameState, now = nowMs()): string | null {
   return summary;
 }
 
-/** Handle every New York midnight that has passed since the last check. */
+/**
+ * Most bills a single catch-up charges per kind (rent, loan): a month of
+ * real days. Balance keys carry straight on from old saves, so this only
+ * guards against a broken or hand-edited date key.
+ */
+const MAX_CATCHUP_WEEKS = 30;
+
+/**
+ * Handle every new day since the last check. Two calendars:
+ *  - the GAME day (33 real minutes): the morning news (it tells today's weather);
+ *  - the BALANCE day (core/clock.ts, 3 h 23 min real): shifts, businesses,
+ *    debt collectors, crews, tenants, rent and the loan, so money keeps
+ *    the same pace per real hour. `stats.dayKey` holds the balance day,
+ *    exactly as saves from before the speed-up did.
+ */
 function rollDays(state: GameState): string | null {
-  const today = nycTime().dateKey;
+  const gameDay = nycTime().dateKey;
+  if (state.stats.newsDay !== gameDay) {
+    state.stats.newsDay = gameDay;
+    postDailyNews(state, gameDay);
+  }
+  const today = balanceDay();
   if (state.stats.dayKey === today) return null;
 
   const notes: string[] = [];
@@ -66,7 +86,6 @@ function rollDays(state: GameState): string | null {
     state.job.shiftsToday = 0;
     state.job.dayKey = today;
   }
-  postDailyNews(state, today);
   // Businesses: one run per new day (capped, so a long absence doesn't explode).
   const biz = runBusinessDay(state, today);
   if (biz) notes.push(biz);
@@ -80,9 +99,14 @@ function rollDays(state: GameState): string | null {
   // ----- 🔑 Tenants pay you (homes you own but don't live in) -----
   for (const n of collectRents(state, today)) notes.push(n);
 
-  // ----- Rent: every 7 days from the move-in day -----
+  // ----- Rent: every 7 balance days (≈ one real day) from the move-in day -----
   if (state.home.weeklyRent > 0) {
     let weeks = Math.floor(daysBetween(state.home.rentDueDay, today) / 7);
+    if (weeks > MAX_CATCHUP_WEEKS) {
+      // Skip the bills nobody could have been around for; keep the due day's weekday.
+      advanceKey(state.home, 'rentDueDay', (weeks - MAX_CATCHUP_WEEKS) * 7);
+      weeks = MAX_CATCHUP_WEEKS;
+    }
     while (weeks-- > 0) {
       const label = PLACE_BY_ID[state.home.placeId]?.rentLabel ?? 'Weekly rent';
       const { short } = chargeBill(state, state.home.weeklyRent, label);
@@ -97,6 +121,10 @@ function rollDays(state: GameState): string | null {
   // ----- Hustler's student loan -----
   if (state.loan && state.loan.owed > 0) {
     let weeks = Math.floor(daysBetween(state.loan.lastPaidDay, today) / 7);
+    if (weeks > MAX_CATCHUP_WEEKS) {
+      advanceKey(state.loan, 'lastPaidDay', (weeks - MAX_CATCHUP_WEEKS) * 7);
+      weeks = MAX_CATCHUP_WEEKS;
+    }
     while (weeks-- > 0 && state.loan.owed > 0) {
       const due = Math.min(state.loan.weekly, state.loan.owed);
       const { paid } = chargeBill(state, due, 'Student loan payment');

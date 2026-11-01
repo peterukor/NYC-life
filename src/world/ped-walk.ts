@@ -133,6 +133,8 @@ export interface PedGrid {
   cls: Uint8Array;
   /** Which connected patch each open cell belongs to (-1 = blocked): no route between patches. */
   island: Int32Array;
+  /** Crosswalks closed because the traffic there doesn't stop (closeUnsignalled). */
+  unsignalled?: number;
 }
 
 /**
@@ -171,18 +173,9 @@ export function buildPedGrid(nav: NavGrid, d: DistrictDef): PedGrid {
   });
   // Crosswalk bands: as wide as the sidewalk they line up with, so there's
   // always a row of cells across; routes are put back on the paint later.
-  for (let a = 0; a <= d.cols; a++) for (let s = 0; s <= d.rows; s++) {
-    if (!realCrossing(d, a, s)) continue;
-    const ax = d.xs[a], sz = d.zs[s];
-    const hx = d.avenueW / 2, hz = d.streetW / 2;
-    const band = (r: Rect, v: number) => each(r, (i) => {
-      if (ground[i] === 1) ground[i] = v;
-    });
-    band({ minX: ax - hx - 0.5, maxX: ax + hx + 0.5, minZ: sz + hz - 1e-6, maxZ: sz + hz + SIDEWALK }, 3);
-    band({ minX: ax - hx - 0.5, maxX: ax + hx + 0.5, minZ: sz - hz - SIDEWALK, maxZ: sz - hz + 1e-6 }, 3);
-    band({ minX: ax + hx - 1e-6, maxX: ax + hx + SIDEWALK, minZ: sz - hz - 0.5, maxZ: sz + hz + 0.5 }, 4);
-    band({ minX: ax - hx - SIDEWALK, maxX: ax - hx + 1e-6, minZ: sz - hz - 0.5, maxZ: sz + hz + 0.5 }, 4);
-  }
+  for (const b of crosswalkBands(d)) each(b.rect, (i) => {
+    if (ground[i] === 1) ground[i] = b.crosses === 'ave' ? 3 : 4;
+  });
   for (const st of streetStubs(d)) {
     const r = stubRect(st);
     each({ minX: r.minX - KERB, maxX: r.maxX + KERB, minZ: r.minZ - KERB, maxZ: r.maxZ + KERB }, (i) => (ground[i] = 2));
@@ -257,6 +250,49 @@ function islands(cls: Uint8Array, cols: number): Int32Array {
 export function sameIsland(g: PedGrid, x1: number, z1: number, x2: number, z2: number): boolean {
   const a = cellOf(g, x1, z1), b = cellOf(g, x2, z2);
   return a >= 0 && b >= 0 && g.island[a] >= 0 && g.island[a] === g.island[b];
+}
+
+interface Band {
+  /** Which road it crosses. */
+  crosses: SignalAxis;
+  /** As wide as the sidewalk it lines up with, so there's always a row of grid cells across. */
+  rect: Rect;
+  /** The middle of the painted crosswalk. */
+  mid: { x: number; z: number };
+}
+
+/** The four crosswalks round every signalled grid crossing. */
+function crosswalkBands(d: DistrictDef): Band[] {
+  const out: Band[] = [];
+  const hx = d.avenueW / 2, hz = d.streetW / 2;
+  for (let a = 0; a <= d.cols; a++) for (let s = 0; s <= d.rows; s++) {
+    if (!realCrossing(d, a, s)) continue;
+    const ax = d.xs[a], sz = d.zs[s];
+    for (const k of [1, -1]) {
+      out.push({ crosses: 'ave', rect: { minX: ax - hx - 0.5, maxX: ax + hx + 0.5, minZ: k > 0 ? sz + hz - 1e-6 : sz - hz - SIDEWALK, maxZ: k > 0 ? sz + hz + SIDEWALK : sz - hz + 1e-6 }, mid: { x: ax, z: sz + k * (hz + ZEBRA.mid) } });
+      out.push({ crosses: 'st', rect: { minX: k > 0 ? ax + hx - 1e-6 : ax - hx - SIDEWALK, maxX: k > 0 ? ax + hx + SIDEWALK : ax - hx + 1e-6, minZ: sz - hz - 0.5, maxZ: sz + hz + 0.5 }, mid: { x: ax + k * (hx + ZEBRA.mid), z: sz } });
+    }
+  }
+  return out;
+}
+
+/**
+ * Close the crosswalks where the traffic doesn't stop (`signalled` says
+ * no: traffic-flow.ts TrafficFlow.signalled), so nobody walks out in front
+ * of a car that won't wait. Returns how many were closed.
+ */
+export function closeUnsignalled(g: PedGrid, signalled: (x: number, z: number) => boolean): number {
+  let closed = 0;
+  for (const b of crosswalkBands(g.d)) {
+    if (signalled(b.mid.x, b.mid.z)) continue;
+    closed++;
+    const c0 = Math.max(0, Math.ceil((b.rect.minX - g.minX) / CELL - 0.5)), c1 = Math.min(g.cols - 1, Math.floor((b.rect.maxX - g.minX) / CELL - 0.5));
+    const r0 = Math.max(0, Math.ceil((b.rect.minZ - g.minZ) / CELL - 0.5)), r1 = Math.min(g.rows - 1, Math.floor((b.rect.maxZ - g.minZ) / CELL - 0.5));
+    const want = b.crosses === 'ave' ? PED.crossX : PED.crossZ;
+    for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) if (g.cls[r * g.cols + c] === want) g.cls[r * g.cols + c] = PED.blocked;
+  }
+  if (closed) g.island = islands(g.cls, g.cols);
+  return closed;
 }
 
 function cellOf(g: PedGrid, x: number, z: number): number {
@@ -488,6 +524,18 @@ export function pedPath(g: PedGrid, fx: number, fz: number, tx: number, tz: numb
  */
 export interface PedSignals {
   greenLeft(axis: SignalAxis): number;
+  /** Does the traffic past (x, z) stop at a signal? (else that crosswalk is never used) */
+  signalled?(x: number, z: number): boolean;
+  /** No car within r m of (x, z)? (a car stuck on the crosswalk: wait till it's gone) */
+  clear?(x: number, z: number, r: number): boolean;
+}
+
+/** Is the line from (x, z) to wp free of cars (none within 3 m of it)? */
+function lineClearOfCars(signals: PedSignals, x: number, z: number, wp: { x: number; z: number }, dist: number): boolean {
+  if (!signals.clear) return true;
+  const n = Math.max(1, Math.ceil(dist / 3));
+  for (let k = 1; k < n; k++) if (!signals.clear(x + ((wp.x - x) * k) / n, z + ((wp.z - z) * k) / n, 3)) return false;
+  return true;
 }
 
 export interface Walker {
@@ -509,7 +557,8 @@ export const STRIDE = 1.4;
 /**
  * One step along a route. At a kerb (the next point needs a signal) the
  * walker sets off only if the green has time left to get all the way
- * over (+0.5 s); otherwise it waits there, facing the road. Once on the
+ * over (with a little of the all-red after it); otherwise it waits
+ * there, facing the road (also while a car is stuck across the crosswalk). Once on the
  * road it never stops before the far kerb. Returns what it did:
  * 'moving', 'waiting', 'reached' (got to a point: shifted off the path).
  * No signals = no traffic: cross any time.
@@ -522,7 +571,9 @@ export function stepWalker(w: Walker, dt: number, signals?: PedSignals | null): 
   w.waiting = false;
   if (wp.need && !w.crossing) {
     const left = signals ? signals.greenLeft(wp.need) : Infinity;
-    if (left >= dist / pace + 0.5) w.crossing = true;
+    // The all-red after the green (traffic-flow.ts SIGNAL.allRed, 3 s) is a
+    // little extra: finishing in its first second and a half is still safe.
+    if (left + 1.5 >= dist / pace + 0.5 && (!signals || lineClearOfCars(signals, w.x, w.z, wp, dist))) w.crossing = true;
     else {
       w.waiting = true;
       let diff = Math.atan2(dx, dz) - w.heading;

@@ -83,10 +83,11 @@ export interface JobState {
   performance: number;
   shiftsAtLevel: number;
   shiftsTotal: number;
-  /** Shifts done today, reset at New York midnight. */
+  /** Shifts done this BALANCE day (core/clock.ts balanceDay, 3 h 23 min real). */
   shiftsToday: number;
-  /** 💻 Tech perk: the NYC day you last worked from home (once a day). */
+  /** 💻 Tech perk: the balance day you last worked from home (once a balance day). */
   remoteDay?: string;
+  /** Balance day that shiftsToday counts. */
   dayKey: string;
 }
 
@@ -208,12 +209,15 @@ export interface GameState {
     scamsFallenFor: number;
     scamsSpotted: number;
     earnedToday: number;
+    /** The BALANCE day last rolled over (rent, shifts, businesses: sim/life.ts rollDays). */
     dayKey: string;
+    /** The GAME day whose morning news was last posted. */
+    newsDay?: string;
     /** Last Rideshare Black that paid street rep (real ms). */
     lastBlackCar?: number;
     /** Last police chase (real ms): chases have a cooldown (sim/brawl.ts). */
     lastChase?: number;
-    /** NYC date of the last weird-NYC event (one most days). */
+    /** Balance day (core/clock.ts) of the last weird-NYC event (one most balance days). */
     weirdDay?: string;
     fightsWon?: number;
     fightsLost?: number;

@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { newLife } from '../src/sim/state.ts';
-import { nycTime } from '../src/core/clock.ts';
+import { balanceTime, nycTime } from '../src/core/clock.ts';
 import { ART, PROMPTS, Smoother, artPrompt, artQuality, artTick, declineArt, floodMask, galleryWall, likesNow, mayReoffer, pickEncoding, pressureFeel, sellArt, showOfWeek, submitArt, weekKey, type Artwork } from '../src/sim/art.ts';
 
 const life = () => newLife({ name: 'Jack', birthYear: 1995, origin: 'hustler', spawnClass: 'middle', look: {} as never, traits: [] } as never);
@@ -72,19 +72,19 @@ test('art: no comeback offer when the likes have peaked', () => {
 test('art: Show of the week: the house pick, until yours beats it (prize once)', () => {
   const s = life();
   const now = Date.now();
-  const day = nycTime(now).dateKey;
+  const day = balanceTime(now).dateKey;
   const house = showOfWeek(s, day, now);
   assert.equal(house.mine, false);
   assert.equal(showOfWeek(s, day, now).title, house.title, 'same pick all week');
   const a = submitArt(s, 'Big One', 'data:x', { coverage: 0.9, colors: 8, strokes: 100 }, () => 0.9);
   a.target = 2000;
-  // Game weeks are ~24 real hours: find a moment with 2 h of the same week after it.
+  // Show weeks are 7 BALANCE days, ~24 real hours: find a moment with 2 h of the same week after it.
   let at = now;
-  while (weekKey(nycTime(at).dateKey) !== weekKey(nycTime(at + 2 * H).dateKey)) at += H / 4;
+  while (weekKey(balanceTime(at).dateKey) !== weekKey(balanceTime(at + 2 * H).dateKey)) at += H / 4;
   a.at = at;
   const t = at + 2 * H;
-  assert.equal(showOfWeek(s, nycTime(at).dateKey, at).mine, false, 'no likes yet');
-  const show = showOfWeek(s, nycTime(t).dateKey, t);
+  assert.equal(showOfWeek(s, balanceTime(at).dateKey, at).mine, false, 'no likes yet');
+  const show = showOfWeek(s, balanceTime(t).dateKey, t);
   assert.equal(show.mine, true);
   const money0 = s.money;
   const lines = artTick(s, t);

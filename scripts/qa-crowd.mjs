@@ -62,11 +62,12 @@ for (const name of spots) {
   await page.evaluate(() => window.__nyc.advance(8));
   const tot = { n: 0, road: 0, crosswalk: 0, stillRoad: 0, waiting: 0, hit: 0, samples: 0 };
   const where = [];
+  let lastPeople = [];
   for (let t = 0; t < SECS; t++) {
     const r = await page.evaluate(() => {
       window.__nyc.advance(1);
       const people = window.__nyc.crowd() ?? [];
-      const cars = (window.__nyc.traffic()?.cars ?? []).filter((c) => c.lane >= 0 && c.v > 0.5);
+      const cars = window.__nyc.cars().filter((c) => c.v > 0.5);
       let hit = 0;
       const hits = [];
       const signal = window.__nyc.signal();
@@ -75,9 +76,9 @@ for (const name of spots) {
         for (const c of cars) {
           const dx = p.x - c.x, dz = p.z - c.z;
           const fx = Math.sin(c.h), fz = Math.cos(c.h);
-          if (Math.abs(dx * fx + dz * fz) < 3 && Math.abs(dx * fz - dz * fx) < 1.6) {
+          if (Math.abs(dx * fx + dz * fz) < c.len / 2 + 0.5 && Math.abs(dx * fz - dz * fx) < 1.5) {
             hit++;
-            hits.push({ x: +p.x.toFixed(1), z: +p.z.toFixed(1), on: p.on, crossing: p.crossing, car: [c.x, c.z, c.h, c.v], signal });
+            hits.push({ x: +p.x.toFixed(1), z: +p.z.toFixed(1), on: p.on, crossing: p.crossing, car: [+c.x.toFixed(1), +c.z.toFixed(1), +c.h.toFixed(2), +c.v.toFixed(1)], signal });
             break;
           }
         }
@@ -85,6 +86,7 @@ for (const name of spots) {
       return { people, hit, hits, signal };
     });
     tot.samples++;
+    lastPeople = r.people.map((p) => [+p.x.toFixed(1), +p.z.toFixed(1), p.on[0]]);
     tot.hit += r.hit;
     if (process.env.HITS) for (const h of r.hits) console.log('  hit', JSON.stringify(h));
     for (const p of r.people) {
@@ -98,6 +100,7 @@ for (const name of spots) {
       if (p.waiting) tot.waiting++;
     }
   }
+  if (process.env.DUMP) writeFileSync(`${dir}/${out}-${name}-people.json`, JSON.stringify(lastPeople));
   const pct = (k) => ((100 * tot[k]) / Math.max(1, tot.n)).toFixed(2) + '%';
   report[name] = { people: +(tot.n / tot.samples).toFixed(1), onRoad: pct('road'), standingInRoad: pct('stillRoad'), onCrosswalk: pct('crosswalk'), waitingAtKerb: pct('waiting'), carOverPerson: tot.hit, roadSpots: where.slice(0, 12) };
   console.log(name, JSON.stringify({ ...report[name], roadSpots: undefined }));

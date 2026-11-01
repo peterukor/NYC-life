@@ -7,7 +7,7 @@
 // a promotion if your career's skill is high enough.
 // =====================================================================
 
-import { nycTime } from '../core/clock.ts';
+import { balanceDay, msToNextBalanceDay, nycTime } from '../core/clock.ts';
 import { MAX_SHIFTS_PER_DAY, WORK_HOURS } from '../core/constants.ts';
 import { clamp } from '../core/format.ts';
 import { CAREER_BY_ID, type CareerDef } from '../data/careers.ts';
@@ -38,7 +38,7 @@ export function applyForJob(s: GameState, careerId: string): string | null {
   if (!c) return 'Unknown job';
   const block = hireBlocker(s, c);
   if (block) return block;
-  s.job = { careerId, level: 0, performance: 50, shiftsAtLevel: 0, shiftsTotal: 0, shiftsToday: 0, dayKey: nycTime().dateKey };
+  s.job = { careerId, level: 0, performance: 50, shiftsAtLevel: 0, shiftsTotal: 0, shiftsToday: 0, dayKey: balanceDay() };
   return null;
 }
 
@@ -53,13 +53,30 @@ export function shiftBlocker(s: GameState): string | null {
   const [from, to] = CAREER_BY_ID[s.job.careerId]?.hours ?? [WORK_HOURS.start, WORK_HOURS.end];
   const on = to === 24 && from === 0 ? true : from <= to ? t.hour >= from && t.hour < to : t.hour >= from || t.hour < to;
   if (!on) return `Closed now: shifts run ${fmtHour(from)} to ${fmtHour(to % 24)}`;
-  if (s.job.dayKey !== t.dateKey) {
-    s.job.dayKey = t.dateKey;
+  // The cap counts BALANCE days (3 h 23 min real), not 33-minute game days,
+  // so it stays 6 shifts per ~3.4 real hours.
+  const day = balanceDay();
+  if (s.job.dayKey !== day) {
+    s.job.dayKey = day;
     s.job.shiftsToday = 0;
   }
-  if (s.job.shiftsToday >= MAX_SHIFTS_PER_DAY) return `Done for today: ${MAX_SHIFTS_PER_DAY} shifts a day. Come back tomorrow (game time).`;
+  if (s.job.shiftsToday >= MAX_SHIFTS_PER_DAY) return `That's ${MAX_SHIFTS_PER_DAY} shifts: you're worked out. Back on the rota in ${untilNextRota()}.`;
   if (s.needs.energy < 12) return 'Too tired to work — get some sleep';
   return null;
+}
+
+/** Shifts left before the cap (6 per balance day). */
+export function shiftsLeft(s: GameState): number {
+  if (!s.job) return 0;
+  return Math.max(0, MAX_SHIFTS_PER_DAY - (s.job.dayKey === balanceDay() ? s.job.shiftsToday : 0));
+}
+
+/** "about 2 h 10 min" until the shift cap resets (the next balance day). */
+export function untilNextRota(ms = msToNextBalanceDay()): string {
+  const min = Math.max(1, Math.ceil(ms / 60_000));
+  if (min < 60) return `${min} min`;
+  const h = Math.floor(min / 60), m = min % 60;
+  return m ? `${h} h ${m} min` : `${h} h`;
 }
 
 export function jobTitle(s: GameState): string {

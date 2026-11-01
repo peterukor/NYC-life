@@ -11,7 +11,7 @@
 // TO TUNE: MOVING.
 // =====================================================================
 
-import { nowMs, nycTime } from '../core/clock.ts';
+import { balanceDay, nowMs } from '../core/clock.ts';
 import { PLACE_BY_ID, type PlaceDef } from '../data/places.ts';
 import { chargeBill } from './economy.ts';
 import { isOpenArea, type GameState } from './types.ts';
@@ -66,6 +66,6 @@ export function moveTo(s: GameState, p: PlaceDef): string | null {
   if (short > 0) return 'The payment didn’t go through.';
   // Rent is paid for this week; the next one is due in 7 days.
   const mine = (s.owned ?? []).some((o) => o.placeId === p.id);
-  s.home = { area: p.area, placeId: p.id, weeklyRent: mine ? 0 : p.rent ?? 0, rentDueDay: nycTime().dateKey };
+  s.home = { area: p.area, placeId: p.id, weeklyRent: mine ? 0 : p.rent ?? 0, rentDueDay: balanceDay() };
   return null;
 }

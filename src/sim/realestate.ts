@@ -12,7 +12,7 @@
 // =====================================================================
 
 import { money } from '../core/format.ts';
-import { nycTime } from '../core/clock.ts';
+import { balanceDay } from '../core/clock.ts';
 import { PLACE_BY_ID, type PlaceDef } from '../data/places.ts';
 import { chargeBill, changeMoney } from './economy.ts';
 import type { GameState } from './types.ts';
@@ -53,7 +53,7 @@ export function buyHome(s: GameState, placeId: string): string | null {
   if (s.money + s.bank < price) return `It’s ${money(price)}. You have ${money(s.money + s.bank)}.`;
   const { short } = chargeBill(s, price, `🔑 Bought ${p.name.replace(/^Your\s+/i, '')}`);
   if (short) return 'The payment didn’t go through.';
-  ownedOf(s).push({ placeId, price, lastRent: nycTime().dateKey });
+  ownedOf(s).push({ placeId, price, lastRent: balanceDay() });
   // Live there? No more rent.
   if (s.home.placeId === placeId) s.home.weeklyRent = 0;
   return null;

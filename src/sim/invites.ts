@@ -24,7 +24,7 @@
 // and they remember.
 // =====================================================================
 
-import { gameMinutesToRealMs, nowMs, nycTime } from '../core/clock.ts';
+import { balanceDay, gameMinutesToRealMs, nowMs, nycTime } from '../core/clock.ts';
 import { Rng } from '../core/rng.ts';
 import { PLACE_BY_ID, isOpen } from '../data/places.ts';
 import { addBond, favouriteOuting, logWith, OUTINGS, tasteFor, type OutingId } from './friends.ts';
@@ -175,7 +175,7 @@ export function npcAnswer(s: GameState, personId: string, outing: OutingId, at: 
   if (!m || !m.hasNumber) return { status: 'declined', reply: 'new phone, who dis' };
   if (m.grudge >= 40 || m.likes <= -20) return { status: 'declined', reply: pick(rand, NO_GRUDGE) };
   const sent = socialOf(s).sentToday;
-  if ((sent.day === nycTime(now).dateKey ? sent.counts[personId] ?? 0 : 0) >= 3) return { status: 'declined', reply: pick(rand, NO_TOO_MANY) };
+  if ((sent.day === balanceDay(now) ? sent.counts[personId] ?? 0 : 0) >= 3) return { status: 'declined', reply: pick(rand, NO_TOO_MANY) };
   if (mood === 'busy') {
     return rand.next() < 0.5
       ? { status: 'declined', reply: pick(rand, NO_BUSY) }
@@ -217,7 +217,7 @@ export function npcAnswer(s: GameState, personId: string, outing: OutingId, at: 
 /** Send an invitation (to an NPC for now: they answer straight away). */
 export function sendInvite(s: GameState, personId: string, outing: OutingId, when: When, now = nowMs()): Invite {
   const soc = socialOf(s);
-  const day = nycTime(now).dateKey;
+  const day = balanceDay(now);
   if (soc.sentToday.day !== day) soc.sentToday = { day, counts: {} };
   const at = meetTime(when, now);
   const inv: Invite = { id: `inv-${now}-${Math.floor(Math.random() * 1e6)}`, from: me(s), to: npc(personId), outing, placeId: placeFor(s, outing), at, until: at + WAIT_MINUTES * 60_000, status: 'pending', createdAt: now };

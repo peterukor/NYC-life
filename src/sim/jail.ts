@@ -18,7 +18,7 @@
 // TO TUNE: change JAIL below. To add a jail activity, add to JAIL_ACTIVITIES.
 // =====================================================================
 
-import { gameMinutesToRealMs, nowMs } from '../core/clock.ts';
+import { balanceMinutesToRealMs, nowMs } from '../core/clock.ts';
 import { chargeBill } from './economy.ts';
 import { addMoodlet, applyNeeds } from './needs.ts';
 import { postNews } from './news.ts';
@@ -103,13 +103,16 @@ export function arrest(s: GameState, reason: string, gameHours: number, bail: nu
   const mult = 1 + JAIL.repeatPenalty * (s.record.arrests - 1);
   const hours = Math.round(gameHours * mult);
   const bailNow = Math.round((bail * mult) / 100) * 100;
-  const until = nowMs() + gameMinutesToRealMs(hours * 60);
+  // Sentences are in BALANCE hours (old game hours, ~8.5 real min each), so
+  // they last as long in real time as before the 2026-11-01 speed-up.
+  const until = nowMs() + balanceMinutesToRealMs(hours * 60);
   s.jail = { until: Math.max(until, s.jail?.until ?? 0), reason, bail: bailNow };
   s.record.jailDays = (s.record.jailDays ?? 0) + hours / 24;
   if (s.garage) s.garage.driving = null;
-  addMoodlet(s, { id: 'jailed', label: 'Locked up', emoji: '🔒', value: -25, minutes: hours * 60 });
+  const realMin = Math.max(1, Math.round((until - nowMs()) / 60_000));
+  addMoodlet(s, { id: 'jailed', label: 'Locked up', emoji: '🔒', value: -25, minutes: realMin });
   if (s.record.arrests >= 3) postNews(s, { scope: s.location.area, emoji: '🚔', headline: `Repeat offender ${s.profile.name} back in a cell`, personal: true });
-  return `🚔 Arrested: ${reason}. ${hours} hours inside, or bail.`;
+  return `🚔 Arrested: ${reason}. About ${realMin < 90 ? `${realMin} min` : `${Math.round(realMin / 60)} h`} inside, or bail.`;
 }
 
 export function postBail(s: GameState): string | null {
@@ -146,7 +149,7 @@ export function doJailActivity(s: GameState, id: string): string {
   const a = JAIL_ACTIVITIES.find((x) => x.id === id);
   if (!a || !inJail(s)) return '';
   const last = (s.jail!.last ??= {});
-  if (nowMs() - (last[id] ?? 0) < gameMinutesToRealMs(120)) return 'Not again yet. The guards are watching.';
+  if (nowMs() - (last[id] ?? 0) < balanceMinutesToRealMs(120)) return 'Not again yet. The guards are watching.';
   last[id] = nowMs();
   applyNeeds(s, a.needs);
   return a.run(s);

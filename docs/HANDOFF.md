@@ -67,6 +67,13 @@ Peter's plan: redo the people, NPCs and every location with the Quaternius/Kenne
 
 **Sleeping fixed (Peter, 2026-11-01: "the sleep animation needs work, the head got cut off").** Cause: the lie pose put your feet a fixed 22% past the bed's middle, so a 1.8 m body ran 10–15 cm past the end of the mattress, through the headboard and into the wall; it also lay in the standing idle (one foot forward, so a knee stuck up and a foot went through the mattress), sat 4 cm into the duvet, and on a bunk always took whatever the first ray hit. From the room's camera a paper lantern hanging over the studio bed also covered the face. Now `world/bed-pose.ts` measures the bed (rays down its length: decks, mattress, where the headboard stops — a pillow has mattress under it, a headboard doesn't — and the pillow height) and the body (`Avatar.bounds`, the skinned box in its pose), so the head lies on the pillow just inside the headboard, the back on the duvet, tilted a little up the pillow, on the side of a wide bed nearer the room's middle. Lying keeps hips and legs straight (`Actor.setLying`: those bones stay at the rig's rest pose). Ceiling pieces near the pillow hide while you lie there (`HomeInterior.clearOver`). Getting in and out glides (0.75 s up and back onto the bed, 0.55 s off it; tapping away cuts it short; `Game.bedMove`). Bunks: you take the top deck (the bottom one is hidden under it from the room's camera); the bottom works too (`__nyc.bunkLevel('bottom')`). Checked: twin, double, upholstered king, bunk (top and bottom), four-poster. NPCs and roommates never lie in beds yet. Tests: `tests/bed-pose.test.ts` (rays from the real models in tests/fixtures/bed-samples.json, made with `__nyc.bedSamples`). QA: `PORT=4181 node scripts/qa-sleep.mjs` (game view, side and foot close-ups, head/foot positions; TRANSITION=1 shoots getting in and out). Hooks: `useNow`, `bodyEnds`, `camOn`, `bedSamples`, `pieceFootprint`, `bunkLevel`, `bedGlideSlow`.
 
+**A game day is 33 real minutes (Peter, 2026-11-01).** `GAME_DAY_REAL_MINUTES` 203 → 33: the sun, the clock and opening hours run ~6.15× faster (43.6 game minutes per real minute). Everything else keeps its pace per REAL hour through a second clock, the **balance clock** (`core/clock.ts` `balanceTime()` / `balanceDay()` / `balanceMinutesToRealMs()` / `msToNextBalanceDay()`, `BALANCE_DAY_REAL_MINUTES` 203): it is the old game clock, key for key, so every date key an old save holds still means the same day and nothing fires in a burst. Decisions are in the table under BALANCE NOTES. Also:
+- Needs: one table, `NEED_EMPTY_AFTER` in `core/constants.ts` (real minutes full → empty; write `1.5 * GAME_DAY` to set one in game days). `NEED_DECAY_PER_HOUR` is worked out from it. Note: decay was ALREADY per real hour before this change (`life.ts` feeds `decayNeeds` real hours), so these targets drain ~7× faster than the old 9/6/7/5/5/12 points per real hour. Offline drain multiplier 0.35 → 0.05 keeps a night away about as costly as before.
+- 24-hour places (no `hours`): Pixel Palace, Canal Street Arcade, El Barrio Deli & Grill, Slice of Ninth, Iron Hell's Kitchen, The Velvet Room (it has the VIP sections; a club open 8 PM–4 AM is only open ~11 real minutes a game day now). The Velvet Room keeps its tier-2 door and ladder spot, so it is not `allDay` in `data/clubs.ts` (`allDay` = after-hours, anyone in, off the ladder; it is descriptive only, nothing reads it at runtime). Statue of Liberty `hours: [9, 16]`, Grant's Tomb `[9, 17]`. Casinos stay 24h.
+- Saves: no conversion needed (balance keys = old keys). `sim/save.ts clampBalanceKeys` (in `migrate`, now exported) resets balance keys that are malformed or in the future to today; `sim/life.ts MAX_CATCHUP_WEEKS` (30) caps catch-up rent and loan payments from a very old due date. Daily news now follows the game day on its own key (`stats.newsDay`).
+- Server: transfer and painting caps per balance day (`server/src/features.ts gameDay()`), continuous with existing `game_day` rows.
+- Tests: `tests/day-speed.test.ts` (15: clock speeds, balance keys = old keys, market continuity, each need empties in its target real minutes, frame-by-frame drain, weather/offline multipliers, a night away, rent once per real day, catch-up cap, one business run after 3 days, shift cap across game days, an old save loads with one rent and one loan payment, future keys clamped, 24h places and landmark hours, derby prize once per balance day). Changed: `shift.test.ts` (message, name), `sim.test.ts` (rent/loan keys are balance days), `art.test.ts` (Show of the week counts balance weeks).
+
 **Stage 4** (the 59 new rooms): Peter said "not yet for now". **Stage 5** (social) needs the server hosted.
 
 ## Batch 7: the north and better mini games (2026-10-16)
@@ -307,7 +314,7 @@ Peter's plan: redo the people, NPCs and every location with the Quaternius/Kenne
 - QA: `scripts/qa-fun.mjs` (ONLY=casino,arcade,sports,club,park,gym). Tests: `tests/fun.test.ts`.
 
 ## Shifts: auto or play, every job hands-on (2026-10-14)
-- 6 shifts per game day (`MAX_SHIFTS_PER_DAY`). Pay per job in `data/careers.ts → shift` ({auto, max, rep}); `careerBand()` scales by the ladder. Auto = 30 s progress bar (`game.ts → autoShift`, `?autosec=N` in QA), stop or leave = unpaid. Tips/overtime scale with the job's room (`tipScale`). Only played shifts (5+ orders) count toward a raise (`shiftsAtLevel`) and add skill (`SHIFT_SKILL_GAIN` × accuracy, `completeShift({ played, quality })`). Played shifts add rep (`Payslip.rep`). `rep.ts → respect()` = street rep + fitness.
+- 6 shifts per balance day, 3 h 23 min real (`MAX_SHIFTS_PER_DAY`; see BALANCE NOTES). Pay per job in `data/careers.ts → shift` ({auto, max, rep}); `careerBand()` scales by the ladder. Auto = 30 s progress bar (`game.ts → autoShift`, `?autosec=N` in QA), stop or leave = unpaid. Tips/overtime scale with the job's room (`tipScale`). Only played shifts (5+ orders) count toward a raise (`shiftsAtLevel`) and add skill (`SHIFT_SKILL_GAIN` × accuracy, `completeShift({ played, quality })`). Played shifts add rep (`Payslip.rep`). `rep.ts → respect()` = street rep + fitness.
 - Every career uses the counter game (`ui/deli-shift.ts`): menus for bodega and bar in `sim/shift.ts`, the other six in `data/shift-menus.ts`. Played shifts last `SHIFT_PLAY_SECONDS` (180, 3 minutes; Peter 2026-10-14); customers get less patient (16 s → 10 s); 3 choices at ¼, ½, ¾; "Clock out early". QA shortens with `?qa=1&shiftsec=N`.
 - Job twists (fight, bust, bribe) run after the shift via `game.ts → resolveTwist()` and multiply the payslip.
 - 🍸 The bar: orders come from tables; a waiter (UI line + a 3D NPC in `world/venue-life.ts`, `life.runner`) carries drinks over.
@@ -357,7 +364,7 @@ Peter's plan: redo the people, NPCs and every location with the Quaternius/Kenne
 
 ## Done overnight (after the generator), newest last
 - **Clothing:** tiers and starting wardrobe by class, plus a closet at home (`ui/closet.ts`).
-- **Game clock:** 1 game day = 3 h 23 min (`GAME_DAY_REAL_MINUTES`). Test with `?hour=11`; `?clockmode=real` uses the real clock.
+- **Game clock:** 1 game day = 3 h 23 min (`GAME_DAY_REAL_MINUTES`; 33 min since 2026-11-01, see BALANCE NOTES). Test with `?hour=11`; `?clockmode=real` uses the real clock.
 - **Work:** shifts read as 4 game hours, with "Skip to end of shift".
 - **Landmarks:** cartoon Chrysler, Flatiron and Statue of Liberty, plus a real Times Square (One Times Square tower, TKTS steps, plaza seating).
 - **2D map:** Apple Maps transit style (`ui/map.ts`).
@@ -444,9 +451,35 @@ Peter's plan: redo the people, NPCs and every location with the Quaternius/Kenne
   - Lot buying (a land registry on the server).
   - Open Queens, the Bronx and Staten Island the same way: add a district over their outline in `layout.ts`.
 
-## Balance notes (2026-10-11)
-- **Rent cycle.** One game day is 3 h 23 min, so "weekly" rent (7 game days) comes due about once per REAL day. Rents were therefore set as "what one day of play should cover": shared $180, studio $350, loft $900. Old saves are migrated to the new rents.
-- **Pay.** Shifts are capped at 4 per GAME day, so a player who checks in 2–3 times a day can work about 8–12 shifts.
+## Balance notes (2026-10-11; 33-minute day 2026-11-01)
+
+**The 33-minute game day (2026-11-01).** A game day is 33 real minutes; balance stays per REAL hour. "Balance day" = the old 3 h 23 min game day (`core/clock.ts balanceDay()`), whose keys equal the keys old saves hold.
+
+| Thing | Runs on | Real pace now | Where |
+|---|---|---|---|
+| Sun, sky, day/night, clock in the HUD | game day (33 min) | 6.15× faster | `nycTime()` |
+| Opening hours, career shift hours, club nights, derby 6–11 AM | game day | 6.15× faster | `isOpen`, `CAREER.hours`, `sim/fishing.ts` |
+| Weather, morning news, NPC moods, hiring board, art prompt and gallery wall, daily sales pins, section crew names, invite times ("tonight", "tomorrow") | game day | changes every 33 min | `weatherFor(dateKey)`, `postDailyNews`, `moodToday`, `candidates`, `meetTime` |
+| Needs | real time | `NEED_EMPTY_AFTER` table (minutes) | `core/constants.ts`, `sim/needs.ts` |
+| Moodlets, hangouts (4 min), sections (10 min), roommate beats, hints, events director, InstaDash, Auto mode cycles and the 6-real-day rut, season (3 real days), login streak, Celebrity streak | real time (unchanged) | same | already counted real ms |
+| Rent and the student loan (every 7 days) | balance day | ~once per real day | `sim/life.ts rollDays` |
+| Tenants' rent, repairs | balance day | ~once per real day | `sim/realestate.ts` |
+| Shift cap (6 a day), tech work-from-home | balance day | 6 per ~3.4 real h; message says when the rota resets | `sim/work.ts shiftBlocker`, `game.ts` |
+| Business day (sales, wages, tax, audits) | balance day | once per ~3.4 real h | `sim/business.ts runBusinessDay` |
+| Debt collectors, bankruptcy cooldown | balance day | same | `sim/debt.ts` |
+| Crew raids, idle demotion | balance day | same | `sim/gangs.ts runGangDay` |
+| Stock market ticks, squeezes, earnings, desk tips | balance hour/day | same prices as before, continuous | `sim/market.ts marketDay/marketTick` |
+| Daily challenges, friendship bond cap, picking up the tab, invites per person per day, repeat-talk penalty, gym fatigue, housekeeper bonus, "one weird event a day" | balance day | same | `season.ts`, `friends.ts`, `invites.ts`, `people.ts`, `gym-games.ts`, `home-conditions.ts`, `events.ts` |
+| Art "Show of the week" prize | balance week | ~once per real day | `sim/art.ts showOfWeek` |
+| Fishing derby prize money | game morning, but paid once per balance day (rep still counts) | ≤ $500 per ~3.4 real h | `sim/fishing.ts settleDerby` (`prizeDay`) |
+| Jail sentences, jail activity cooldown, licence suspension and point fade, cops' chase cooldown, Rideshare Black rep | balance minutes | same real length | `balanceMinutesToRealMs` |
+| Server: transfers ($3k a day), paintings per day | balance day | same | `server/src/features.ts` |
+| Activity durations (`seconds`) | real seconds | unchanged; an 18 s sleep now passes ~13 game minutes, a 3-minute shift ~2.2 game hours. Nothing skips the clock. | `data/actions.ts` |
+
+Old saves: nothing to convert (balance keys are the old keys). `clampBalanceKeys` resets future or malformed keys to today; catch-up rent and loan are capped at 30 weeks.
+
+- **Rent cycle.** "Weekly" rent is 7 BALANCE days, about once per REAL day. Rents were therefore set as "what one day of play should cover": shared $180, studio $350, loft $900. Old saves are migrated to the new rents.
+- **Pay.** Shifts are capped at 6 per BALANCE day (3 h 23 min real), so a player who checks in 2–3 times a day can work about 12–18 shifts.
   - Entry-level pay is about $90 a shift, so about $700–1,000 per real day.
   - Top-of-ladder pay is $400–950 a shift.
 - **Cars** are now goals you can reach:

@@ -20,7 +20,7 @@
 // =====================================================================
 
 import { addDebt } from './debt.ts';
-import { dayPart, isRushHour, nowMs, nycTime, type DayPart } from '../core/clock.ts';
+import { balanceDay, dayPart, isRushHour, nowMs, nycTime, type DayPart } from '../core/clock.ts';
 import { DIRECTOR_TICK_SECONDS, EVENT_BASE_CHANCE, EVENT_COOLDOWN_SECONDS, EVENT_MIN_GAP_SECONDS } from '../core/constants.ts';
 import { money } from '../core/format.ts';
 import { weightedIndex } from '../core/rng.ts';
@@ -451,7 +451,7 @@ export function directorPick(s: GameState, where: EventContext['where'], force =
   const now = nowMs();
   if (!force && now - s.events.lastFiredAt < EVENT_MIN_GAP_SECONDS * 1000) return null;
   // No weird-NYC moment yet today and you're out and about: make one likely.
-  const weirdDue = s.stats.weirdDay !== nycTime().dateKey && WEIRD_WHERE.includes(where);
+  const weirdDue = s.stats.weirdDay !== balanceDay() && WEIRD_WHERE.includes(where);
   if (!force && Math.random() > (weirdDue ? Math.max(EVENT_BASE_CHANCE, 0.8) : EVENT_BASE_CHANCE)) return null;
 
   const ctx = buildContext(s, where);
@@ -474,7 +474,7 @@ export function directorPick(s: GameState, where: EventContext['where'], force =
   s.events.lastFiredAt = now;
   s.events.cooldowns[ev.id] = now + EVENT_COOLDOWN_SECONDS * 1000;
   s.stats.eventsSeen[ev.id] = (s.stats.eventsSeen[ev.id] ?? 0) + 1;
-  if (ev.weird) s.stats.weirdDay = nycTime().dateKey;
+  if (ev.weird) s.stats.weirdDay = balanceDay();
   recentKinds.push(ev.kind);
   if (recentKinds.length > 6) recentKinds.shift();
   return ev;

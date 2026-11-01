@@ -211,11 +211,11 @@ export function openPhone(host: PhoneHost, startApp?: string): () => void {
       const board = candidates(t.dateKey);
       const owned = s.business.owned;
       page('Business', `
-        <div class="card"><p>Businesses worth</p><div class="big-number">${money(businessValue(s))}</div><p style="margin-top:6px">Tax is ${Math.round(TAX.rate * 100)}% of profit, every game day. Staff quality makes or breaks you.</p></div>
+        <div class="card"><p>Businesses worth</p><div class="big-number">${money(businessValue(s))}</div><p style="margin-top:6px">Tax is ${Math.round(TAX.rate * 100)}% of profit, settled every 3 h 23 min. Staff quality makes or breaks you.</p></div>
         ${owned.map((b) => {
           const bt = BUSINESS_TYPES.get(b.type)!;
           return `<div class="card"><h3>${bt.emoji} ${esc(b.name)}</h3>
-            <p>${b.staff.length}/${bt.staff} staff${b.last ? ` · yesterday: ${money(b.last.revenue)} sales, ${b.last.profit >= 0 ? 'profit' : 'loss'} ${money(Math.abs(b.last.profit))}, tax ${money(b.last.tax)}` : ' · opens tomorrow'}</p>
+            <p>${b.staff.length}/${bt.staff} staff${b.last ? ` · last stretch: ${money(b.last.revenue)} sales, ${b.last.profit >= 0 ? 'profit' : 'loss'} ${money(Math.abs(b.last.profit))}, tax ${money(b.last.tax)}` : ' · first report in a few hours'}</p>
             ${b.staff.map((x) => `<div class="list-item"><div class="grow"><div class="title">${esc(x.name)}</div><div class="sub">Skill ${x.skill}/10 · ${money(x.wage)}/day</div></div><button class="btn" data-act="biz:fire:${b.uid}:${encodeURIComponent(x.name)}">Fire</button></div>`).join('')}
             ${b.staff.length < bt.staff ? `<p class="sub" style="margin:8px 0 4px">Hire today:</p>${board.filter((c) => !b.staff.some((x) => x.name === c.name)).map((c) => `<div class="list-item"><div class="grow"><div class="title">${esc(c.name)}</div><div class="sub">Skill ${c.skill}/10 · ${money(c.wage)}/day</div></div><button class="btn primary" data-act="biz:hire:${b.uid}:${encodeURIComponent(c.name)}">Hire</button></div>`).join('')}` : ''}
           </div>`;
@@ -253,7 +253,7 @@ export function openPhone(host: PhoneHost, startApp?: string): () => void {
           const gain = h ? val - h.cost : 0;
           return `<div class="list-item stock"><div style="font-size:24px">${st.emoji}</div><div class="grow"><div class="title">${st.ticker} · ${esc(st.name)}</div>${(() => { const e = eventFor(st, marketDay()); return e ? `<div class="sub"><b>${EVENT_BADGE[e.kind]}</b></div>` : ''; })()}<div class="sub">${RISK_TAG[st.risk]} · ${esc(st.sector)} · ${money(price)} <b style="color:${ch >= 0 ? 'var(--good)' : 'var(--bad)'}">${ch >= 0 ? '▲' : '▼'} ${Math.abs(ch).toFixed(1)}%</b></div>${h ? `<div class="sub">You own ${money(val)} (${gain >= 0 ? '+' : ''}${money(gain)})</div>` : ''}<div class="row" style="margin-top:6px"><button class="btn" data-act="buy:${st.id}:5000">Buy $50</button><button class="btn" data-act="buy:${st.id}:50000">Buy $500</button>${h ? `<button class="btn" data-act="sell:${st.id}">Sell all</button>` : ''}</div></div>${spark(recentPrices(st.id, 14))}</div>`;
         }).join('')}
-        <p class="blurb">Made-up companies, real lessons: 🛡️ funds are calm, 🏛️ blue chips are steady, 🚀 growth swings, 🪙 penny stocks jump, 🎲 memes can 10× or go to zero. Prices move every game hour. Fee: ${atTradingFloor(s) ? 'none' : s.job?.careerId === 'finance' ? `${money(tradeFee(10_000, s))} on a $100 trade (📈 Finance discount)` : `${money(TRADE_FEE.flat)} + ${TRADE_FEE.rate * 100}% per trade`}.</p>
+        <p class="blurb">Made-up companies, real lessons: 🛡️ funds are calm, 🏛️ blue chips are steady, 🚀 growth swings, 🪙 penny stocks jump, 🎲 memes can 10× or go to zero. Prices move about every 8 minutes. Fee: ${atTradingFloor(s) ? 'none' : s.job?.careerId === 'finance' ? `${money(tradeFee(10_000, s))} on a $100 trade (📈 Finance discount)` : `${money(TRADE_FEE.flat)} + ${TRADE_FEE.rate * 100}% per trade`}.</p>
         ${atTradingFloor(s) ? '<div class="card" style="border:2px solid #2b9348"><h3>📍 On the trading floor</h3><p>No fees here, and profits earn 50% more 💼 corporate rep. Big wins get the whole floor cheering.</p></div>' : '<div class="card"><h3>📍 Trade in person</h3><p>At the trading floor in Midtown Tower: <b>no fees</b> and <b>+50% 💼 corporate rep</b> on profits.</p></div>'}`);
     },
     news() {

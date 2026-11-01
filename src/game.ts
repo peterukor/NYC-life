@@ -22,7 +22,7 @@ import * as THREE from 'three';
 import { VEHICLES } from './data/vehicles.ts';
 import { vehicleGeometry, vehicleMaterial, vehicleMesh } from './world/vehicle-models.ts';
 import { bus } from './core/bus.ts';
-import { clockLabel, gameMinutesToRealMs, isRushHour, nowMs, nycTime } from './core/clock.ts';
+import { balanceDay, balanceMinutesToRealMs, clockLabel, isRushHour, nowMs, nycTime } from './core/clock.ts';
 import { MAP_MAX_DISTANCE, MAP_SPAN_FRACTION, MANHATTAN_BOUNDS, DETAIL_RADIUS, RIDESHARE, SUBWAY_FARE, TRAVEL_SECONDS, BLACK_CAR_REP, WALK_SPEED, INDOOR_WALK, SHIFT_GAME_HOURS, MAX_SHIFTS_PER_DAY, DIRECTOR_TICK_SECONDS, CAMERA } from './core/constants.ts';
 import { esc, money } from './core/format.ts';
 import { ACTIONS, actionLock } from './data/actions.ts';
@@ -759,6 +759,8 @@ export class Game {
         const d = DISTRICTS[this.city.area];
         return this.crowd.debug().map((a) => ({ ...a, on: surfaceAt(d, a.x, a.z) }));
       },
+      /** Moving cars right now, without running the traffic on (traffic() times 100 updates). */
+      cars: () => currentTraffic()?.flow.cars.filter((c) => c.lane >= 0).map((c) => ({ x: c.x, z: c.z, h: c.yaw, v: c.v, len: c.len })) ?? [],
       /** Signal phase right now ('avenues' | 'streets' | 'all red'). */
       signal: () => {
         const f = currentTraffic()?.flow;
@@ -1859,8 +1861,8 @@ export class Game {
     }
     // 🎨 Likes on your paintings, 🎣 the morning derby's result (every ~10 s).
     if (++this.slowTick % 10 === 0) {
-      // ✅ A new game day: new challenges.
-      if (s.daily && s.daily.day !== nycTime().dateKey) {
+      // ✅ A new balance day (3 h 23 min real): new challenges.
+      if (s.daily && s.daily.day !== balanceDay()) {
         const d = daily(s);
         toast(`✅ New daily challenges: ${d.picks.map((id) => CHALLENGES.find((c) => c.id === id)?.emoji).join(' ')} (Phone → 🏆)`, { icon: '✅', ms: 4500 });
       }
@@ -3760,7 +3762,7 @@ export class Game {
     const t = nycTime();
     const band = payBand(s);
     const late = career.id === 'bartender' && (t.hour >= 22 || t.hour < 4) ? 1.5 : 1;
-    const left = MAX_SHIFTS_PER_DAY - (s.job!.dayKey === t.dateKey ? s.job!.shiftsToday : 0);
+    const left = MAX_SHIFTS_PER_DAY - (s.job!.dayKey === balanceDay() ? s.job!.shiftsToday : 0);
     const info = { place: PLACE_BY_ID[career.placeId].name, title: jobTitle(s), auto: band.auto, max: band.max, startMinute: t.hour * 60 + t.minute, hours: SHIFT_GAME_HOURS, choices: [] as string[], careerId: career.id, tipMult: late, left, played: s.shiftsPlayed?.[career.id] ?? 0 };
     const mode = await shiftIntro(info);
     if (!mode) return;
@@ -4133,7 +4135,7 @@ export class Game {
     const s = this.state;
     if (!opts.work && s.location.placeId === place.id && this.engine.mode === 'interior') return void toast(`You’re already at ${place.id === s.home.placeId ? 'home' : place.name}.`, { icon: '📍' });
     // 💻 Tech perk: once a day, work from home instead of commuting.
-    const remote = !!opts.work && s.job?.careerId === 'tech' && s.location.placeId === s.home.placeId && s.job.remoteDay !== nycTime().dateKey;
+    const remote = !!opts.work && s.job?.careerId === 'tech' && s.location.placeId === s.home.placeId && s.job.remoteDay !== balanceDay();
     const same = place.area === s.location.area;
     const ride = this.rideQuote(place.id, false);
     const lux = this.rideQuote(place.id, true);
@@ -4159,7 +4161,7 @@ export class Game {
       if (act === 'quitjob') return void this.confirmQuitJob();
       opts.beforeGo?.();
       if (act === 'remote' && s.job) {
-        s.job.remoteDay = nycTime().dateKey;
+        s.job.remoteDay = balanceDay();
         toast('Working from home today. Camera off.', { icon: '🏠', ms: 2500 });
         return void this.runShift();
       }
@@ -4460,7 +4462,7 @@ export class Game {
     let blackRep: string | null = null;
     if (luxury) {
       const now = nowMs();
-      if (now - (s.stats.lastBlackCar ?? 0) >= gameMinutesToRealMs(BLACK_CAR_REP.everyGameMinutes)) {
+      if (now - (s.stats.lastBlackCar ?? 0) >= balanceMinutesToRealMs(BLACK_CAR_REP.everyGameMinutes)) {
         s.stats.lastBlackCar = now;
         blackRep = addRep(s, 'street', BLACK_CAR_REP.points) ?? '';
       }

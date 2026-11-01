@@ -16,7 +16,7 @@ import { applyForJob, completeShift, shiftBlocker } from '../src/sim/work.ts';
 import { startAction, finishAction } from '../src/sim/activity.ts';
 import { EVENTS, buildContext, directorPick, applyOutcome } from '../src/sim/events.ts';
 import { weightedIndex, Rng } from '../src/core/rng.ts';
-import { gameMinutesToRealMs, nycTime } from '../src/core/clock.ts';
+import { balanceDay, balanceMinutesToRealMs } from '../src/core/clock.ts';
 import { DISTRICTS, blockAt, blockRect } from '../src/world/layout.ts';
 import { PLACES, doorOf } from '../src/data/places.ts';
 import { CAREERS } from '../src/data/careers.ts';
@@ -74,8 +74,8 @@ test('a week away charges rent and a loan payment', () => {
   s.money = 500_000;
   // Pretend the save is from 8 days ago.
   s.stats.dayKey = '2000-01-01';
-  // 8 GAME days ago (the game clock runs faster than real time).
-  const eightDaysAgo = nycTime(Date.now() - gameMinutesToRealMs(8 * 1440)).dateKey;
+  // 8 BALANCE days ago (rent and loans count balance days: core/clock.ts).
+  const eightDaysAgo = balanceDay(Date.now() - balanceMinutesToRealMs(8 * 1440));
   s.home.rentDueDay = eightDaysAgo;
   s.loan!.lastPaidDay = eightDaysAgo;
   const loanBefore = s.loan!.owed;

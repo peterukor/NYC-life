@@ -25,7 +25,7 @@ export const CONFIG = {
 
 /** Game rules the server enforces. Money is in cents, like the game. */
 export const RULES = {
-  /** Transfers: up to this much per sender per game day goes straight through… */
+  /** Transfers: up to this much per sender per balance day (3 h 23 min real, the game's old day) goes straight through… */
   transferDaily: 300_000,
   /** …more than that (or one transfer over this) is a wire that an admin reviews. */
   wireReview: 300_000,
@@ -38,7 +38,7 @@ export const RULES = {
   seasonPrizes: [200_000, 100_000, 50_000],
   /** A cloud save may be at most this big (bytes of JSON). */
   saveMaxBytes: 2_000_000,
-  /** Paintings: data-URL size limit (bytes) and how many a player can hang per game day. */
+  /** Paintings: data-URL size limit (bytes) and how many a player can hang per balance day (3 h 23 min real). */
   artMaxBytes: 90_000,
   artPerDay: 6,
   /**

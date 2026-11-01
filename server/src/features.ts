@@ -9,7 +9,7 @@
 //                      The top 3 claim their prize once.
 //  🖼️ Gallery          hang paintings, like other people's (once each).
 //  💸 Transfers        send game money to another player. Up to $3,000
-//                      a game day goes straight through; more becomes a
+//                      a balance day (3 h 23 min) goes straight through; more becomes a
 //                      wire an admin reviews. The receiver collects it.
 //  🚩 Reports          flag a player, a painting or a chat line.
 //  🛠️ Admin            review wires and reports, hide art, ban.
@@ -19,13 +19,19 @@
 // server-run economy is a later step.
 // =====================================================================
 
-import { nycTime } from '../../src/core/clock.ts';
+import { balanceDay } from '../../src/core/clock.ts';
 import { RULES } from './config.ts';
 import { tx } from './db.ts';
 import { requireAdmin, requireUser, type Ctx, type User } from './auth.ts';
 import { ApiError, bad, field, notFound, RateLimiter, tooMany, type ApiReq } from './http.ts';
 
-const gameDay = () => nycTime().dateKey;
+/**
+ * The "day" for daily caps (transfers, paintings): the game's BALANCE day
+ * (src/core/clock.ts, 3 h 23 min real), not the 33-minute game day, so caps
+ * keep their real-time pace. Its keys continue the game_day values stored
+ * before the 2026-11-01 speed-up, so existing rows still count.
+ */
+const gameDay = () => balanceDay();
 
 // ------------------------------------------------------------ 🏆 game leaderboards
 

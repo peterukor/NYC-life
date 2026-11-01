@@ -28,7 +28,7 @@ export function openAutoMode(s: GameState, save: () => void): void {
       </div>
       <ul class="auto-rules">
         <li>🔋 A routine can’t fill every bar — one need always stays low.</li>
-        <li>🌧️ About ${AUTO.bluesAfterDays} real days on autopilot and you’ll feel stuck in a rut. Shake it off by doing ${AUTO.varietyPerDay}+ different things a day for ${AUTO.recoveryDays} game days.</li>
+        <li>🌧️ About ${AUTO.bluesAfterDays} real days on autopilot and you’ll feel stuck in a rut. Shake it off by doing ${AUTO.varietyPerDay}+ different things in each of ${AUTO.recoveryDays} stretches of play (a fresh stretch every 3 h 23 min).</li>
         <li>💵 It only spends money you have. Never goes into debt.</li>
       </ul>
       ${s.auto.blues ? '<p class="blurb" style="color:var(--bad)">You’re in a rut right now. Go do something new!</p>' : ''}

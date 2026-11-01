@@ -17,7 +17,7 @@
 // Every number is in AUTO below, so balancing is one place.
 // =====================================================================
 
-import { nowMs, nycTime } from '../core/clock.ts';
+import { balanceDay, nowMs } from '../core/clock.ts';
 import { money } from '../core/format.ts';
 import { ACTIONS } from '../data/actions.ts';
 import { finishAction } from './activity.ts';
@@ -38,7 +38,7 @@ export const AUTO = {
   lowNeed: 60,
   /** Real days of continuous auto mode before the blues hit. */
   bluesAfterDays: 6,
-  /** In-game days of varied living needed to recover. */
+  /** BALANCE days (3 h 23 min real, core/clock.ts) of varied living needed to recover. */
   recoveryDays: 2,
   /** Distinct self-chosen activities that make a day count as "varied". */
   varietyPerDay: 4,
@@ -108,7 +108,7 @@ function capNeeds(s: GameState): void {
 export function checkBlues(s: GameState, now = nowMs()): boolean {
   if (!s.auto.on || s.auto.blues) return false;
   if (now - s.auto.since < AUTO.bluesAfterDays * 86_400_000) return false;
-  s.auto.blues = { dayKey: nycTime(now).dateKey, today: [], variedDays: 0 };
+  s.auto.blues = { dayKey: balanceDay(now), today: [], variedDays: 0 };
   addMoodlet(s, { id: 'autoBlues', label: 'Stuck in a rut', emoji: '🌧️', value: -25, minutes: 60 * 24 * 60 });
   return true;
 }
@@ -120,7 +120,7 @@ export function checkBlues(s: GameState, now = nowMs()): boolean {
 export function recordVariety(s: GameState, actionId: string): string | null {
   const b = s.auto.blues;
   if (!b || s.auto.routine.includes(actionId)) return null;
-  const today = nycTime().dateKey;
+  const today = balanceDay();
   if (b.dayKey !== today) {
     if (b.today.length >= AUTO.varietyPerDay) b.variedDays++;
     b.dayKey = today;
